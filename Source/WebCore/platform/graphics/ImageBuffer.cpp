@@ -93,8 +93,10 @@ RefPtr<ImageBuffer> ImageBuffer::create(const FloatSize& size, RenderingMode ren
 #if HAVE(IOSURFACE)
         if (ProcessCapabilities::canUseAcceleratedBuffers()) {
             ImageBufferCreationContext creationContext;
-            if (graphicsClient)
+            if (graphicsClient) {
                 creationContext.displayID = graphicsClient->displayID();
+                creationContext.useIOSurfaceWebKitBehavior = graphicsClient->useIOSurfaceWebKitBehavior();
+            }
             if (auto imageBuffer = ImageBuffer::create<ImageBufferIOSurfaceBackend>(size, resolutionScale, colorSpace, pixelFormat, purpose, creationContext))
                 return imageBuffer;
         }
@@ -285,7 +287,8 @@ static RefPtr<NativeImage> copyImageBufferToNativeImage(Ref<ImageBuffer> source,
 
 RefPtr<ImageBuffer> ImageBuffer::clone() const
 {
-    return copyImageBuffer(const_cast<ImageBuffer&>(*this), PreserveResolution::Yes);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return copyImageBuffer(const_cast<ImageBuffer&>(*this), PreserveResolution::Yes);
 }
 
 GraphicsContext& ImageBuffer::context() const

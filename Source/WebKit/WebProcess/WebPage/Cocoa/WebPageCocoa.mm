@@ -155,6 +155,7 @@
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
+#import <wtf/Borrow.h>
 #import <wtf/CoroutineUtilities.h>
 #import <wtf/MonotonicTime.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -330,31 +331,35 @@ bool WebPage::shouldUsePDFPlugin(const String& contentType, StringView path) con
 }
 #endif
 
-void WebPage::performDictionaryLookupAtLocation(const FloatPoint& floatPoint)
+void WebPage::performDictionaryLookupAtLocation(FrameIdentifier frameID, const FloatPoint& floatPoint, CompletionHandler<void(std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr pluginView = mainFramePlugIn()) {
         if (pluginView->performDictionaryLookupAtLocation(floatPoint))
-            return;
+            return completionHandler(std::nullopt);
     }
 #endif
-    
-    RefPtr localMainFrame = corePage()->localMainFrame();
-    if (!localMainFrame)
-        return;
+
+    RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
+    RefPtr localFrame = webFrame ? webFrame->coreLocalFrame() : nullptr;
+    RefPtr view = localFrame ? localFrame->view() : nullptr;
+    if (!view)
+        return completionHandler(std::nullopt);
+
     // Find the frame the point is over.
     constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
-    auto result = localMainFrame->eventHandler().hitTestResultAtPoint(protect(localMainFrame->view())->windowToContents(roundedIntPoint(floatPoint)), hitType);
+    auto point = roundedIntPoint(floatPoint);
+    auto result = localFrame->eventHandler().hitTestResultAtPoint(view->rootViewToContents(point), hitType);
 
-    RefPtr frame = result.innerNonSharedNode() ? result.innerNonSharedNode()->document().frame() : corePage()->focusController().focusedOrMainFrame();
-    if (!frame)
-        return;
+    if (auto remoteUserInputEventData = remoteUserInputEventDataForHitTestResult(result, *view, point))
+        return completionHandler(WTF::move(remoteUserInputEventData));
 
-    auto rangeResult = DictionaryLookup::rangeAtHitTestResult(result);
-    if (!rangeResult)
-        return;
+    if (auto rangeResult = DictionaryLookup::rangeAtHitTestResult(result)) {
+        if (RefPtr frame = rangeResult->start.document().frame())
+            performDictionaryLookupForRange(*frame, *rangeResult, TextIndicatorPresentationTransition::Bounce);
+    }
 
-    performDictionaryLookupForRange(*frame, *rangeResult, TextIndicatorPresentationTransition::Bounce);
+    completionHandler(std::nullopt);
 }
 
 void WebPage::performDictionaryLookupForSelection(LocalFrame& frame, const VisibleSelection& selection, TextIndicatorPresentationTransition presentationTransition)
@@ -381,7 +386,7 @@ DictionaryPopupInfo WebPage::dictionaryPopupInfoForRange(LocalFrame& frame, cons
         return { };
     }
 
-    auto quads = RenderObject::absoluteTextQuads(range);
+    const Vector quads = RenderObject::absoluteTextQuads(range);
     if (quads.isEmpty()) {
         editor->setIsGettingDictionaryPopupInfo(false);
         return { };
@@ -702,7 +707,7 @@ static std::optional<WebCore::AccessibilityRemoteToken> tokenFromWrapper(id wrap
 static Vector<WebCore::AccessibilityRemoteToken> convertSearchResultsToRemoteTokens(WebCore::AccessibilitySearchResults&& searchResults)
 {
     Vector<WebCore::AccessibilityRemoteToken> results;
-    for (auto& result : searchResults) {
+    for (auto& result : borrow(searchResults)) {
         if (RefPtr object = result.objectIfLocalResult()) {
             if (auto token = tokenFromWrapper(protect(object->wrapper())))
                 results.append(WTF::move(*token));
@@ -938,7 +943,7 @@ static bool selectionIsTransparentOrFullyClipped(const VisibleSelection& selecti
 
 static void convertContentToMainFrameView(const LocalFrameView& view, Vector<SelectionGeometry>& geometries)
 {
-    for (auto& geometry : geometries)
+    for (auto& geometry : borrow(geometries))
         geometry.setQuad(view.contentsToMainFrameView(geometry.quad()));
 }
 
@@ -1097,13 +1102,13 @@ public:
     OverridePasteboardForSelectionReplacement(const Vector<String>& types, std::span<const uint8_t> data)
         : m_types(types)
     {
-        for (auto& type : types)
+        for (auto& type : borrow(types))
             WebPasteboardOverrides::sharedPasteboardOverrides().addOverride(replaceSelectionPasteboardName(), type, { data });
     }
 
     ~OverridePasteboardForSelectionReplacement()
     {
-        for (auto& type : m_types)
+        for (auto& type : borrow(m_types))
             WebPasteboardOverrides::sharedPasteboardOverrides().removeOverride(replaceSelectionPasteboardName(), type);
     }
 
@@ -1248,7 +1253,7 @@ std::pair<URL, DidFilterLinkDecoration> WebPage::applyLinkDecorationFilteringWit
 
     auto sanitizedURL = url;
     bool allowLowEntropyException = !(hasOptedInToLinkDecorationFiltering || isConsistentQueryParameterFilteringQuirkEnabled);
-    auto removedParameters = WTF::removeQueryParameters(sanitizedURL, [&](auto& key, auto& value) {
+    const Vector removedParameters = WTF::removeQueryParameters(sanitizedURL, [&](auto& key, auto& value) {
         auto it = m_internals->linkDecorationFilteringData.find(key);
         if (it == m_internals->linkDecorationFilteringData.end())
             return false;
@@ -1331,7 +1336,7 @@ void WebPage::setDisplayCaptureEnvironment(const String& environment)
 void WebPage::willBeginWritingToolsSession(const std::optional<WebCore::WritingTools::Session>& session, Vector<WebCore::JSHandleIdentifier>&& preservedNodeIdentifiers, CompletionHandler<void(const Vector<WebCore::WritingTools::Context>&)>&& completionHandler)
 {
     WeakHashSet<Node, WeakPtrImplWithEventTargetData> preservedNodes;
-    for (auto& identifier : preservedNodeIdentifiers) {
+    for (auto& identifier : borrow(preservedNodeIdentifiers)) {
         auto* object = WebKitJSHandle::objectForIdentifier(identifier);
         if (!object)
             continue;
@@ -1606,7 +1611,7 @@ void WebPage::createTextIndicatorForElementWithID(const String& elementID, Compl
 
 void WebPage::createBitmapsFromImageData(Ref<WebCore::SharedBuffer>&& buffer, const Vector<unsigned>& lengths, CompletionHandler<void(Vector<Ref<WebCore::ShareableBitmap>>&&)>&& completionHandler)
 {
-    WebCore::createBitmapsFromImageData(buffer->span(), lengths.span(), WTF::move(completionHandler));
+    WebCore::createBitmapsFromImageData(buffer->span(), borrow(lengths)->span(), WTF::move(completionHandler));
 }
 
 void WebPage::decodeImageData(Ref<WebCore::SharedBuffer>&& buffer, std::optional<WebCore::FloatSize> preferredSize, CompletionHandler<void(RefPtr<WebCore::ShareableBitmap>&&)>&& completionHandler)
@@ -1787,7 +1792,7 @@ void WebPage::getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& fr
         return completionHandler({ });
 
     HashMap<WebCore::FrameIdentifier, Ref<LegacyWebArchive>> result;
-    for (auto& frameIdentifier : frameIdentifiers) {
+    for (auto& frameIdentifier : borrow(frameIdentifiers)) {
         RefPtr frame = WebFrame::webFrame(frameIdentifier);
         if (!frame)
             continue;
@@ -1813,7 +1818,7 @@ void WebPage::getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& fr
 void WebPage::getContentsAsAttributedStringForFrames(const Vector<FrameIdentifier>& frameIdentifiers, CompletionHandler<void(HashMap<FrameIdentifier, AttributedString>&&)>&& completionHandler)
 {
     HashMap<FrameIdentifier, AttributedString> result;
-    for (auto& frameIdentifier : frameIdentifiers) {
+    for (auto& frameIdentifier : borrow(frameIdentifiers)) {
         RefPtr frame = WebFrame::webFrame(frameIdentifier);
         if (!frame)
             continue;
@@ -2335,10 +2340,11 @@ void WebPage::getInformationFromImageData(const Vector<uint8_t>& data, Completio
     if (m_isClosed)
         return completionHandler(makeUnexpected(ImageDecodingError::Internal));
 
-    if (SVGImage::isDataDecodable(protect(m_page->settings()), data.span()))
+    Borrow borrowedData = data;
+    if (SVGImage::isDataDecodable(protect(m_page->settings()), borrowedData->span()))
         return completionHandler(std::make_pair(String { "public.svg-image"_s }, Vector<IntSize> { }));
 
-    completionHandler(utiAndAvailableSizesFromImageData(data.span()));
+    completionHandler(utiAndAvailableSizesFromImageData(borrowedData->span()));
 }
 
 void WebPage::getImageMetadata(const Vector<uint8_t>& data, CompletionHandler<void(std::expected<Vector<std::pair<String, float>>, WebCore::ImageDecodingError>&&)>&& completionHandler)
@@ -2346,7 +2352,7 @@ void WebPage::getImageMetadata(const Vector<uint8_t>& data, CompletionHandler<vo
     if (m_isClosed)
         return completionHandler(makeUnexpected(ImageDecodingError::Internal));
 
-    completionHandler(imageMetadataFromImageData(data.span()));
+    completionHandler(imageMetadataFromImageData(borrow(data)->span()));
 }
 
 void WebPage::insertTextPlaceholder(const IntSize& size, CompletionHandler<void(const std::optional<WebCore::ElementContext>&)>&& completionHandler)
@@ -4056,6 +4062,17 @@ void WebPage::updateVisibleContentRects(const VisibleContentRectUpdateInfo& visi
     if (!localMainFrame)
         return;
     RefPtr frameView = *localMainFrame->view();
+
+#if ENABLE(PDF_PLUGIN) && PLATFORM(MAC)
+    auto updatePluginTransformsIfStable = makeScopeExit([this, protectedThis = Ref { *this }] {
+        if (!m_isInStableState)
+            return;
+        for (Ref pluginView : m_pluginViews) {
+            if (!pluginView->pluginHandlesPageScaleFactor())
+                pluginView->pageScaleFactorDidChange();
+        }
+    });
+#endif
 
     if (RefPtr scrollingCoordinator = this->scrollingCoordinator()) {
         Ref remoteScrollingCoordinator = downcast<RemoteScrollingCoordinator>(*scrollingCoordinator);

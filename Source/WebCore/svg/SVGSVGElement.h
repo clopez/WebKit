@@ -30,6 +30,7 @@
 namespace WebCore {
 
 struct DOMMatrix2DInit;
+struct NaturalDimensions;
 class RenderElement;
 class SMILTimeContainer;
 class SVGAngle;
@@ -109,6 +110,9 @@ public:
 
     bool hasIntrinsicDimensions() const;
 
+    // https://drafts.csswg.org/css-images-3/#natural-dimensions
+    NaturalDimensions naturalDimensions() const;
+
     FloatSize currentViewportSizeExcludingZoom() const;
     void invalidateCachedViewportSizes() const
     {
@@ -168,8 +172,6 @@ private:
     SVGSVGElement* LEGACY_NODELETE findRootAnchor(const SVGViewElement*) const;
     SVGSVGElement* findRootAnchor(StringView) const;
 
-    bool m_useCurrentView { false };
-    bool m_ignoresPreserveAspectRatioForSVGImage { false };
     const Ref<SMILTimeContainer> m_timeContainer;
     const RefPtr<SVGViewSpec> m_viewSpec;
     RefPtr<SVGViewElement> m_currentViewElement;
@@ -181,6 +183,8 @@ private:
     mutable std::optional<FloatSize> m_cachedViewportSizeForLengthResolution;
 
     float m_currentScale { 1 };
+    bool m_useCurrentView { false };
+    bool m_ignoresPreserveAspectRatioForSVGImage { false };
 
     const Ref<SVGAnimatedLength> m_x { SVGAnimatedLength::create(this, SVGLengthMode::Width) };
     const Ref<SVGAnimatedLength> m_y { SVGAnimatedLength::create(this, SVGLengthMode::Height) };

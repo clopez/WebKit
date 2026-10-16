@@ -505,6 +505,15 @@ ApplePayEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
+ApplePayReferenceSessionEnabled:
+  type: bool
+  status: unstable
+  condition: ENABLE(APPLE_PAY_REFERENCE_SESSION)
+  humanReadableName: "Apple Pay Reference Session"
+  humanReadableDescription: "Enable the Apple Pay reference session API"
+  defaultValue: false
+  sharedPreferenceForWebProcess: true
+
 AsyncAudioSessionActivationEnabled:
   type: bool
   status: stable
@@ -776,14 +785,15 @@ BuiltInNotificationsEnabled:
   type: bool
   status: unstable
   category: dom
+  defaultsOverridable: true
   humanReadableName: "Built-In Web Notifications"
   humanReadableDescription: "Enable built-in WebKit managed notifications"
   webcoreDeprecatedGlobalSettings: true
   condition: ENABLE(WEB_PUSH_NOTIFICATIONS)
   excludeFrom: [ WebKitLegacy ]
   defaultValue:
-    default: defaultBuiltInNotificationsEnabled()
-    WebCore: false
+    "PLATFORM(IOS) && !PLATFORM(IOS_SIMULATOR)": true
+    default: false
   sharedPreferenceForWebProcess: true
 
 CSS3DTransformBackfaceVisibilityInteroperabilityEnabled:
@@ -1236,6 +1246,14 @@ CSSTextJustifyEnabled:
   category: css
   humanReadableName: "CSS text-justify property"
   humanReadableDescription: "Enable the property text-justify, defined in CSS Text 3"
+  defaultValue: false
+
+CSSTextScaleMetaEnabled:
+  type: bool
+  status: testable
+  category: css
+  humanReadableName: "CSS text-scale meta tag"
+  humanReadableDescription: "Enable parsing of the text-scale meta element, defined in CSS Fonts 5"
   defaultValue: false
 
 CSSTextSpacingTrimEnabled:
@@ -1968,7 +1986,9 @@ DigitalCredentialsOpenID4VPEnabled:
   humanReadableName: "OpenID4VP for Digital Credentials API"
   humanReadableDescription: "Enable the OpenID4VP presentation protocols for the Digital Credentials API"
   condition: ENABLE(WEB_AUTHN)
-  defaultValue: false
+  defaultValue:
+    "HAVE(DIGITAL_CREDENTIALS_OPENID4VP)": true
+    default: false
   disableInLockdownMode: true
 
 DirectoryUploadEnabled:
@@ -4781,6 +4801,18 @@ PermissionsAPIEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
 
+PhoneNumberPossessionEnabled:
+  type: bool
+  status: internal
+  category: dom
+  humanReadableName: "Phone Number Possession credentials"
+  humanReadableDescription: "Enable requesting phone number possession credentials with navigator.credentials.get()"
+  condition: ENABLE(PHONE_NUMBER_POSSESSION)
+  defaultValue: false
+  sharedPreferenceForWebProcess: true
+  disableInLockdownMode: true
+  richJavaScript: true
+
 PhotoPickerPrefersOriginalImageFormat:
   type: bool
   status: internal
@@ -4930,6 +4962,14 @@ PrivateClickMeasurementFraudPreventionEnabled:
     "HAVE(RSA_BSSA)": true
     default: false
 
+PrivateClickMeasurementPrivateRelayEnforcementEnabled:
+  type: bool
+  status: developer
+  category: privacy
+  humanReadableName: "Private Click Measurement Private Relay Enforcement. Only applies when Debug Mode is enabled"
+  humanReadableDescription: "Require Private Click Measurement reports to be sent over Private Relay even when Private Click Measurement Debug Mode is enabled"
+  defaultValue: false
+
 PrivateTokenUsageByThirdPartyEnabled:
   type: bool
   status: stable
@@ -4961,18 +5001,6 @@ PromiseIsPromiseEnabled:
   sharedPreferenceForWebProcess: true
   excludeFrom: [ WebKitLegacy, WebCore ]
   defaultValue: false
-
-ProofOfPossessionEnabled:
-  type: bool
-  status: internal
-  category: dom
-  humanReadableName: "Proof of Possession credentials"
-  humanReadableDescription: "Enable requesting proof of possession credentials with navigator.credentials.get()"
-  condition: ENABLE(PROOF_OF_POSSESSION)
-  defaultValue: false
-  sharedPreferenceForWebProcess: true
-  disableInLockdownMode: true
-  richJavaScript: true
 
 PropagateDamagingInformation:
   type: bool
@@ -5839,6 +5867,14 @@ SiteIsolationEnabled:
   humanReadableDescription: "Put cross-origin iframes in a different process"
   defaultValue: false
   sharedPreferenceForWebProcess: true
+
+SiteIsolationGlobalDebuggerPauseEnabled:
+  type: bool
+  status: unstable
+  category: security
+  humanReadableName: "Site Isolation: hold all frames while debugging"
+  humanReadableDescription: "While Web Inspector is paused in a frame, hold the frames of the same page in other processes"
+  defaultValue: false
 
 SiteIsolationHighValueFraudTargetDomainsEnabled:
   type: bool
@@ -6803,6 +6839,15 @@ ViewGestureDebuggingEnabled:
   humanReadableName: "View gesture debugging"
   humanReadableDescription: "Enable view gesture debugging"
   excludeFrom: [ WebKitLegacy, WebCore ]
+  defaultValue: false
+
+ViewportSegmentsAPIEnabled:
+  type: bool
+  status: testable
+  category: dom
+  defaultsOverridable: true
+  humanReadableName: "Viewport Segments API"
+  humanReadableDescription: "Enable the Viewport Segments API"
   defaultValue: false
 
 VisibleDebugOverlayRegions:

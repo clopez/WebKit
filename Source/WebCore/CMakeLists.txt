@@ -63,7 +63,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/permissions"
     "${WEBCORE_DIR}/Modules/pictureinpicture"
     "${WEBCORE_DIR}/Modules/plugins"
-    "${WEBCORE_DIR}/Modules/proofofpossession"
+    "${WEBCORE_DIR}/Modules/phonenumberpossession"
     "${WEBCORE_DIR}/Modules/push-api"
     "${WEBCORE_DIR}/Modules/remoteplayback"
     "${WEBCORE_DIR}/Modules/reporting"
@@ -1499,6 +1499,7 @@ set(WebCore_NON_SVG_IDL_FILES
     page/UALowEntropyJSON.idl
     page/UndoItem.idl
     page/UndoManager.idl
+    page/Viewport.idl
     page/VisualViewport.idl
     page/WebKitBuffer.idl
     page/WebKitBufferNamespace.idl
@@ -2136,6 +2137,7 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
     page/DOMWindow+DeviceOrientation.idl
     page/DOMWindow+RequestIdleCallback.idl
     page/DOMWindow+Selection.idl
+    page/DOMWindow+Viewport.idl
     page/DOMWindow+VisualViewport.idl
     page/Navigator+LoginStatus.idl
     page/Navigator+UserActivation.idl
@@ -3350,7 +3352,6 @@ if (SWIFT_REQUIRED AND APPLE)
 
     webkit_target_add_swift_options(WebCore
         "-library-level spi"
-        "-enable-experimental-feature SafeInteropWrappers"
         "-Xfrontend -clang-header-expose-decls=has-expose-attr-or-stdlib"
     )
 

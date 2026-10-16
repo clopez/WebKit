@@ -88,7 +88,7 @@ bool AccessibilityScrollView::isRoot() const
     }
 
     // Interpret this as "is this the root of the local frame".
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return false;
 
@@ -272,7 +272,7 @@ AccessibilityScrollbar* AccessibilityScrollView::addChildScrollbar(Scrollbar* sc
     if (!scrollbar)
         return nullptr;
 
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return nullptr;
 
@@ -327,7 +327,7 @@ bool AccessibilityScrollView::computeIsIgnored() const
 void AccessibilityScrollView::addLocalFrameChild()
 {
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return;
 
@@ -335,7 +335,7 @@ void AccessibilityScrollView::addLocalFrameChild()
         RefPtr localFrameView = dynamicDowncast<LocalFrameView>(m_scrollView.get());
         RefPtr localFrame = localFrameView ? &localFrameView->frame() : nullptr;
         RefPtr document = localFrame ? localFrame->document() : nullptr;
-        WeakPtr frameAXObjectCache = document ? document->axObjectCache() : nullptr;
+        CheckedPtr frameAXObjectCache = document ? document->axObjectCache() : nullptr;
         if (!frameAXObjectCache)
             return;
 
@@ -372,7 +372,7 @@ void AccessibilityScrollView::addRemoteFrameChild()
     if (!scrollFrameView)
         return;
 
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return;
 
@@ -524,7 +524,7 @@ LocalFrameView* AccessibilityScrollView::documentFrameView() const
 
 AccessibilityObject* AccessibilityScrollView::parentObject() const
 {
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return nullptr;
 
@@ -556,7 +556,7 @@ AccessibilityObject* AccessibilityScrollView::parentObject() const
 
 AccessibilityObject* AccessibilityScrollView::crossFrameParentObject() const
 {
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (!cache)
         return nullptr;
 
@@ -583,7 +583,7 @@ AccessibilityObject* AccessibilityScrollView::crossFrameParentObject() const
     if (!ancestorDocument || ancestorDocument.get() == cache->document())
         return nullptr;
 
-    WeakPtr ancestorCache = ancestorDocument->axObjectCache();
+    CheckedPtr ancestorCache = ancestorDocument->axObjectCache();
     if (!ancestorCache)
         return nullptr;
 
@@ -594,8 +594,11 @@ AccessibilityObject* AccessibilityScrollView::crossFrameParentObject() const
         ancestorElement = ancestorElement->parentElementInComposedTree();
     }
 
+    // An ignored owner (e.g. a role="presentation" iframe) may itself be in a frame whose root is
+    // ignored, as when a presentational iframe hosts a document that contains another iframe, so the
+    // walk to an unignored parent must be able to cross more than one frame boundary.
     if (ancestorAccessibilityObject && ancestorAccessibilityObject->isIgnored())
-        return ancestorAccessibilityObject->parentObjectUnignored();
+        return downcast<AccessibilityObject>(ancestorAccessibilityObject->crossFrameParentObjectUnignored());
 
     // TODO: this should return a RefPtr
     return ancestorAccessibilityObject.unsafeGet();  // NOLINT
@@ -690,7 +693,7 @@ void AccessibilityScrollView::updateHostedFrameInheritedState()
     if (m_localFrame) {
         RefPtr localFrameView = m_localFrame->localFrameView();
         RefPtr document = localFrameView ? localFrameView->frame().document() : nullptr;
-        WeakPtr hostedFrameCache = document ? document->axObjectCache() : nullptr;
+        CheckedPtr hostedFrameCache = document ? document->axObjectCache() : nullptr;
         if (!hostedFrameCache)
             return;
 

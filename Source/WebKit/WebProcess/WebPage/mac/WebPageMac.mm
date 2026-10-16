@@ -116,6 +116,7 @@
 #import <pal/spi/cocoa/LaunchServicesSPI.h>
 #import <pal/spi/cocoa/NSAccessibilitySPI.h>
 #import <pal/spi/mac/NSApplicationSPI.h>
+#import <wtf/Borrow.h>
 #import <wtf/RuntimeApplicationChecks.h>
 #import <wtf/SetForScope.h>
 #import <wtf/SortedArrayMap.h>
@@ -258,10 +259,10 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
 
     auto quads = RenderObject::absoluteTextQuads(*selectedRange);
     if (!quads.isEmpty())
-        postLayoutData.selectionBoundingRect = protect(frame.view())->contentsToWindow(enclosingIntRect(unitedBoundingBoxes(quads)));
+        postLayoutData.selectionBoundingRect = protect(frame.view())->contentsToMainFrameView(enclosingIntRect(unitedBoundingBoxes(quads)));
     else if (selection.isCaret()) {
         // Quads will be empty at the start of a paragraph.
-        postLayoutData.selectionBoundingRect = protect(frame.view())->contentsToWindow(protect(frame.selection())->absoluteCaretBounds());
+        postLayoutData.selectionBoundingRect = protect(frame.view())->contentsToMainFrameView(protect(frame.selection())->absoluteCaretBounds());
     }
 }
 
@@ -311,8 +312,9 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
 
     Ref editor = frame->editor();
     bool eventWasHandled = false;
-    for (size_t i = 0; i < commands.size(); ++i) {
-        auto& currentCommand = commands[i];
+    Borrow borrowedCommands = commands;
+    for (size_t i = 0; i < borrowedCommands->size(); ++i) {
+        auto& currentCommand = borrowedCommands[i];
         if (currentCommand.commandName == "insertText:"_s) {
             if (editor->hasComposition()) {
                 eventWasHandled = true;
@@ -346,11 +348,11 @@ bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressComm
                 bool commandExecutedByEditor = command.execute(event);
                 eventWasHandled |= commandExecutedByEditor;
                 if (!commandExecutedByEditor) {
-                    bool performedNonEditingBehavior = event->underlyingPlatformEvent()->type() == PlatformEvent::Type::RawKeyDown && performNonEditingBehaviorForSelector(commands[i].commandName, event);
+                    bool performedNonEditingBehavior = event->underlyingPlatformEvent()->type() == PlatformEvent::Type::RawKeyDown && performNonEditingBehaviorForSelector(borrowedCommands[i].commandName, event);
                     eventWasHandled |= performedNonEditingBehavior;
                 }
             } else {
-                auto sendResult = protect(WebProcess::singleton().parentProcessConnection())->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(commands[i].commandName), m_identifier);
+                auto sendResult = protect(WebProcess::singleton().parentProcessConnection())->sendSync(Messages::WebPageProxy::ExecuteSavedCommandBySelector(borrowedCommands[i].commandName), m_identifier);
                 auto [commandWasHandledByUIProcess] = sendResult.takeReplyOr(false);
                 eventWasHandled |= commandWasHandledByUIProcess;
             }
@@ -387,7 +389,7 @@ bool WebPage::handleEditingKeyboardEvent(KeyboardEvent& event)
     // (e.g. Tab that inserts a Tab character, or Enter).
     bool haveTextInsertionCommands = false;
     Ref editor = frame->editor();
-    for (auto& command : commands) {
+    for (auto& command : borrow(commands)) {
         if (editor->command(commandNameForSelectorName(command.commandName)).isTextInsertion())
             haveTextInsertionCommands = true;
     }
@@ -501,7 +503,7 @@ void WebPage::updateRemotePageOffsetInMainFrame(WebCore::FrameIdentifier, WebCor
 
 void WebPage::registerRemoteFrameAccessibilityTokens(pid_t pid, WebCore::AccessibilityRemoteToken elementToken, WebCore::FrameIdentifier frameID)
 {
-    RetainPtr elementTokenData = toNSData(elementToken.bytes);
+    RetainPtr elementTokenData = toNSData(borrow(elementToken.bytes)->span());
     auto remoteElement = [elementTokenData length] ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:elementTokenData.get()]) : nil;
 
     // Each local root frame gets a mock accessibility element that serves as the target for the
@@ -517,8 +519,8 @@ void WebPage::registerRemoteFrameAccessibilityTokens(pid_t pid, WebCore::Accessi
 
 void WebPage::registerUIProcessAccessibilityTokens(WebCore::AccessibilityRemoteToken elementToken, WebCore::AccessibilityRemoteToken windowToken)
 {
-    RetainPtr elementTokenData = toNSData(elementToken.bytes);
-    RetainPtr windowTokenData = toNSData(windowToken.bytes);
+    RetainPtr elementTokenData = toNSData(borrow(elementToken.bytes)->span());
+    RetainPtr windowTokenData = toNSData(borrow(windowToken.bytes)->span());
     auto remoteElement = [elementTokenData length] ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:elementTokenData.get()]) : nil;
     auto remoteWindow = [windowTokenData length] ? adoptNS([[NSAccessibilityRemoteUIElement alloc] initWithRemoteToken:windowTokenData.get()]) : nil;
 
@@ -962,28 +964,36 @@ std::optional<WebCore::SimpleRange> WebPage::lookupTextAtLocation(FrameIdentifie
     }));
 }
 
-void WebPage::immediateActionDidUpdate()
+static RefPtr<LocalFrame> immediateActionFrame(WebPage& page, FrameIdentifier frameID)
 {
-    if (auto* localMainFrame = corePage()->localMainFrame())
-        localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionUpdated);
+    RefPtr frame = WebProcess::singleton().webFrame(frameID);
+    if (!frame || frame->page() != &page)
+        return nullptr;
+    return frame->coreLocalFrame();
 }
 
-void WebPage::immediateActionDidCancel()
+void WebPage::immediateActionDidUpdate(FrameIdentifier frameID)
 {
-    auto* localMainFrame = corePage()->localMainFrame();
-    if (!localMainFrame)
+    if (RefPtr frame = immediateActionFrame(*this, frameID))
+        frame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionUpdated);
+}
+
+void WebPage::immediateActionDidCancel(FrameIdentifier frameID)
+{
+    RefPtr frame = immediateActionFrame(*this, frameID);
+    if (!frame)
         return;
-    ImmediateActionStage lastStage = localMainFrame->eventHandler().immediateActionStage();
+    ImmediateActionStage lastStage = frame->eventHandler().immediateActionStage();
     if (lastStage == ImmediateActionStage::ActionUpdated)
-        localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledAfterUpdate);
+        frame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledAfterUpdate);
     else
-        localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledWithoutUpdate);
+        frame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCancelledWithoutUpdate);
 }
 
-void WebPage::immediateActionDidComplete()
+void WebPage::immediateActionDidComplete(FrameIdentifier frameID)
 {
-    if (auto* localMainFrame = corePage()->localMainFrame())
-        localMainFrame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCompleted);
+    if (RefPtr frame = immediateActionFrame(*this, frameID))
+        frame->eventHandler().setImmediateActionStage(ImmediateActionStage::ActionCompleted);
 }
 
 void WebPage::dataDetectorsDidPresentUI(PageOverlay::PageOverlayID overlayID)
@@ -1008,13 +1018,11 @@ void WebPage::dataDetectorsDidChangeUI(PageOverlay::PageOverlayID overlayID)
     }
 }
 
-void WebPage::dataDetectorsDidHideUI(PageOverlay::PageOverlayID overlayID)
+void WebPage::dataDetectorsDidHideUI(FrameIdentifier frameID, PageOverlay::PageOverlayID overlayID)
 {
-    RefPtr localMainFrame = dynamicDowncast<WebCore::LocalFrame>(corePage()->mainFrame());
-    if (!localMainFrame)
-        return;
     // Dispatching a fake mouse event will allow clients to display any UI that is normally displayed on hover.
-    localMainFrame->eventHandler().dispatchFakeMouseMoveEventSoon();
+    if (RefPtr frame = immediateActionFrame(*this, frameID))
+        frame->eventHandler().dispatchFakeMouseMoveEventSoon();
 
     for (const auto& overlay : corePage()->pageOverlayController().pageOverlays()) {
         if (overlay->pageOverlayID() == overlayID) {

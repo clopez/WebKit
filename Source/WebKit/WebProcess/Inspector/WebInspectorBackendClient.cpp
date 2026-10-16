@@ -27,8 +27,10 @@
 #include "WebInspectorBackendClient.h"
 
 #include "DrawingArea.h"
+#include "MessageSenderInlines.h"
 #include "WebInspectorBackend.h"
 #include "WebPage.h"
+#include "WebPageProxyMessages.h"
 #include <WebCore/FrameInspectorController.h>
 #include <WebCore/GraphicsLayer.h>
 #include <WebCore/GraphicsLayerAnimation.h>
@@ -407,6 +409,18 @@ void WebInspectorBackendClient::animationEndedForLayer(LocalFrame* frame, const 
     it->value.layers.remove(*nonConstLayer);
 }
 
+void WebInspectorBackendClient::frameDebuggerDidPause(WebCore::FrameIdentifier frameID)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::FrameDidPauseForDebugger(frameID));
+}
+
+void WebInspectorBackendClient::frameDebuggerDidContinue(WebCore::FrameIdentifier frameID)
+{
+    if (RefPtr page = m_page.get())
+        page->send(Messages::WebPageProxy::FrameDidContinueForDebugger(frameID));
+}
+
 void WebInspectorBackendClient::willDestroyFrameOverlays(WebCore::FrameIdentifier frameID)
 {
     RefPtr page = m_page.get();
@@ -414,15 +428,18 @@ void WebInspectorBackendClient::willDestroyFrameOverlays(WebCore::FrameIdentifie
 
     // Tear highlight overlays down too, or a stale one re-parents under the main frame.
     // Collect and erase first: uninstalling re-enters willMoveToPage(), which mutates this map.
-    Vector<std::pair<Ref<LocalFrame>, RefPtr<PageOverlay>>> detachedHighlights;
-    m_frameHighlightOverlays.removeIf([&](auto& entry) {
-        Ref frame = entry.key;
-        if (frame->frameID() != frameID)
-            return false;
+    const Vector detachedHighlights = [&] {
+        Vector<std::pair<Ref<LocalFrame>, RefPtr<PageOverlay>>> detachedHighlights;
+        m_frameHighlightOverlays.removeIf([&](auto& entry) {
+            Ref frame = entry.key;
+            if (frame->frameID() != frameID)
+                return false;
 
-        detachedHighlights.append({ WTF::move(frame), entry.value });
-        return true;
-    });
+            detachedHighlights.append({ WTF::move(frame), entry.value });
+            return true;
+        });
+        return detachedHighlights;
+    }();
 
     for (auto& [frame, overlay] : detachedHighlights) {
         if (!corePage)

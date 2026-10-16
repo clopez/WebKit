@@ -39,6 +39,7 @@
 #include "DiagnosticLoggingClient.h"
 #include "DocumentEventLoop.h"
 #include "DocumentPage.h"
+#include "DocumentQuirks.h"
 #include "DocumentResourceLoader.h"
 #include "DocumentView.h"
 #include "ElementChildIteratorInlines.h"
@@ -80,6 +81,7 @@
 #include "Page.h"
 #include "PlaceholderModelPlayer.h"
 #include "PlatformScreen.h"
+#include "Quirks.h"
 #include "RenderBoxInlines.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -177,6 +179,8 @@ HTMLModelElement::HTMLModelElement(const QualifiedName& tagName, Document& docum
     }))
 #endif
 {
+    m_hasFallbackContentQuirk = document.quirks().shouldRenderModelElementFallbackContentQuirk();
+
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
     if (RefPtr screenPropertiesChangedObserver = m_screenPropertiesChangedObserver)
         document.addScreenPropertiesChangedObserver(*screenPropertiesChangedObserver);
@@ -305,6 +309,7 @@ void HTMLModelElement::setSourceURL(const URL& url)
     if (url == m_sourceURL)
         return;
 
+    bool rendersFallbackContentBefore = rendersFallbackContent();
     m_sourceURL = url;
 
     m_data.reset();
@@ -339,6 +344,9 @@ void HTMLModelElement::setSourceURL(const URL& url)
 
     m_readyPromise = makeUniqueRef<ReadyPromise>(*this, &HTMLModelElement::readyPromiseResolve);
     m_shouldCreateModelPlayerUponRendererAttachment = false;
+
+    if (rendersFallbackContent() != rendersFallbackContentBefore)
+        invalidateStyleAndRenderersForSubtree();
 
 #if ENABLE(SPATIAL_PORTAL)
     if (CheckedPtr controller = findPortalController())
@@ -411,6 +419,7 @@ void HTMLModelElement::didMoveToNewDocument(Document& oldDocument, Document& new
 {
     ActiveDOMObject::didMoveToNewDocument(newDocument);
     HTMLElement::didMoveToNewDocument(oldDocument, newDocument);
+    m_hasFallbackContentQuirk = newDocument.quirks().shouldRenderModelElementFallbackContentQuirk();
     sourcesChanged();
 }
 
@@ -423,11 +432,24 @@ RenderPtr<RenderElement> HTMLModelElement::createElementRenderer(Style::Computed
         return nullptr;
 #endif
 
+    if (rendersFallbackContent())
+        return HTMLElement::createElementRenderer(WTF::move(style), position);
+
     if (RefPtr page = document().page()) {
         if (RefPtr provider = page->modelPlayerProvider(); provider && !provider->isAvailable())
             return HTMLElement::createElementRenderer(WTF::move(style), position);
     }
     return createRenderer<RenderModel>(*this, WTF::move(style));
+}
+
+bool HTMLModelElement::isReplaced(const Style::ComputedStyle*) const
+{
+    return !rendersFallbackContent();
+}
+
+bool HTMLModelElement::rendersFallbackContent() const
+{
+    return m_hasFallbackContentQuirk && m_sourceURL.isEmpty();
 }
 
 bool HTMLModelElement::rendererIsNeeded(const Style::ComputedStyle& style)

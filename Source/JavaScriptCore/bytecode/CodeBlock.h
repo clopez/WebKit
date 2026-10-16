@@ -339,6 +339,7 @@ public:
 
     unsigned instructionsSize() const { return instructions().size(); }
     unsigned bytecodeCost() const;
+    unsigned bytecodeCostForFTLInlining() const;
 
     // Exactly equivalent to codeBlock->ownerExecutable()->newReplacementCodeBlockFor(codeBlock->specializationKind())
     CodeBlock* newReplacement();
@@ -599,10 +600,7 @@ public:
     // Functions for controlling when JITting kicks in, in a mixed mode
     // execution world.
 
-    bool checkIfJITThresholdReached()
-    {
-        return m_unlinkedCode->llintExecuteCounter().checkIfThresholdCrossedAndSet(this);
-    }
+    bool checkIfJITThresholdReached();
 
     void dontJITAnytimeSoon()
     {

@@ -483,8 +483,10 @@ bool CSSStyleSheet::isLoading() const
 
 MediaList* CSSStyleSheet::media() const 
 {
-    if (!m_mediaCSSOMWrapper)
-        m_mediaCSSOMWrapper = MediaList::create(const_cast<CSSStyleSheet*>(this));
+    if (!m_mediaCSSOMWrapper) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST m_mediaCSSOMWrapper = MediaList::create(const_cast<CSSStyleSheet*>(this));
+    }
     return m_mediaCSSOMWrapper.get();
 }
 
@@ -504,7 +506,8 @@ Ref<CSSStyleSheet> CSSStyleSheet::rootStyleSheet()
 
 Ref<const CSSStyleSheet> CSSStyleSheet::rootStyleSheet() const
 {
-    return const_cast<CSSStyleSheet&>(*this).rootStyleSheet();
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<CSSStyleSheet&>(*this).rootStyleSheet();
 }
 
 Document* CSSStyleSheet::ownerDocument() const
@@ -576,9 +579,14 @@ ExceptionOr<void> CSSStyleSheet::replaceSync(String&& text)
             m_contents = *cachedContents;
             protect(m_contents)->registerClient(this);
         } else {
-            protect(m_contents)->parseString(WTF::move(text));
-            if (protect(m_contents)->isCacheable())
-                Style::StyleSheetContentsCache::singleton().add(WTF::move(key), m_contents);
+            Ref contents = StyleSheetContents::create(m_contents->parserContext());
+            protect(m_contents)->unregisterClient(this);
+            m_contents = contents;
+            contents->registerClient(this);
+            contents->checkLoaded();
+            contents->parseString(WTF::move(text));
+            if (contents->isCacheable())
+                Style::StyleSheetContentsCache::singleton().add(WTF::move(key), contents);
         }
         return { };
     }

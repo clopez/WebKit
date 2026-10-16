@@ -365,7 +365,7 @@ static PlatformFont *_fontForNameAndSize(NSString *fontName, CGFloat size, NSMut
 #else
     NSFontManager *fontManager = [NSFontManager sharedFontManager];
     if (font) {
-        font = [fontManager convertFont:font.get() toSize:size];
+        font = [fontManager convertFont:checked_objc_cast<NSFont>(font.get()) toSize:size];
         return font.autorelease();
     }
     font = [fontManager fontWithFamily:fontName traits:0 weight:0 size:size];
@@ -1708,7 +1708,7 @@ void HTMLConverter::_addTableCellForElement(Element* element)
     CGFloat cellSpacingVal = [[_textTableSpacings lastObject] floatValue];
     if ([color isEqual:[PlatformColorClass clearColor]]) color = nil;
     for (NSUInteger i = 0; i < count; i++) {
-        RetainPtr<NSTextTableBlock> previousBlock = [rowArray objectAtIndex:i];
+        RetainPtr previousBlock = checked_objc_cast<NSTextTableBlock>([rowArray objectAtIndex:i]);
         if (columnNumber >= [previousBlock startingColumn] && columnNumber < [previousBlock startingColumn] + [previousBlock columnSpan])
             columnNumber = [previousBlock startingColumn] + [previousBlock columnSpan];
     }

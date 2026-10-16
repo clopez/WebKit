@@ -39,6 +39,7 @@
 #include "LegacyRenderSVGViewportContainer.h"
 #include "LocalFrame.h"
 #include "MutableStyleProperties.h"
+#include "NaturalDimensions.h"
 #include "NodeName.h"
 #include "RenderBoxInlines.h"
 #include "RenderObjectInlines.h"
@@ -811,6 +812,25 @@ float SVGSVGElement::intrinsicHeight() const
 
     SVGLengthContext lengthContext(this);
     return height().value(lengthContext);
+}
+
+NaturalDimensions SVGSVGElement::naturalDimensions() const
+{
+    NaturalDimensions naturalDimensions;
+
+    if (hasIntrinsicWidth())
+        naturalDimensions.width = intrinsicWidth();
+    if (hasIntrinsicHeight())
+        naturalDimensions.height = intrinsicHeight();
+
+    // A ratio from a width or height of 0 would count as degenerate so the viewBox's size is used instead.
+    // See https://github.com/w3c/csswg-drafts/issues/6286#issuecomment-866986544.
+    if (naturalDimensions.width.value_or(0) > 0 && naturalDimensions.height.value_or(0) > 0)
+        naturalDimensions.aspectRatio = FloatSize { *naturalDimensions.width, *naturalDimensions.height };
+    else if (auto viewBoxSize = viewBox().size(); !viewBoxSize.isEmpty())
+        naturalDimensions.aspectRatio = viewBoxSize;
+
+    return naturalDimensions;
 }
 
 bool SVGSVGElement::hasIntrinsicDimensions() const

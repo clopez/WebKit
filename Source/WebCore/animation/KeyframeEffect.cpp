@@ -1439,7 +1439,8 @@ void KeyframeEffect::computeCSSAnimationBlendingKeyframes(const Style::ComputedS
 
         // Ensure resource loads for all the frames.
         for (auto& keyframe : blendingKeyframes) {
-            if (CheckedPtr style = const_cast<Style::ComputedStyle*>(keyframe.style()))
+            // FIXME: Remove suppression once rdar://189998365 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST if (CheckedPtr style = const_cast<Style::ComputedStyle*>(keyframe.style()))
                 Style::loadPendingResources(*style, protect(*document()), m_target.get());
         }
     }
@@ -2126,7 +2127,21 @@ void KeyframeEffect::addPendingAcceleratedAction(AcceleratedAction action)
 
 void KeyframeEffect::animationDidTick()
 {
-    invalidate();
+    auto canSkipInvalidation = [this] {
+        if (!isCompletelyAccelerated() || !isRunningAccelerated())
+            return false;
+        if (getBasicTiming().phase != m_phaseAtLastApplication)
+            return false;
+#if ENABLE(THREADED_ANIMATIONS)
+        if (canHaveAcceleratedRepresentation() && m_isAssociatedWithProgressBasedTimeline)
+            return false;
+#endif
+        return true;
+    };
+
+    if (!canSkipInvalidation())
+        invalidate();
+
     updateAcceleratedActions();
 
 #if ENABLE(THREADED_ANIMATIONS)

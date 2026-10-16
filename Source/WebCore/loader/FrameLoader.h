@@ -97,6 +97,7 @@ class SubstituteData;
 class DocumentPrefetcher;
 
 enum class CachePolicy : uint8_t;
+enum class IsSameDocumentNavigation : bool;
 enum class NewLoadInProgress : bool;
 enum class NavigationPolicyDecision : uint8_t;
 enum class ShouldTreatAsContinuingLoad : uint8_t;
@@ -391,7 +392,7 @@ public:
 
     bool loadChildHistoryItemIntoFrame(LocalFrame&);
     WEBCORE_EXPORT void continueLoadURLIntoChildFrame(const URL&, const String& referer, LocalFrame&);
-    WEBCORE_EXPORT FrameLoadRequest createFrameLoadRequest(URL&&);
+    WEBCORE_EXPORT FrameLoadRequest createFrameLoadRequest(URL&&, const String& referrer);
 
     bool isDispatchingPageSwapEvent() const  { return m_isDispatchingPageSwapEvent; }
 
@@ -507,6 +508,7 @@ private:
     void updateRequestAndAddExtraFields(Frame&, ResourceRequest&, IsMainResource, FrameLoadType, ShouldUpdateAppInitiatedValue, IsServiceWorkerNavigationLoad, WillOpenInNewWindow, Document*);
 
     NavigateEventDispatchResult dispatchNavigateEvent(FrameLoadType, const FrameLoadRequest&, bool isSameDocument, FormState* = nullptr, Event* = nullptr, SerializedScriptValue* classicHistoryAPIState = nullptr);
+    NavigateEventDispatchResult dispatchNavigateEventForNavigationFromAnotherProcess(const DocumentLoader&, FrameLoadType, NavigationHistoryBehavior, IsSameDocumentNavigation);
     bool shouldDispatchNavigateEventForHistoryTraversal(const HistoryItem&, const HistoryItem* fromItem);
 
     WeakRef<LocalFrame> m_frame;

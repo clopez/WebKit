@@ -142,6 +142,7 @@
 #include "TiledBacking.h"
 #include "TransformState.h"
 #include "VelocityData.h"
+#include "Viewport.h"
 #include "VisualViewport.h"
 #include "WheelEventTestMonitor.h"
 #include <span>
@@ -520,19 +521,30 @@ RefPtr<Element> LocalFrameView::rootElementForCustomScrollbarPartStyle() const
     return nullptr;
 }
 
-Ref<Scrollbar> LocalFrameView::createScrollbar(ScrollbarOrientation orientation)
+// Must answer the same question createScrollbar() decides, so that a caller cannot conclude no
+// scrollbar can take layout space and then be handed a custom one that does.
+bool LocalFrameView::usesCustomScrollbarStyle() const
 {
-    if (auto element = rootElementForCustomScrollbarPartStyle())
-        return RenderScrollbar::createCustomScrollbar(*this, orientation, element.get());
-    
+    if (rootElementForCustomScrollbarPartStyle())
+        return true;
+
     // If we have an owning iframe/frame element, then it can set the custom scrollbar also.
     // FIXME: Seems bad to do this for cross-origin frames.
     RefPtr frameRenderer = m_frame->ownerRenderer();
-    if (frameRenderer && frameRenderer->style().usesLegacyScrollbarStyle())
-        return RenderScrollbar::createCustomScrollbar(*this, orientation, nullptr, m_frame.ptr());
+    return frameRenderer && frameRenderer->style().usesLegacyScrollbarStyle();
+}
 
+Ref<Scrollbar> LocalFrameView::createScrollbar(ScrollbarOrientation orientation)
+{
     // Nobody set a custom style, so we just use a native scrollbar.
-    return Scrollbar::createNativeScrollbar(*this, orientation, scrollbarWidthStyle());
+    if (!usesCustomScrollbarStyle())
+        return Scrollbar::createNativeScrollbar(*this, orientation, scrollbarWidthStyle());
+
+    if (auto element = rootElementForCustomScrollbarPartStyle())
+        return RenderScrollbar::createCustomScrollbar(*this, orientation, element.get());
+
+    // The style came from the owning iframe/frame element instead.
+    return RenderScrollbar::createCustomScrollbar(*this, orientation, nullptr, m_frame.ptr());
 }
 
 void LocalFrameView::didRestoreFromBackForwardCache()
@@ -1679,18 +1691,7 @@ String LocalFrameView::debugDescription() const
 
 bool LocalFrameView::canShowNonOverlayScrollbars() const
 {
-    auto usesLegacyScrollbarStyle = [&] {
-        RefPtr element = rootElementForCustomScrollbarPartStyle();
-        if (!element)
-            return false;
-
-        if (auto* renderBox = dynamicDowncast<RenderBox>(element->renderer()))
-            return renderBox->style().usesLegacyScrollbarStyle();
-
-        return false;
-    }();
-
-    return canHaveScrollbars() && (usesLegacyScrollbarStyle || !ScrollbarTheme::theme().usesOverlayScrollbars());
+    return canHaveScrollbars() && (usesCustomScrollbarStyle() || !ScrollbarTheme::theme().usesOverlayScrollbars());
 }
 
 bool LocalFrameView::styleHidesScrollbarWithOrientation(ScrollbarOrientation orientation) const
@@ -2223,7 +2224,7 @@ LayoutPoint LocalFrameView::childFrameOwnerContentBoxLocation(const Frame& child
     ASSERT(child.tree().parent()->frameID() == m_frame->frameID());
     ASSERT(childOwnerRenderer->frame().frameID() == m_frame->frameID());
 
-    return childOwnerRenderer->contentBoxLocation();
+    return childOwnerRenderer->widgetContentLocation();
 }
 
 TransformationMatrix LocalFrameView::childFrameOwnerToRootContentTransform(const Frame& child) const
@@ -2937,7 +2938,8 @@ ScrollPosition LocalFrameView::unscaledMaximumScrollPosition() const
         unscaledDocumentRect.expand(0, headerHeight() + footerHeight());
         // visibleSize() is zoomed, and everything else here is unscaled, so it would push the maximum too far down.
         auto viewportSize = visibleContentScaleFactor() == 1 ? visibleSize() : sizeForUnobscuredContent();
-        ScrollPosition maximumPosition = ScrollPosition(unscaledDocumentRect.maxXMaxYCorner() - viewportSize).expandedTo({ 0, 0 });
+        // FIXME: Remove suppression once rdar://189998444 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST ScrollPosition maximumPosition = ScrollPosition(unscaledDocumentRect.maxXMaxYCorner() - viewportSize).expandedTo({ 0, 0 });
         if (m_frame->isMainFrame() && m_scrollPinningBehavior == ScrollPinningBehavior::PinToTop)
             maximumPosition.setY(unscaledMinimumScrollPosition().y());
 
@@ -3026,14 +3028,14 @@ bool LocalFrameView::useDarkAppearance() const
     return false;
 }
 
-OptionSet<StyleColorOptions> LocalFrameView::styleColorOptions() const
+OptionSet<StyleColorOptions> LocalFrameView::styleColorOptions(StyleColorOptionsPurpose purpose) const
 {
 #if ENABLE(DARK_MODE_CSS)
     if (CheckedPtr renderer = rendererForColorScheme())
-        return renderer->styleColorOptions();
+        return renderer->styleColorOptions(purpose);
 #endif
     if (RefPtr document = m_frame->document())
-        return document->styleColorOptions(nullptr);
+        return document->styleColorOptions(nullptr, purpose);
     return { };
 }
 
@@ -3106,9 +3108,7 @@ void LocalFrameView::scrollContentsSlowPath(const IntRect& updateRect)
 
     if (!usesCompositedScrolling() && isEnclosedInCompositingLayer()) {
         if (RefPtr frameRenderer = m_frame->ownerRenderer()) {
-            LayoutRect rect(frameRenderer->borderLeft() + frameRenderer->paddingLeft(), frameRenderer->borderTop() + frameRenderer->paddingTop(),
-                visibleWidth(), visibleHeight());
-            frameRenderer->repaintRectangle(rect);
+            frameRenderer->repaintRectangle({ frameRenderer->widgetContentLocation(), LayoutSize(visibleWidth(), visibleHeight()) });
             return;
         }
     }
@@ -4302,6 +4302,11 @@ void LocalFrameView::layoutOrVisualViewportChanged()
             scrollingCoordinator->frameViewVisualViewportChanged(*this);
     }
 
+    if (m_frame->settings().viewportSegmentsAPIEnabled()) {
+        if (RefPtr window = m_frame->window())
+            protect(window->viewport())->invalidateSegments();
+    }
+
     if (RefPtr page = m_frame->page())
         page->chrome().client().frameViewLayoutOrVisualViewportChanged(*this);
 }
@@ -4495,7 +4500,7 @@ void LocalFrameView::setBaseBackgroundColor(const Color& backgroundColor)
         return;
 
 #if ENABLE(DARK_MODE_CSS)
-    m_styleColorOptions = styleColorOptions();
+    m_styleColorOptions = styleColorOptions(StyleColorOptionsPurpose::Rendering);
 #endif
     m_baseBackgroundColor = newBaseBackgroundColor;
 
@@ -4508,7 +4513,7 @@ void LocalFrameView::setBaseBackgroundColor(const Color& backgroundColor)
 #if ENABLE(DARK_MODE_CSS)
 void LocalFrameView::updateBaseBackgroundColorIfNecessary()
 {
-    auto styleColorOptions = this->styleColorOptions();
+    auto styleColorOptions = this->styleColorOptions(StyleColorOptionsPurpose::Rendering);
     if (m_styleColorOptions == styleColorOptions)
         return;
 
@@ -4529,7 +4534,7 @@ void LocalFrameView::updateBackgroundRecursively(const std::optional<Color>& bac
 #else
         static const auto cssValueControlBackground = CSSValueID::Window;
 #endif
-        return RenderTheme::singleton().systemColor(cssValueControlBackground, view.styleColorOptions());
+        return RenderTheme::singleton().systemColor(cssValueControlBackground, view.styleColorOptions(StyleColorOptionsPurpose::Rendering));
     };
 
     for (Ref localFrame : inclusiveDescendantFrames<LocalFrame>(m_frame.get())) {

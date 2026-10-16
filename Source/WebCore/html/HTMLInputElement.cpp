@@ -632,8 +632,13 @@ inline void HTMLInputElement::runPostTypeUpdateTasks()
     if (renderer())
         invalidateStyleAndRenderersForSubtree();
 
-    if (document().focusedElement() == this)
+    if (Ref document = this->document(); document->focusedElement() == this) {
         updateFocusAppearance(SelectionRestorationMode::RestoreOrSelectAll, SelectionRevealMode::Reveal);
+#if PLATFORM(GTK) || PLATFORM(WPE)
+        if (RefPtr page = document->page())
+            page->chrome().client().focusedElementDidChangeType(*this);
+#endif
+    }
 
     setChangedSinceLastFormControlChangeEvent(false);
 
@@ -2194,8 +2199,10 @@ RefPtr<HTMLInputElement> HTMLInputElement::checkedRadioButtonForGroup() const
 {
     ASSERT(isRadioButton());
 
-    if (checked())
-        return const_cast<HTMLInputElement*>(this);
+    if (checked()) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<HTMLInputElement*>(this);
+    }
 
     auto& name = this->name();
     if (auto* buttons = radioButtonGroups())

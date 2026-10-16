@@ -384,15 +384,15 @@ Modules/permissions/PermissionController.cpp
 Modules/permissions/PermissionStatus.cpp
 Modules/permissions/Permissions.cpp
 Modules/permissions/WorkerNavigatorPermissions.cpp
+Modules/phonenumberpossession/AggregatorResponseData.cpp
+Modules/phonenumberpossession/PhoneNumberPossessionCoordinator.cpp
+Modules/phonenumberpossession/PhoneNumberPossessionCredential.cpp
+Modules/phonenumberpossession/PhoneNumberPossessionRequest.cpp
 Modules/pictureinpicture/DocumentOrShadowRootPictureInPicture.cpp
 Modules/pictureinpicture/DocumentPictureInPicture.cpp
 Modules/pictureinpicture/HTMLVideoElementPictureInPicture.cpp
 Modules/pictureinpicture/PictureInPictureEvent.cpp
 Modules/pictureinpicture/PictureInPictureWindow.cpp
-Modules/proofofpossession/ProofOfPossessionCoordinator.cpp
-Modules/proofofpossession/ProofOfPossessionCredential.cpp
-Modules/proofofpossession/ProofOfPossessionProviderInfo.cpp
-Modules/proofofpossession/ProofOfPossessionRequest.cpp
 Modules/push-api/PushCrypto.cpp
 Modules/push-api/PushDatabase.cpp
 Modules/push-api/PushEvent.cpp
@@ -2409,6 +2409,7 @@ page/UserScript.cpp
 page/UserStyleSheet.cpp
 page/ViewportProximityInfo.cpp
 page/VisitedLinkStore.cpp
+page/Viewport.cpp
 page/VisualViewport.cpp
 page/WebKitJSHandle.cpp
 page/WebKitNodeSnapshot.cpp
@@ -5302,6 +5303,7 @@ JSViewTransitionUpdateCallback.cpp
 JSVisibilityState.cpp
 JSVisitorCallback.cpp
 JSVisualViewport.cpp
+JSViewport.cpp
 JSVoidCallback.cpp
 JSWGSLLanguageFeatures.cpp
 JSWakeLock.cpp

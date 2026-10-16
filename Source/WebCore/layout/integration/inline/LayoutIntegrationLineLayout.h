@@ -151,7 +151,7 @@ public:
     bool isDamaged() const { return !!m_lineDamage; }
     const Layout::InlineDamage* damage() const LIFETIME_BOUND { return m_lineDamage.get(); }
 #ifndef NDEBUG
-    bool hasDetachedContent() const { return m_lineDamage && m_lineDamage->hasDetachedContent(); }
+    bool hasTruncatedDisplayContent() const { return m_lineDamage && m_lineDamage->hasTruncatedDisplayContent(); }
 #endif
 
     struct SVGTextFragmentsForBoxes {
@@ -165,9 +165,25 @@ public:
 
     bool LEGACY_NODELETE hasBlocks() const;
 
+    // The last layout() pass. A pagination restart runs a second pass from inside layout().
+    struct LayoutInfoForTesting {
+        WTF_MAKE_STRUCT_TZONE_ALLOCATED(LayoutInfoForTesting);
+        // Increases with every inline layout of any block container.
+        uint64_t sequenceNumber { 0 };
+        Layout::InlineLayoutResult::Range range { Layout::InlineLayoutResult::Range::Full };
+        bool isFromMaximumIntrinsicWidthLine { false };
+        size_t laidOutLineCount { 0 };
+        // Lines kept from the previous layout.
+        size_t reusedLineCount { 0 };
+    };
+    WEBCORE_EXPORT static void setCollectsLayoutInfoForTesting(bool);
+    const LayoutInfoForTesting* layoutInfoForTesting() const { return m_layoutInfoForTesting.get(); }
+
 private:
     void preparePlacedFloats();
     FloatRect constructContent(const Layout::InlineLayoutState&, std::unique_ptr<Layout::InlineLayoutResult>&&);
+    static std::unique_ptr<LayoutInfoForTesting> collectLayoutInfoForTesting(const Layout::InlineLayoutResult*);
+    void setLayoutInfoForTesting(std::unique_ptr<LayoutInfoForTesting>&&);
     Vector<LineAdjustment> adjustContentForPagination(const Layout::BlockLayoutState&, bool isPartialLayout);
     void updateRenderTreePositions(const Vector<LineAdjustment>&, const Layout::InlineLayoutState&, bool didDiscardContent);
 
@@ -180,6 +196,8 @@ private:
     const Layout::LayoutState& layoutState() const LIFETIME_BOUND { return *m_layoutState; }
 
     Layout::InlineDamage& ensureLineDamage() LIFETIME_BOUND;
+    void removeLayoutBox(const RenderElement& parent, RenderObject& child);
+    void releaseContentRebuiltFromDamage();
 
     const Layout::ElementBox& rootLayoutBox() const { return *m_rootLayoutBox; }
     Layout::ElementBox& rootLayoutBox() { return *m_rootLayoutBox; }
@@ -206,6 +224,7 @@ private:
     std::unique_ptr<Layout::InlineDamage> m_lineDamage;
     std::unique_ptr<InlineContent> m_inlineContent;
     BoxGeometryUpdater m_boxGeometryUpdater;
+    std::unique_ptr<LayoutInfoForTesting> m_layoutInfoForTesting;
 };
 
 }

@@ -281,13 +281,6 @@ ProcessID WebFrameProxy::processID() const
     return process().processID();
 }
 
-std::optional<PageIdentifier> WebFrameProxy::pageIdentifier() const
-{
-    if (!m_page)
-        return { };
-    return m_page->webPageIDInMainFrameProcess();
-}
-
 void WebFrameProxy::navigateServiceWorkerClient(WebCore::ScriptExecutionContextIdentifier documentIdentifier, const URL& url, CompletionHandler<void(std::optional<PageIdentifier>, std::optional<FrameIdentifier>)>&& callback)
 {
     if (!m_page) {
@@ -301,7 +294,7 @@ void WebFrameProxy::navigateServiceWorkerClient(WebCore::ScriptExecutionContextI
             callback({ }, { });
             return;
         case WebCore::ScheduleLocationChangeResult::Completed:
-            callback(pageIdentifier(), frameID());
+            callback(webPageIDInCurrentProcess(), frameID());
             return;
         case WebCore::ScheduleLocationChangeResult::Started:
             if (m_navigateCallback)
@@ -328,11 +321,15 @@ void WebFrameProxy::loadURL(const URL& url, const String& referrer)
 void WebFrameProxy::loadData(std::span<const uint8_t> data, const String& type, const String& encodingName, const URL& baseURL)
 {
     ASSERT(!isMainFrame());
-    if (RefPtr page = m_page.get()) {
-        if (baseURL.protocolIsFile())
-            protect(process())->addPreviouslyApprovedFileURL(baseURL);
-        page->sendToProcessContainingFrame(m_frameID, Messages::WebPage::LoadDataInFrame(data, type, encodingName, baseURL, m_frameID));
-    }
+    RefPtr page = m_page;
+    if (!page)
+        return;
+
+    if (baseURL.protocolIsFile())
+        protect(process())->addPreviouslyApprovedFileURL(baseURL);
+    // This load skips both policy decisions, which otherwise assign the agent cluster.
+    auto agentClusterAssignment = protect(page->browsingContextGroup())->assignAgentCluster(AgentClusterRequest::forNavigationAction(baseURL, page->topLevelCreationURL(baseURL, isMainFrame()), IsSubstituteData::Yes));
+    page->sendToProcessContainingFrame(m_frameID, Messages::WebPage::LoadDataInFrame(data, type, encodingName, baseURL, m_frameID, agentClusterAssignment));
 }
     
 bool WebFrameProxy::canProvideSource() const
@@ -430,7 +427,7 @@ void WebFrameProxy::didFinishLoad()
     m_frameLoadState.didFinishLoad();
 
     if (m_navigateCallback)
-        m_navigateCallback(pageIdentifier(), frameID());
+        m_navigateCallback(webPageIDInCurrentProcess(), frameID());
 }
 
 void WebFrameProxy::didFailLoad()
@@ -469,7 +466,7 @@ WebFramePolicyListenerProxy& WebFrameProxy::setUpPolicyListenerProxy(CompletionH
         listenerID
     ] (PolicyAction action, API::WebsitePolicies* policies, ProcessSwapRequestedByClient processSwapRequestedByClient, std::optional<NavigatingToAppBoundDomain> isNavigatingToAppBoundDomain, WasNavigationIntercepted wasNavigationIntercepted) mutable {
         if (action != PolicyAction::Use && m_navigateCallback)
-            m_navigateCallback(pageIdentifier(), frameID());
+            m_navigateCallback(webPageIDInCurrentProcess(), frameID());
 
         completionHandler(action, policies, processSwapRequestedByClient, isNavigatingToAppBoundDomain, wasNavigationIntercepted);
 
@@ -611,6 +608,7 @@ void WebFrameProxy::disconnect()
         }
 #endif
         parentFrame->m_childFrames.remove(*this);
+        parentFrame->m_frameGeometry.childrenFrameLayoutInfo.remove(m_frameID);
     }
     m_parentFrame = nullptr;
 }
@@ -751,17 +749,6 @@ void WebFrameProxy::getFrameInfo(CompletionHandler<void(std::optional<FrameInfoD
         if (!securityOrigin.isOpaque() && frameInfo->securityOrigin != securityOrigin) {
             RELEASE_LOG_ERROR(IPC, "WebFrameProxy::getFrameInfo: security origin mismatch");
             frameInfo->securityOrigin = WTF::move(securityOrigin);
-        }
-        if (m_page) {
-            if (frameInfo->webPageProxyID != m_page->identifier()) {
-                RELEASE_LOG_ERROR(IPC, "WebFrameProxy::getFrameInfo: webPageProxyID mismatch");
-                frameInfo->webPageProxyID = m_page->identifier();
-            }
-        } else {
-            if (frameInfo->webPageProxyID) {
-                RELEASE_LOG_ERROR(IPC, "WebFrameProxy::getFrameInfo: had unexpected webPageProxyID");
-                frameInfo->webPageProxyID = std::nullopt;
-            }
         }
         completionHandler(WTF::move(*frameInfo));
     });
@@ -939,6 +926,12 @@ void WebFrameProxy::broadcastFrameTreeSyncData(Ref<FrameTreeSyncData>&& data)
     webPage->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
         webProcess.send(Messages::WebPage::AllFrameTreeSyncDataChangedInAnotherProcess(m_frameID, data), pageID);
     });
+
+    if (isMainFrame()) {
+        protect(webPage->browsingContextGroup())->forEachRemotePage(*webPage, [&](auto& remotePage) {
+            remotePage.setLastSentMainFrameViewportInfo(data->frameViewportInfo);
+        });
+    }
 }
 
 void WebFrameProxy::notifyParentOfLoadCompletion(WebProcessProxy& childFrameProcess)

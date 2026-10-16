@@ -151,6 +151,7 @@
 #include "JSFile.h"
 #include "JSInternals.h"
 #include "JSNode.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "LegacySchemeRegistry.h"
 #include "LoaderStrategy.h"
 #include "LocalDOMWindow.h"
@@ -210,6 +211,7 @@
 #include "RTCNetworkManager.h"
 #include "Range.h"
 #include "ReadableStream.h"
+#include "RenderBlockFlow.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderLayerBacking.h"
 #include "RenderLayerCompositor.h"
@@ -638,6 +640,7 @@ Internals::~Internals()
 void Internals::resetToConsistentState(Page& page)
 {
     page.setPageScaleFactor(1, IntPoint(0, 0));
+    LayoutIntegration::LineLayout::setCollectsLayoutInfoForTesting(false);
     page.setPagination(Pagination());
 
     CachedMatchFinder::setMaximumRunCountForTesting(std::nullopt);
@@ -1682,7 +1685,7 @@ float Internals::usedOutlineOffset(Element& element)
     CheckedPtr style = element.computedStyle();
     if (!style)
         return 0;
-    return Style::evaluate<float>(style->usedOutlineOffset(), style->usedZoomForLength(), style->deviceScaleFactor());
+    return Style::evaluate<float>(Style::effectiveOutlineOffset(*style), style->usedZoomForLength(), style->deviceScaleFactor());
 }
 
 String Internals::computedAppleColorFilter(Element& element)
@@ -2633,6 +2636,22 @@ ExceptionOr<String> Internals::documentBackgroundColor()
     if (!document || !document->view())
         return Exception { ExceptionCode::InvalidAccessError };
     return serializationForCSS(protect(document->view())->documentBackgroundColor());
+}
+
+ExceptionOr<String> Internals::textScaleMetaMode() const
+{
+    RefPtr document = contextDocument();
+    if (!document)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    switch (document->textScaleMeta()) {
+    case TextScaleMeta::Legacy:
+        return "legacy"_str;
+    case TextScaleMeta::Scale:
+        return "scale"_str;
+    }
+    ASSERT_NOT_REACHED();
+    return "legacy"_str;
 }
 
 ExceptionOr<String> Internals::paintedCaretColor()
@@ -4675,6 +4694,42 @@ ExceptionOr<unsigned> Internals::layoutUpdateCount()
     return document->view()->layoutUpdateCount();
 }
 
+void Internals::setInlineLayoutInfoCollectionEnabled(bool enabled)
+{
+    LayoutIntegration::LineLayout::setCollectsLayoutInfoForTesting(enabled);
+}
+
+ExceptionOr<Internals::InlineLayoutInfo> Internals::lastInlineLayoutInfo(Element& element)
+{
+    protect(element.document())->updateLayout(LayoutOptions::IgnorePendingStylesheets);
+
+    CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(element.renderer());
+    CheckedPtr inlineLayout = blockFlow ? blockFlow->inlineLayout() : nullptr;
+    auto* layoutInfo = inlineLayout ? inlineLayout->layoutInfoForTesting() : nullptr;
+    if (!layoutInfo)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    auto range = [&] {
+        switch (layoutInfo->range) {
+        case Layout::InlineLayoutResult::Range::Full:
+            return "Full"_s;
+        case Layout::InlineLayoutResult::Range::FullFromDamage:
+            return "FullFromDamage"_s;
+        case Layout::InlineLayoutResult::Range::PartialFromDamage:
+            return "PartialFromDamage"_s;
+        }
+        ASSERT_NOT_REACHED();
+        return ""_s;
+    };
+    return InlineLayoutInfo {
+        layoutInfo->sequenceNumber,
+        range(),
+        layoutInfo->isFromMaximumIntrinsicWidthLine,
+        static_cast<unsigned>(layoutInfo->laidOutLineCount),
+        static_cast<unsigned>(layoutInfo->reusedLineCount)
+    };
+}
+
 ExceptionOr<void> Internals::startTrackingRenderLayerPositionUpdates()
 {
     RefPtr document = contextDocument();
@@ -4730,6 +4785,24 @@ ExceptionOr<unsigned> Internals::renderingUpdateCount()
         return Exception { ExceptionCode::InvalidAccessError };
 
     return document->page()->renderingUpdateCount();
+}
+
+ExceptionOr<unsigned> Internals::sentFrameViewportInfoCount()
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    return document->page()->sentFrameViewportInfoCountForTesting();
+}
+
+ExceptionOr<unsigned> Internals::sentFrameGeometryCount()
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    return document->page()->sentFrameGeometryCountForTesting();
 }
 
 ExceptionOr<std::optional<double>> Internals::timeToNextRenderingUpdate()
@@ -8640,7 +8713,8 @@ String Internals::dumpStyleResolvers()
 
     for (Ref shadowRoot : document->inDocumentShadowRoots()) {
         auto name = shadowRoot->mode() == ShadowRootMode::UserAgent ? "shadow root resolver (user agent)"_s : "shadow root resolver (author)"_s;
-        dumpResolver(name, protect(protect(const_cast<ShadowRoot&>(shadowRoot.get()).styleScope())->resolver()));
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST dumpResolver(name, protect(protect(const_cast<ShadowRoot&>(shadowRoot.get()).styleScope())->resolver()));
     }
 
     return result.toString();

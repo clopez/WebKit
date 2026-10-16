@@ -339,10 +339,11 @@ public:
 
     virtual bool shouldUseMouseEventForSelection(const PlatformMouseEvent&) { return true; }
 
-    virtual FloatSize screenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
-    virtual FloatSize availableScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
-    virtual FloatSize overrideScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
-    virtual FloatSize overrideAvailableScreenSize() const { return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    virtual FloatSize screenSize() const { SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    virtual FloatSize availableScreenSize() const { SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    virtual FloatSize overrideScreenSize() const { SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<ChromeClient&>(*this).windowRect().size(); }
+    virtual FloatSize overrideAvailableScreenSize() const { SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<ChromeClient&>(*this).windowRect().size(); }
 
     virtual void dispatchDisabledAdaptationsDidChange(const OptionSet<DisabledAdaptations>&) const { }
     virtual void dispatchViewportPropertiesDidChange(const ViewportArguments&) const { }
@@ -462,7 +463,7 @@ public:
         completionHandler(false);
     }
 
-    WEBCORE_EXPORT virtual ExceptionOr<Vector<ValidatedDigitalCredentialRequest>> validateAndParseDigitalCredentialRequests(const SecurityOrigin&, const Document&, const Vector<UnvalidatedDigitalCredentialRequest>&);
+    WEBCORE_EXPORT virtual ExceptionOr<Vector<std::optional<ValidatedDigitalCredentialRequest>>> validateAndParseDigitalCredentialRequests(const SecurityOrigin&, const Document&, const Vector<UnvalidatedDigitalCredentialRequest>&);
 #endif
 
     // Asynchronous request to load an icon for specified filenames.
@@ -472,6 +473,10 @@ public:
     virtual void elementDidRefocus(Element&, const FocusOptions&) { }
 
     virtual void focusedElementDidChangeInputMode(Element&, InputMode) { }
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    virtual void focusedElementDidChangeReadOnly(Element&) { }
+    virtual void focusedElementDidChangeType(Element&) { }
+#endif
     virtual void focusedSelectElementDidChangeOptions(const HTMLSelectElement&) { }
 
     virtual bool shouldPaintEntireContents() const { return false; }
@@ -485,6 +490,9 @@ public:
     virtual DisplayRefreshMonitorFactory* displayRefreshMonitorFactory() const { return nullptr; }
 
     virtual RefPtr<ImageBuffer> createImageBuffer(const FloatSize&, RenderingMode, RenderingPurpose, float, const ColorSpace&, ImageBufferFormat) const { return nullptr; }
+#if HAVE(IOSURFACE)
+    virtual bool useIOSurfaceWebKitBehavior() const { return false; }
+#endif
     WEBCORE_EXPORT virtual RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>);
     virtual RefPtr<WebCore::ImageBuffer> createImageBufferFromTransferHandle(const ImageBufferTransferHandle&) { return nullptr; }
 
@@ -526,6 +534,7 @@ public:
     // Schedule a rendering update that coordinates with display refresh. Returns true if scheduled. (This is only used by SVGImageChromeClient.)
     virtual bool scheduleRenderingUpdate() { return false; }
     virtual void renderingUpdateFramesPerSecondChanged() { }
+    virtual void syncLocalFrameInfoToRemote() { }
 
     virtual unsigned remoteImagesCountForTesting() const { return 0; }
 

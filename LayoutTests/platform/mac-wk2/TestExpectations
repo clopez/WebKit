@@ -23,6 +23,7 @@ fast/forms/datetimelocal/datetimelocal-editable-components [ Pass ]
 fast/forms/month/month-editable-components [ Pass ]
 fast/forms/time/time-editable-components [ Pass ]
 fast/forms/select/mac-wk2 [ Pass ]
+fast/quirks/model-element-fallback-content-quirk.html [ Pass ]
 fast/sandbox/mac [ Pass ]
 fast/scrolling/mac [ Pass ]
 fast/speechsynthesis/mac [ Pass ]
@@ -2456,12 +2457,6 @@ webkit.org/b/321524 [ Debug ] imported/w3c/web-platform-tests/payment-request/pa
 
 webkit.org/b/321726 imported/w3c/web-platform-tests/largest-contentful-paint/observe-svg-data-uri-image.html [ Pass Failure ]
 
-# webkit.org/b/321110 NEW TEST(317810@main): [iOS macOS]4 tests in imported/w3c/web-platform-tests/webtransport/idlharness are constant failure
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.html [ Failure ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.serviceworker.html [ Failure ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.sharedworker.html [ Failure ]
-imported/w3c/web-platform-tests/webtransport/idlharness.https.sub.any.worker.html [ Failure ]
-
 webkit.org/b/322051 [ Release ] media/picture-in-picture/picture-in-picture-interruption.html [ Pass Failure ]
 
 # rdar://183487942 ([macOS 27] fast/inline/blocks-in-inline-ax-invalid.html is a flaky test failure)
@@ -2599,7 +2594,6 @@ webkit.org/b/323902 [ x86_64 ] http/tests/webgpu/webgpu/shader/execution/express
 [ GoldenGate Debug ] http/tests/ipc/createnewpage-file-body-sandbox-extension.html [ Failure ]
 [ GoldenGate Debug ] http/tests/media/media-source/media-source-video-fit-fill.html [ Failure ]
 [ GoldenGate Debug ] http/tests/xmlhttprequest/abort-should-cancel-load.html [ Failure ]
-[ GoldenGate Debug ] imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-path-ignored.window.html [ Failure ]
 [ GoldenGate Debug ] imported/w3c/web-platform-tests/css/css-anchor-position/transform-016.html [ Failure ]
 [ GoldenGate Debug ] imported/w3c/web-platform-tests/webrtc/RTCDataChannel-worker-GC.html [ Failure ]
 [ GoldenGate Debug ] navigation-api/navigation-api-rate-limit-history-api.html [ Failure ]
@@ -2614,7 +2608,6 @@ webkit.org/b/323902 [ x86_64 ] http/tests/webgpu/webgpu/shader/execution/express
 [ GoldenGate Debug ] accessibility/isolated-tree/element-reflection-ariaowns.html [ Pass Failure ]
 [ GoldenGate Debug ] fast/webgpu/nocrash/fuzz-291168.html [ Pass Failure ]
 [ GoldenGate Debug ] http/tests/resourceLoadStatistics/prune-statistics.html [ Pass Timeout ]
-[ GoldenGate Debug ] http/tests/site-isolation/only-broadcast-frame-geometry-from-frames-with-cross-process-descendants.html [ Pass Failure ]
 [ GoldenGate Debug ] http/wpt/webauthn/public-key-credential-get-success-u2f.https.html [ Pass Failure ]
 [ GoldenGate Debug ] imported/w3c/web-platform-tests/css/filter-effects/crashtests/fecomponenttransfer-tablevalues-crash.html [ Pass Timeout ]
 [ GoldenGate Debug ] imported/w3c/web-platform-tests/wasm/core/float_literals.wast.js.html [ Pass Timeout ]
@@ -2652,8 +2645,6 @@ webkit.org/b/326746 [ Sequoia x86_64 Debug ] media/modern-media-controls/icon-se
 
 webkit.org/b/326748 [ Debug ] media/modern-media-controls/macos-fullscreen-media-controls/macos-fullscreen-rtl-volume-button-no-overlap.html [ Pass Timeout ]
 
-webkit.org/b/326894 [ Sequoia+ ] http/tests/websocket/tests/hybi/inspector/handshake-error.html [ Pass Failure ]
-
 webkit.org/b/326895 [ Debug ] http/tests/security/registerBlobURL.html [ Skip ] 
 
 webkit.org/b/326899 [ Sequoia+ ] http/tests/cache/cancel-multiple-post-xhrs.html [ Pass Failure ]
@@ -2665,6 +2656,15 @@ webkit.org/b/327426 [ Debug arm64 ] http/wpt/webauthn/public-key-credential-get-
 webkit.org/b/327429 [ Debug arm64 ] imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-nested-same-in-same-url-block.html [ Pass Failure ]
 webkit.org/b/327433 [ arm64 ] http/wpt/background-fetch/background-fetch-click.window.html [ Pass Failure ]
 
-#webkit.org/b/327439 [macOS] css3/images/cross-fade-svg-size-diff.html (layout-tests) is a constant ImageOnlyFailure.
+# webkit.org/b/327439 macOS css3/images/cross-fade-svg-size-diff.html (layout-tests) is a constant ImageOnlyFailure.
 [ Sequoia x86_64 ] css3/images/cross-fade-svg-size-diff.html [ ImageOnlyFailure ]
 [ GoldenGate ] css3/images/cross-fade-svg-size-diff.html [ ImageOnlyFailure ]
+
+# webkit.org/b/324109 The drop-shadow of a filtered ancestor does not sample the backing store of a composited
+# descendant here, so the shadow is missing entirely. Passes on macOS Sequoia Release and iOS 26.
+webkit.org/b/324109 [ Tahoe+ Debug ] imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-outsets-sample-composited-child.html [ ImageOnlyFailure ]
+webkit.org/b/324109 [ Tahoe+ Debug ] imported/w3c/web-platform-tests/css/filter-effects/drop-shadow-outsets-sample-composited-child-preserve-3d.html [ ImageOnlyFailure ]
+
+webkit.org/b/327445 [ Debug arm64 ] imported/w3c/web-platform-tests/content-security-policy/frame-ancestors/frame-ancestors-path-ignored.window.html [ Pass Failure ]
+
+webkit.org/b/319930 [ Release ] media/video-webkit-playsinline.html [ Pass Timeout ]

@@ -965,13 +965,12 @@ LayoutUnit RenderBox::constrainLogicalHeightByMinMax(LayoutUnit logicalHeight, s
         logicalMinHeight = Style::MinimumSize::Fixed { heightFromAspectRatio / styleToUse.usedZoomForLength().value };
         minimumSizeType = MinimumSizeIsAutomaticContentBased::Yes;
     }
-    // Both keywords behave as the initial value in the block axis.
-    // https://drafts.csswg.org/css-sizing-3/#valdef-width-min-content
-    auto keywordMinimumBehavesAsAuto = (logicalMinHeight.isMinContent() || logicalMinHeight.isMaxContent()) && !logicalMinHeight.isCalcSize();
-    if (keywordMinimumBehavesAsAuto)
-        logicalMinHeight = CSS::Keyword::Auto { };
 
     auto computedLogicalMinHeight = [&]() -> std::optional<LayoutUnit> {
+        // In the block axis min-content and max-content are the automatic size (https://drafts.csswg.org/css-sizing-3/#valdef-width-min-content),
+        // and a box whose height comes from its aspect ratio gets its automatic size through that ratio, not from its content.
+        if ((logicalMinHeight.isMinContent() || logicalMinHeight.isMaxContent()) && shouldComputeLogicalHeightFromAspectRatio() && !is<RenderReplaced>(*this))
+            return blockSizeFromAspectRatio(borderAndPaddingLogicalWidth(), borderAndPaddingLogicalHeight(), style().logicalAspectRatio(), style().boxSizingForAspectRatio(), logicalWidth(), style().aspectRatio(), isRenderReplaced());
         if (isComputingIntrinsicSize == IsComputingIntrinsicSize::Yes && logicalMinHeight.isPercentOrCalculated()) {
             // Per CSS Sizing 3, cyclic percentage min-size values resolve with the
             // percentage treated as 0 during intrinsic size contributions.
@@ -1021,7 +1020,7 @@ LayoutUnit RenderBox::constrainContentBoxLogicalHeightByMinMax(LayoutUnit logica
 // FIXME: Despite the name, this returns rounded borders based on the padding box, which seems wrong.
 LayoutRoundedRect::Radii RenderBox::borderRadii() const
 {
-    auto borderShape = BorderShape::shapeForBorderRect(style(), paddingBoxRectIncludingScrollbar());
+    auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), paddingBoxRectIncludingScrollbar());
     return borderShape.deprecatedRoundedRect().radii();
 }
 
@@ -1120,7 +1119,8 @@ IntRect RenderBox::absoluteContentBox() const
 FloatQuad RenderBox::absoluteContentQuad() const
 {
     LayoutRect rect = contentBoxRect();
-    return localToAbsoluteQuad(FloatRect(rect));
+    // FIXME: Remove suppression once rdar://189998444 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return localToAbsoluteQuad(FloatRect(rect));
 }
 
 LayoutRect RenderBox::localOutlineBoundsRepaintRect() const
@@ -1135,10 +1135,12 @@ LayoutRect RenderBox::outlineBoundsForRepaint(const RenderLayerModelObject* repa
 
     if (repaintContainer != this) {
         FloatQuad containerRelativeQuad;
-        if (geometryMap)
+        if (geometryMap) {
             containerRelativeQuad = geometryMap->mapToContainer(box, repaintContainer);
-        else
-            containerRelativeQuad = localToContainerQuad(FloatRect(box), repaintContainer);
+        } else {
+            // FIXME: Remove suppression once rdar://189998444 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST containerRelativeQuad = localToContainerQuad(FloatRect(box), repaintContainer);
+        }
 
         box = LayoutRect(containerRelativeQuad.boundingBox());
     }
@@ -1534,7 +1536,8 @@ LayoutUnit RenderBox::minContentLogicalWidthContribution() const
     if (hasInvalidContentLogicalWidths()) {
         SetLayoutNeededForbiddenScope layoutForbiddenScope(*this);
         auto intrinsicWidthComputationScope = IntrinsicLogicalWidthComputationScope { view().frameView().layoutContext(), *this };
-        const_cast<RenderBox&>(*this).computeIntrinsicLogicalWidthContributions();
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST const_cast<RenderBox&>(*this).computeIntrinsicLogicalWidthContributions();
     }
     return m_minContentLogicalWidthContribution;
 }
@@ -1544,7 +1547,8 @@ LayoutUnit RenderBox::maxContentLogicalWidthContribution() const
     if (hasInvalidContentLogicalWidths()) {
         SetLayoutNeededForbiddenScope layoutForbiddenScope(*this);
         auto intrinsicWidthComputationScope = IntrinsicLogicalWidthComputationScope { view().frameView().layoutContext(), *this };
-        const_cast<RenderBox&>(*this).computeIntrinsicLogicalWidthContributions();
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST const_cast<RenderBox&>(*this).computeIntrinsicLogicalWidthContributions();
     }
     return m_maxContentLogicalWidthContribution;
 }
@@ -1782,7 +1786,7 @@ bool RenderBox::hitTestBorderRadius(const HitTestLocation& hitTestLocation, cons
     LayoutRect borderRect = borderBoxRect();
     borderRect.moveBy(adjustedLocation);
 
-    auto borderShape = BorderShape::shapeForBorderRect(style(), borderRect);
+    auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), borderRect);
     return borderShape.shapeIntersectsHitTestLocation(hitTestLocation, style().deviceScaleFactor());
 }
 
@@ -1906,7 +1910,7 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& pai
     // FIXME: Should eventually give the theme control over whether the box shadow should paint, since controls could have
     // custom shadows of their own.
     if (!BackgroundPainter::boxShadowShouldBeAppliedToBackground(*this, paintRect.location(), bleedAvoidance, { }))
-        backgroundPainter.paintBoxShadow(paintRect, style(), Style::ShadowStyle::Normal);
+        backgroundPainter.paintBoxShadow(paintRect, usedStyle(), Style::ShadowStyle::Normal);
 
     GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
     if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer) {
@@ -1914,7 +1918,7 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& pai
         // into a transparency layer, and then clip that in one go (which requires setting up the clip before
         // beginning the layer).
         stateSaver.save();
-        auto borderShape = BorderShape::shapeForBorderRect(style(), paintRect);
+        auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), paintRect);
         borderShape.clipToOuterShape(paintInfo.context(), protect(document())->pixelSnappingScaleFactor());
         paintInfo.context().beginTransparencyLayer(1);
     }
@@ -1945,7 +1949,7 @@ void RenderBox::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& pai
         }
     }
 
-    backgroundPainter.paintBoxShadow(paintRect, style(), Style::ShadowStyle::Inset);
+    backgroundPainter.paintBoxShadow(paintRect, usedStyle(), Style::ShadowStyle::Inset);
 
     if (bleedAvoidance != BleedAvoidance::BackgroundOverBorder) {
         bool paintCSSBorder = false;
@@ -2190,7 +2194,7 @@ void RenderBox::paintMaskImages(const PaintInfo& paintInfo, const LayoutRect& pa
 
     if (allMaskImagesLoaded) {
         BackgroundPainter { *this, paintInfo }.paintFillLayers(Color(), style().maskLayers(), style().usedZoomForLength(), paintRect, BleedAvoidance::None, compositeOp);
-        BorderPainter { *this, paintInfo }.paintNinePieceImage(paintRect, style(), style().maskBorder(), compositeOp);
+        BorderPainter { *this, paintInfo }.paintNinePieceImage(paintRect, usedStyle(), style().maskBorder(), compositeOp);
     }
     
     if (pushTransparencyLayer)
@@ -2363,7 +2367,7 @@ bool RenderBox::repaintLayerRectsForImage(WrappedImagePtr image, const Layers& l
 
 void RenderBox::clipToPaddingBoxShape(GraphicsContext& context, const LayoutPoint& accumulatedOffset, float deviceScaleFactor) const
 {
-    auto borderShape = BorderShape::shapeForBorderRect(style(), LayoutRect(accumulatedOffset, borderBoxSize()));
+    auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), LayoutRect(accumulatedOffset, borderBoxSize()));
     borderShape.clipToInnerShape(context, deviceScaleFactor);
 }
 
@@ -2600,11 +2604,13 @@ LayoutUnit RenderBox::perpendicularContainingBlockLogicalHeight() const
         return true;
     };
     if (containingBlockHasIndefiniteHeight()) {
-        view().addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST view().addPercentHeightDescendant(const_cast<RenderBox&>(*this));
         return fillFallbackExtent;
     }
     LayoutUnit fillAvailableExtent = containingBlock->availableLogicalHeight(AvailableLogicalHeightType::ExcludeMarginBorderPadding);
-    view().addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST view().addPercentHeightDescendant(const_cast<RenderBox&>(*this));
     // FIXME: https://bugs.webkit.org/show_bug.cgi?id=158286 We also need to perform the same percentHeightDescendant treatment to the element which dictates the return value for containingBlock()->availableLogicalHeight() above.
     return std::min(fillAvailableExtent, fillFallbackExtent);
 }
@@ -3952,8 +3958,10 @@ template<typename SizeType> std::optional<LayoutUnit> RenderBox::computePercenta
         containingBlockChild = containingBlock;
         containingBlock = containingBlock->containingBlock();
     }
-    if (updateDescendants == UpdatePercentageHeightDescendants::Yes)
-        containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+    if (updateDescendants == UpdatePercentageHeightDescendants::Yes) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+    }
 
     if (is<RenderView>(containingBlock) && view().frameView().isAutoSizeEnabled()) {
         // Dynamic height units like percentage don't play well with autosizing when we don't have a definite viewport size. Let's treat percentage as auto instead.
@@ -4733,7 +4741,7 @@ void RenderBox::addVisualEffectOverflow()
 {
     bool hasBoxShadow = !style().boxShadow().isNone();
     bool hasBorderImageOutsets = style().hasBorderImageOutsets();
-    bool hasOutline = outlineStyleForRepaint().hasOutlineInVisualOverflow();
+    bool hasOutline = style().hasOutlineInVisualOverflow();
     bool hasInflatingFilters = hasFilter() && !computeFilterOutsets().isZero();
 
     if (!hasBoxShadow && !hasBorderImageOutsets && !hasOutline && !hasInflatingFilters)
@@ -4793,8 +4801,8 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox, Enu
         overflowMaxY = std::max(overflowMaxY, borderBox.maxY() + borderOutsets.bottom());
     }
 
-    if (outlineStyleForRepaint().hasOutlineInVisualOverflow()) {
-        auto outlineSize = LayoutUnit { outlineStyleForRepaint().usedOutlineSize(outlineStyleForRepaint().usedZoomForLength(), outlineStyleForRepaint().deviceScaleFactor()) };
+    if (style().hasOutlineInVisualOverflow()) {
+        auto outlineSize = LayoutUnit { usedStyle().outlineSize() };
         overflowMinX = std::min(overflowMinX, borderBox.x() - outlineSize);
         overflowMaxX = std::max(overflowMaxX, borderBox.maxX() + outlineSize);
         overflowMinY = std::min(overflowMinY, borderBox.y() - outlineSize);
@@ -5740,8 +5748,10 @@ bool RenderBox::hasAutoHeightOrContainingBlockWithAutoHeight(UpdatePercentageHei
     auto& logicalHeight = style().logicalHeight();
     auto* containingBlock = containingBlockForAutoHeightDetection(logicalHeight);
 
-    if (updatePercentageDescendants == UpdatePercentageHeightDescendants::Yes && logicalHeight.isPercentOrCalculated() && containingBlock)
-        containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+    if (updatePercentageDescendants == UpdatePercentageHeightDescendants::Yes && logicalHeight.isPercentOrCalculated() && containingBlock) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST containingBlock->addPercentHeightDescendant(const_cast<RenderBox&>(*this));
+    }
 
     if (isFlexItem() && downcast<RenderFlexibleBox>(*parent()).canUseFlexItemForPercentageResolution(*this))
         return false;

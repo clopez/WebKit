@@ -53,6 +53,7 @@
 #include <WebCore/SharedBuffer.h>
 #include <WebCore/VP9UtilitiesCocoa.h>
 #include <WebCore/VideoFrameCV.h>
+#include <wtf/Borrow.h>
 #include <wtf/MainThread.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -823,7 +824,9 @@ template<typename Frame> RefPtr<LibWebRTCCodecs::FramePromise> LibWebRTCCodecs::
     if (!buffer)
         return nullptr;
 
-    SharedVideoFrame sharedVideoFrame { mediaTime, false, rotation, frameColorSpace(frame), WTF::move(*buffer) };
+    bool isMirrored = false;
+    bool shouldIgnoreAlpha = false;
+    SharedVideoFrame sharedVideoFrame { mediaTime, isMirrored, rotation, frameColorSpace(frame), shouldIgnoreAlpha, WTF::move(*buffer) };
     auto promise = connection->sendWithPromisedReply(Messages::LibWebRTCCodecsProxy::EncodeFrame { encoder.identifier, WTF::move(sharedVideoFrame), timestamp, duration, shouldEncodeAsKeyFrame });
     return promise->whenSettled(workQueue(), [] (auto&& result) mutable {
         if (!result)
@@ -1097,7 +1100,7 @@ void LibWebRTCCodecs::setEncoderConnection(Encoder& encoder, Ref<IPC::Connection
     if (auto& data = encoderInitializationData(encoder))
         protect(encoder.connection)->send(Messages::LibWebRTCCodecsProxy::InitializeEncoder { encoder.identifier, data->width, data->height, data->startBitRate, data->maxBitRate, data->minBitRate, data->maxFrameRate }, 0);
 
-    auto frames = std::exchange(encoder.pendingFrames, { });
+    const Vector frames = std::exchange(encoder.pendingFrames, { });
     for (auto& frame : frames)
         encodeFrameInternalWithLock(encoder, *frame.videoFrame, frame.shouldEncodeAsKeyFrame, toVideoRotation(frame.videoFrame->rotation()), MediaTime::createWithDouble(Seconds::fromMicroseconds(frame.videoFrame->timestamp_us()).value()), frame.videoFrame->rtp_timestamp(), { });
 }
@@ -1121,7 +1124,7 @@ void LibWebRTCCodecs::setDecoderConnection(Decoder& decoder, RefPtr<IPC::Connect
 {
     decoder.connection = WTF::move(connection);
     auto frames = std::exchange(decoder.pendingFrames, { });
-    for (auto& frame : frames)
+    for (auto& frame : borrow(frames))
         sendFrameToDecode(decoder, frame.timeStamp, protect(frame.data)->span(), frame.width, frame.height)->chainTo(WTF::move(frame.producer));
 }
 

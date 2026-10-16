@@ -370,6 +370,7 @@ UIProcess/API/Cocoa/WKFindResult.mm @nonARC
 UIProcess/API/Cocoa/WKFormInfo.mm @nonARC
 UIProcess/API/Cocoa/WKFrameInfo.mm @nonARC
 UIProcess/API/Cocoa/WKHTTPCookieStore.mm @nonARC
+UIProcess/API/Cocoa/WKHitTestResult.mm @nonARC
 UIProcess/API/Cocoa/WKImmersiveEnvironment.mm @nonARC
 UIProcess/API/Cocoa/WKJSHandle.mm @nonARC
 UIProcess/API/Cocoa/WKMenuItemIdentifiers.mm @nonARC
@@ -804,7 +805,6 @@ WebProcess/Extensions/Bindings/Cocoa/JSWebExtensionWrapperCocoa.mm
 
 WebProcess/Extensions/Cocoa/_WKWebExtensionWebNavigationURLFilter.mm
 WebProcess/Extensions/Cocoa/_WKWebExtensionWebRequestFilter.mm
-WebProcess/Extensions/Cocoa/WebExtensionContextProxyCocoa.mm
 WebProcess/Extensions/Cocoa/WebExtensionControllerProxyCocoa.mm
 
 WebProcess/GPU/graphics/cocoa/ImageBufferRemoteIOSurfaceBackend.cpp

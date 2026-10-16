@@ -127,12 +127,6 @@ webkit.org/b/298585 fast/forms/validation-message-on-textarea.html [ Failure ]
 # HTML Media Capture
 webkit.org/b/85958 fast/forms/file/file-input-capture.html [ Skip ]
 
-# Input
-webkit.org/b/298525 fast/forms/date/date-validity-badinput.html [ Skip ]
-webkit.org/b/298525 fast/forms/datetimelocal/datetimelocal-validity-badinput.html [ Skip ]
-webkit.org/b/298525 fast/forms/time/time-validity-badinput.html [ Skip ]
-webkit.org/b/298525 fast/forms/time-input-svg-font.html [ Skip ]
-
 # Link target
 webkit.org/b/212083 loader/navigation-policy/should-open-external-urls/user-gesture-target-blank-with-flag-from-subframe.html
 webkit.org/b/212083 loader/navigation-policy/should-open-external-urls/user-gesture-target-blank-with-flag.html
@@ -177,7 +171,6 @@ imported/w3c/web-platform-tests/fetch/metadata/generated/css-font-face.sub.tenta
 imported/w3c/web-platform-tests/fetch/metadata/generated/element-a.https.sub.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/metadata/generated/element-area.https.sub.html [ Failure ]
 imported/w3c/web-platform-tests/fetch/metadata/generated/window-location.https.sub.html [ Failure ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-overridesexpires.html [ Skip ]
 
 # Ping attribute
 
@@ -186,14 +179,6 @@ webkit.org/b/298589 http/tests/navigation/ping-attribute [ Skip ]
 # Repaint
 
 webkit.org/b/212233 [ Release ] fast/repaint/iframe-on-subpixel-position.html [ Pass Failure ]
-
-# Timeout.
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-aborted.html?aborted_immediately_after_send() [ Skip ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-aborted.html?call_abort()_after_TIME_NORMAL_LOAD [ Skip ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-aborted.html?only_open()ed,_not_aborted [ Skip ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-overridesexpires.html?timeout_set_to_expired_value_before_load_fires [ Skip ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-overridesexpires.html?timeout_set_to_expiring_value_after_load_fires [ Skip ]
-imported/w3c/web-platform-tests/xhr/xmlhttprequest-timeout-worker-overridesexpires.html?timeout_set_to_non-expiring_value_after_timeout_fires [ Skip ]
 
 # WebXR
 
@@ -250,9 +235,6 @@ webkit.org/b/299429 loader/go-back-to-different-window-size.html [ Failure ]
 #////////////////////////////////////////////////////////////////////////////////////////
 # 2. EXPECTED FAILURES
 #////////////////////////////////////////////////////////////////////////////////////////
-
-# These are Mac specific for now.
-fast/url/user-visible [ Skip ]
 
 # platformLayerTreeAsText is only implemented for Cocoa ports.
 
@@ -363,12 +345,6 @@ webkit.org/b/256457 imported/w3c/web-platform-tests/css/css-fonts/variations/var
 
 # Test failing since async overflow scrolling was activated in WPE.
 webkit.org/b/315291 [ Release ] css3/filters/composited-during-animation.html [ Pass Timeout ]
-webkit.org/b/298634 fast/repaint/vertical-overflow-child.html [ Skip ]
-webkit.org/b/298634 fast/repaint/vertical-overflow-parent.html [ Skip ]
-webkit.org/b/298634 fast/repaint/vertical-overflow-same.html [ Skip ]
-webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-child.html [ Skip ]
-webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-parent.html [ Skip ]
-webkit.org/b/298634 fast/repaint/horizontal-bt-overflow-same.html [ Skip ]
 
 webkit.org/b/252954 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-height-constrained-by-max-width.html [ ImageOnlyFailure ]
 webkit.org/b/252954 imported/w3c/web-platform-tests/html/rendering/replaced-elements/attributes-for-embedded-content-and-images/video-default-object-width-constrained-by-max-height.html [ ImageOnlyFailure ]
@@ -383,12 +359,180 @@ js/dom/lockdown-mode [ Skip ]
 # 3. UNRESOLVED TESTS
 #////////////////////////////////////////////////////////////////////////////////////////
 
-webkit.org/b/213131 editing/pasteboard [ Skip ]
+# editing/pasteboard tests that fail on WPE.
+editing/pasteboard/3976872.html [ Skip ]
+editing/pasteboard/4076267-2.html [ Skip ]
+editing/pasteboard/4076267-3.html [ Skip ]
+editing/pasteboard/4076267.html [ Failure ]
+editing/pasteboard/4242293.html [ Failure ]
+editing/pasteboard/4631972.html [ Failure ]
+editing/pasteboard/4641033.html [ Failure ]
+editing/pasteboard/4806874.html [ Skip ]
+editing/pasteboard/4944770-1.html [ Failure ]
+editing/pasteboard/4944770-2.html [ Failure ]
+editing/pasteboard/4947130.html [ Failure ]
+editing/pasteboard/4989774.html [ Skip ]
+editing/pasteboard/5006779.html [ Failure ]
+editing/pasteboard/5028447.html [ Skip ]
+editing/pasteboard/5032095.html [ Failure ]
+editing/pasteboard/5071074-2.html [ Failure ]
+editing/pasteboard/5071074.html [ Failure ]
+editing/pasteboard/5134759.html [ Failure ]
+editing/pasteboard/5156401-1.html [ Failure ]
+editing/pasteboard/5387578.html [ Failure ]
+editing/pasteboard/5478250.html [ Skip ]
+editing/pasteboard/5601583-1.html [ Failure ]
+editing/pasteboard/7955.html [ Failure ]
+editing/pasteboard/8145-1.html [ Failure ]
+editing/pasteboard/8145-2.html [ Skip ]
+editing/pasteboard/8145-3.html [ Skip ]
+editing/pasteboard/bad-placeholder.html [ Failure ]
+editing/pasteboard/block-wrappers-necessary.html [ Failure ]
+editing/pasteboard/copy-crash.html [ Skip ]
+editing/pasteboard/copy-picture-and-text.html [ Failure ]
+editing/pasteboard/copy-picture.html [ Failure ]
+editing/pasteboard/copy-resolves-urls.html [ Failure ]
+editing/pasteboard/copy-text-with-wrapped-tag.html [ Failure ]
+editing/pasteboard/cut-text-001.html [ Skip ]
+editing/pasteboard/data-transfer-get-data-on-paste-plain-text.html [ Failure ]
+editing/pasteboard/data-transfer-get-data-on-paste-rich-text.html [ Failure ]
+editing/pasteboard/data-transfer-get-data-on-paste-skipped-content.html [ Failure ]
+editing/pasteboard/data-transfer-items-drag-drop-entry.html [ Skip ]
+editing/pasteboard/data-transfer-items-drag-drop-file.html [ Skip ]
+editing/pasteboard/data-transfer-items-drag-drop-string.html [ Skip ]
+editing/pasteboard/data-transfer-items-image-png.html [ ImageOnlyFailure ]
+editing/pasteboard/data-transfer-items.html [ Failure ]
+editing/pasteboard/data-transfer-set-data-sanitize-url-when-copying-in-null-origin.html [ Failure ]
+editing/pasteboard/dataTransfer-types-pasting-plaintext.html [ Failure ]
+editing/pasteboard/datatransfer-items-drop-plaintext-file.html [ Failure ]
+editing/pasteboard/datatransfer-types-dropping-text-file.html [ Failure ]
+editing/pasteboard/displaced-generic-placeholder.html [ Failure ]
+editing/pasteboard/displaced-placeholder.html [ Failure ]
+editing/pasteboard/drag-and-drop-color-input-events.html [ Skip ]
+editing/pasteboard/drag-and-drop-color-input.html [ Failure ]
+editing/pasteboard/drag-drop-copy-content.html [ Failure ]
+editing/pasteboard/drag-drop-dead-frame.html [ Skip ]
+editing/pasteboard/drag-drop-list.html [ Failure ]
+editing/pasteboard/drag-drop-modifies-page.html [ Skip ]
+editing/pasteboard/drag-image-to-contenteditable-in-iframe.html [ Skip ]
+editing/pasteboard/drag-selected-image-to-contenteditable.html [ Skip ]
+editing/pasteboard/drop-file-svg.html [ Failure ]
+editing/pasteboard/emacs-cntl-y-001.html [ Skip ]
+editing/pasteboard/emacs-ctrl-a-k-y.html [ Failure ]
+editing/pasteboard/emacs-ctrl-k-with-move.html [ Failure ]
+editing/pasteboard/emacs-ctrl-k-y-001.html [ Skip ]
+editing/pasteboard/emacs-killring-alternating-append-prepend.html [ Failure ]
+editing/pasteboard/emacs-killring-backward-delete-prepend.html [ Failure ]
+editing/pasteboard/entries-api/DirectoryEntry-getFile-back-forward-cache.html [ Failure ]
+editing/pasteboard/entries-api/DirectoryReader-readEntries-back-forward-cache.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-directoryReader-error.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-directoryReader-root.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-directoryReader.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-fileEntry-file.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getAsEntry.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getDirectory.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getFile.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getParent-root.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getParent.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-getParent2.html [ Failure ]
+editing/pasteboard/entries-api/datatransfer-items-drop-hidden-file.html [ Failure ]
+editing/pasteboard/file-input-files-access.html [ Failure ]
+editing/pasteboard/files-during-page-drags.html [ Failure ]
+editing/pasteboard/get-data-text-plain-drop.html [ Failure ]
+editing/pasteboard/image-in-iframe.html [ Failure ]
+editing/pasteboard/img-srcset-copy-paste-canonicalization.html [ Failure ]
+editing/pasteboard/input-field-1.html [ Skip ]
+editing/pasteboard/merge-after-delete-1.html [ Failure ]
+editing/pasteboard/merge-after-delete-2.html [ Failure ]
+editing/pasteboard/merge-after-delete.html [ Failure ]
+editing/pasteboard/merge-end-blockquote.html [ Failure ]
+editing/pasteboard/merge-end-borders.html [ Failure ]
+editing/pasteboard/merge-start-blockquote.html [ Failure ]
+editing/pasteboard/merge-start-list.html [ Failure ]
+editing/pasteboard/onpaste-text-html-types.html [ Failure ]
+editing/pasteboard/paste-2.html [ Skip ]
+editing/pasteboard/paste-4038267-fix.html [ Skip ]
+editing/pasteboard/paste-4039777-fix.html [ Failure ]
+editing/pasteboard/paste-RTFD.html [ Skip ]
+editing/pasteboard/paste-TIFF.html [ Skip ]
+editing/pasteboard/paste-blockquote-after-blockquote.html [ Failure ]
+editing/pasteboard/paste-blockquote-into-blockquote-4.html [ Failure ]
+editing/pasteboard/paste-global-selection.html [ Failure ]
+editing/pasteboard/paste-image-as-blob-url.html [ Skip ]
+editing/pasteboard/paste-image-does-not-reveal-file-url.html [ Failure ]
+editing/pasteboard/paste-image-using-image-data.html [ ImageOnlyFailure ]
+editing/pasteboard/paste-line-endings-001.html [ Skip ]
+editing/pasteboard/paste-line-endings-002.html [ Skip ]
+editing/pasteboard/paste-line-endings-003.html [ Skip ]
+editing/pasteboard/paste-line-endings-004.html [ Skip ]
+editing/pasteboard/paste-line-endings-005.html [ Skip ]
+editing/pasteboard/paste-line-endings-006.html [ Skip ]
+editing/pasteboard/paste-line-endings-007.html [ Skip ]
+editing/pasteboard/paste-line-endings-008.html [ Skip ]
+editing/pasteboard/paste-line-endings-009.html [ Skip ]
+editing/pasteboard/paste-line-endings-010.html [ Skip ]
+editing/pasteboard/paste-match-style-001.html [ Skip ]
+editing/pasteboard/paste-match-style-002.html [ Skip ]
+editing/pasteboard/paste-noscript.html [ Failure ]
+editing/pasteboard/paste-rtl-paragraph-with-leading-ltr-text.html [ ImageOnlyFailure ]
+editing/pasteboard/paste-text-004.html [ Skip ]
+editing/pasteboard/paste-text-008.html [ Skip ]
+editing/pasteboard/paste-text-013.html [ Skip ]
+editing/pasteboard/paste-text-014.html [ Skip ]
+editing/pasteboard/paste-text-016.html [ Skip ]
+editing/pasteboard/paste-text-019.html [ Skip ]
+editing/pasteboard/paste-text-at-tabspan-003.html [ Skip ]
+editing/pasteboard/paste-xml.xhtml [ Skip ]
+editing/pasteboard/pasting-object.html [ Skip ]
+editing/pasteboard/pasting-tabs.html [ Skip ]
+editing/pasteboard/quirks-mode-br-1.html [ Skip ]
+editing/pasteboard/reveal-selection-after-pasting-images.html [ Failure ]
+editing/pasteboard/smart-drag-drop.html [ Failure ]
+editing/pasteboard/smart-paste-001.html [ Failure ]
+editing/pasteboard/smart-paste-002.html [ Failure ]
+editing/pasteboard/smart-paste-003.html [ Failure ]
+editing/pasteboard/smart-paste-004.html [ Failure ]
+editing/pasteboard/smart-paste-005.html [ Failure ]
+editing/pasteboard/smart-paste-007.html [ Skip ]
+editing/pasteboard/smart-paste-008.html [ Skip ]
+editing/pasteboard/smart-paste-in-text-control.html [ Failure ]
+editing/pasteboard/smart-paste-paragraph-001.html [ Failure ]
+editing/pasteboard/smart-paste-paragraph-002.html [ Failure ]
+editing/pasteboard/smart-paste-paragraph-003.html [ Failure ]
+editing/pasteboard/smart-paste-paragraph-004.html [ Failure ]
+editing/pasteboard/styled-element-markup.html [ Failure ]
+editing/pasteboard/subframe-dragndrop-1.html [ Skip ]
+editing/pasteboard/undoable-fragment-removes.html [ Failure ]
+editing/pasteboard/unrendered-br.html [ Failure ]
 webkit.org/b/213131 editing/secure-input [ Skip ]
 
-# WPE Legacy doesn't support inspector.
-inspector [ Skip ]
-http/tests/inspector [ Skip ]
+# Inspector tests that fail on WPE.
+inspector/canvas/requestClientNodes-css.html [ Pass Failure ]
+[ Release ] inspector/console/queryHolders.html [ Failure ]
+inspector/css/get-system-fonts.html [ Failure ]
+inspector/css/getComputedPrimaryFontForNode.html [ Failure ]
+inspector/css/getMatchedStylesForNodeMarkerPseudoId.html [ Pass Failure ]
+inspector/css/modify-css-property.html [ Failure ]
+inspector/css/nodeLayoutFlagsChanged-Rendered.html [ Pass Failure ]
+inspector/css/pseudo-creation.html [ Failure ]
+inspector/debugger/breakpoint-action-log.html [ Failure ]
+inspector/debugger/evaluateOnCallFrame-errors.html [ Pass Failure ]
+inspector/debugger/nested-inspectors.html [ Skip ]
+inspector/dom/getAccessibilityPropertiesForNode.html [ Failure ]
+inspector/network/intercept-aborted-request.html [ Failure ]
+inspector/page/setScreenSizeOverride.html [ Failure ]
+inspector/timeline/timeline-event-TimerFire.html [ Failure ]
+inspector/worker/debugger-multiple-targets-pause.html [ Failure ]
+http/tests/inspector/dom/disconnect-dom-tree-after-main-frame-navigation.html [ Failure ]
+http/tests/inspector/network/fetch-response-body-304.html [ Pass Failure ]
+http/tests/inspector/network/fetch-response-body.html [ Failure ]
+http/tests/inspector/network/har/har-page-aggressive-gc.html [ Failure ]
+http/tests/inspector/network/har/har-page.html [ Failure ]
+http/tests/inspector/network/ping-type.html [ Skip ]
+http/tests/inspector/network/resource-request-headers.html [ Failure ]
+http/tests/inspector/network/resource-sizes-memory-cache.html [ Failure ]
+http/tests/inspector/network/resource-sizes-network.html [ Failure ]
+http/tests/inspector/network/xhr-response-body.html [ Failure ]
 
 Bug(WPE) fast/text/woff2-totalsfntsize.html [ Pass ]
 Bug(WPE) fast/text/woff2.html [ Pass ]
@@ -412,27 +556,18 @@ http/tests/security/video-cross-origin-accessfailure.html [ Failure ]
 http/tests/security/xss-DENIED-xsl-external-entity-redirect.xml [ Failure ]
 
 Bug(WPE) fast/dom/Geolocation/page-reload-cancel-permission-requests.html [ Skip ]
-Bug(WPE) fast/dom/Geolocation/requestQueuingForHiddenPage.html [ Skip ]
-Bug(WPE) fast/dom/Geolocation/startUpdatingOnlyWhenPageVisible.html [ Skip ]
-Bug(WPE) fast/dom/Geolocation/stopUpdatingForHiddenPage.html [ Skip ]
 
 # Failure.
 imported/w3c/web-platform-tests/pointerevents/compat/pointerevent_mouseevent_key_pressed.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/persistentDeviceId/get-persistendeviceid-from-pointer-mouse-event.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_auxclick_is_a_pointerevent.html?pen [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_click_on_chorded_mouse_button.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_movementxy.html?mouse [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerlock/pointerevent_getCoalescedEvents_when_pointerlocked.https.html [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerlock/pointerevent_pointerrawupdate_in_pointerlock.https.html [ Skip ]
 
 # Crash.
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?mouse-nonstandard [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?mouse-right [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?mouse-right-nonstandard [ Skip ]
 imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?pen-nonstandard [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?pen-right [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?pen-right-nonstandard [ Skip ]
-imported/w3c/web-platform-tests/pointerevents/pointerevent_attributes.html?touch-nonstandard [ Skip ]
 
 css3/scroll-snap/resnap-after-layout.html [ Skip ] # Timeout.
 
@@ -449,7 +584,6 @@ webkit.org/b/204112 editing/async-clipboard/clipboard-change-data-while-reading.
 # Event timing: times out, probably missing automation
 webkit.org/b/244186 imported/w3c/web-platform-tests/event-timing/disconnect-target.html [ Skip ]
 webkit.org/b/301110 imported/w3c/web-platform-tests/event-timing/gap-pointerdown-pointerup.html [ Pass Failure ]
-webkit.org/b/244186 imported/w3c/web-platform-tests/event-timing/retrievability.html [ Skip ]
 
 webkit.org/b/304407 imported/w3c/web-platform-tests/event-timing/timingconditions.html [ Pass Failure ]
 
@@ -586,20 +720,14 @@ Bug(WPE) security/contentSecurityPolicy/video-with-blob-url-allowed-by-media-src
 # WPT: css
 # ========
 
-imported/w3c/web-platform-tests/css/css-color/system-color-consistency.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-color/system-color-support.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-color/t32-opacity-offscreen-multiple-boxes-1-c.xht [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-color/t32-opacity-offscreen-multiple-boxes-2-c.xht [ ImageOnlyFailure ]
 
-imported/w3c/web-platform-tests/css/css-multicol/multicol-fill-balance-021.html [ Failure ]
 
 webkit.org/b/186262 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-007.html [ ImageOnlyFailure ]
 webkit.org/b/186262 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-normal-lo-000.html [ ImageOnlyFailure ]
 
-
-webkit.org/b/127676 imported/w3c/web-platform-tests/xhr/send-redirect-bogus.sub.htm [ Skip ]
-webkit.org/b/127676 imported/w3c/web-platform-tests/xhr/send-redirect-to-cors.htm [ Skip ]
-webkit.org/b/127676 imported/w3c/web-platform-tests/xhr/send-redirect-to-non-cors.htm [ Skip ]
 
 # The tests below need gardening after the EventSenderWPE has been added.
 # Most of them are probably failing because of missing support of event related
@@ -658,9 +786,6 @@ webkit.org/b/178578 http/tests/images/hidpi-srcset-copy.html [ Failure ]
 
 Bug(WPE) svg/animations/animations-paused-in-background-page-iframe.html [ Skip ]
 Bug(WPE) svg/animations/animations-paused-in-background-page.html [ Skip ]
-Bug(WPE) svg/animations/animations-paused-page-non-visible.html [ Skip ]
-Bug(WPE) svg/animations/animations-paused-when-inserted-in-hidden-document.html [ Skip ]
-Bug(WPE) svg/animations/animations-paused-when-inserted-in-hidden-document2.html [ Skip ]
 
 webkit.org/b/99893 svg/animations/mozilla/animateMotion-mpath-targetChange-1.svg [ ImageOnlyFailure ]
 Bug(WPE) svg/zoom/page/zoom-zoom-coords.xhtml [ Failure ]
@@ -814,22 +939,8 @@ webkit.org/b/309572 compositing/video/video-object-view-box-dynamic-change.html 
 webkit.org/b/309572 compositing/video/video-object-view-box-no-poster.html [ Failure ]
 webkit.org/b/309572 compositing/video/video-object-view-box-object-position-no-poster.html [ Failure ]
 webkit.org/b/309572 compositing/video/video-object-view-box-writing-mode-no-poster.html [ Failure ]
-compositing/visible-rect/2d-transformed.html [ Failure ]
-compositing/visible-rect/3d-transform-style.html [ Failure ]
-compositing/visible-rect/3d-transformed.html [ Failure ]
-compositing/visible-rect/animated-from-none.html [ Failure ]
-compositing/visible-rect/animated.html [ Failure ]
-compositing/visible-rect/clipped-visible-rect.html [ Failure ]
-compositing/visible-rect/coverage-clipped.html [ Failure ]
-compositing/visible-rect/flipped-preserve-3d.html [ Failure ]
-compositing/visible-rect/iframe-and-layers.html [ Failure ]
-compositing/visible-rect/iframe-no-layers.html [ Failure ]
-compositing/visible-rect/mask-layer-coverage.html [ Failure ]
-compositing/visible-rect/nested-transform.html [ Failure ]
 
 media/media-source/media-detachablemse-append.html [ Timeout Pass ]
-
-imported/w3c/web-platform-tests/css/css-overflow/overflow-auto-scrolling-with-margin-and-transform.html [ Skip ]
 
 imported/w3c/web-platform-tests/css/css-overflow/clip-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/clip-004.html [ ImageOnlyFailure ]
@@ -843,9 +954,6 @@ webkit.org/b/278719 fast/events/touch/touch-event-frames.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/frame-hover-update.html [ Failure ]
 webkit.org/b/278719 fast/events/touch/ontouchstart-active-selector.html [ Failure  ]
 webkit.org/b/278719 fast/events/touch/touch-event-pageXY.html [ Failure ]
-
-# The assertion failure occurs to WPE only.
-webkit.org/b/279178 fast/scrolling/scroll-into-view-on-composited-scrollable-overflow-layer-crash.html [ Skip ]
 
 fast/hidpi/filters-drop-shadow.html [ ImageOnlyFailure ]
 fast/multicol/layers-split-across-columns.html [ ImageOnlyFailure ]
@@ -896,6 +1004,8 @@ webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-v
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_text-decoration_line-through.html [ ImageOnlyFailure ]
 webkit.org/b/287572 [ Release ] imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_timestamp_future.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_timestamp_past.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_white-space_normal_wrapped.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_white-space_pre-line_wrapped.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_with_class.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_with_class_object_specific_selector.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/class_object/class_background_properties.html [ ImageOnlyFailure ]
@@ -924,6 +1034,10 @@ webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-v
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/lang_object/lang_color.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/not_allowed_properties.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/not_root_selector.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/text-decoration_line-through.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/text-decoration_overline.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/text-decoration_overline_underline_line-through.html [ ImageOnlyFailure ]
+webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/text-decoration_underline.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/type_selector_root.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_background_properties.html [ ImageOnlyFailure ]
 webkit.org/b/287572 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/underline_object/underline_background_shorthand.html [ ImageOnlyFailure ]
@@ -1010,22 +1124,14 @@ http/tests/media/hls/hls-audio-description-track-kind.html [ Skip ]
 webkit.org/b/306384 fast/lists/overlapping-nested-list-markers.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard-snap-interruption.html [ Failure ]
 
-imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-margin-focus.html [ Failure ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/scroll-target-snap-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-initial-layout/initial-snap-matches-scroll.html [ Failure ]
 
 # Crash due to unimplemented event type
 imported/w3c/web-platform-tests/css/css-scroll-snap/input/snap-area-overflow-boundary-viewport-covering.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/overscroll-snap.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/common-to-both-axes-supercedes-first-in-tree-order.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-common-to-both-axes.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-first-in-tree-order.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-element.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-focused-nested-containers.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/snap-after-relayout/multiple-aligned-targets/prefer-inner-target.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-events/scrollsnapchanging/scrollsnapchanging-on-user-scroll.tentative.html [ Skip ]
 imported/w3c/web-platform-tests/css/css-scroll-snap/snap-fling-in-large-area.html [ Skip ]
-imported/w3c/web-platform-tests/css/css-scroll-snap/unrelated-gesture-scroll-during-snap.html [ Skip ]
 
 webkit.org/b/306466 imported/w3c/web-platform-tests/mathml/presentation-markup/operators/operator-dictionary-arabic-002.html [ ImageOnlyFailure Pass ]
 
@@ -1094,9 +1200,6 @@ webkit.org/b/312150 [ arm64 ] imported/w3c/web-platform-tests/encoding/textdecod
 webkit.org/b/312150 [ arm64 ] imported/w3c/web-platform-tests/encoding/textdecoder-mistakes.any.worker.html [ Failure ]
 
 webkit.org/b/309575 imported/w3c/web-platform-tests/uievents/textInput/enter-textarea-contenteditable.html [ Pass Failure ]
-
-imported/w3c/web-platform-tests/screen-wake-lock/chrome-bug-1348019.https.html [ Skip ]
-imported/w3c/web-platform-tests/screen-wake-lock/wakelock-document-hidden.https.html [ Skip ]
 
 webkit.org/b/310273 imported/w3c/web-platform-tests/uievents/textInput/basic.html [ Pass Failure ]
 
@@ -1167,7 +1270,6 @@ webkit.org/b/318034 [ x86_64 ] fast/canvas/image-potential-subsample.html [ Fail
 webkit.org/b/318345 [ x86_64 ] media/track/video-track-configuration-mp4-default-colorspace.html [ Failure Pass ]
 
 webkit.org/b/318349 [ arm64 ] imported/w3c/web-platform-tests/largest-contentful-paint/image-TAO.sub.html [ Failure Pass ]
-webkit.org/b/318350 [ arm64 ] http/tests/websocket/tests/hybi/inspector/handshake-error.html [ Failure Pass ]
 
 webkit.org/b/318889 [ arm64 ] fast/block/out-of-flow-becomes-in-flow-with-auto-width.html [ Pass Timeout ]
 webkit.org/b/318891 [ arm64 ] imported/w3c/web-platform-tests/webrtc/RTCDataChannel-send-close-string-negotiated.window.html [ Pass Failure ]
@@ -1294,3 +1396,19 @@ webkit.org/b/326562 [ x86_64 ] css3/viewport-percentage-lengths/css3-viewport-pe
 webkit.org/b/326564 [ arm64 ] fast/backgrounds/size/backgroundSize-in-background-shorthand.html [ Pass Timeout ]
 webkit.org/b/326565 [ arm64 ] fast/pdf-plugin-destruction-dispatches-print-event-crash.html [ Pass Timeout ]
 webkit.org/b/326566 [ arm64 ] fast/backgrounds/angled-background-repeating-gradient-rendering-vertical.html [ Pass Timeout ]
+
+webkit.org/b/327675 webanimations/custom-effect/animation-progress-event.html [ Failure Pass ]
+webkit.org/b/327676 [ arm64 ] imported/w3c/web-platform-tests/shadow-dom/cross-shadow-boundary-selection-remove-splittext-crash.html [ Pass Timeout ]
+webkit.org/b/327676 [ arm64 ] imported/w3c/web-platform-tests/shadow-dom/cross-shadow-boundary-selection-splittext-crash.html [ Pass Timeout ]
+
+# Remaining failures after unskipping directories in platform/glib.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-active.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-option.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-button-after-span.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-disabled-option.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-font-inheriting.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-hover.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-appearance-switching-invalidation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-open-invalidation.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-option-images.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-second-child-button.html [ ImageOnlyFailure ]

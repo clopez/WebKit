@@ -521,7 +521,7 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Style
             return RequiredRepaint::RendererOnly;
 
         auto deviceScaleFactor = newStyle.deviceScaleFactor();
-        if (newStyle.usedOutlineSize(newStyle.usedZoomForLength(), deviceScaleFactor) < oldStyle.usedOutlineSize(oldStyle.usedZoomForLength(), deviceScaleFactor))
+        if (Style::effectiveOutlineSize(newStyle, newStyle.usedZoomForLength(), deviceScaleFactor) < Style::effectiveOutlineSize(oldStyle, oldStyle.usedZoomForLength(), deviceScaleFactor))
             return RequiredRepaint::RendererOnly;
 
         if (auto* modelObject = dynamicDowncast<RenderLayerModelObject>(*this)) {
@@ -1190,11 +1190,10 @@ void RenderElement::styleDidChange(Style::Difference diff, const Style::Computed
 #endif
 
     bool hadOutlineAuto = oldStyle && oldStyle->outlineStyle() == OutlineStyle::Auto;
-    bool hasOutlineAuto = outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
+    bool hasOutlineAuto = style().outlineStyle() == OutlineStyle::Auto;
     if (hasOutlineAuto != hadOutlineAuto) {
         updateOutlineAutoAncestor(hasOutlineAuto);
-        auto deviceScaleFactor = style().deviceScaleFactor();
-        issueRepaintForOutlineAuto(hasOutlineAuto ? outlineStyleForRepaint().usedOutlineSize(outlineStyleForRepaint().usedZoomForLength(), deviceScaleFactor) : oldStyle->usedOutlineSize(oldStyle->usedZoomForLength(), deviceScaleFactor));
+        issueRepaintForOutlineAuto(hasOutlineAuto ? usedStyle().outlineSize() : Style::effectiveOutlineSize(*oldStyle, oldStyle->usedZoomForLength(), style().deviceScaleFactor()));
     }
 
     auto isLayoutDiff = [](Style::Difference diff) {
@@ -1572,8 +1571,8 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
             // If the border radius changed, repaints at style change time will take care of that.
             // This code is attempting to detect whether border-radius constraining based on box size
             // affects the radii, using the outlineBoundsRect as a proxy for the border box.
-            auto oldShapeApproximation = BorderShape::shapeForBorderRect(style(), oldOutlineBounds);
-            auto newShapeApproximation = BorderShape::shapeForBorderRect(style(), newOutlineBounds);
+            auto oldShapeApproximation = BorderShape::shapeForBorderRect(usedStyle(), oldOutlineBounds);
+            auto newShapeApproximation = BorderShape::shapeForBorderRect(usedStyle(), newOutlineBounds);
             if (oldShapeApproximation.radii() != newShapeApproximation.radii())
                 return true;
         }
@@ -1670,11 +1669,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
     // It's not really correct to do math here with oldOutlineBoundsRect/newOutlineBoundsRect and local shadow/radius values, since
     // oldOutlineBoundsRect/newOutlineBoundsRect are in the coordinate space of the repaint container, and have been mapped through ancestor transforms.
 
-    auto deviceScaleFactor = style().deviceScaleFactor();
-
-    CheckedRef outlineStyle = outlineStyleForRepaint();
-    auto outlineZoom = outlineStyle->usedZoomForLength();
-    auto outlineWidth = LayoutUnit { outlineStyle->usedOutlineSize(outlineZoom, deviceScaleFactor) };
+    auto outlineWidth = LayoutUnit { usedStyle().outlineSize() };
 
     CheckedRef style = this->style();
     auto zoom = style->usedZoomForLength();
@@ -1698,7 +1693,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 });
             };
             auto outlineRightInsetExtent = [&] -> LayoutUnit {
-                auto offset = Style::evaluate<LayoutUnit>(outlineStyle->usedOutlineOffset(), outlineZoom, deviceScaleFactor);
+                auto offset = usedStyle().outlineOffset();
                 return offset < 0 ? -offset : 0_lu;
             };
             auto boxShadowRightInsetExtent = [&] {
@@ -1742,7 +1737,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 });
             };
             auto outlineBottomInsetExtent = [&] -> LayoutUnit {
-                auto offset = Style::evaluate<LayoutUnit>(outlineStyle->usedOutlineOffset(), outlineZoom, deviceScaleFactor);
+                auto offset = usedStyle().outlineOffset();
                 return offset < 0 ? -offset : 0_lu;
             };
             auto boxShadowBottomInsetExtent = [&]() -> LayoutUnit {
@@ -1989,8 +1984,10 @@ const Style::ComputedStyle* RenderElement::lazyPseudoElementStyle(const Style::P
         return cachedStyle;
 
     std::unique_ptr<Style::ComputedStyle> result = resolvePseudoElementStyle(pseudoElementIdentifier, parentStyle);
-    if (result)
-        return const_cast<Style::ComputedStyle&>(m_style).addPseudoElementStyle(WTF::move(result));
+    if (result) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Style::ComputedStyle&>(m_style).addPseudoElementStyle(WTF::move(result));
+    }
     return nullptr;
 }
 
@@ -2071,9 +2068,11 @@ Color RenderElement::selectionColor() const
         return color;
     }
 
+    auto styleColorOptions = this->styleColorOptions(StyleColorOptionsPurpose::Rendering);
+
     if (frame().selection().isFocusedAndActive())
-        return theme().activeSelectionForegroundColor(styleColorOptions());
-    return theme().inactiveSelectionForegroundColor(styleColorOptions());
+        return theme().activeSelectionForegroundColor(styleColorOptions);
+    return theme().inactiveSelectionForegroundColor(styleColorOptions);
 }
 
 const Style::ComputedStyle* RenderElement::selectionPseudoStyle() const
@@ -2096,8 +2095,10 @@ Color RenderElement::selectionBackgroundColor() const
     if (style().usedUserSelect() == UserSelect::None)
         return Color();
 
+    auto styleColorOptions = this->styleColorOptions(StyleColorOptionsPurpose::Rendering);
+
     if (frame().selection().shouldShowBlockCursor() && frame().selection().isCaret())
-        return theme().transformSelectionBackgroundColor(style().visitedDependentColorApplyingColorFilter(), styleColorOptions());
+        return theme().transformSelectionBackgroundColor(style().visitedDependentColorApplyingColorFilter(), styleColorOptions);
 
     auto pseudoStyleCandidate = this;
     if (pseudoStyleCandidate->isAnonymous())
@@ -2106,12 +2107,12 @@ Color RenderElement::selectionBackgroundColor() const
     if (pseudoStyleCandidate) {
         CheckedPtr pseudoStyle = pseudoStyleCandidate->selectionPseudoStyle();
         if (pseudoStyle && pseudoStyle->visitedDependentUsedBackgroundColorApplyingColorFilter().isValid())
-            return theme().transformSelectionBackgroundColor(pseudoStyle->visitedDependentUsedBackgroundColorApplyingColorFilter(), styleColorOptions());
+            return theme().transformSelectionBackgroundColor(pseudoStyle->visitedDependentUsedBackgroundColorApplyingColorFilter(), styleColorOptions);
     }
 
     if (frame().selection().isFocusedAndActive())
-        return theme().activeSelectionBackgroundColor(styleColorOptions());
-    return theme().inactiveSelectionBackgroundColor(styleColorOptions());
+        return theme().activeSelectionBackgroundColor(styleColorOptions);
+    return theme().inactiveSelectionBackgroundColor(styleColorOptions);
 }
 
 const Style::ComputedStyle* RenderElement::spellingErrorPseudoStyle() const
@@ -2316,7 +2317,7 @@ void RenderElement::updateOutlineAutoAncestor(bool hasOutlineAuto)
         if (hasOutlineAuto == child->hasOutlineAutoAncestor())
             continue;
         child->setHasOutlineAutoAncestor(hasOutlineAuto);
-        bool childHasOutlineAuto = child->outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto;
+        bool childHasOutlineAuto = child->style().outlineStyle() == OutlineStyle::Auto;
         if (childHasOutlineAuto)
             continue;
         if (auto* element = dynamicDowncast<RenderElement>(child.get()))
@@ -2932,7 +2933,8 @@ void RenderElement::layoutIfNeeded()
 RenderHTMLCanvas* RenderElement::drawableCanvas() const
 {
     auto* canvasRenderer = ancestorsOfType<RenderHTMLCanvas>(*this).first();
-    return canvasRenderer && canvasRenderer->hasDrawableContent() ? const_cast<RenderHTMLCanvas*>(canvasRenderer) : nullptr;
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return canvasRenderer && canvasRenderer->hasDrawableContent() ? const_cast<RenderHTMLCanvas*>(canvasRenderer) : nullptr;
 }
 
 }

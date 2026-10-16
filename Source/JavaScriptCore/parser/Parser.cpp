@@ -287,7 +287,7 @@ std::expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<Lexer
     if (!sourceElements || !validEnding)
         return makeUnexpected(hasError() ? m_errorMessage : "Parser error"_s);
 
-    if (!m_lexer->isReparsingFunction() && m_seenPrivateNameUseInNonReparsingFunctionMode) {
+    if (!m_lexer->isReparsingFunction() && m_seenPrivateNameUse) {
         String errorMessage;
         scope->forEachUsedVariable([&] (UniquedStringImpl* impl) {
             if (!isPrivateFieldName(impl))
@@ -301,6 +301,15 @@ std::expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<Lexer
         });
         if (!errorMessage.isNull())
             return makeUnexpected(errorMessage);
+    }
+
+    UniquedStringImplPtrSet usedPrivateNames;
+    if (m_seenPrivateNameUse) {
+        scope->forEachUsedVariable([&](UniquedStringImpl* impl) {
+            if (isPrivateFieldName(impl))
+                usedPrivateNames.add(impl);
+            return IterationStatus::Continue;
+        });
     }
 
     // It's essential to finalize the hoisting before computing captured variables.
@@ -350,7 +359,7 @@ std::expected<typename Parser<LexerType>::ParseInnerResult, String> Parser<Lexer
     }
 #endif // ASSERT_ENABLED
 
-    return ParseInnerResult { parameters, sourceElements, scope->takeFunctionDeclarations(), scope->takeDeclaredVariables(), scope->takeLexicalEnvironment(), features };
+    return ParseInnerResult { parameters, sourceElements, scope->takeFunctionDeclarations(), scope->takeDeclaredVariables(), scope->takeLexicalEnvironment(), features, usedPrivateNames.size() };
 }
 
 template <typename LexerType>
@@ -2791,7 +2800,7 @@ template <class TreeBuilder> bool Parser<LexerType>::parseFunctionInfo(TreeBuild
         RELEASE_ASSERT(SourceParseModeSet(SourceParseMode::NormalFunctionMode, SourceParseMode::MethodMode, SourceParseMode::ArrowFunctionMode, SourceParseMode::GeneratorBodyMode, SourceParseMode::GeneratorWrapperFunctionMode, SourceParseMode::ClassStaticBlockMode).contains(mode) || isAsyncFunctionOrAsyncGeneratorWrapperParseMode(mode));
         semanticFailIfTrue(m_vm.propertyNames->arguments == *functionInfo.name, "'", functionInfo.name->impl(), "' is not a valid function name in strict mode");
         semanticFailIfTrue(m_vm.propertyNames->eval == *functionInfo.name, "'", functionInfo.name->impl(), "' is not a valid function name in strict mode");
-        semanticFailIfTrue(m_vm.propertyNames->yieldKeyword == *functionInfo.name, "'", functionInfo.name->impl(), "' is not a valid function name in strict mode");
+        semanticFailIfTrue(isStrictModeReservedWord(m_vm, functionInfo.name), "'", functionInfo.name->impl(), "' is not a valid function name in strict mode");
     }
 
     JSTokenLocation location = m_token.location();
@@ -3506,8 +3515,11 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExpressionOrL
     Scope* labelScope = currentScope();
     for (auto& label : labels)
         pushLabel(label.m_ident, isLoop);
-    m_immediateParentAllowsFunctionDeclarationInStatement = allowFunctionDeclarationAsStatement;
-    TreeStatement statement = parseStatement(context, unused);
+    TreeStatement statement = 0;
+    if (allowFunctionDeclarationAsStatement && match(FUNCTION) && !strictMode())
+        statement = parseFunctionDeclaration(context, FunctionDeclarationType::Statement);
+    else
+        statement = parseStatement(context, unused);
     for (size_t i = 0; i < labels.size(); i++)
         popLabel(labelScope);
     failIfFalse(statement, "Cannot parse statement");
@@ -3525,7 +3537,7 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExpressionSta
     // https://tc39.es/ecma262/#sec-expression-statement
     // Despite the spec's requirement to fail from FUNCTION token here, Annex B.3.1
     // permits a labelled FunctionDeclaration in sloppy mode for web compatibility
-    // reasons. We implement this semantics in parseStatement().
+    // reasons. We implement this semantics in parseExpressionOrLabelStatement().
     case CLASSTOKEN:
         failWithMessage("'class' declaration is not directly within a block statement");
     case LET: {
@@ -4438,6 +4450,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseAwaitExpress
     JSTextPosition argumentStart = tokenStartPosition();
     TreeExpression argument = parseUnaryExpression(context);
     failIfFalse(argument, "Failed to parse await expression");
+    failIfTrue(match(POW), "Ambiguous unary expression in the left hand side of the exponentiation expression; parentheses must be used to disambiguate the expression");
     currentFunctionScope()->setUsesAwait();
     return context.createAwait(location, argument, divotStart, argumentStart, lastTokenEndPosition());
 }
@@ -4505,7 +4518,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseBinaryExpres
             const Identifier* ident = m_token.m_data.ident;
             ASSERT(ident);
             currentScope()->usePrivateName(*ident);
-            m_seenPrivateNameUseInNonReparsingFunctionMode = true;
+            m_seenPrivateNameUse = true;
             next();
             semanticFailIfTrue(m_token.m_type != INTOKEN || previousOperator >= INTOKEN, "Bare private name can only be used as the left-hand side of an `in` expression");
             current = context.createPrivateIdentifierNode(location, *ident);
@@ -5222,6 +5235,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parsePrimaryExpre
         else if (!m_parserState.classFieldInitMasksAsync && (currentFunctionScope()->isAsyncFunctionBoundary() || isModuleParseMode(sourceParseMode())))
             return parseAwaitExpression(context);
 
+        semanticFailIfTrue(m_scriptMode == JSParserScriptMode::Module, "Cannot use 'await' as an identifier in a module");
         goto identifierExpression;
     case IDENT: {
         semanticFailIfTrue(currentScope()->isStaticBlock() && isArgumentsIdentifier(), "Cannot use 'arguments' as an identifier in static block");
@@ -5649,7 +5663,7 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parseMemberExpres
                     if (currentScope()->evalContextType() == EvalContextType::InstanceFieldEvalContext) [[unlikely]]
                         semanticFailIfFalse(currentScope()->hasPrivateName(*ident), "Cannot reference undeclared private field '", ident->impl(), "'");
                     currentScope()->usePrivateName(*ident);
-                    m_seenPrivateNameUseInNonReparsingFunctionMode = true;
+                    m_seenPrivateNameUse = true;
                     m_parserState.lastPrivateName = ident;
                     type = DotType::PrivateMember;
                     m_token.m_type = IDENT;

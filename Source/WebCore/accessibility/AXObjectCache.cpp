@@ -760,7 +760,7 @@ Node* AXObjectCache::modalNode()
         // understandable mistake. Only do this if literally nothing on the page is
         // accessible (!m_unignoredContentObjectCount).
         if (!m_unignoredContentObjectCount) {
-            for (auto& modal : m_modalElements) {
+            for (RefPtr modal : m_modalElements) {
                 if (!modal || !isModalElement(*modal))
                     continue;
 
@@ -972,6 +972,15 @@ IntPoint AXObjectCache::mapScreenPointToPagePoint(const IntPoint& screenRelative
     RefPtr frame = m_document ? protect(m_document)->frame() : nullptr;
     RefPtr frameView = frame ? frame->view() : nullptr;
 
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    // In a cross-site iframe's process, the root view is the main frame's, so converting through it
+    // lands in main-frame coordinates. Use this frame's own screen position instead.
+    if (frame && !frame->isMainFrame()) {
+        if (auto contentPoint = mapScreenPointToContentPointUsingFrameGeometry(screenRelativePoint))
+            return *contentPoint;
+    }
+#endif
+
     // Try to use cached accessibility position to avoid sync IPC (macOS only).
     IntPoint convertedPoint;
     if (auto localResult = page->chrome().client().screenToRootViewUsingCachedPosition(screenRelativePoint, frameView ? frameView->size() : IntSize()))
@@ -986,6 +995,40 @@ IntPoint AXObjectCache::mapScreenPointToPagePoint(const IntPoint& screenRelative
     convertedPoint.move(-obscuredContentInsets.left(), -obscuredContentInsets.top());
     return convertedPoint;
 }
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+// The inverse of AccessibilityObject::convertFrameToSpace() for screen space.
+std::optional<IntPoint> AXObjectCache::mapScreenPointToContentPointUsingFrameGeometry(const IntPoint& screenPoint) const
+{
+    if (!m_frameGeometry)
+        return std::nullopt;
+
+    auto inverseScreenTransform = m_frameGeometry->screenTransform.inverse();
+    if (!inverseScreenTransform)
+        return std::nullopt;
+
+    // screenPosition has the scroll position at the time it was taken baked in, so correct for
+    // any scrolling since then.
+    IntPoint currentScroll;
+    if (RefPtr frame = m_document ? protect(m_document)->frame() : nullptr) {
+        if (CheckedPtr frameView = frame->view())
+            currentScroll = frameView->documentScrollPositionRelativeToViewOrigin();
+    }
+    auto scrollDelta = m_frameGeometry->screenTransform.mapPoint(FloatPoint(m_frameViewOriginScrollPosition));
+    scrollDelta.moveBy(-m_frameGeometry->screenTransform.mapPoint(FloatPoint(currentScroll)));
+
+    auto screenPosition = m_frameGeometry->screenPosition;
+#if PLATFORM(MAC)
+    // macOS screen coordinates have a bottom-left origin.
+    screenPosition.move(roundToInt(scrollDelta.x()), -roundToInt(scrollDelta.y()));
+    FloatPoint offset { static_cast<float>(screenPoint.x() - screenPosition.x()), static_cast<float>(screenPosition.y() - screenPoint.y()) };
+#else
+    screenPosition.move(roundToInt(scrollDelta.x()), roundToInt(scrollDelta.y()));
+    FloatPoint offset { static_cast<float>(screenPoint.x() - screenPosition.x()), static_cast<float>(screenPoint.y() - screenPosition.y()) };
+#endif
+    return roundedIntPoint(inverseScreenTransform->mapPoint(offset));
+}
+#endif
 
 RefPtr<Page> AXObjectCache::page() const
 {
@@ -1025,14 +1068,14 @@ static RenderObjectClass renderObjectClass(RenderObject& renderer)
         return RenderObjectClass::MathML;
 #endif
 
-    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(node); select && select->usesMenuList() && !select->usesBaseAppearancePicker())
+    if (RefPtr select = dynamicDowncast<HTMLSelectElement>(node); select && select->isDropdownBox() && !select->usesBaseAppearancePicker())
         return RenderObjectClass::MenuList;
 
     RefPtr optionElement = dynamicDowncast<HTMLOptionElement>(node);
     RefPtr optGroupElement = dynamicDowncast<HTMLOptGroupElement>(node);
     if (optionElement || optGroupElement) {
         RefPtr select = optionElement ? optionElement->ownerSelectElement() : optGroupElement->ownerSelectElement();
-        if (select && !select->usesMenuList())
+        if (select && !select->isDropdownBox())
             return RenderObjectClass::ListBoxOption;
     }
 
@@ -1222,7 +1265,7 @@ AccessibilityObject* AXObjectCache::getOrCreateSlow(Node& node, IsPartOfRelation
         if (!select)
             return nullptr;
         RefPtr<AccessibilityObject> object;
-        if (select->usesMenuList() && !select->usesBaseAppearancePicker()) {
+        if (select->isDropdownBox() && !select->usesBaseAppearancePicker()) {
             if (!optionElement || !select->renderer())
                 return nullptr;
             object = AccessibilityMenuListOption::create(AXID::generate(), *optionElement, *this);
@@ -1436,8 +1479,10 @@ void AXObjectCache::setFrameGeometry(LocalFrame& frame, const AXFrameGeometry& g
 
     // Reset to zero to avoid leaving a stale value in the case of a null frame.view().
     m_frameViewOriginScrollPosition = { };
-    if (CheckedPtr view = frame.view())
-        m_frameViewOriginScrollPosition = IntPoint(view->documentScrollPositionRelativeToViewOrigin());
+    if (CheckedPtr view = frame.view()) {
+        // FIXME: Remove suppression once rdar://189998444 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST m_frameViewOriginScrollPosition = IntPoint(view->documentScrollPositionRelativeToViewOrigin());
+    }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
     if (RefPtr tree = AXIsolatedTree::treeForFrameID(m_frameID))
@@ -2152,10 +2197,13 @@ void AXObjectCache::childrenChanged(AccessibilityObject* object)
     m_deferredChildrenChangedList.add(*object);
 
     // Adding or removing rows from a table can cause it to change from layout table to AX data table and vice versa, so queue up recomputation of that for the parent table.
-    if (RefPtr tableElement = dynamicDowncast<HTMLTableElement>(object->element()))
-        deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tableElement.get()));
-    else if (RefPtr tableSectionElement = dynamicDowncast<HTMLTableSectionElement>(object->element()))
-        deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tableSectionElement->findParentTable().get()));
+    if (RefPtr tableElement = dynamicDowncast<HTMLTableElement>(object->element())) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tableElement.get()));
+    } else if (RefPtr tableSectionElement = dynamicDowncast<HTMLTableSectionElement>(object->element())) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tableSectionElement->findParentTable().get()));
+    }
 
     if (!m_performCacheUpdateTimer.isActive())
         m_performCacheUpdateTimer.startOneShot(0_s);
@@ -4315,11 +4363,53 @@ void AXObjectCache::handleActiveDescendantChange(Element& element, const AtomStr
         postPlatformNotification(*target, AXNotification::SelectedCellsChanged);
 }
 
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+// A hosted document's web area is ignored when its frame owner element is presentational (see
+// webAreaIsPresentational()), and the frame root's ignored state follows its web area's. Both live in
+// the hosted frame's own cache, so a role change on the owner must recompute them there.
+static void recomputeIsIgnoredForHostedFrameRoot(HTMLFrameOwnerElement& owner)
+{
+    RefPtr childLocalFrame = dynamicDowncast<LocalFrame>(owner.contentFrame());
+    RefPtr childDocument = childLocalFrame ? childLocalFrame->document() : nullptr;
+    CheckedPtr childCache = childDocument ? childDocument->existingAXObjectCache() : nullptr;
+    if (!childCache)
+        return;
+
+    RefPtr root = childCache->get(protect(childLocalFrame->view()).get());
+    if (!root)
+        return;
+
+    if (RefPtr webArea = root->webAreaObject())
+        webArea->recomputeIsIgnored();
+    root->recomputeIsIgnored();
+
+#if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+    // The roots of frames nested in the hosted document cache their cross-frame parent in the isolated tree,
+    // which may have been resolved through the hosted frame's root while it was ignored, so refresh them.
+    for (RefPtr frame = childLocalFrame->tree().traverseNext(childLocalFrame.get()); frame; frame = frame->tree().traverseNext(childLocalFrame.get())) {
+        RefPtr nestedLocalFrame = dynamicDowncast<LocalFrame>(frame);
+        RefPtr nestedDocument = nestedLocalFrame ? nestedLocalFrame->document() : nullptr;
+        CheckedPtr nestedCache = nestedDocument ? nestedDocument->existingAXObjectCache() : nullptr;
+        RefPtr nestedRoot = nestedCache ? nestedCache->get(protect(nestedLocalFrame->view()).get()) : nullptr;
+        if (!nestedRoot)
+            continue;
+        if (RefPtr tree = AXIsolatedTree::treeForFrameID(nestedCache->frameID()))
+            tree->queueNodeUpdate(nestedRoot->objectID(), { AXProperty::CrossFrameParentAXID });
+    }
+#endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
+}
+#endif // ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+
 void AXObjectCache::handleRoleChanged(Element& element, const AtomString& oldValue, const AtomString& newValue)
 {
     AXTRACE("AXObjectCache::handleRoleChanged"_s);
     AXLOG(makeString("oldValue "_s, oldValue, " new value "_s, newValue));
     AX_ASSERT(oldValue != newValue);
+
+#if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
+    if (RefPtr frameOwner = dynamicDowncast<HTMLFrameOwnerElement>(element))
+        recomputeIsIgnoredForHostedFrameRoot(*frameOwner);
+#endif
 
     RefPtr object = get(element);
     if (!object)
@@ -4479,8 +4569,10 @@ void AXObjectCache::handleAttributeChange(Element* element, const QualifiedName&
             // If we're re-computing the exposed state of the table, we only need to do work for non-ARIA tables, allowing us to
             // do a cheap dynamicDowncast check for an HTMLTablePartElement rather than calling AccessibilityNodeObject::parentTable().
             // (ARIA tables are inherently always exposed).
-            if (auto* tablePartElement = dynamicDowncast<HTMLTablePartElement>(element))
-                deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tablePartElement->findParentTable().get()));
+            if (auto* tablePartElement = dynamicDowncast<HTMLTablePartElement>(element)) {
+                // FIXME: Remove suppression once rdar://189998365 is fixed.
+                SUPPRESS_MEMORY_UNSAFE_CAST deferRecomputeTableIsExposed(const_cast<HTMLTableElement*>(tablePartElement->findParentTable().get()));
+            }
         } else if (RefPtr object = getOrCreate(element); object && object->isTableCell()) {
             if (RefPtr parentTable = dynamicDowncast<AccessibilityNodeObject>(object->parentTable())) {
                 if (properties.contains(TableProperty::Exposed) && !parentTable->isAriaTable())
@@ -5585,7 +5677,8 @@ std::optional<TextMarkerData> AXObjectCache::textMarkerDataForVisiblePosition(co
         }
         AX_ASSERT(domOffset >= differenceBetweenDomAndRenderedOffsets);
         unsigned renderedOffset = domOffset - differenceBetweenDomAndRenderedOffsets;
-        return createFromRendererAndOffset(const_cast<RenderText&>(*renderText), renderedOffset);
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return createFromRendererAndOffset(const_cast<RenderText&>(*renderText), renderedOffset);
     }
 #endif // ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 
@@ -6026,8 +6119,10 @@ LayoutRect AXObjectCache::localCaretRectForCharacterOffset(RenderObject*& render
         return IntRect();
 
     auto boxAndOffset = makeContainerOffsetPosition(range->start).inlineBoxAndOffset(Affinity::Downstream);
-    if (boxAndOffset.box)
-        renderer = const_cast<RenderObject*>(&boxAndOffset.box->renderer());
+    if (boxAndOffset.box) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST renderer = const_cast<RenderObject*>(&boxAndOffset.box->renderer());
+    }
 
     if (CheckedPtr renderLineBreak = dynamicDowncast<RenderLineBreak>(renderer); renderLineBreak && InlineIterator::boxFor(*renderLineBreak) != boxAndOffset.box)
         return IntRect();
@@ -6976,7 +7071,8 @@ void AXObjectCache::onPaint(const RenderObject& renderer, IntRect&& paintRect) c
                         [&](const Style::BasicShapePath& clipPath) {
                             auto borderRect = renderBox->borderBoxRect();
                             borderRect.inflate(shapePathInflationPx);
-                            auto referenceBox = FloatRect(WTF::move(borderRect));
+                            // FIXME: Remove suppression once rdar://189998444 is fixed.
+                            SUPPRESS_MEMORY_UNSAFE_CAST auto referenceBox = FloatRect(WTF::move(borderRect));
                             auto path = Style::path(clipPath.shape(), referenceBox, renderBox->style().usedZoomForLength());
                             path.transform(AffineTransform().translate(paintRectOrigin.x(), paintRectOrigin.y()));
                             m_geometryManager->cachePathForID(*axID, WTF::makeUnique<Path>(WTF::move(path)));
@@ -6986,7 +7082,7 @@ void AXObjectCache::onPaint(const RenderObject& renderer, IntRect&& paintRect) c
                 } else if (renderBox->style().border().hasBorderRadius()) {
                     auto borderRect = renderBox->borderBoxRect();
                     borderRect.inflate(shapePathInflationPx);
-                    auto borderShape = BorderShape::shapeForBorderRect(protect(renderBox->style()), WTF::move(borderRect));
+                    auto borderShape = BorderShape::shapeForBorderRect(renderBox->usedStyle(), WTF::move(borderRect));
                     auto path = borderShape.pathForOuterShape(renderer.document().deviceScaleFactor());
                     // borderBoxRect() is in local coordinates starting at (0, 0). Use the paint
                     // rect's origin to position the path, since it's already gone through
@@ -7231,7 +7327,7 @@ AXTreeData AXObjectCache::treeData(std::optional<OptionSet<AXStreamOptions>> add
             data.warnings.append("Couldn't verify the frame-loader client had an isolated tree because the cache has no m_document."_s);
         else if (!document->frame())
             data.warnings.append("Couldn't verify the frame-loader client had an isolated tree because the cache's document had no frame."_s);
-        else if (!document->frame()->loader().client().isolatedTree())
+        else if (!protect(document->frame()->loader().client())->isolatedTree())
             data.warnings.append("The frame-loader client (typically the webpage object) had no isolated tree set!"_s);
 
         stream << "\nAXIsolatedTree:\n";
@@ -7647,7 +7743,7 @@ void AXObjectCache::updateRelationsIfNeeded()
 
     if (!m_doneInitialRelationsBuild) {
         if (m_document)
-            updateRelationsForTree(m_document->rootNode());
+            updateRelationsForTree(protect(m_document->rootNode()));
         m_doneInitialRelationsBuild = true;
         addDetectedFormErrorRelations();
         return;

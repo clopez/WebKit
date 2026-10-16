@@ -115,10 +115,10 @@ static void invalidateLineLayout(RenderObject& renderer, IsRemoval isRemoval)
     if (isRemoval == IsRemoval::Yes && !renderer.everHadLayout()
         && !isWithinNeverLaidOutRenderMarqueeSubtree(renderer)) {
         // Certain mutations can make renderer to be removed before running layout. In such cases we don't have to try to
-        // run invalidation only remove it from layout tree.
+        // run invalidation only remove it from layout tree, unless the line layout asks for full invalidation.
         // One exception is for RenderMarquee, which may have run preferred width computation without performing layout.
-        if (auto* inlineLayout = container->inlineLayout())
-            inlineLayout->removedFromTree(*renderer.parent(), renderer);
+        if (auto* inlineLayout = container->inlineLayout(); inlineLayout && !inlineLayout->removedFromTree(*renderer.parent(), renderer))
+            container->invalidateLineLayout(RenderBlockFlow::InvalidationReason::InsertionOrRemoval);
         return;
     }
 
@@ -557,9 +557,8 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
     if (SUPPRESS_UNCOUNTED_ARG CheckedPtr cache = parent.document().axObjectCache())
         cache->childrenChanged(parent, newChild);
 
-    if (parent.hasOutlineAutoAncestor() || parent.outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto)
-        if (!is<RenderMultiColumnSet>(newChild->previousSibling())) 
-            newChild->setHasOutlineAutoAncestor();
+    if ((parent.hasOutlineAutoAncestor() || parent.style().outlineStyle() == OutlineStyle::Auto) && !is<RenderMultiColumnSet>(newChild->previousSibling()))
+        newChild->setHasOutlineAutoAncestor();
 }
 
 void RenderTreeBuilder::move(RenderBoxModelObject& from, RenderBoxModelObject& to, RenderObject& child, RenderObject* beforeChild, NormalizeAfterInsertion normalizeAfterInsertion)

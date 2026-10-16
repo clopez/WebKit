@@ -369,11 +369,6 @@ IntSize RenderImage::imageContainerSize() const
     return flooredIntSize(replacedContentRect().size());
 }
 
-LayoutRect RenderImage::imagePaintRect() const
-{
-    return computePaintRectForObjectViewBox(replacedContentRect());
-}
-
 NaturalDimensions RenderImage::zoomedNaturalDimensions() const
 {
     return imageResource().naturalDimensions().zoomed(style().usedZoom());
@@ -552,22 +547,6 @@ String RenderImage::accessibilityDescription() const
 bool RenderImage::shouldDisplayBrokenImageIcon() const
 {
     return imageResource().errorOccurred();
-}
-
-// A width or height of 0 is a natural dimension of 0 rather than an absent one,
-// except that a natural height of 0 is superseded by one derived from the natural
-// width and aspect ratio. See:
-// https://github.com/w3c/csswg-drafts/issues/6286#issuecomment-866986544 and
-// https://github.com/w3c/csswg-drafts/issues/11236#issuecomment-2718502765
-bool RenderImage::shouldRespectZeroIntrinsicWidth() const
-{
-    return imageResource().naturalDimensions().width.has_value();
-}
-
-bool RenderImage::shouldRespectZeroIntrinsicHeight() const
-{
-    auto naturalDimensions = imageResource().naturalDimensions();
-    return naturalDimensions.height && !naturalDimensions.width;
 }
 
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
@@ -757,7 +736,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
     auto replacedContentRect = this->replacedContentRect();
     replacedContentRect.moveBy(paintOffset);
 
-    auto paintRect = imagePaintRect();
+    auto paintRect = replacedContentPaintRect();
     paintRect.moveBy(paintOffset);
 
     float snappingScaleFactor = protect(document())->pixelSnappingScaleFactor();
@@ -814,7 +793,7 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
     if (!areaElementStyle)
         return;
 
-    auto outlineWidth = Style::evaluate<float>(areaElementStyle->usedOutlineWidth(), areaElementStyle->usedZoomForLength(), areaElementStyle->deviceScaleFactor());
+    auto outlineWidth = Style::evaluate<float>(Style::effectiveOutlineWidth(*areaElementStyle), areaElementStyle->usedZoomForLength(), areaElementStyle->deviceScaleFactor());
     if (!outlineWidth)
         return;
 
@@ -832,7 +811,7 @@ void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPo
     adjustedOffset.moveBy(location());
     path.translate(toFloatSize(adjustedOffset));
 
-    auto styleOptions = styleColorOptions();
+    auto styleOptions = styleColorOptions(StyleColorOptionsPurpose::Rendering);
     styleOptions.add(StyleColorOptions::UseSystemAppearance);
     paintInfo.context().drawFocusRing(path, outlineWidth, RenderTheme::singleton().focusRingColor(styleOptions), style().usedZoom());
 }
@@ -865,7 +844,7 @@ RefPtr<NativeImage> RenderImage::createNativeImageAsPainted(float deviceScaleFac
     auto& context = imageBuffer->context();
     context.translate(-contentBoxRect.x().toFloat(), -contentBoxRect.y().toFloat());
 
-    auto paintRect = imagePaintRect();
+    auto paintRect = replacedContentPaintRect();
     if (!contentBoxRect.contains(paintRect))
         context.clip(snapRectToDevicePixels(contentBoxRect, scaleFactor));
 

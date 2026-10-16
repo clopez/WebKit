@@ -537,7 +537,7 @@ auto RenderTableCell::localRectsForRepaint(RepaintOutlineBounds repaintOutlineBo
         return RenderBlockFlow::localRectsForRepaint(repaintOutlineBounds);
 
     bool flippedInline = tableWritingMode().isInlineFlipped();
-    LayoutUnit outlineSize { style().usedOutlineSize(style().usedZoomForLength(), style().deviceScaleFactor()) };
+    LayoutUnit outlineSize { usedStyle().outlineSize() };
     LayoutUnit left = std::max(borderHalfLeft(true), outlineSize);
     LayoutUnit right = std::max(borderHalfRight(true), outlineSize);
     LayoutUnit top = std::max(borderHalfTop(true), outlineSize);
@@ -1651,7 +1651,7 @@ void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoin
     adjustBorderBoxRectForPainting(paintRect);
 
     BackgroundPainter backgroundPainter { *this, paintInfo };
-    backgroundPainter.paintBoxShadow(paintRect, style(), Style::ShadowStyle::Normal);
+    backgroundPainter.paintBoxShadow(paintRect, usedStyle(), Style::ShadowStyle::Normal);
 
     // Paint our cell background.
     paintBackgroundsBehindCell(paintInfo, paintOffset, this, paintOffset);
@@ -1661,7 +1661,7 @@ void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoin
     if (table->collapseBorders())
         insetShadowRect.expand(RectEdges<LayoutUnit> { borderTop(), borderRight(), borderBottom(), borderLeft() });
 
-    backgroundPainter.paintBoxShadow(insetShadowRect, style(), Style::ShadowStyle::Inset);
+    backgroundPainter.paintBoxShadow(insetShadowRect, usedStyle(), Style::ShadowStyle::Inset);
 
     if (!style().border().hasBorder() || table->collapseBorders())
         return;

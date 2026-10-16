@@ -406,7 +406,7 @@ public:
     RenderFragmentedFlow* enclosingFragmentedFlow() const;
 
     WEBCORE_EXPORT bool useDarkAppearance() const;
-    WEBCORE_EXPORT OptionSet<StyleColorOptions> styleColorOptions() const;
+    WEBCORE_EXPORT OptionSet<StyleColorOptions> styleColorOptions(StyleColorOptionsPurpose) const;
 
     // Creates a scope where this object will assert on calls to setNeedsLayout().
     class SetLayoutNeededForbiddenScope;
@@ -872,11 +872,10 @@ public:
 
     inline const Style::ComputedStyle& style() const LIFETIME_BOUND; // Defined in RenderObjectStyle.h.
     inline UsedStyle usedStyle() const LIFETIME_BOUND; // Defined in RenderElementInlines.h.
+    inline UsedStyle firstLineUsedStyle() const LIFETIME_BOUND; // Defined in RenderElementInlines.h.
     inline CheckedRef<const Style::ComputedStyle> firstLineStyle() const LIFETIME_BOUND;
     inline WritingMode writingMode() const; // Defined in RenderObjectStyle.h.
     // writingMode().isHorizontal() is cached by isHorizontalWritingMode() above.
-
-    virtual const Style::ComputedStyle& outlineStyleForRepaint() const LIFETIME_BOUND;
 
     virtual CursorDirective getCursor(const LayoutPoint&, Cursor&) const;
 
@@ -1490,8 +1489,10 @@ inline bool RenderObject::usesBoundaryCaching() const
 
 inline CachedImageClient& RenderObject::cachedImageClient() const
 {
-    if (!m_cachedImageClient)
-        lazyInitialize(m_cachedImageClient, CachedImageListener::create(*const_cast<RenderObject*>(this)));
+    if (!m_cachedImageClient) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST lazyInitialize(m_cachedImageClient, CachedImageListener::create(*const_cast<RenderObject*>(this)));
+    }
     return *m_cachedImageClient.get();
 }
 

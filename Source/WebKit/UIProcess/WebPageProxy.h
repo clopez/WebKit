@@ -333,6 +333,7 @@ struct ExceptionDetails;
 struct FileChooserSettings;
 struct FocusOptions;
 struct FontAttributes;
+struct FrameGeometryUpdate;
 struct FrameIdentifierType;
 struct FrameTreeSyncSerializationData;
 struct GrammarDetail;
@@ -392,6 +393,7 @@ struct TranslationContextMenuInfo;
 struct UserGestureTokenData;
 struct UserMediaRequestIdentifierType;
 struct ViewportArguments;
+struct ViewportSegments;
 struct WheelEventHandlingResult;
 struct WindowFeatures;
 struct WrappedCryptoKey;
@@ -399,13 +401,16 @@ struct WrappedCryptoKey;
 #if ENABLE(WEB_AUTHN)
 struct MockWebAuthenticationConfiguration;
 struct DigitalCredentialsMobileDocumentRequestData;
+struct DigitalCredentialsOpenID4VPRequestData;
 
 struct MobileDocumentRequest;
 struct OpenID4VPMultisignedRequest;
 struct OpenID4VPSignedRequest;
-using UnvalidatedDigitalCredentialRequest = Variant<MobileDocumentRequest, OpenID4VPSignedRequest, OpenID4VPMultisignedRequest>;
+struct OpenID4VPUnsignedRequest;
+using UnvalidatedDigitalCredentialRequest = Variant<MobileDocumentRequest, OpenID4VPSignedRequest, OpenID4VPMultisignedRequest, OpenID4VPUnsignedRequest>;
 using DigitalCredentialsRequestData = Variant<
-    WebCore::DigitalCredentialsMobileDocumentRequestData
+    WebCore::DigitalCredentialsMobileDocumentRequestData,
+    WebCore::DigitalCredentialsOpenID4VPRequestData
 >;
 using DigitalCredentialsRawRequests = Variant<Vector<UnvalidatedDigitalCredentialRequest>
     >;
@@ -531,6 +536,7 @@ class BrowsingContextGroup;
 class BrowsingWarning;
 class CallbackID;
 class ContextMenuContextData;
+class DebuggerPauseCoordinator;
 class DownloadProxy;
 class DrawingAreaProxy;
 class FrameState;
@@ -717,6 +723,7 @@ enum class FindOptions : uint16_t;
 enum class ForceSoftwareCapturingViewportSnapshot : bool;
 enum class GestureRecognizerState : uint8_t;
 enum class GestureType : uint8_t;
+enum class HitTestAtPointError : uint8_t;
 enum class InputType : uint8_t;
 enum class LoadedWebArchive : bool;
 enum class TextRecognitionUpdateResult : uint8_t;
@@ -902,6 +909,9 @@ public:
 #endif
 
     void sendMessageToInspectorFrontend(const String& targetId, const String& message);
+    void frameDidPauseForDebugger(IPC::Connection&, WebCore::FrameIdentifier);
+    void frameDidContinueForDebugger(IPC::Connection&, WebCore::FrameIdentifier);
+    void lastInspectorFrontendDidDisconnect();
 
     void getAllFrames(CompletionHandler<void(std::optional<FrameTreeNodeData>&&)>&&);
     void getAllFrameTreesForSiteIsolationTesting(CompletionHandler<void(Vector<FrameTreeNodeData>&&)>&&);
@@ -1853,6 +1863,7 @@ public:
 
 #if PLATFORM(COCOA)
     void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
+    void performDictionaryLookupAtLocationInFrame(WebCore::FrameIdentifier, const WebCore::FloatPoint&);
 #endif
 
     enum class WillContinueLoadInNewProcess : bool { No, Yes };
@@ -2160,6 +2171,8 @@ public:
 
     void setViewportSizeForCSSViewportUnits(const WebCore::FloatSize&);
     WebCore::FloatSize LEGACY_NODELETE viewportSizeForCSSViewportUnits() const;
+
+    void setViewportSegments(const WebCore::ViewportSegments&);
 
     void didReceiveAuthenticationChallengeProxy(Ref<AuthenticationChallengeProxy>&&, NegotiatedLegacyTLS);
     bool canShowLocalNetworkAccessPrompt(const WebCore::ClientOrigin&) const;
@@ -2792,6 +2805,7 @@ public:
 
     void broadcastFrameTreeSyncData(IPC::Connection&, WebCore::FrameIdentifier, const WebCore::FrameTreeSyncSerializationData&);
     void broadcastAllFrameTreeSyncData(IPC::Connection&, WebCore::FrameIdentifier,  Ref<WebCore::FrameTreeSyncData>&&);
+    void handleFrameGeometryUpdates(IPC::Connection&, const Vector<WebCore::FrameGeometryUpdate>&);
 
     void didNotifyUserActivation(IPC::Connection&, WebCore::FrameIdentifier, MonotonicTime, std::optional<WebCore::UserGestureTokenIdentifier>);
     void didConsumeUserActivation(IPC::Connection&, WebCore::FrameIdentifier);
@@ -3020,7 +3034,8 @@ public:
 
     void forEachWebContentProcess(NOESCAPE const Function<void(WebProcessProxy&, WebCore::PageIdentifier)>&);
 
-    void hitTestAtPoint(WebCore::FrameIdentifier, WebCore::FloatPoint, API::ContentWorld&, CompletionHandler<void(std::optional<JSHandleInfo>&&)>&&);
+    void hitTestAtPoint(WebCore::FrameIdentifier, WebCore::FloatPoint, API::ContentWorld&, CompletionHandler<void(std::expected<std::optional<JSHandleInfo>, HitTestAtPointError>&&, WebHitTestResultData&&)>&&);
+    void convertRectToMainFrameCoordinates(WebCore::FloatRect, std::optional<WebCore::FrameIdentifier>, CompletionHandler<void(std::optional<WebCore::FloatRect>)>&&);
 
 #if HAVE(SPATIAL_TRACKING_LABEL)
     void setDefaultSpatialTrackingLabel(const String&);
@@ -4350,6 +4365,7 @@ private:
 #endif
 
     const UniqueRef<WebPageInspectorController> m_inspectorController;
+    std::unique_ptr<DebuggerPauseCoordinator> m_debuggerPauseCoordinator;
 #if ENABLE(REMOTE_INSPECTOR)
     RefPtr<WebPageDebuggable> m_inspectorDebuggable;
 #endif

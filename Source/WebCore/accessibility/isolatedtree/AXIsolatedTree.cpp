@@ -300,7 +300,7 @@ void AXIsolatedTree::reportLoadingProgress(double processingProgress)
     String title = AXProcessingPage(loadingProgress());
     AXLOG(title);
 
-    WeakPtr cache = axObjectCache();
+    CheckedPtr cache = axObjectCache();
     if (RefPtr axWebArea = cache ? cache->rootWebArea() : nullptr) {
         AXPropertyVector properties;
         properties.append({ AXProperty::WebAreaTitle, WTF::move(title) });
@@ -337,7 +337,7 @@ void AXIsolatedTree::generateSubtree(AccessibilityObject& axObject)
         return;
 
     // We're about to a lot of read-only work, so start the attribute cache.
-    AXAttributeCacheScope enableCache(axObject.axObjectCache());
+    AXAttributeCacheScope enableCache(protect(axObject.axObjectCache()));
     collectNodeChangesForSubtree(axObject);
     queueRemovalsAndUnresolvedChanges();
 }
@@ -754,6 +754,21 @@ void AXIsolatedTree::updateNodeProperties(AccessibilityObject& axObject, const A
             AX_ASSERT(axObject.isWebArea());
             properties.append({ AXProperty::IsFocusedWebArea, axObject.isFocused() });
             break;
+#if ENABLE_ACCESSIBILITY_LOCAL_FRAME
+        case AXProperty::CrossFrameParentAXID: {
+            // The parent's frame ID is only meaningful alongside its AXID, so update both.
+            RefPtr crossFrameParent = axObject.isScrollArea() && !axObject.parentObject() ? axObject.crossFrameParentObject() : nullptr;
+            WeakPtr parentCache = crossFrameParent ? crossFrameParent->axObjectCache() : nullptr;
+            if (parentCache) {
+                properties.append({ AXProperty::CrossFrameParentFrameID, parentCache->frameID() });
+                properties.append({ AXProperty::CrossFrameParentAXID, Markable { crossFrameParent->objectID() } });
+            } else {
+                properties.append({ AXProperty::CrossFrameParentFrameID, nullptr });
+                properties.append({ AXProperty::CrossFrameParentAXID, nullptr });
+            }
+            break;
+        }
+#endif // ENABLE_ACCESSIBILITY_LOCAL_FRAME
         case AXProperty::CurrentState:
             properties.append({ AXProperty::CurrentState, static_cast<int>(axObject.currentState()) });
             break;
@@ -1078,7 +1093,7 @@ void AXIsolatedTree::updateChildren(AccessibilityObject& axObject, ResolveNodeCh
         return;
 
     // We're about to do a lot of work, so start the attribute cache.
-    AXAttributeCacheScope enableCache(axObject.axObjectCache());
+    AXAttributeCacheScope enableCache(protect(axObject.axObjectCache()));
 
     // updateChildren may be called as the result of a children changed
     // notification for an axObject that has no associated isolated object.
@@ -1183,7 +1198,7 @@ void AXIsolatedTree::updateChildrenForObjects(const ListHashSet<Ref<Accessibilit
     if (isUpdatingSubtree())
         return;
 
-    AXAttributeCacheScope enableCache(axObjectCache());
+    AXAttributeCacheScope enableCache(protect(axObjectCache()));
     for (auto& axObject : axObjects)
         queueNodeUpdate(axObject->objectID(), NodeUpdateOptions::childrenUpdate());
 
@@ -1335,8 +1350,10 @@ void AXIsolatedTree::updateFrameGeometryAndScrollPositionIfNeeded(AXObjectCache&
 {
     if (std::optional geometry = cache.getAndUpdateFrameGeometry()) {
         IntPoint viewOriginScrollPosition;
-        if (CheckedPtr view = protect(cache.document())->view())
-            viewOriginScrollPosition = IntPoint(view->documentScrollPositionRelativeToViewOrigin());
+        if (CheckedPtr view = protect(cache.document())->view()) {
+            // FIXME: Remove suppression once rdar://189998444 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST viewOriginScrollPosition = IntPoint(view->documentScrollPositionRelativeToViewOrigin());
+        }
         setFrameGeometry(AXFrameGeometry { *geometry }, viewOriginScrollPosition);
     }
 }
@@ -2149,7 +2166,7 @@ void AXIsolatedTree::processQueuedNodeUpdates()
         if (!cache)
             break;
 
-        if (RefPtr axObject = cache->objectForID(nodeID))
+        if (RefPtr axObject = protect(cache)->objectForID(nodeID))
             updateChildren(*axObject, ResolveNodeChanges::No);
     }
     m_needsUpdateChildren.clear();
@@ -2170,16 +2187,16 @@ void AXIsolatedTree::processQueuedNodeUpdates()
         if (!cache)
             break;
 
-        if (RefPtr axObject = cache->objectForID(propertyUpdate.key))
+        if (RefPtr axObject = protect(cache)->objectForID(propertyUpdate.key))
             updateNodeProperties(*axObject, propertyUpdate.value);
     }
 
     if (m_relationsNeedUpdate && cache)
-        updateRelations(cache->relations());
+        updateRelations(protect(cache)->relations());
 
     if (m_mostRecentlyPaintedTextIsDirty) {
         m_mostRecentlyPaintedTextIsDirty = false;
-        markDirtyAndGetWorkingChanges().mostRecentlyPaintedText = cache ? cache->mostRecentlyPaintedText() : HashMap<AXID, LineRange> { };
+        markDirtyAndGetWorkingChanges().mostRecentlyPaintedText = cache ? protect(cache)->mostRecentlyPaintedText() : HashMap<AXID, LineRange> { };
     }
 
     queueRemovalsAndUnresolvedChanges();
@@ -2659,10 +2676,6 @@ IsolatedObjectData createIsolatedObjectData(const Ref<AccessibilityObject>& axOb
 
         if (object.isImage())
             setProperty(AXProperty::EmbeddedImageDescription, object.embeddedImageDescription().isolatedCopy());
-
-        // On macOS, we only advertise support for the visible children attribute for lists and listboxes.
-        if (object.isList() || object.isListBox())
-            setObjectVectorProperty(AXProperty::VisibleChildren, object.visibleChildren());
 
         if (object.isDateTime()) {
             setProperty(AXProperty::DateTimeValue, object.dateTimeValue().isolatedCopy());

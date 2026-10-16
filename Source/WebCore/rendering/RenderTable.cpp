@@ -969,7 +969,7 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
 
     auto bleedAvoidance = determineBleedAvoidance(paintInfo.context());
     if (!BackgroundPainter::boxShadowShouldBeAppliedToBackground(*this, rect.location(), bleedAvoidance, { }))
-        backgroundPainter.paintBoxShadow(rect, style(), Style::ShadowStyle::Normal);
+        backgroundPainter.paintBoxShadow(rect, usedStyle(), Style::ShadowStyle::Normal);
 
     GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
     if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer) {
@@ -977,13 +977,13 @@ void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& p
         // into a transparency layer, and then clip that in one go (which requires setting up the clip before
         // beginning the layer).
         stateSaver.save();
-        auto borderShape = BorderShape::shapeForBorderRect(style(), rect);
+        auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), rect);
         borderShape.clipToOuterShape(paintInfo.context(), style().deviceScaleFactor());
         paintInfo.context().beginTransparencyLayer(1);
     }
 
     backgroundPainter.paintBackground(rect, bleedAvoidance);
-    backgroundPainter.paintBoxShadow(rect, style(), Style::ShadowStyle::Inset);
+    backgroundPainter.paintBoxShadow(rect, usedStyle(), Style::ShadowStyle::Inset);
 
     if (style().border().hasVisibleBorderDecoration() && !collapseBorders())
         BorderPainter { *this, paintInfo }.paintBorder(rect, usedStyle());
@@ -1153,8 +1153,10 @@ LayoutUnit RenderTable::borderSpacingInRowDirection() const
 RenderTableCol* RenderTable::firstColumn() const
 {
     for (auto& child : childrenOfType<RenderObject>(*this)) {
-        if (auto* column = dynamicDowncast<RenderTableCol>(child))
-            return const_cast<RenderTableCol*>(column);
+        if (auto* column = dynamicDowncast<RenderTableCol>(child)) {
+            // FIXME: Remove suppression once rdar://189998365 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<RenderTableCol*>(column);
+        }
     }
     return nullptr;
 }

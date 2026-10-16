@@ -268,7 +268,21 @@ void RenderLayer::paintForegroundChildrenForSVG(GraphicsContext& context, const 
         return;
     }
 
+    // FIXME: A composited document element RenderSVGRoot still blends the root background.
+    bool blendContents = blendModeAppliesToSVGRootContentsOnly() && paintsWithTransparency(localPaintingInfo.paintBehavior);
+    if (blendContents) {
+        context.save();
+        context.setCompositeOperation(context.compositeOperation(), blendMode());
+        context.beginTransparencyLayer(1);
+        context.setCompositeOperation(context.compositeOperation(), BlendMode::Normal);
+    }
+
     paintChildrenInDOMOrderForSVG(context, localPaintingInfo, paintFlags, layerFragments, paintBehavior, subtreePaintRoot, svgPaintOrderItemRange, svgFilterChildLayerCorrection);
+
+    if (blendContents) {
+        context.endTransparencyLayer();
+        context.restore();
+    }
 }
 
 RenderLayer::HitLayer RenderLayer::hitTestChildrenForSVG(RenderLayer* rootLayer, const HitTestRequest& request, HitTestResult& result, const LayoutRect& hitTestRect, const HitTestLocation& hitTestLocation, const HitTestingTransformState* transformState, double* zOffsetForDescendants)
@@ -296,8 +310,28 @@ bool RenderLayer::shouldSkipRepaintAfterLayoutForSVG() const
     ASSERT(m_svgData);
     ASSERT(renderer().document().settings().layerBasedSVGEngineEnabled());
 
-    // The SVG containers themselves never trigger repaints, only their contents are allowed to.
-    return is<RenderSVGContainer>(renderer()) && !shouldPaintWithFilters();
+    // SVG containers leave repaints to their contents, unless they changed themselves.
+    if (!is<RenderSVGContainer>(renderer()) || shouldPaintWithFilters())
+        return false;
+    return m_repaintStatus != RepaintStatus::NeedsFullRepaint || is<RenderSVGHiddenContainer>(renderer());
+}
+
+std::optional<TransformationMatrix> RenderLayer::containerTransformForRepaintForSVG() const
+{
+    // Hidden containers never paint, so their transform needs no repaint.
+    CheckedPtr container = dynamicDowncast<RenderSVGContainer>(renderer());
+    if (!container || is<RenderSVGHiddenContainer>(*container))
+        return std::nullopt;
+    return container->transformToParentUserSpace();
+}
+
+void RenderLayer::setNeedsFullRepaintIfSVGContainerTransformChanged(const RenderLayerModelObject* repaintContainer)
+{
+    // The children of a container cannot repaint the area under its old transform.
+    if (!m_svgData || !m_svgData->containerTransformForRepaintRects || repaintContainer == &renderer())
+        return;
+    if (m_svgData->containerTransformForRepaintRects != containerTransformForRepaintForSVG())
+        m_repaintStatus = RepaintStatus::NeedsFullRepaint;
 }
 
 bool RenderLayer::isCompositedSVGPaintOrderChild() const
@@ -878,7 +912,8 @@ void RenderLayer::paintSubtreeWithinTransformScopeForSVG(GraphicsContext& contex
         if (!viewportContainer->hasSelfPaintingLayer() && SVGRenderSupport::isOverflowHidden(*viewportContainer)) {
             clipSaver.save();
             auto clipOffset = viewportContainer->isTransformed() ? LayoutPoint() : paintOffset;
-            context.clip(FloatRect(viewportContainer->overflowClipRect(clipOffset)));
+            // FIXME: Remove suppression once rdar://189998444 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST context.clip(FloatRect(viewportContainer->overflowClipRect(clipOffset)));
         }
     }
 
@@ -1026,7 +1061,8 @@ RenderLayer::HitLayer RenderLayer::hitTestRendererByInversingTransformForSVG(Ren
         return { };
 
     auto localPoint = inverse->mapPoint(hitTestLocation.point());
-    auto localRect = enclosingLayoutRect(inverse->mapRect(FloatRect(hitTestRect)));
+    // FIXME: Remove suppression once rdar://189998444 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST auto localRect = enclosingLayoutRect(inverse->mapRect(FloatRect(hitTestRect)));
 
     HitTestLocation localLocation { LayoutPoint { localPoint } };
 

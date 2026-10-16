@@ -1232,8 +1232,10 @@ Editor& Document::editor()
 
 const Editor& Document::editor() const
 {
-    if (!m_editor)
-        return const_cast<Document&>(*this).ensureEditor();
+    if (!m_editor) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Document&>(*this).ensureEditor();
+    }
     return *m_editor;
 }
 
@@ -1523,25 +1525,25 @@ const Color& Document::themeColor()
     return m_cachedThemeColor;
 }
 
-Color Document::linkColor(const Style::ComputedStyle& style) const
+Color Document::linkColor(const Style::ComputedStyle& style, StyleColorOptionsPurpose purpose) const
 {
     if (m_linkColor.isValid())
         return m_linkColor;
-    return CSS::colorFromKeyword(CSSValueID::WebkitLink, styleColorOptions(&style));
+    return CSS::colorFromKeyword(CSSValueID::WebkitLink, styleColorOptions(&style, purpose));
 }
 
-Color Document::visitedLinkColor(const Style::ComputedStyle& style) const
+Color Document::visitedLinkColor(const Style::ComputedStyle& style, StyleColorOptionsPurpose purpose) const
 {
     if (m_visitedLinkColor.isValid())
         return m_visitedLinkColor;
-    return CSS::colorFromKeyword(CSSValueID::WebkitLink, styleColorOptions(&style) | StyleColorOptions::ForVisitedLink);
+    return CSS::colorFromKeyword(CSSValueID::WebkitLink, styleColorOptions(&style, purpose) | StyleColorOptions::ForVisitedLink);
 }
 
-Color Document::activeLinkColor(const Style::ComputedStyle& style) const
+Color Document::activeLinkColor(const Style::ComputedStyle& style, StyleColorOptionsPurpose purpose) const
 {
     if (m_activeLinkColor.isValid())
         return m_activeLinkColor;
-    return CSS::colorFromKeyword(CSSValueID::WebkitActivelink, styleColorOptions(&style));
+    return CSS::colorFromKeyword(CSSValueID::WebkitActivelink, styleColorOptions(&style, purpose));
 }
 
 void Document::resetLinkColor()
@@ -4009,7 +4011,8 @@ AXObjectCache* Document::axObjectCache() const
         return m_topAXObjectCache.get();
 #endif // !ENABLE_ACCESSIBILITY_LOCAL_FRAME
 
-    m_axObjectCache = makeUnique<AXObjectCache>(*protect(m_frame), const_cast<Document*>(this));
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST m_axObjectCache = makeUnique<AXObjectCache>(*protect(m_frame), const_cast<Document*>(this));
     Document::hasEverCreatedAnAXObjectCache = true;
     return m_axObjectCache.get();
 }
@@ -4523,8 +4526,13 @@ void Document::implicitClose()
     // necessary and can in fact be actively harmful if pages are loading at a rate of > 60fps
     // (if your platform is syncing flushes and limiting them to 60fps).
     RefPtr owner = ownerElement();
-    CheckedPtr ownerRenderer = owner ? owner->renderer() : nullptr;
-    if (!owner || (ownerRenderer && !ownerRenderer->needsLayout())) {
+    auto shouldUpdateStyleAndLayout = [&] {
+        if (!owner)
+            return true;
+        auto* ownerRenderer = owner->renderer();
+        return ownerRenderer && !ownerRenderer->needsLayout();
+    }();
+    if (shouldUpdateStyleAndLayout) {
         updateStyleIfNeeded();
 
         // Always do a layout after loading if needed.
@@ -5429,7 +5437,8 @@ bool Document::usesStyleBasedEditability() const
     ASSERT(!m_renderView || !m_renderView->frameView().isPainting());
     ASSERT(!m_inStyleRecalc);
 
-    auto& styleScope = const_cast<Style::DocumentScope&>(this->styleScope());
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST auto& styleScope = const_cast<Style::DocumentScope&>(this->styleScope());
     styleScope.flushPendingUpdate();
     return styleScope.usesStyleBasedEditability();
 }
@@ -5746,6 +5755,26 @@ void Document::metaElementColorSchemeChanged()
     processColorScheme(colorSchemeString);
 }
 #endif
+
+void Document::metaElementTextScaleChanged()
+{
+    auto textScaleMeta = TextScaleMeta::Legacy;
+    for (CheckedRef metaElement : descendantsOfType<HTMLMetaElement>(rootNode())) {
+        if (!equalLettersIgnoringASCIICase(metaElement->attributeWithoutSynchronization(nameAttr), "text-scale"_s))
+            continue;
+        if (equalLettersIgnoringASCIICase(metaElement->attributeWithoutSynchronization(contentAttr), "scale"_s))
+            textScaleMeta = TextScaleMeta::Scale;
+        break;
+    }
+    m_textScaleMeta = textScaleMeta;
+}
+
+TextScaleMeta Document::textScaleMeta() const
+{
+    if (!settings().cssTextScaleMetaEnabled())
+        return TextScaleMeta::Legacy;
+    return m_textScaleMeta;
+}
 
 #if PLATFORM(IOS_FAMILY)
 
@@ -7279,7 +7308,8 @@ Document& Document::contextDocument() const
 {
     if (m_contextDocument)
         return *m_contextDocument.get();
-    return const_cast<Document&>(*this);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Document&>(*this);
 }
 
 void Document::setAttributeEventListener(const AtomString& eventType, const QualifiedName& attributeName, const AtomString& attributeValue, DOMWrapperWorld& isolatedWorld)
@@ -8260,10 +8290,12 @@ Document* Document::mainFrameDocument() const
         Document* localMainDocument = nullptr;
         if (RefPtr localMainFrame = this->localMainFrame())
             localMainDocument = localMainFrame->document();
-        return localMainDocument ? localMainDocument : const_cast<Document*>(this);
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return localMainDocument ? localMainDocument : const_cast<Document*>(this);
     }
 
-    Document* document = const_cast<Document*>(this);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST Document* document = const_cast<Document*>(this);
     while (HTMLFrameOwnerElement* element = document->ownerElement())
         document = &element->document();
     return document;
@@ -8312,7 +8344,7 @@ ScriptRunner& Document::ensureScriptRunner()
 ScriptModuleLoader& Document::ensureModuleLoader()
 {
     ASSERT(!m_moduleLoader);
-    m_moduleLoader = makeUnique<ScriptModuleLoader>(this, ScriptModuleLoader::OwnerType::Document);
+    m_moduleLoader = makeUnique<ScriptModuleLoader>(*this, ScriptModuleLoader::OwnerType::Document);
     return *m_moduleLoader;
 }
 
@@ -9398,8 +9430,10 @@ DocumentFullscreen& Document::fullscreen()
 
 const DocumentFullscreen& Document::fullscreen() const
 {
-    if (!m_fullscreen)
-        return const_cast<Document&>(*this).ensureFullscreen();
+    if (!m_fullscreen) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Document&>(*this).ensureFullscreen();
+    }
     return *m_fullscreen;
 }
 #endif
@@ -10410,7 +10444,7 @@ bool Document::isAXCustomColorModeActive() const
 
 #endif // ENABLE(AX_CUSTOM_COLOR_MODE)
 
-OptionSet<StyleColorOptions> Document::styleColorOptions(const Style::ComputedStyle* style) const
+OptionSet<StyleColorOptions> Document::styleColorOptions(const Style::ComputedStyle* style, StyleColorOptionsPurpose purpose) const
 {
     OptionSet<StyleColorOptions> options;
     if (settings().useSystemAppearance())
@@ -10420,7 +10454,9 @@ OptionSet<StyleColorOptions> Document::styleColorOptions(const Style::ComputedSt
     if (useElevatedUserInterfaceLevel())
         options.add(StyleColorOptions::UseElevatedUserInterfaceLevel);
 
-    adjustStyleColorOptionsIfNeeded(options);
+    if (purpose == StyleColorOptionsPurpose::Rendering)
+        adjustStyleColorOptionsIfNeeded(options);
+
     return options;
 }
 

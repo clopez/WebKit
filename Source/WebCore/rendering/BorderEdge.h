@@ -36,6 +36,8 @@
 
 namespace WebCore {
 
+class UsedStyle;
+
 namespace Style {
 class ComputedStyle;
 }
@@ -74,8 +76,8 @@ private:
 using BorderEdges = RectEdges<BorderEdge>;
 
 // inflation is only added to edges with non-zero widths.
-BorderEdges borderEdges(const Style::ComputedStyle&, float deviceScaleFactor, RectEdges<bool> closedEdges = { true }, LayoutSize inflation = { }, bool setColorsToBlack = false);
-BorderEdges borderEdgesForOutline(const Style::ComputedStyle&, BorderStyle, float deviceScaleFactor);
+BorderEdges borderEdges(const UsedStyle&, float deviceScaleFactor, RectEdges<bool> closedEdges = { true }, LayoutSize inflation = { }, bool setColorsToBlack = false);
+BorderEdges borderEdgesForOutline(const UsedStyle&, const Color&, BorderStyle, float deviceScaleFactor);
 
 inline bool edgesShareColor(const BorderEdge& firstEdge, const BorderEdge& secondEdge) { return equalIgnoringSemanticColor(firstEdge.color(), secondEdge.color()); }
 

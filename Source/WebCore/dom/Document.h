@@ -422,6 +422,8 @@ enum class CustomElementNameValidationStatus : uint8_t {
 
 enum class ClonedDocumentType : uint8_t { XMLDocument, XHTMLDocument, HTMLDocument, SVGDocument, Document };
 
+enum class TextScaleMeta : bool { Legacy, Scale };
+
 using RenderingContext = Variant<
 #if ENABLE(WEBGL)
     Ref<WebGLRenderingContext>,
@@ -780,7 +782,7 @@ public:
     OptionSet<ColorScheme> resolvedColorScheme(const Style::ComputedStyle*) const;
 #endif
 
-    OptionSet<StyleColorOptions> styleColorOptions(const Style::ComputedStyle*) const;
+    OptionSet<StyleColorOptions> styleColorOptions(const Style::ComputedStyle*, StyleColorOptionsPurpose) const;
 
     CompositeOperator compositeOperatorForBackgroundColor(const Color&, const RenderElement&) const;
 
@@ -1008,9 +1010,9 @@ public:
     void setTextColor(const Color& color) { m_textColor = color; }
     const Color& textColor() const LIFETIME_BOUND { return m_textColor; }
 
-    Color linkColor(const Style::ComputedStyle&) const;
-    Color visitedLinkColor(const Style::ComputedStyle&) const;
-    Color activeLinkColor(const Style::ComputedStyle&) const;
+    Color linkColor(const Style::ComputedStyle&, StyleColorOptionsPurpose) const;
+    Color visitedLinkColor(const Style::ComputedStyle&, StyleColorOptionsPurpose) const;
+    Color activeLinkColor(const Style::ComputedStyle&, StyleColorOptionsPurpose) const;
     void setLinkColor(const Color& c) { m_linkColor = c; }
     void setVisitedLinkColor(const Color& c) { m_visitedLinkColor = c; }
     void setActiveLinkColor(const Color& c) { m_activeLinkColor = c; }
@@ -1208,6 +1210,9 @@ public:
     void processColorScheme(const String& colorScheme);
     void metaElementColorSchemeChanged();
 #endif
+
+    void metaElementTextScaleChanged();
+    WEBCORE_EXPORT TextScaleMeta textScaleMeta() const;
 
 #if ENABLE(APPLICATION_MANIFEST)
     void processApplicationManifest(const ApplicationManifest&);
@@ -1921,7 +1926,8 @@ public:
     TextAutoSizing& textAutoSizing();
 
     Logger& logger();
-    const Logger& logger() const { return const_cast<Document&>(*this).logger(); }
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    const Logger& logger() const { SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Document&>(*this).logger(); }
     WEBCORE_EXPORT static const Logger& sharedLogger();
 
     void updateAnimationsAndSendEvents();
@@ -2803,6 +2809,8 @@ private:
 #if ENABLE(DARK_MODE_CSS)
     OptionSet<ColorScheme> m_colorScheme;
 #endif
+
+    TextScaleMeta m_textScaleMeta { TextScaleMeta::Legacy };
 
     DocumentCompatibilityMode m_compatibilityMode { DocumentCompatibilityMode::NoQuirksMode };
 

@@ -1628,7 +1628,7 @@ inline bool PropertyParserCustom::consumeGridTemplateShorthand(CSSParserTokenRan
         // Handle leading <line-names>?.
         auto previousLineNames = std::exchange(lineNames, consumeUnresolvedGridLineNames(range, state));
         if (lineNames && !lineNames->isEmpty()) {
-            if (!previousLineNames)
+            if (!previousLineNames || previousLineNames->isEmpty())
                 templateRowsTrackList.value.value.append(CSS::GridTrackList::Track { WTF::move(*lineNames) });
             else {
                 CSS::GridLineNames combinedLineNames;
@@ -2126,7 +2126,7 @@ bool PropertyParserCustom::consumeLineClampShorthand(CSSParserTokenRange& range,
 
     result.addPropertyForCurrentShorthand(state, CSSPropertyID::MaxLines, WTF::move(maxLines));
     result.addPropertyForCurrentShorthand(state, CSSPropertyID::BlockEllipsis, WTF::move(blockEllipsis));
-    result.addPropertyForCurrentShorthand(state, CSSPropertyID::Continue, CSSKeywordValue::create(isLegacyLineClamp || webkitLegacy ? CSSValueID::WebkitLegacy : CSSValueID::Discard));
+    result.addPropertyForCurrentShorthand(state, CSSPropertyID::Continue, CSSKeywordValue::create(isLegacyLineClamp || webkitLegacy ? CSSValueID::WebkitLegacy : CSSValueID::Collapse));
     return range.atEnd();
 }
 

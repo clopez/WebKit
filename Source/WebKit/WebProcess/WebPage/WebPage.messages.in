@@ -214,7 +214,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     TryRestoreScrollPosition()
 
     LoadURLInFrame(URL url, String referrer, WebCore::FrameIdentifier frameID)
-    LoadDataInFrame(std::span<const uint8_t> data, String MIMEType, String encodingName, URL baseURL, WebCore::FrameIdentifier frameID)
+    LoadDataInFrame(std::span<const uint8_t> data, String MIMEType, String encodingName, URL baseURL, WebCore::FrameIdentifier frameID, struct WebCore::AgentClusterAssignment agentClusterAssignment)
 
     ApplyMonitorUnloadToIFrameElement(WebCore::FrameIdentifier frameID, enum:bool WebCore::IFrameUnloadReason reason)
 
@@ -235,6 +235,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     AllTopDocumentSyncDataChangedInAnotherProcess(Ref<WebCore::DocumentSyncData> documentSyncData)
 
     FrameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier frameID, struct WebCore::FrameTreeSyncSerializationData frameTreeSyncData)
+    FrameGeometryChangedInAnotherProcess(Vector<WebCore::FrameGeometryUpdate> updates)
     AllFrameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier frameID, Ref<WebCore::FrameTreeSyncData> frameTreeSyncData)
 
     UpdateUserActivationState(Vector<WebCore::FrameIdentifier> frameIDs, MonotonicTime activationTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken)
@@ -299,7 +300,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
 #if PLATFORM(COCOA)
     # Dictionary support.
-    PerformDictionaryLookupAtLocation(WebCore::FloatPoint point)
+    PerformDictionaryLookupAtLocation(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point) -> (struct std::optional<WebCore::RemoteUserInputEventData> remoteUserInputEventData)
 #endif
 
 #if ENABLE(DATA_DETECTION)
@@ -654,6 +655,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
     SetViewportSizeForCSSViewportUnits(std::optional<WebCore::FloatSize> viewportSize)
 
+    SetViewportSegments(struct WebCore::ViewportSegments segments)
+
 #if PLATFORM(COCOA)
     HandleAlternativeTextUIResult(String result)
 #endif
@@ -675,13 +678,13 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
 #if PLATFORM(MAC)
     PerformImmediateActionHitTestAtLocation(WebCore::FrameIdentifier frameID, WebCore::FloatPoint location) -> (Variant<WebKit::WebHitTestResultData, WebCore::RemoteUserInputEventData> result, bool contentPreventsDefault, WebKit::UserData userData) ReplyCanDispatchOutOfOrder
-    ImmediateActionDidUpdate()
-    ImmediateActionDidCancel()
-    ImmediateActionDidComplete()
+    ImmediateActionDidUpdate(WebCore::FrameIdentifier frameID)
+    ImmediateActionDidCancel(WebCore::FrameIdentifier frameID)
+    ImmediateActionDidComplete(WebCore::FrameIdentifier frameID)
 
     DataDetectorsDidPresentUI(uint64_t pageOverlay)
     DataDetectorsDidChangeUI(uint64_t pageOverlay)
-    DataDetectorsDidHideUI(uint64_t pageOverlay)
+    DataDetectorsDidHideUI(WebCore::FrameIdentifier frameID, uint64_t pageOverlay)
 
     HandleAcceptedCandidate(struct WebCore::TextCheckingResult acceptedCandidate)
 
@@ -972,6 +975,8 @@ messages -> WebPage WantsAsyncDispatchMessage {
     AdjustVisibilityForTargetedElements(Vector<WebCore::TargetedElementAdjustment> adjustments) -> (bool success)
     NumberOfVisibilityAdjustmentRects() -> (uint64_t count)
 
+    ContentsToRootViewRect(WebCore::FrameIdentifier frameID, WebCore::FloatRect rect) -> (WebCore::FloatRect rect)
+    ContentsToRootViewPoint(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point) -> (WebCore::FloatPoint point)
     ContentsToMainFrameViewRect(WebCore::FrameIdentifier frameID, WebCore::FloatRect rect) -> (WebCore::FloatRect rect)
     HitTestAtPoint(WebCore::FrameIdentifier frameID, WebCore::FloatPoint point, struct WebKit::ContentWorldData world) -> (struct WebKit::NodeHitTestResult result)
 

@@ -103,6 +103,7 @@ WEBKIT_OPTION_OWNED_BY_PLATFORM_H(
     ENABLE_APPLE_PAY_PAYMENT_ORDER_DETAILS
     ENABLE_APPLE_PAY_RECURRING_LINE_ITEM
     ENABLE_APPLE_PAY_RECURRING_PAYMENTS
+    ENABLE_APPLE_PAY_REFERENCE_SESSION
     ENABLE_APPLE_PAY_SELECTED_SHIPPING_METHOD
     ENABLE_APPLE_PAY_SHIPPING_CONTACT_EDITING_MODE
     ENABLE_APPLE_PAY_SHIPPING_METHOD_DATE_COMPONENTS_RANGE
@@ -353,7 +354,7 @@ if (GENERATE_DSYM)
 
     # Sanity check that the build will produce debug info.
     string(TOUPPER "${CMAKE_BUILD_TYPE}" _dsym_config)
-    if (NOT "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${_dsym_config}}" MATCHES "(^| )-g($| )")
+    if (NOT "${CMAKE_CXX_FLAGS} ${CMAKE_CXX_FLAGS_${_dsym_config}}" MATCHES "(^| )-g(line-tables-only)?($| )")
         message(WARNING "GENERATE_DSYM is enabled but ${CMAKE_BUILD_TYPE} emits no debug info.")
     endif ()
 
@@ -385,7 +386,11 @@ if (ENABLE_SANITIZERS)
     endif ()
 endif ()
 
-add_link_options("$<$<NOT:$<CONFIG:Debug>>:LINKER:-dead_strip>")
+# FIXME: PCH codegen emits non-exported inline functions from JSC into WebCore,
+# so it's incompatible with dead stripping.
+if (NOT CMAKE_BUILD_TYPE STREQUAL "Debug" OR USE_PCH_CODEGEN)
+    add_link_options("LINKER:-dead_strip")
+endif ()
 add_link_options("LINKER:-dead_strip_dylibs")
 
 # Mirrors DYLIB_COMPATIBILITY_VERSION / DYLIB_CURRENT_VERSION in

@@ -312,7 +312,7 @@ template<typename Layer> void BackgroundPainter::paintFillLayerImpl(const Color&
             borderRect = shrinkRectByOneDevicePixel(m_paintInfo.context(), borderRect, snappingScaleFactor);
         }
 
-        return BorderShape::shapeForBorderRect(style, borderRect, closedEdges);
+        return BorderShape::shapeForBorderRect(m_renderer.usedStyle(), borderRect, closedEdges);
     };
 
     // Fast path for drawing simple color backgrounds.
@@ -471,7 +471,7 @@ template<typename Layer> void BackgroundPainter::paintFillLayerImpl(const Color&
         break;
     }
     case FillBox::BorderArea: {
-        auto borderAreaPath = BorderPainter::pathForBorderArea(rect, style, snappingScaleFactor, closedEdges);
+        auto borderAreaPath = BorderPainter::pathForBorderArea(rect, m_renderer.usedStyle(), snappingScaleFactor, closedEdges);
         if (borderAreaPath) {
             backgroundClipStateSaver.save();
             context.clipPath(borderAreaPath.value());
@@ -939,14 +939,15 @@ template<typename Layer> LayoutSize BackgroundPainter::calculateFillTileSize(con
     );
 }
 
-void BackgroundPainter::paintBoxShadow(const LayoutRect& paintRect, const Style::ComputedStyle& style, Style::ShadowStyle shadowStyle, RectEdges<bool> closedEdges) const
+void BackgroundPainter::paintBoxShadow(const LayoutRect& paintRect, const UsedStyle& usedStyle, Style::ShadowStyle shadowStyle, RectEdges<bool> closedEdges) const
 {
+    auto& style = usedStyle.computedStyle();
     // FIXME: Deal with border-image. Would be great to use border-image as a mask.
     GraphicsContext& context = m_paintInfo.context();
     if (context.paintingDisabled() || style.boxShadow().isNone())
         return;
 
-    const auto borderShape = BorderShape::shapeForBorderRect(style, paintRect, closedEdges);
+    const auto borderShape = BorderShape::shapeForBorderRect(usedStyle, paintRect, closedEdges);
 
     bool hasBorderRadius = style.border().hasBorderRadius();
     float snappingScaleFactor = document().pixelSnappingScaleFactor();
@@ -1049,7 +1050,7 @@ void BackgroundPainter::paintBoxShadow(const LayoutRect& paintRect, const Style:
             adjustedBorderShape.clipOutOuterShape(context, snappingScaleFactor);
 
             if (hasBorderRadius) {
-                auto influenceShape = BorderShape::shapeForBorderRect(style, shadowRect);
+                auto influenceShape = BorderShape::shapeForBorderRect(usedStyle, shadowRect);
                 auto influenceRadii = influenceShape.radii();
                 influenceRadii.expand(2 * shadowPaintingExtent + shadowSpread);
                 influenceShape.setRadii(influenceRadii);
@@ -1175,8 +1176,10 @@ bool BackgroundPainter::boxShadowShouldBeAppliedToBackground(const RenderBoxMode
     if (is<RenderTableCell>(renderer))
         return false;
 
-    if (auto* imageRenderer = dynamicDowncast<RenderImage>(renderer))
-        return !const_cast<RenderImage&>(*imageRenderer).backgroundIsKnownToBeObscured(paintOffset);
+    if (auto* imageRenderer = dynamicDowncast<RenderImage>(renderer)) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return !const_cast<RenderImage&>(*imageRenderer).backgroundIsKnownToBeObscured(paintOffset);
+    }
 
     return true;
 }

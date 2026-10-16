@@ -147,13 +147,13 @@ BorderPainter::BorderPainter(const RenderElement& renderer, const PaintInfo& pai
 {
 }
 
-std::optional<Path> BorderPainter::pathForBorderArea(const LayoutRect& rect, const Style::ComputedStyle& style, float deviceScaleFactor, RectEdges<bool> closedEdges)
+std::optional<Path> BorderPainter::pathForBorderArea(const LayoutRect& rect, const UsedStyle& usedStyle, float deviceScaleFactor, RectEdges<bool> closedEdges)
 {
-    auto edges = borderEdges(style, deviceScaleFactor, closedEdges);
+    auto edges = borderEdges(usedStyle, deviceScaleFactor, closedEdges);
     if (!decorationHasAllSimpleEdges(edges))
         return std::nullopt;
 
-    auto borderShape = BorderShape::shapeForBorderRect(style, rect, closedEdges);
+    auto borderShape = BorderShape::shapeForBorderRect(usedStyle, rect, closedEdges);
     return borderShape.pathForBorderArea(deviceScaleFactor);
 }
 
@@ -238,14 +238,15 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const UsedStyle& usedSty
     if (rect.isEmpty() && !paintsBorderImage(rect, style.borderImage()))
         return;
 
-    auto rectToClipOut = const_cast<RenderElement&>(m_renderer.get()).paintRectToClipOutFromBorder(rect);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST auto rectToClipOut = const_cast<RenderElement&>(m_renderer.get()).paintRectToClipOutFromBorder(rect);
     bool appliedClipAlready = !rectToClipOut.isEmpty();
     GraphicsContextStateSaver stateSave(graphicsContext, appliedClipAlready);
     if (!rectToClipOut.isEmpty())
         graphicsContext.clipOut(snapRectToDevicePixels(rectToClipOut, protect(document())->deviceScaleFactor()));
 
     // border-image is not affected by border-radius.
-    if (paintNinePieceImage(rect, style, style.borderImage()))
+    if (paintNinePieceImage(rect, usedStyle, style.borderImage()))
         return;
 
     auto [shape, edges] = [&]() {
@@ -254,14 +255,14 @@ void BorderPainter::paintBorder(const LayoutRect& rect, const UsedStyle& usedSty
         case BleedAvoidance::ShrinkBackground:
         case BleedAvoidance::UseTransparencyLayer:
             return std::tuple<BorderShape, BorderEdges> {
-                BorderShape::shapeForBorderRect(style, rect, closedEdges),
-                borderEdges(style, protect(document())->deviceScaleFactor(), closedEdges, { }, m_paintInfo.paintBehavior.contains(PaintBehavior::ForceBlackBorder))
+                BorderShape::shapeForBorderRect(usedStyle, rect, closedEdges),
+                borderEdges(usedStyle, protect(document())->deviceScaleFactor(), closedEdges, { }, m_paintInfo.paintBehavior.contains(PaintBehavior::ForceBlackBorder))
             };
 
         case BleedAvoidance::BackgroundOverBorder: {
             // Shrink the inner edge so there's no gap between the border and the background, which will be painted atop.
             auto shrinkAmount = sizeForDevicePixel(m_paintInfo.context(), protect(document())->deviceScaleFactor());
-            auto edges = borderEdges(style, protect(document())->deviceScaleFactor(), closedEdges, shrinkAmount, m_paintInfo.paintBehavior.contains(PaintBehavior::ForceBlackBorder));
+            auto edges = borderEdges(usedStyle, protect(document())->deviceScaleFactor(), closedEdges, shrinkAmount, m_paintInfo.paintBehavior.contains(PaintBehavior::ForceBlackBorder));
             auto borderWidths = RectEdges<LayoutUnit> {
                 edges.top().width(),
                 edges.right().width(),
@@ -433,8 +434,9 @@ void BorderPainter::paintSides(const BorderShape& borderShape, const Sides& side
 }
 
 template<typename T>
-bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const Style::ComputedStyle& style, const T& ninePieceImage, CompositeOperator op) const
+bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const UsedStyle& usedStyle, const T& ninePieceImage, CompositeOperator op) const
 {
+    auto& style = usedStyle.computedStyle();
     auto image = ninePieceImage.source().tryStyleImage();
     if (!image)
         return false;
@@ -468,18 +470,18 @@ bool BorderPainter::paintNinePieceImageImpl(const LayoutRect& rect, const Style:
 
     auto source = modelObject->calculateImageIntrinsicDimensions(*image, Sizing { destination.size() }, RenderBoxModelObject::ScaleByUsedZoom::No);
 
-    NinePieceImagePainter::paint(ninePieceImage, m_paintInfo.context(), m_renderer, style, destination, source, deviceScaleFactor, options);
+    NinePieceImagePainter::paint(ninePieceImage, m_paintInfo.context(), m_renderer, usedStyle, destination, source, deviceScaleFactor, options);
     return true;
 }
 
-bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const Style::ComputedStyle& style, const Style::BorderImage& borderImage, CompositeOperator op) const
+bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const UsedStyle& usedStyle, const Style::BorderImage& borderImage, CompositeOperator op) const
 {
-    return paintNinePieceImageImpl(rect, style, borderImage, op);
+    return paintNinePieceImageImpl(rect, usedStyle, borderImage, op);
 }
 
-bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const Style::ComputedStyle& style, const Style::MaskBorder& maskBorder, CompositeOperator op) const
+bool BorderPainter::paintNinePieceImage(const LayoutRect& rect, const UsedStyle& usedStyle, const Style::MaskBorder& maskBorder, CompositeOperator op) const
 {
-    return paintNinePieceImageImpl(rect, style, maskBorder, op);
+    return paintNinePieceImageImpl(rect, usedStyle, maskBorder, op);
 }
 
 void BorderPainter::paintTranslucentBorderSides(const BorderShape& borderShape, const Sides& sides, BoxSideSet edgesToDraw, bool antialias) const

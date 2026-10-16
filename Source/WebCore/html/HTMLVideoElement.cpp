@@ -40,6 +40,7 @@
 #include "FrameDestructionObserverInlines.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "ImageBuffer.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSVideoFrameRequestCallback.h"
@@ -240,10 +241,10 @@ void HTMLVideoElement::attributeChanged(const QualifiedName& name, const AtomStr
     } else {
         HTMLMediaElement::attributeChanged(name, oldValue, newValue, attributeModificationReason);
 
-        if (name == webkitprojectionAttr && oldValue != newValue && document().settings().spatialVideoRenderingEnabled())
+        if (name == projectionAttr && oldValue != newValue && document().settings().spatialVideoRenderingEnabled())
             scheduleEvent(eventNames().webkitprojectionchangedEvent);
 
-        if ((name == webkitfieldofviewAttr || name == webkityawAttr || name == webkitpitchAttr) && document().settings().spatialVideoRenderingEnabled())
+        if ((name == fieldofviewAttr || name == yawAttr || name == pitchAttr) && document().settings().spatialVideoRenderingEnabled())
             scheduleEvent(eventNames().webkitcameraviewchangedEvent);
 
 #if PLATFORM(IOS_FAMILY) && ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -263,6 +264,36 @@ void HTMLVideoElement::spatialCameraDidMove(double yaw, double pitch, double fie
     m_cameraFieldOfView = fieldOfView;
 
     scheduleEvent(eventNames().webkitcameramovedEvent);
+}
+
+double HTMLVideoElement::defaultYaw() const
+{
+    return parseHTMLFloatingPointNumberValue(attributeWithoutSynchronization(yawAttr), 0);
+}
+
+double HTMLVideoElement::defaultPitch() const
+{
+    return parseHTMLFloatingPointNumberValue(attributeWithoutSynchronization(pitchAttr), 0);
+}
+
+double HTMLVideoElement::defaultFieldOfView() const
+{
+    return parseHTMLFloatingPointNumberValue(attributeWithoutSynchronization(fieldofviewAttr), defaultSpatialCameraFieldOfView);
+}
+
+double HTMLVideoElement::yaw() const
+{
+    return m_cameraYaw.value_or(defaultYaw());
+}
+
+double HTMLVideoElement::pitch() const
+{
+    return m_cameraPitch.value_or(defaultPitch());
+}
+
+double HTMLVideoElement::fieldOfView() const
+{
+    return m_cameraFieldOfView.value_or(defaultFieldOfView());
 }
 
 bool HTMLVideoElement::supportsFullscreen(HTMLMediaElementEnums::VideoFullscreenMode videoFullscreenMode) const

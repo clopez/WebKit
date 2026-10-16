@@ -119,6 +119,7 @@
 #include <WebCore/WheelEventDeltaFilter.h>
 #include <algorithm>
 #include <pal/spi/cg/CoreGraphicsSPI.h>
+#include <wtf/Borrow.h>
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -476,13 +477,13 @@ void UnifiedPDFPlugin::enableDataDetection()
 #endif
 }
 
-void UnifiedPDFPlugin::handleClickForDataDetectionResult(const DataDetectorElementInfo& dataDetectorElementInfo, const IntPoint& clickPointInPluginSpace)
+void UnifiedPDFPlugin::handleClickForDataDetectionResult(const DataDetectorElementInfo& dataDetectorElementInfo, const IntPoint& clickPointInMainFrameView)
 {
     RefPtr page = this->page();
     if (!page)
         return;
 
-    page->chrome().client().handleClickForDataDetectionResult(dataDetectorElementInfo, clickPointInPluginSpace);
+    page->chrome().client().handleClickForDataDetectionResult(dataDetectorElementInfo, clickPointInMainFrameView);
 }
 
 bool UnifiedPDFPlugin::canShowDataDetectorHighlightOverlays() const
@@ -802,7 +803,10 @@ void UnifiedPDFPlugin::didChangeSettings()
         propagateSettingsToLayer(*layerForScrollCorner);
 
     protect(m_presentationController)->updateDebugBorders(showDebugBorders, showRepaintCounter);
+}
 
+void UnifiedPDFPlugin::updateAccessibilityDisplayModeEligibility()
+{
     auto defaultDisplayModeState = defaultAccessibilityDisplayModeStateForCurrentSettings();
     auto isEligible = defaultDisplayModeState != PDFAccessibilityDisplayModeState::Ineligible;
     auto wasEligible = m_accessibilityDisplayModeState != PDFAccessibilityDisplayModeState::Ineligible;
@@ -815,10 +819,13 @@ void UnifiedPDFPlugin::setAccessibilityDisplayModeState(PDFAccessibilityDisplayM
     if (m_accessibilityDisplayModeState == state)
         return;
 
+    auto previousDisplayMode = accessibilityDisplayMode();
     m_accessibilityDisplayModeState = state;
 
-    RefPtr presentationController = m_presentationController;
-    presentationController->updateForAccessibilityDisplayModeChange();
+    if (accessibilityDisplayMode() != previousDisplayMode) {
+        RefPtr presentationController = m_presentationController;
+        presentationController->updateForAccessibilityDisplayModeChange();
+    }
 
     if (RefPtr rootLayer = m_rootLayer)
         rootLayer->setBackgroundColor(pluginBackgroundColor());
@@ -967,7 +974,7 @@ void UnifiedPDFPlugin::paintPDFContent(const WebCore::GraphicsLayer* layer, Grap
     auto pageCoverage = presentationController->pageCoverageAndScalesForContentsRect(clipRect, row, tilingScaleFactor);
     auto documentScale = pageCoverage.pdfDocumentScale;
 
-    for (auto& pageInfo : pageCoverage.pages) {
+    for (auto& pageInfo : borrow(pageCoverage.pages)) {
         auto page = m_documentLayout.pageAtIndex(pageInfo.pageIndex);
         if (!page)
             continue;
@@ -1002,20 +1009,36 @@ void UnifiedPDFPlugin::paintPDFContent(const WebCore::GraphicsLayer* layer, Grap
         context.scale(documentScale);
         context.clip(pageDestinationRect);
 
-        if (!asyncRenderer)
+        if (!asyncRenderer) {
             context.fillRect(pageDestinationRect, pdfPageBackgroundColor(displayMode));
 
-        // Translate the context to the bottom of pageBounds and flip, so that PDFKit operates
-        // from this page's drawing origin.
+            LOG_WITH_STREAM(PDF, stream << "UnifiedPDFPlugin: painting PDF page " << pageInfo.pageIndex << " into rect " << pageDestinationRect << " with clip " << clipRect);
+
+            auto drawPage = [&](GraphicsContext& pageContext, FloatPoint pageOrigin) {
+                GraphicsContextStateSaver pageContextStateSaver(pageContext);
+                // Translate the context to the bottom of pageBounds and flip, so that PDFKit operates
+                // from this page's drawing origin.
+                pageContext.translate(pageOrigin);
+                pageContext.scale({ 1, -1 });
+
+                RetainPtr platformContext = pageContext.platformContext();
+                applyPDFContentAXColorAdjustment(platformContext, page.get(), displayMode);
+                [page drawWithBox:kPDFDisplayBoxCropBox toContext:platformContext];
+            };
+
+            if (context.hasPlatformContext())
+                drawPage(context, pageDestinationRect.minXMaxYCorner());
+            else if (RefPtr pageBuffer = context.createAlignedImageBuffer(pageDestinationRect.size(), context.colorSpace(), RenderingMethod::Local)) {
+                // Recording contexts (e.g. for remote snapshotting) have no platform context for PDFKit to draw into,
+                // so render into a local (non-remote) buffer first.
+                drawPage(pageBuffer->context(), { 0, pageDestinationRect.height() });
+                context.drawImageBuffer(*pageBuffer, pageDestinationRect);
+            }
+        }
+
+        // Translate the context to the bottom of pageBounds and flip, to match PDFKit's page coordinate space.
         context.translate(pageDestinationRect.minXMaxYCorner());
         context.scale({ 1, -1 });
-
-        if (!asyncRenderer) {
-            LOG_WITH_STREAM(PDF, stream << "UnifiedPDFPlugin: painting PDF page " << pageInfo.pageIndex << " into rect " << pageDestinationRect << " with clip " << clipRect);
-            RetainPtr platformContext = context.platformContext();
-            applyPDFContentAXColorAdjustment(platformContext, page.get(), displayMode);
-            [page drawWithBox:kPDFDisplayBoxCropBox toContext:platformContext];
-        }
 
         if constexpr (hasFullAnnotationSupport) {
             if (currentPageHasAnnotation) {
@@ -1052,7 +1075,7 @@ void UnifiedPDFPlugin::paintPDFSelection(const GraphicsLayer* layer, GraphicsCon
         auto& renderTheme = renderer ? renderer->theme() : RenderTheme::singleton();
         OptionSet<StyleColorOptions> styleColorOptions;
         if (renderer)
-            styleColorOptions = renderer->styleColorOptions() - WebCore::StyleColorOptions::UseDarkAppearance;
+            styleColorOptions = renderer->styleColorOptions(StyleColorOptionsPurpose::Rendering) - WebCore::StyleColorOptions::UseDarkAppearance;
         auto selectionColor = isVisibleAndActive ? renderTheme.activeSelectionBackgroundColor(styleColorOptions) : renderTheme.inactiveSelectionBackgroundColor(styleColorOptions);
         return blendSourceOver(pdfPageBackgroundColor(displayMode), selectionColor);
     }();
@@ -1063,7 +1086,7 @@ void UnifiedPDFPlugin::paintPDFSelection(const GraphicsLayer* layer, GraphicsCon
 
     auto pageCoverage = presentationController->pageCoverageAndScalesForContentsRect(clipRect, row, tilingScaleFactor);
     auto documentScale = pageCoverage.pdfDocumentScale;
-    for (auto& pageInfo : pageCoverage.pages) {
+    for (auto& pageInfo : borrow(pageCoverage.pages)) {
         auto page = m_documentLayout.pageAtIndex(pageInfo.pageIndex);
         if (!page)
             continue;
@@ -3696,7 +3719,7 @@ Vector<WebCore::FloatRect> UnifiedPDFPlugin::rectsForTextMatchesInRect(const Vec
     auto lastCoveredPage = std::ranges::max(coveredPages);
 
     PDFPageCoverage findMatchRects;
-    for (auto& match : matches) {
+    for (auto& match : borrow(matches)) {
         if (match.startPage > lastCoveredPage || firstCoveredPage > match.endPage)
             continue;
 
@@ -3726,7 +3749,7 @@ Vector<WebCore::FloatRect> UnifiedPDFPlugin::visibleRectsForFindMatchRects(const
     if (!visibleRow)
         rectsInPluginCoordinates.reserveCapacity(findMatchRects.size());
 
-    for (auto& perPageInfo : findMatchRects) {
+    for (auto& perPageInfo : borrow(findMatchRects)) {
         if (visibleRow && !visibleRow->containsPage(perPageInfo.pageIndex))
             continue;
 
@@ -4531,6 +4554,8 @@ void UnifiedPDFPlugin::installDataDetectorOverlay(PageOverlay& overlay)
     if (!webPage)
         return;
 
+    Ref rootFrame { frame->coreLocalFrame()->rootFrame() };
+    overlay.setAssociatedFrame(rootFrame.ptr());
     webPage->corePage()->pageOverlayController().installPageOverlay(overlay, PageOverlay::FadeMode::DoNotFade);
 }
 
@@ -4545,6 +4570,15 @@ void UnifiedPDFPlugin::uninstallDataDetectorOverlay(PageOverlay& overlay)
         return;
 
     webPage->corePage()->pageOverlayController().uninstallPageOverlay(overlay, PageOverlay::FadeMode::DoNotFade);
+}
+
+IntRect UnifiedPDFPlugin::rectForSelectionInRootViewContentsSpace(PDFSelection *selection) const
+{
+    RefPtr rootView { this->rootView() };
+    if (!rootView)
+        return { };
+
+    return rootView->rootViewToContents(roundedIntRect(rectForSelectionInRootView(selection)));
 }
 
 #endif
@@ -5234,6 +5268,8 @@ bool UnifiedPDFPlugin::delegatesScrollingToMainFrame() const
 
 void UnifiedPDFPlugin::effectiveAppearanceDidChange()
 {
+    updateAccessibilityDisplayModeEligibility();
+
     if (!isFullMainFramePlugin())
         return;
 

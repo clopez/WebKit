@@ -28,6 +28,7 @@
 #include "AxisConstraint.h"
 #include "ExtraSpaceDistributor.h"
 #include "GridItemSizingFunctions.h"
+#include "GridLayoutUtils.h"
 #include "GridTypeAliases.h"
 #include "LayoutUnit.h"
 #include "PlacedGridItem.h"
@@ -47,8 +48,15 @@ struct TrackSizingItem {
     const PlacedGridItem& gridItem;
     const ComputedSizes computedSizes;
     const LayoutUnit borderAndPadding;
+    const UsedMargins usedMargins;
     const WTF::Range<size_t> spannedLines;
     const std::optional<LayoutUnit> oppositeAxisConstraint;
+    // https://drafts.csswg.org/css-grid-1/#min-size-auto
+    // The maximum size of the grid area in the opposite axis: the sum of the spanned tracks' max track
+    // sizing functions plus any intervening fixed gutters, computed by GridLayoutUtils::gridAreaMaximumSize().
+    // Absent unless every spanned track has a fixed max track sizing function. It clamps the opposite-axis
+    // input to the transferred size suggestion of the automatic minimum size.
+    const std::optional<LayoutUnit> oppositeAxisGridAreaMaximumSize;
 };
 
 struct UnsizedTrack {
@@ -126,7 +134,7 @@ class TrackSizingAlgorithm {
 public:
     static TrackSizes sizeTracks(const TrackSizingItemList&, const TrackSizingFunctionsList&,
         const AxisConstraint&, const GridItemSizingFunctions&,
-        LayoutUnit gapSize, const StyleContentAlignmentData& usedContentAlignment);
+        LayoutUnit gapSize, const BitVector& collapsedTracksList, const StyleContentAlignmentData& usedContentAlignment);
 
 };
 

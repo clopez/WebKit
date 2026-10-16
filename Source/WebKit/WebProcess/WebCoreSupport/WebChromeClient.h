@@ -262,6 +262,7 @@ private:
     void triggerRenderingUpdate() final;
     bool scheduleRenderingUpdate() final;
     void renderingUpdateFramesPerSecondChanged() final;
+    void syncLocalFrameInfoToRemote() final;
     unsigned remoteImagesCountForTesting() const final;
     void registerBlobPathForTesting(const String& path, CompletionHandler<void()>&&) final;
 
@@ -288,6 +289,9 @@ private:
 
 #if ENABLE(GPU_PROCESS)
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::ColorSpace&, WebCore::ImageBufferFormat) const final;
+#if HAVE(IOSURFACE)
+    bool useIOSurfaceWebKitBehavior() const final;
+#endif
     RefPtr<WebCore::ImageBuffer> sinkIntoImageBuffer(std::unique_ptr<WebCore::SerializedImageBuffer>) final;
     RefPtr<WebCore::ImageBuffer> createImageBufferFromTransferHandle(const WebCore::ImageBufferTransferHandle&) final;
 #if ENABLE(OFFSCREEN_CANVAS)
@@ -381,6 +385,11 @@ private:
 
 #if PLATFORM(IOS_FAMILY)
     void focusedSelectElementDidChangeOptions(const WebCore::HTMLSelectElement&) final;
+#endif
+
+#if PLATFORM(GTK) || PLATFORM(WPE)
+    void focusedElementDidChangeReadOnly(WebCore::Element&) final;
+    void focusedElementDidChangeType(WebCore::Element&) final;
 #endif
 
 #if PLATFORM(COCOA)

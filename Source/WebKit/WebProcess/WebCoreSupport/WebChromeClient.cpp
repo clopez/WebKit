@@ -339,6 +339,22 @@ void WebChromeClient::focusedSelectElementDidChangeOptions(const WebCore::HTMLSe
 
 #endif
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
+
+void WebChromeClient::focusedElementDidChangeReadOnly(Element& element)
+{
+    if (RefPtr page = m_page.get())
+        page->focusedElementDidChangeReadOnly(element);
+}
+
+void WebChromeClient::focusedElementDidChangeType(Element& element)
+{
+    if (RefPtr page = m_page.get())
+        page->focusedElementDidChangeType(element);
+}
+
+#endif
+
 #if PLATFORM(COCOA)
 
 void WebChromeClient::makeFirstResponder()
@@ -445,6 +461,7 @@ RefPtr<Page> WebChromeClient::createWindow(LocalFrame& frame, const String& open
         { }, /* originatorAdvancedPrivacyProtections */
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         std::nullopt, /* webHitTestResultData */
+        std::nullopt, /* hitTestJSHandleInfo */
 #endif
         webFrame->info(), /* originatingFrameInfoData */
         webFrame->page()->webPageProxyIdentifier(),
@@ -1207,6 +1224,21 @@ WebCore::DisplayRefreshMonitorFactory* WebChromeClient::displayRefreshMonitorFac
 }
 
 #if ENABLE(GPU_PROCESS)
+#if HAVE(IOSURFACE)
+bool WebChromeClient::useIOSurfaceWebKitBehavior() const
+{
+#if USE(APPLE_INTERNAL_SDK)
+    RefPtr page = m_page.get();
+    if (!page)
+        return false;
+    auto preferences = page->sharedPreferencesForWebProcess();
+    return preferences && preferences->useIOSurfaceWebKitBehavior;
+#else
+    return false;
+#endif
+}
+#endif
+
 RefPtr<ImageBuffer> WebChromeClient::createImageBuffer(const FloatSize& size, RenderingMode renderingMode, RenderingPurpose purpose, float resolutionScale, const ColorSpace& colorSpace, ImageBufferFormat pixelFormat) const
 {
     if (WebProcess::singleton().shouldUseRemoteRenderingFor(purpose)) {
@@ -1439,6 +1471,12 @@ void WebChromeClient::renderingUpdateFramesPerSecondChanged()
 
     if (RefPtr drawingArea = page->drawingArea())
         drawingArea->renderingUpdateFramesPerSecondChanged();
+}
+
+void WebChromeClient::syncLocalFrameInfoToRemote()
+{
+    if (RefPtr page = m_page.get())
+        page->broadcastFrameGeometryUpdatesIfNeeded();
 }
 
 unsigned WebChromeClient::remoteImagesCountForTesting() const

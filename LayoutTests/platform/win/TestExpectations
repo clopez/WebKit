@@ -128,6 +128,7 @@ inspector/canvas/setShaderProgramHighlighted-webgpu.html [ Skip ]
 inspector/canvas/shaderProgram-add-remove-webgpu.html [ Skip ]
 inspector/canvas/updateShader-webgpu.html [ Skip ]
 inspector/canvas/worker-webgpu.html [ Skip ]
+inspector/worker/webgpu-device-uncapturederror-terminate-crash.html [ Skip ]
 
 # QUOTA is disabled
 fast/workers/worker-storagequota-query-usage.html [ Skip ]
@@ -218,7 +219,7 @@ webkit.org/b/86914 fast/history/page-cache-running-audiocontext.html [ Skip ]
 webkit.org/b/86914 fast/history/page-cache-suspended-audiocontext.html [ Skip ]
 webkit.org/b/86914 media/W3C/audio [ Skip ]
 webaudio [ Skip ]
-imported/w3c/web-platform-tests/WebIDL/ecmascript-binding/es-exceptions/DOMException-audioworklet.https.html [ Skip ]
+imported/w3c/web-platform-tests/webidl/ecmascript-binding/es-exceptions/DOMException-audioworklet.https.html [ Skip ]
 
 # WEB_RTC is disabled
 webrtc [ Skip ]
@@ -4835,6 +4836,12 @@ imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-bevel-
 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-notch-mixed.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-shape-superellipse-negative-100.html [ ImageOnlyFailure ]
 
+# Windows WK2 release crashes while parsing some invalid corner shorthand declarations.
+# Skip until the shared parser is corrected in 326108.
+webkit.org/b/327293 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-invalid.html [ Skip ]
+webkit.org/b/327293 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-top-invalid.html [ Skip ]
+webkit.org/b/327293 imported/w3c/web-platform-tests/css/css-borders/corner-shape/corner-top-left-invalid.html [ Skip ]
+
 # Consistent text failures, in every run
 compositing/geometry/composited-bounds-single-axis-clip-taller-than-document.html [ Failure ]
 compositing/geometry/composited-bounds-with-single-axis-clip.html [ Failure ]
@@ -4952,9 +4959,6 @@ imported/w3c/web-platform-tests/largest-contentful-paint/observe-svg-data-uri-im
 
 # Consistent text failures, in every run
 fast/forms/select/listbox-multiple-shift-click-with-optgroup.html [ Failure ]
-
-# Consistent image failures, in every run
-compositing/filters/filter-source-outside-viewport.html [ ImageOnlyFailure ]
 
 # Flaky crashes
 webkit.org/b/326177 workers/weblock-manager-query-crash.html [ Skip ] # Flaky Crash

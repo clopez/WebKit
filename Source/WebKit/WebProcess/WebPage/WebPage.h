@@ -42,6 +42,7 @@
 #include <WebCore/DragActions.h>
 #include <WebCore/Element.h>
 #include <WebCore/FocusOptions.h>
+#include <WebCore/FrameGeometrySyncData.h>
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/FrameTreeSyncData.h>
 #include <WebCore/HighlightVisibility.h>
@@ -75,6 +76,7 @@
 #include <WebCore/UserContentTypes.h>
 #include <WebCore/UserGestureTokenIdentifier.h>
 #include <WebCore/UserScriptTypes.h>
+#include <WebCore/ViewportSegments.h>
 #include <WebCore/WebCoreKeyboardUIMode.h>
 #include <WebCore/WebKitJSHandle.h>
 #include <memory>
@@ -90,6 +92,7 @@
 #include <wtf/Seconds.h>
 #include <wtf/UUID.h>
 #include <wtf/WallTime.h>
+#include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/text/WTFString.h>
 
@@ -902,7 +905,10 @@ public:
     void allTopDocumentSyncDataChangedInAnotherProcess(Ref<WebCore::DocumentSyncData>&&);
 
     void frameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier, const WebCore::FrameTreeSyncSerializationData&);
+    void frameGeometryChangedInAnotherProcess(Vector<WebCore::FrameGeometryUpdate>&&);
     void allFrameTreeSyncDataChangedInAnotherProcess(WebCore::FrameIdentifier, Ref<WebCore::FrameTreeSyncData>&&);
+
+    void broadcastFrameGeometryUpdatesIfNeeded();
 
     // Updates visible rect state (e.g. windowClipRect and exposedContentRect) in this process using
     // clipping rects from a parent frame process.
@@ -1708,6 +1714,8 @@ public:
     void setViewportSizeForCSSViewportUnits(std::optional<WebCore::FloatSize>);
     std::optional<WebCore::FloatSize> viewportSizeForCSSViewportUnits() const { return m_viewportSizeForCSSViewportUnits; }
 
+    void setViewportSegments(const WebCore::ViewportSegments&);
+
     bool canShowMIMEType(const String& MIMEType) const;
     bool canShowResponse(const WebCore::ResourceResponse&) const;
 
@@ -1754,6 +1762,8 @@ public:
 
 #if PLATFORM(GTK) || PLATFORM(WPE)
     void setInputMethodState(WebCore::Element*);
+    void focusedElementDidChangeReadOnly(WebCore::Element&);
+    void focusedElementDidChangeType(WebCore::Element&);
 #endif
 
     void imageOrMediaDocumentSizeChanged(const WebCore::IntSize&);
@@ -2499,7 +2509,7 @@ private:
     static bool logicalScroll(WebCore::Page*, WebCore::ScrollLogicalDirection, WebCore::ScrollGranularity);
 
     void loadURLInFrame(URL&&, const String& referrer, WebCore::FrameIdentifier);
-    void loadDataInFrame(std::span<const uint8_t>, String&& MIMEType, String&& encodingName, URL&& baseURL, WebCore::FrameIdentifier);
+    void loadDataInFrame(std::span<const uint8_t>, String&& MIMEType, String&& encodingName, URL&& baseURL, WebCore::FrameIdentifier, const WebCore::AgentClusterAssignment&);
 
     void applyMonitorUnloadToIFrameElement(WebCore::FrameIdentifier, WebCore::IFrameUnloadReason);
 
@@ -2578,7 +2588,7 @@ private:
     void resume(CompletionHandler<void(bool)>&&);
 
 #if PLATFORM(COCOA)
-    void performDictionaryLookupAtLocation(const WebCore::FloatPoint&);
+    void performDictionaryLookupAtLocation(WebCore::FrameIdentifier, const WebCore::FloatPoint&, CompletionHandler<void(std::optional<WebCore::RemoteUserInputEventData>)>&&);
     void performDictionaryLookupForRange(WebCore::LocalFrame&, const WebCore::SimpleRange&, WebCore::TextIndicatorPresentationTransition);
     WebCore::DictionaryPopupInfo dictionaryPopupInfoForRange(WebCore::LocalFrame&, const WebCore::SimpleRange&, WebCore::TextIndicatorPresentationTransition);
 
@@ -2712,13 +2722,13 @@ private:
 #if PLATFORM(MAC)
     void performImmediateActionHitTestAtLocation(WebCore::FrameIdentifier, WebCore::FloatPoint, CompletionHandler<void(Variant<WebHitTestResultData, WebCore::RemoteUserInputEventData>&&, bool, UserData&&)>&&);
     std::optional<WebCore::SimpleRange> lookupTextAtLocation(WebCore::FrameIdentifier, WebCore::FloatPoint);
-    void immediateActionDidUpdate();
-    void immediateActionDidCancel();
-    void immediateActionDidComplete();
+    void immediateActionDidUpdate(WebCore::FrameIdentifier);
+    void immediateActionDidCancel(WebCore::FrameIdentifier);
+    void immediateActionDidComplete(WebCore::FrameIdentifier);
 
     void dataDetectorsDidPresentUI(WebCore::PageOverlay::PageOverlayID);
     void dataDetectorsDidChangeUI(WebCore::PageOverlay::PageOverlayID);
-    void dataDetectorsDidHideUI(WebCore::PageOverlay::PageOverlayID);
+    void dataDetectorsDidHideUI(WebCore::FrameIdentifier, WebCore::PageOverlay::PageOverlayID);
 
     void handleAcceptedCandidate(WebCore::TextCheckingResult);
 #endif
@@ -2889,6 +2899,8 @@ private:
 
     template<typename T> T contentsToRootView(WebCore::FrameIdentifier, T);
     template<typename T> T rootViewToContents(WebCore::FrameIdentifier, T);
+    void contentsToRootViewRect(WebCore::FrameIdentifier, WebCore::FloatRect, CompletionHandler<void(WebCore::FloatRect)>&&);
+    void contentsToRootViewPoint(WebCore::FrameIdentifier, WebCore::FloatPoint, CompletionHandler<void(WebCore::FloatPoint)>&&);
     void contentsToMainFrameViewRect(WebCore::FrameIdentifier, WebCore::FloatRect, CompletionHandler<void(WebCore::FloatRect)>&&);
 
     void hitTestAtPoint(WebCore::FrameIdentifier, WebCore::FloatPoint, const ContentWorldData&, CompletionHandler<void(NodeHitTestResult)>&&);
@@ -3237,6 +3249,12 @@ private:
     };
     PendingEditorStateUpdateStatus m_pendingEditorStateUpdateStatus { PendingEditorStateUpdateStatus::NotScheduled };
     bool m_needsEditorStateVisualDataUpdate { false };
+
+    struct LastSentFrameGeometry {
+        std::optional<WebCore::FrameGeometrySyncData> geometry;
+        std::optional<WebCore::FrameViewportInfo> viewportInfo;
+    };
+    WeakHashMap<WebCore::Frame, LastSentFrameGeometry> m_lastSentFrameGeometry;
 
     WebCore::DevicePostureType m_devicePostureType { WebCore::DevicePostureType::Continuous };
 

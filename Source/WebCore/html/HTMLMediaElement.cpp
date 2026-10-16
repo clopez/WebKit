@@ -8621,7 +8621,7 @@ PlatformDynamicRangeLimit HTMLMediaElement::computePlayerDynamicRangeLimit() con
 
         return false;
     }();
-    return shouldSuppressHDR ? maxLimitWhenSuppressingHDR : m_platformDynamicRangeLimit;
+    return effectiveDynamicRangeLimit(m_platformDynamicRangeLimit, shouldSuppressHDR, maxLimitWhenSuppressingHDR);
 }
 
 // Use WTF_IGNORES_THREAD_SAFETY_ANALYSIS because this function does conditional locking of m_audioSourceNode->processLock()
@@ -10513,8 +10513,10 @@ void HTMLMediaElement::setShowPosterFlag(bool flag)
 
 MediaElementSession& HTMLMediaElement::mediaSession() const
 {
-    if (!m_mediaSession)
-        const_cast<HTMLMediaElement&>(*this).initializeMediaSession();
+    if (!m_mediaSession) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST const_cast<HTMLMediaElement&>(*this).initializeMediaSession();
+    }
     return *m_mediaSession;
 }
 

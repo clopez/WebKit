@@ -89,6 +89,7 @@
 #include "ObjectConstructor.h"
 #include "OpcodeInlines.h"
 #include "PreciseJumpTargets.h"
+#include "PreciseJumpTargetsInlines.h"
 #include "PrivateFieldPutKind.h"
 #include "PropertyInlineCache.h"
 #include "PutByIdFlags.h"
@@ -233,7 +234,7 @@ unsigned InliningPlan::priceCandidate(CallVariant callee, CodeSpecializationKind
             return UINT_MAX;
     }
 
-    return targetCodeBlock->bytecodeCost();
+    return m_jitType == JITType::FTLJIT ? targetCodeBlock->bytecodeCostForFTLInlining() : targetCodeBlock->bytecodeCost();
 }
 
 // Because call frequency data is available only for polymorphic sites and not monomorphic ones,
@@ -2106,7 +2107,8 @@ std::tuple<unsigned, InlineAttribute> ByteCodeParser::inliningCost(CallVariant c
     VERBOSE_LOG("    Inlining should be possible.\n");
     
     // It might be possible to inline.
-    return { targetCodeBlock->bytecodeCost(), codeBlock->ownerExecutable()->inlineAttribute() };
+    unsigned cost = m_graph.m_plan.isFTL() ? targetCodeBlock->bytecodeCostForFTLInlining() : targetCodeBlock->bytecodeCost();
+    return { cost, codeBlock->ownerExecutable()->inlineAttribute() };
 }
 
 template<typename ChecksFunctor>
@@ -3139,6 +3141,31 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
             addToGraph(PutInternalField, OpInfo(static_cast<uint32_t>(JSArrayIterator::Field::Kind)), iterator, kindNode);
 
             setResult(iterator);
+            return CallOptimizationResult::Inlined;
+        }
+
+        case TypedArraySetIntrinsic: {
+            if (argumentCountIncludingThis < 2)
+                return CallOptimizationResult::DidNothing;
+
+            if (m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIndexingType)
+                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
+                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, OutOfBounds)
+                || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, UnexpectedResizableArrayBufferView))
+                return CallOptimizationResult::DidNothing;
+
+            ArrayMode mode = getArrayMode(Array::Write);
+            if (!mode.isSomeTypedArrayView() || mode.type() == Array::AnyTypedArray || mode.mayBeResizableOrGrowableSharedTypedArray())
+                return CallOptimizationResult::DidNothing;
+
+            insertChecks();
+
+            Node* base = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
+            Node* source = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
+            Node* offset = argumentCountIncludingThis > 2 ? get(virtualRegisterForArgumentIncludingThis(2, registerOffset)) : jsConstant(jsNumber(0));
+            addToGraph(CheckArray, OpInfo(mode.asWord()), base);
+            addToGraph(TypedArraySet, OpInfo(mode.typedArrayType()), base, source, offset);
+            setResult(addToGraph(JSConstant, OpInfo(m_constantUndefined)));
             return CallOptimizationResult::Inlined;
         }
 
@@ -6740,7 +6767,7 @@ bool ByteCodeParser::handleConstantFunction(
         return true;
     }
 
-    if (function->classInfo() == RegExpConstructor::info()) {
+    if (function->classInfo() == RegExpConstructor::info() && kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
         // don't know what the prototype of the constructed object will be.
@@ -8869,6 +8896,27 @@ void ByteCodeParser::parseBlock(unsigned limit)
         case op_instanceof: {
             auto bytecode = currentInstruction->as<OpInstanceof>();
 
+            // If a jtrue / jfalse on the result follows, each arm branches by itself instead of
+            // joining at a boolean Phi, so an arm whose result is or folds to a constant keeps it.
+            const JSInstruction* fusedBranch = nullptr;
+            unsigned fusedTaken = 0;
+            unsigned fusedNotTaken = 0;
+            unsigned fusedFallThrough = 0;
+            BytecodeIndex branchIndex = nextOpcodeIndex();
+            if (branchIndex.offset() < limit) {
+                auto next = instructions.at(branchIndex);
+                fusedFallThrough = branchIndex.offset() + next->size();
+                if (next->is<OpJtrue>() && next->as<OpJtrue>().m_condition == bytecode.m_dst) {
+                    fusedBranch = next.ptr();
+                    fusedTaken = branchIndex.offset() + jumpTargetForInstruction<OpJtrue>(codeBlock, next);
+                    fusedNotTaken = fusedFallThrough;
+                } else if (next->is<OpJfalse>() && next->as<OpJfalse>().m_condition == bytecode.m_dst) {
+                    fusedBranch = next.ptr();
+                    fusedTaken = fusedFallThrough;
+                    fusedNotTaken = branchIndex.offset() + jumpTargetForInstruction<OpJfalse>(codeBlock, next);
+                }
+            }
+
             BytecodeIndex startIndex = m_currentIndex;
             BytecodeIndex itermediateIndex = m_currentIndex;
             BasicBlock* constructorIsObjectBlock = allocateUntargetableBlock();
@@ -8877,7 +8925,25 @@ void ByteCodeParser::parseBlock(unsigned limit)
             BasicBlock* valueIsNotObjectBlock = allocateUntargetableBlock();
             BasicBlock* isCustomBlock = allocateUntargetableBlock();
             BasicBlock* isNotCustomBlock = allocateUntargetableBlock();
-            BasicBlock* continuation = allocateUntargetableBlock();
+            BasicBlock* continuation = fusedBranch ? nullptr : allocateUntargetableBlock();
+
+            auto finishArm = [&] {
+                m_currentIndex = nextOpcodeIndex();
+                m_exitOK = true;
+                processSetLocalQueue();
+
+                if (!fusedBranch) {
+                    addToGraph(Jump, OpInfo(continuation));
+                    return;
+                }
+                // The fused jump is never visited by the parse loop, so count it here.
+                if (m_graph.compilation()) [[unlikely]] {
+                    addToGraph(CountExecution, OpInfo(m_graph.compilation()->executionCounterFor(
+                        Profiler::OriginStack(*m_vm->m_perBytecodeProfiler, m_codeBlock, currentCodeOrigin()))));
+                }
+                addToGraph(Branch, OpInfo(branchData(fusedTaken, fusedNotTaken)), get(bytecode.m_dst));
+                m_inlineStackTop->m_unlinkedBlocks.append(m_currentBlock);
+            };
 
             // 1. Get hasInstance
             // 1.1 Check whether the constructor is an object.
@@ -8933,11 +8999,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
                 set(bytecode.m_dst, addToGraph(InstanceOfCustom, get(bytecode.m_value), get(bytecode.m_constructor), get(bytecode.m_hasInstanceOrPrototype)));
 
-                m_currentIndex = nextOpcodeIndex();
-                m_exitOK = true;
-                processSetLocalQueue();
-
-                addToGraph(Jump, OpInfo(continuation));
+                finishArm();
             }
 
             m_currentIndex = itermediateIndex;
@@ -8961,11 +9023,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
                 set(bytecode.m_dst, jsConstant(jsBoolean(false)));
 
-                m_currentIndex = nextOpcodeIndex();
-                m_exitOK = true;
-                processSetLocalQueue();
-
-                addToGraph(Jump, OpInfo(continuation));
+                finishArm();
             }
 
             m_currentIndex = itermediateIndex;
@@ -9033,11 +9091,13 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     set(bytecode.m_dst, addToGraph(op, value, prototype));
                 })();
 
-                m_currentIndex = nextOpcodeIndex();
-                m_exitOK = true;
-                processSetLocalQueue();
+                finishArm();
+            }
 
-                addToGraph(Jump, OpInfo(continuation));
+            if (fusedBranch) {
+                m_currentIndex = BytecodeIndex(fusedFallThrough);
+                m_exitOK = false;
+                return;
             }
 
             m_currentIndex = startIndex;
@@ -12088,7 +12148,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             keepUsesOfCurrentInstructionAlive(currentInstruction, m_currentIndex.checkpoint());
 
             Node* iteratedObject = addToGraph(GetInternalField, OpInfo(static_cast<uint32_t>(JSArrayIterator::Field::IteratedObject)), OpInfo(SpecObject), get(bytecode.m_iterable));
-            Node* isIteratedArray = addToGraph(IsCellWithType, OpInfo(ArrayType), iteratedObject);
+            Node* isIteratedArray = addToGraph(IsCellWithType, OpInfo(JSTypeRange { ArrayType, ArrayType }), iteratedObject);
 
             BranchData* arrayBranchData = m_graph.m_branchData.add();
             arrayBranchData->taken = BranchTarget(fastBlock);
@@ -12295,7 +12355,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             failedBlock = allocateUntargetableBlock();
 
             Node* isKnownIterFunction = addToGraph(CompareEqPtr, OpInfo(frozenMapEntriesFunction), get(bytecode.m_symbolIterator));
-            Node* isMap = addToGraph(IsCellWithType, OpInfo(JSMapType), get(bytecode.m_iterable));
+            Node* isMap = addToGraph(IsCellWithType, OpInfo(JSTypeRange { JSMapType, JSMapType }), get(bytecode.m_iterable));
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(fastMapBlock);
@@ -12367,7 +12427,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             failedBlock = allocateUntargetableBlock();
 
             Node* isKnownIterFunction = addToGraph(CompareEqPtr, OpInfo(frozenSetValuesFunction), get(bytecode.m_symbolIterator));
-            Node* isSet = addToGraph(IsCellWithType, OpInfo(JSSetType), get(bytecode.m_iterable));
+            Node* isSet = addToGraph(IsCellWithType, OpInfo(JSTypeRange { JSSetType, JSSetType }), get(bytecode.m_iterable));
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(fastSetBlock);
@@ -12436,7 +12496,7 @@ void ByteCodeParser::handleIteratorOpen(const JSInstruction* currentInstruction,
             failedBlock = allocateUntargetableBlock();
 
             Node* isKnownIterFunction = addToGraph(CompareEqPtr, OpInfo(frozenStringSymbolIteratorFunction), symbolIterator);
-            Node* isString = addToGraph(IsCellWithType, OpInfo(StringType), get(bytecode.m_iterable));
+            Node* isString = addToGraph(IsCellWithType, OpInfo(JSTypeRange { StringType, StringType }), get(bytecode.m_iterable));
 
             BranchData* branchData = m_graph.m_branchData.add();
             branchData->taken = BranchTarget(fastStringBlock);
@@ -13381,7 +13441,7 @@ void ByteCodeParser::handleAsyncIteratorOpen(const JSInstruction* currentInstruc
             addToGraph(CheckJSCast, OpInfo(JSAsyncGenerator::info()), get(bytecode.m_iterable));
             addToGraph(CheckIsConstant, OpInfo(primordialIter), symbolAsyncIterator);
         } else {
-            Node* isAsyncGenerator = addToGraph(IsCellWithType, OpInfo(JSAsyncGeneratorType), get(bytecode.m_iterable));
+            Node* isAsyncGenerator = addToGraph(IsCellWithType, OpInfo(JSTypeRange { JSAsyncGeneratorType, JSAsyncGeneratorType }), get(bytecode.m_iterable));
             Node* isprimordialIter = addToGraph(CompareEqPtr, OpInfo(primordialIter), symbolAsyncIterator);
             Node* eligible = addToGraph(ArithBitAnd, isAsyncGenerator, isprimordialIter);
             emitExitOK();

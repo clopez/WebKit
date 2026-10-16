@@ -303,6 +303,24 @@ static RetainPtr<NSError> unknownError()
     return adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]);
 }
 
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+static RetainPtr<NSError> nsErrorFromHitTestAtPointError(WebKit::HitTestAtPointError error)
+{
+    switch (error) {
+    case WebKit::HitTestAtPointError::FrameNotFound:
+        return createNSError(WKErrorJavaScriptInvalidFrameTarget);
+    case WebKit::HitTestAtPointError::WebViewInvalidated:
+        return createNSError(WKErrorWebViewInvalidated);
+    case WebKit::HitTestAtPointError::WebContentProcessTerminated:
+        return createNSError(WKErrorWebContentProcessTerminated);
+    case WebKit::HitTestAtPointError::Unknown:
+        return createNSError(WKErrorUnknown);
+    }
+    ASSERT_NOT_REACHED();
+    return createNSError(WKErrorUnknown);
+}
+#endif
+
 RetainPtr<NSError> nsErrorFromExceptionDetails(const std::optional<WebCore::ExceptionDetails>& details)
 {
     if (!details)
@@ -1291,6 +1309,30 @@ static void addBrowsingContextControllerMethodStubsIfNeeded()
 {
     THROW_IF_SUSPENDED;
     [self _evaluateJavaScript:javaScriptString asAsyncFunction:YES withSourceURL:nil withArguments:arguments forceUserGesture:YES inFrame:frame inWorld:contentWorld completionHandler:completionHandler];
+}
+
+- (void)hitTestAtPoint:(CGPoint)point inCoordinateSpaceOfFrame:(WKFrameInfo *)frame inContentWorld:(WKContentWorld *)contentWorld completionHandler:(void (^)(WKHitTestResult *, NSError *))completionHandler
+{
+    THROW_IF_SUSPENDED;
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    RefPtr mainFrame = _page->mainFrame();
+    if (!frame && !mainFrame)
+        return completionHandler(nil, nsErrorFromHitTestAtPointError(WebKit::HitTestAtPointError::FrameNotFound).get());
+    _page->hitTestAtPoint(frame ? frame->_frameInfo->frameInfoData().frameID : mainFrame->frameID(), point, protect(contentWorld ? *contentWorld->_contentWorld : API::ContentWorld::pageContentWorldSingleton()), [completionHandler = makeBlockPtr(completionHandler), page = WeakPtr { _page.get() }](auto&& jsHandleInfo, auto&& hitTestResultData) mutable {
+        if (!jsHandleInfo)
+            return completionHandler(nil, nsErrorFromHitTestAtPointError(jsHandleInfo.error()).get());
+        RefPtr<API::JSHandle> jsHandle;
+        if (*jsHandleInfo)
+            jsHandle = API::JSHandle::create(WTF::move(**jsHandleInfo));
+        RefPtr protectedPage = page.get();
+        completionHandler(wrapper(API::HitTestResult::create(hitTestResultData, protectedPage.get(), WTF::move(jsHandle))).get(), nil);
+    });
+#else
+    UNUSED_PARAM(point);
+    UNUSED_PARAM(frame);
+    UNUSED_PARAM(contentWorld);
+    completionHandler(nil, unknownError().get());
+#endif
 }
 
 static bool validateArgument(id argument)
@@ -4597,6 +4639,24 @@ static RetainPtr<_WKTextManipulationViewportProximityInfo> createViewportProximi
     return adoptNS([[_WKTextManipulationViewportProximityInfo alloc] initWithRelation:createViewportRelation(info->relation) viewportSizedDistance:info->viewportSizedDistance viewportCoverage:info->viewportCoverage]);
 }
 
+static CGRect webViewRectForMainFrameRect(WebKit::WebPageProxy& page, const std::optional<WebCore::FloatRect>& mainFrameBoundingRect)
+{
+    if (!mainFrameBoundingRect)
+        return CGRectNull;
+
+    RefPtr pageClient = page.pageClient();
+    if (!pageClient)
+        return CGRectNull;
+
+    auto rectInRootView = *mainFrameBoundingRect;
+#if PLATFORM(MAC)
+    rectInRootView.moveBy(-page.mainFrameScrollPosition());
+    auto& obscuredContentInsets = page.obscuredContentInsets();
+    rectInRootView.move(obscuredContentInsets.left(), obscuredContentInsets.top());
+#endif
+    return pageClient->rootViewToWebView(rectInRootView);
+}
+
 - (void)_startTextManipulationsWithConfiguration:(_WKTextManipulationConfiguration *)configuration completion:(void(^)())completionHandler
 {
     THROW_IF_SUSPENDED;
@@ -4637,7 +4697,8 @@ static RetainPtr<_WKTextManipulationViewportProximityInfo> createViewportProximi
         if (!delegate)
             return;
 
-        auto createWKItem = [] (const WebCore::TextManipulationItem& item) {
+        RefPtr page = retainedSelf->_page;
+        auto createWKItem = [&page](const WebCore::TextManipulationItem& item) {
             auto tokens = createNSArray(item.tokens, [] (auto& token) {
                 auto wkToken = adoptNS([[_WKTextManipulationToken alloc] init]);
                 [wkToken setIdentifier:String::number(token.identifier.toUInt64()).createNSString().get()];
@@ -4647,7 +4708,8 @@ static RetainPtr<_WKTextManipulationViewportProximityInfo> createViewportProximi
                 return wkToken;
             });
             auto identifier = makeString(item.frameID ? item.frameID->toUInt64() : 0, '-', item.identifier ? item.identifier->toUInt64() : 0);
-            return adoptNS([[_WKTextManipulationItem alloc] initWithIdentifier:identifier.createNSString().get() tokens:tokens.get() isSubframe:item.isSubframe isCrossSiteSubframe:item.isCrossSiteSubframe viewportProximityInfo:createViewportProximityInfo(item.viewportProximityInfo).get()]);
+            CGRect webViewBoundingRect = page ? webViewRectForMainFrameRect(*page, item.mainFrameBoundingRect) : CGRectNull;
+            return adoptNS([[_WKTextManipulationItem alloc] initWithIdentifier:identifier.createNSString() tokens:tokens isSubframe:item.isSubframe isCrossSiteSubframe:item.isCrossSiteSubframe viewportProximityInfo:createViewportProximityInfo(item.viewportProximityInfo) webViewBoundingRect:webViewBoundingRect]);
         };
 
         if ([delegate respondsToSelector:@selector(_webView:didFindTextManipulationItems:)])
@@ -4955,7 +5017,15 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
 
 - (void)_convertRect:(CGRect)rect fromFrame:(WKFrameInfo *)frame toMainFrameCoordinates:(void (^)(CGRect, NSError *error))completionHandler
 {
-    completionHandler(CGRectZero, adoptNS([[NSError alloc] initWithDomain:NSCocoaErrorDomain code:NSFeatureUnsupportedError userInfo:nil]).get());
+    if (!frame)
+        [NSException raise:NSInternalInconsistencyException format:@"frame must be non-null"];
+
+    _page->convertRectToMainFrameCoordinates(rect, frame->_frameInfo->frameInfoData().frameID, [completionHandler = makeBlockPtr(completionHandler)](std::optional<WebCore::FloatRect> result) {
+        if (result)
+            completionHandler(*result, nil);
+        else
+            completionHandler({ }, unknownError().get());
+    });
 }
 
 - (void)_hitTestAtPoint:(CGPoint)point inFrameCoordinateSpace:(WKFrameInfo *)frame completionHandler:(void (^)(_WKJSHandle *, NSError *))completionHandler
@@ -4968,10 +5038,10 @@ static RetainPtr<NSArray> wkTextManipulationErrors(NSArray<_WKTextManipulationIt
     RefPtr mainFrame = _page->mainFrame();
     if (!frame && !mainFrame)
         return completionHandler(nil, unknownError().get());
-    _page->hitTestAtPoint(frame ? frame->_frameInfo->frameInfoData().frameID : mainFrame->frameID(), point, protect(*contentWorld->_contentWorld), [completionHandler = makeBlockPtr(completionHandler)] (auto&& result) mutable {
-        if (!result)
+    _page->hitTestAtPoint(frame ? frame->_frameInfo->frameInfoData().frameID : mainFrame->frameID(), point, protect(*contentWorld->_contentWorld), [completionHandler = makeBlockPtr(completionHandler)](auto&& jsHandleInfo, auto&&) mutable {
+        if (!jsHandleInfo || !*jsHandleInfo)
             return completionHandler(nil, unknownError().get());
-        completionHandler(wrapper(API::JSHandle::create(WTF::move(*result))).get(), nil);
+        completionHandler(wrapper(API::JSHandle::create(WTF::move(**jsHandleInfo))).get(), nil);
     });
 }
 

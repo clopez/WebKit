@@ -1350,6 +1350,7 @@ using WebCore::ScrollPosition = WebCore::IntPoint;
     WebCore::FloatRect exposedContentRectInChildView();
 #endif
     bool ownerHasRenderer();
+    bool ownerIsFullyClipped();
     WebCore::TransformationMatrix childFrameOwnerToRootContentTransform();
     WebCore::TransformationMatrix absoluteToChildFrameOwnerLocalTransform();
     float frameScaleFactor();
@@ -1367,6 +1368,13 @@ header: <WebCore/FrameGeometrySyncData.h>
 [CustomHeader] struct WebCore::FrameViewportInfo {
     WebCore::LayoutRect layoutViewportRect;
     WebCore::ScrollPosition scrollPosition;
+};
+
+header: <WebCore/FrameGeometrySyncData.h>
+[CustomHeader] struct WebCore::FrameGeometryUpdate {
+    WebCore::FrameIdentifier frameID;
+    std::optional<WebCore::FrameGeometrySyncData> geometry;
+    std::optional<WebCore::FrameViewportInfo> viewportInfo;
 };
 
 header: <WebCore/VP9Utilities.h>
@@ -1807,6 +1815,7 @@ struct WebCore::TextManipulationItem {
     Markable<WebCore::TextManipulationItemIdentifier> identifier;
     Vector<WebCore::TextManipulationToken> tokens;
     std::optional<WebCore::ViewportProximityInfo> viewportProximityInfo;
+    std::optional<WebCore::FloatRect> mainFrameBoundingRect;
 }
 
 header: <WebCore/TextManipulationToken.h>
@@ -7560,4 +7569,11 @@ header: <WebCore/UserGestureIndicator.h>
     WebCore::DOMPasteAccessPolicy domPasteAccessPolicy;
     WebCore::GestureScope scope;
     bool removesTransientActivation;
+};
+
+header: <WebCore/ViewportSegments.h>
+[CustomHeader] struct WebCore::ViewportSegments {
+    unsigned columns;
+    unsigned rows;
+    Vector<WebCore::FloatRect> segmentRects;
 };

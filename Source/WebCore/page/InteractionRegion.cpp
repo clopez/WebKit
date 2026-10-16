@@ -60,6 +60,7 @@
 #include "PseudoClassChangeInvalidation.h"
 #include "RenderAncestorIterator.h"
 #include "RenderBoxInlines.h"
+#include "RenderElementInlines.h"
 #include "RenderImage.h"
 #include "RenderLayer.h"
 #include "RenderLayerBacking.h"
@@ -463,7 +464,8 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(const Render
         return std::nullopt;
     }
 
-    auto viewportSize = FloatSize(pageView->baseLayoutViewportSize());
+    // FIXME: Remove suppression once rdar://189998444 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST auto viewportSize = FloatSize(pageView->baseLayoutViewportSize());
     auto viewportArea = viewportSize.area();
     bool isTooBigForInteraction = bounds.area() > viewportArea / 3;
     bool isTooBigForOcclusion = bounds.area() > viewportArea * 3;
@@ -622,7 +624,7 @@ std::optional<InteractionRegion> interactionRegionForRenderedRegion(const Render
 
         clipPath = path;
     } else if ((regionRendererBox = dynamicDowncast<RenderBox>(regionRenderer))) {
-        auto borderShape = BorderShape::shapeForBorderRect(protect(regionRendererBox->style()), regionRendererBox->borderBoxRect());
+        auto borderShape = BorderShape::shapeForBorderRect(regionRendererBox->usedStyle(), regionRendererBox->borderBoxRect());
         auto borderRadii = borderShape.radii();
         auto minRadius = borderRadii.minimumRadius();
         auto maxRadius = borderRadii.maximumRadius();

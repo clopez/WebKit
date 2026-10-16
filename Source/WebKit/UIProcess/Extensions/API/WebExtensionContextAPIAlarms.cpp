@@ -43,6 +43,9 @@ void WebExtensionContext::alarmsCreate(const String& name, Seconds initialInterv
 {
     m_alarmMap.set(name, WebExtensionAlarm::create(name, initialInterval, repeatInterval, [this, protectedThis = Ref { *this }](const WebExtensionAlarm& alarm) {
         fireAlarmsEventIfNeeded(alarm);
+
+        if (!alarm.repeatInterval())
+            m_alarmMap.remove(alarm.name());
     }));
 
     completionHandler();
@@ -82,8 +85,8 @@ void WebExtensionContext::alarmsClearAll(CompletionHandler<void()>&& completionH
 void WebExtensionContext::fireAlarmsEventIfNeeded(const WebExtensionAlarm& alarm)
 {
     constexpr auto type = WebExtensionEventListenerType::AlarmsOnAlarm;
-    wakeUpBackgroundContentIfNecessaryToFireEvents({ type }, [=, this, protectedThis = Ref { *this }, alarm = Ref { alarm }] {
-        sendToProcessesForEvent(type, Messages::WebExtensionContextProxy::DispatchAlarmsEvent(alarm->parameters()));
+    wakeUpBackgroundContentIfNecessaryToFireEvents({ type }, [=, this, protectedThis = Ref { *this }, parameters = alarm.parameters()] {
+        sendToProcessesForEvent(type, Messages::WebExtensionContextProxy::DispatchAlarmsEvent(parameters));
     });
 }
 

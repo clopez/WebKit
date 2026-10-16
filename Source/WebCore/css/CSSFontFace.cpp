@@ -83,7 +83,8 @@ void CSSFontFace::appendSources(CSSFontFace& fontFace, CSSValueList& srcList, Sc
                 fontFace.adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(fontFace, local->fontFaceName(),  CheckedRef { *local->svgFontFaceElement() }));
         } else {
             if (allowDownloading) {
-                if (auto request = downcast<CSSFontFaceSrcResourceValue>(const_cast<CSSValue&>(src.get())).fontLoadRequest(*context, isInitiatingElementInUserAgentShadowTree))
+                // FIXME: Remove suppression once rdar://189998365 is fixed.
+                SUPPRESS_MEMORY_UNSAFE_CAST if (auto request = downcast<CSSFontFaceSrcResourceValue>(const_cast<CSSValue&>(src.get())).fontLoadRequest(*context, isInitiatingElementInUserAgentShadowTree))
                     fontFace.adoptSource(makeUniqueWithoutRefCountedCheck<CSSFontFaceSource>(fontFace, protect(*context->cssFontSelector()), request.releaseNonNull()));
             }
         }
@@ -727,7 +728,7 @@ size_t CSSFontFace::pump(ExternalResourceDownloadPolicy policy)
             // but it seems that this behavior is a requirement of the design of FontRanges. FIXME: Perhaps rethink
             // this design.
             if (policy == ExternalResourceDownloadPolicy::Allow || !source->requiresExternalResource()) {
-                if (m_status == Status::Pending)
+                if (policy == ExternalResourceDownloadPolicy::Allow && m_status == Status::Pending)
                     setStatus(Status::Loading);
                 source->load(m_trustedType, protect(document()).get());
             }
@@ -750,12 +751,13 @@ size_t CSSFontFace::pump(ExternalResourceDownloadPolicy policy)
                 setStatus(Status::Success);
             return i;
         case CSSFontFaceSource::Status::Failure:
-            if ((policy == ExternalResourceDownloadPolicy::Allow || !source->requiresExternalResource()) && m_status == Status::Pending)
+            if (policy == ExternalResourceDownloadPolicy::Allow && m_status == Status::Pending)
                 setStatus(Status::Loading);
             break;
         }
     }
-    if (m_sources.isEmpty() && m_status == Status::Pending)
+    // All sources failed, possibly synchronously under the Forbid policy (local() only).
+    if (m_status == Status::Pending)
         setStatus(Status::Loading);
     if (m_status == Status::Loading || m_status == Status::TimedOut)
         setStatus(Status::Failure);

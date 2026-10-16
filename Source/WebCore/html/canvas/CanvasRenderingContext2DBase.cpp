@@ -479,7 +479,7 @@ CanvasRenderingContext2DBase::FontProxy::~FontProxy()
 }
 
 CanvasRenderingContext2DBase::FontProxy::FontProxy(const FontProxy& other)
-    : m_font(other.m_font)
+    : m_font(protect(other.m_font))
 {
     if (realized())
         protect(m_font.fontSelector())->registerForInvalidationCallbacks(*this);
@@ -1803,7 +1803,7 @@ ExceptionOr<void> CanvasRenderingContext2DBase::drawImage(WebCodecsVideoFrame& f
     };
 
     // FIXME: Add support for srcRect
-    context->drawVideoFrame(*internalFrame, dstRect, frame.shoudlDiscardAlpha() ? ShouldDiscardAlpha::Yes : ShouldDiscardAlpha::No, options);
+    context->drawVideoFrame(*internalFrame, dstRect, ShouldDiscardAlpha::No, options);
 
     return { };
 }

@@ -484,6 +484,8 @@ public:
     void dirtyChildrenInDOMOrderForSVG();
     void invalidateEnclosingSVGContainerSegmentation();
     bool shouldSkipRepaintAfterLayoutForSVG() const;
+    std::optional<TransformationMatrix> containerTransformForRepaintForSVG() const;
+    void setNeedsFullRepaintIfSVGContainerTransformChanged(const RenderLayerModelObject* repaintContainer);
     bool hasFailedFilterForSVG() const;
     bool shouldSkipHitTestForSVG() const;
     void updateAncestorDependentStateForSVG();
@@ -1189,8 +1191,12 @@ private:
         HasSeenViewportConstrainedAncestor      = 1 << 1,
         HasSeenAncestorWithOverflowClip         = 1 << 2,
         HasChangedAncestor                      = 1 << 3,
+        SkipsUnconstrainedSubtrees              = 1 << 4,
     };
     void recursiveUpdateLayerPositionsAfterScroll(OptionSet<UpdateLayerPositionsAfterScrollFlag> = { });
+#if ASSERT_ENABLED || ENABLE(CONJECTURE_ASSERT)
+    void verifySkippedLayerPositionsAfterDocumentScroll();
+#endif
 
     RenderLayer* enclosingPaginationLayerInSubtree(const RenderLayer* rootLayer, PaginationInclusionMode) const;
 
@@ -1293,6 +1299,7 @@ private:
 
     RenderLayer* transparentPaintingAncestor(const LayerPaintingInfo&);
     void beginTransparencyLayers(GraphicsContext&, const LayerPaintingInfo&, const LayoutRect& dirtyRect);
+    bool blendModeAppliesToSVGRootContentsOnly() const;
 
     HitLayer hitTestLayer(RenderLayer* rootLayer, RenderLayer* containerLayer, const HitTestRequest&, HitTestResult&,
         const LayoutRect& hitTestRect, const HitTestLocation&, bool appliedTransform,
@@ -1563,6 +1570,7 @@ private:
         WTF_MAKE_STRUCT_TZONE_ALLOCATED(SVGData);
         bool isPaintingResourceLayer { false };
         bool childrenInDOMOrderDirty { true };
+        std::optional<TransformationMatrix> containerTransformForRepaintRects;
         SingleThreadWeakPtr<RenderSVGHiddenContainer> enclosingHiddenOrResourceContainer;
         Vector<SVGPaintOrderLayerItem> childrenInDOMOrder;
     };

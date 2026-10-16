@@ -187,16 +187,13 @@ RetainPtr<NSAttributedString> AccessibilityObject::attributedStringForRange(cons
     auto contents = contentForRange(range, spellCheck);
     // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
     for (SUPPRESS_UNRETAINED_LOCAL id content in contents.get()) {
-        auto item = retainPtr(content);
-        if ([item isKindOfClass:[WebAccessibilityObjectWrapper class]]) {
-            attributedStringAppendWrapper(result.get(), item.get());
+        if (RetainPtr wrapper = dynamic_objc_cast<WebAccessibilityObjectWrapper>(content)) {
+            attributedStringAppendWrapper(result.get(), wrapper);
             continue;
         }
 
-        if (![item isKindOfClass:[NSAttributedString class]])
-            continue;
-
-        [result appendAttributedString:item.get()];
+        if (RetainPtr attributedString = dynamic_objc_cast<NSAttributedString>(content))
+            [result appendAttributedString:attributedString];
     }
 
     return result;
@@ -226,8 +223,10 @@ RetainPtr<CTFontRef> AccessibilityObject::font() const
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 FontOrientation AccessibilityObject::fontOrientation() const
 {
-    if (CheckedPtr style = this->style())
-        return const_cast<Style::ComputedStyle*>(style.get())->fontAndGlyphOrientation().first;
+    if (CheckedPtr style = this->style()) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<Style::ComputedStyle*>(style.get())->fontAndGlyphOrientation().first;
+    }
     return FontOrientation::Horizontal;
 }
 #endif

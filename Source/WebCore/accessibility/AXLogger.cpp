@@ -1284,9 +1284,6 @@ TextStream& operator<<(WTF::TextStream& stream, AXProperty property)
     case AXProperty::VerticalScrollBar:
         stream << "VerticalScrollBar";
         break;
-    case AXProperty::VisibleChildren:
-        stream << "VisibleChildren";
-        break;
     case AXProperty::VisibleRows:
         stream << "VisibleRows";
         break;
@@ -1420,7 +1417,8 @@ void streamAXCoreObject(TextStream& stream, const AXCoreObject& object, const Op
             if (auto* runs = isolatedObject->textRuns(); runs && runs->size())
                 streamTextRuns(stream, *runs);
         } else if (axObject) {
-            if (auto runs = const_cast<AccessibilityObject*>(axObject)->textRuns(); runs.size())
+            // FIXME: Remove suppression once rdar://189998365 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST if (auto runs = const_cast<AccessibilityObject*>(axObject)->textRuns(); runs.size())
                 streamTextRuns(stream, runs);
         }
     }

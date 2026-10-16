@@ -490,7 +490,7 @@ Ref<WebProcessProxy> WebProcessProxy::createForRemoteWorkers(RemoteWorkerType wo
 {
     Ref proxy = adoptRef(*new WebProcessProxy(processPool, &websiteDataStore, IsPrewarmed::No, crossOriginMode, lockdownMode, enhancedSecurity));
     proxy->m_committedSites.add(site);
-    proxy->m_remoteWorkerSites.add(site);
+    proxy->m_remoteWorkerDomains.add(site.domain());
     proxy->m_site = WTF::move(site);
     // Workers are placed by top site, so this process also runs third-party workers from sites it has no record of.
     proxy->m_hostedSiteTracking = HostedSiteTracking::AnySite;
@@ -653,6 +653,18 @@ void WebProcessProxy::setIsolatedProcessType(IsolatedProcessType isolatedProcess
     m_mainFrameSite = mainFrameSite;
 }
 
+void WebProcessProxy::setCOOPCacheOrigin(const SecurityOriginData& origin)
+{
+    m_coopCacheOrigin = origin;
+    m_isCOOPCacheOriginUnconfirmed = false;
+}
+
+void WebProcessProxy::markCOOPCacheOriginAsUnconfirmed()
+{
+    ASSERT(m_coopCacheOrigin);
+    m_isCOOPCacheOriginUnconfirmed = true;
+}
+
 void WebProcessProxy::setIsInProcessCache(bool value, WillShutDown willShutDown)
 {
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setIsInProcessCache(%d)", value);
@@ -661,6 +673,7 @@ void WebProcessProxy::setIsInProcessCache(bool value, WillShutDown willShutDown)
         RELEASE_ASSERT(m_suspendedPages.isEmptyIgnoringNullReferences());
         RELEASE_ASSERT(m_provisionalPages.isEmptyIgnoringNullReferences());
         m_previouslyApprovedFilePaths.clear();
+        m_isCOOPCacheOriginUnconfirmed = false;
     }
 
     ASSERT(m_isInProcessCache != value);
@@ -792,6 +805,7 @@ void WebProcessProxy::removeProvisionalPageProxy(ProvisionalPageProxy& provision
     m_provisionalPages.remove(provisionalPage);
     updateRegistrationWithDataStore();
     if (m_provisionalPages.isEmptyIgnoringNullReferences()) {
+        m_isCOOPCacheOriginUnconfirmed = false;
         if (RefPtr page = provisionalPage.page())
             reportProcessDisassociatedWithPageIfNecessary(page->identifier());
         maybeShutDown();
@@ -1264,9 +1278,10 @@ bool WebProcessProxy::hasCommittedClientOrigin(const WebCore::ClientOrigin& clie
     if (m_committedClientOrigins.contains(clientOrigin))
         return true;
 
-    // A remote-worker process is authenticated only for the top-site partitions it hosts workers
-    // for, not for those workers' own (possibly cross-site) origins, so validate the top site here.
-    return m_remoteWorkerSites.contains(Site { clientOrigin.topOrigin });
+    // A remote-worker process is authenticated only for the top-domain partitions it hosts workers
+    // for, not for those workers' own (possibly cross-site) origins, so validate the top domain here.
+    // The network process assigns workers to processes by registrable domain, regardless of scheme.
+    return m_remoteWorkerDomains.contains(RegistrableDomain { clientOrigin.topOrigin });
 }
 
 // Terminates only on positive evidence that no page this process participates in can speak for the
@@ -1324,7 +1339,7 @@ void WebProcessProxy::didCommitStorageClientOrigin(WebCore::ClientOrigin&& clien
 
 void WebProcessProxy::didBecomeRemoteWorkerHostForSite(const WebCore::Site& site)
 {
-    m_remoteWorkerSites.add(site);
+    m_remoteWorkerDomains.add(site.domain());
 }
 
 void WebProcessProxy::addVisitedLinkStoreUser(VisitedLinkStore& visitedLinkStore, WebPageProxyIdentifier pageID)
@@ -2880,6 +2895,8 @@ void WebProcessProxy::didCommitMainFrameLoad(const URL& url)
         // update path even in the case of a BCG switch (didStartUsingProcessForSiteIsolation).
         updateSiteForMainFrameNavigation(url);
     }
+
+    m_isCOOPCacheOriginUnconfirmed = false;
 
     if (m_coopCacheOrigin && !url.protocolIsAbout() && SecurityOriginData::fromURL(url) != *m_coopCacheOrigin) {
         WEBPROCESSPROXY_RELEASE_LOG(ProcessSwapping, "didCommitMainFrameLoad: Main frame committed a different origin, process is no longer eligible for the WebProcess cache");

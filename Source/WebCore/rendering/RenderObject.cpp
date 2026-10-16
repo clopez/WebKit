@@ -492,12 +492,14 @@ RenderLayer* RenderObject::enclosingLayer() const
 
 RenderBox& RenderObject::enclosingBox() const
 {
-    return *lineageOfType<RenderBox>(const_cast<RenderObject&>(*this)).first();
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return *lineageOfType<RenderBox>(const_cast<RenderObject&>(*this)).first();
 }
 
 RenderBoxModelObject& RenderObject::enclosingBoxModelObject() const
 {
-    return *lineageOfType<RenderBoxModelObject>(const_cast<RenderObject&>(*this)).first();
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return *lineageOfType<RenderBoxModelObject>(const_cast<RenderObject&>(*this)).first();
 }
 
 RenderBox* RenderObject::enclosingScrollableContainer() const
@@ -730,7 +732,8 @@ void RenderObject::setLayerNeedsFullRepaintForOutOfFlowMovementLayout()
 
 RenderBlock* RenderElement::nearestNonAnonymousContainingBlockIncludingSelf() const
 {
-    auto* renderer = const_cast<RenderElement*>(this);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST auto* renderer = const_cast<RenderElement*>(this);
     while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
         renderer = renderer->containingBlock();
     return downcast<RenderBlock>(renderer);
@@ -959,19 +962,19 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
 
         bool rendererHasOutlineAutoAncestor = renderer->hasOutlineAutoAncestor() || originalRenderer->hasOutlineAutoAncestor();
         ASSERT(rendererHasOutlineAutoAncestor
-            || originalRenderer->outlineStyleForRepaint().outlineStyle() == OutlineStyle::Auto);
+            || originalRenderer->style().outlineStyle() == OutlineStyle::Auto);
         if (originalRenderer == &repaintContainer && rendererHasOutlineAutoAncestor)
             repaintRectNeedsConverting = true;
         if (rendererHasOutlineAutoAncestor)
             continue;
         // Issue repaint on the correct repaint container.
         LayoutRect adjustedRepaintRect = repaintRect;
-        CheckedRef outlineStyle = originalRenderer->outlineStyleForRepaint();
-        adjustedRepaintRect.inflate(outlineStyle->usedOutlineSize(outlineStyle->usedZoomForLength(), outlineStyle->deviceScaleFactor()));
+        adjustedRepaintRect.inflate(originalRenderer->usedStyle().outlineSize());
         if (!repaintRectNeedsConverting)
             repaintContainer.repaintRectangle(adjustedRepaintRect);
         else if (CheckedPtr rendererWithOutline = dynamicDowncast<RenderLayerModelObject>(*originalRenderer)) {
-            adjustedRepaintRect = LayoutRect(repaintContainer.localToContainerQuad(FloatRect(adjustedRepaintRect), rendererWithOutline.get()).boundingBox());
+            // FIXME: Remove suppression once rdar://189998444 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST adjustedRepaintRect = LayoutRect(repaintContainer.localToContainerQuad(FloatRect(adjustedRepaintRect), rendererWithOutline.get()).boundingBox());
             rendererWithOutline->repaintRectangle(adjustedRepaintRect);
         }
         return;
@@ -1315,8 +1318,8 @@ static std::optional<LayoutRect> computeClippedRectInMainFrameContentCoordinates
     absoluteClippedRect = LayoutRect { enclosingFrameView->contentsToView(*absoluteClippedRect) };
 
     if (RefPtr ownerRenderer = enclosingFrame->ownerRenderer()) {
-        // Adjust for borders and/or padding of the owner renderer box.
-        absoluteClippedRect->moveBy(ownerRenderer->contentBoxLocation());
+        // Adjust for where the owner renderer places the frame.
+        absoluteClippedRect->moveBy(ownerRenderer->widgetContentLocation());
         return computeClippedRectInMainFrameContentCoordinates(*absoluteClippedRect, ownerRenderer.get(), clipRectAdjuster);
     }
 
@@ -2160,11 +2163,6 @@ PositionWithAffinity RenderObject::createPositionWithAffinity(const Position& po
     return createPositionWithAffinity(0, Affinity::Downstream);
 }
 
-const Style::ComputedStyle& RenderObject::outlineStyleForRepaint() const
-{
-    return style();
-}
-
 CursorDirective RenderObject::getCursor(const LayoutPoint&, Cursor&) const
 {
     return CursorDirective::SetCursorBasedOnStyle;
@@ -2175,9 +2173,9 @@ bool RenderObject::useDarkAppearance() const
     return protect(document())->useDarkAppearance(&style());
 }
 
-OptionSet<StyleColorOptions> RenderObject::styleColorOptions() const
+OptionSet<StyleColorOptions> RenderObject::styleColorOptions(StyleColorOptionsPurpose purpose) const
 {
-    return protect(document())->styleColorOptions(&style());
+    return protect(document())->styleColorOptions(&style(), purpose);
 }
 
 void RenderObject::setSelectionState(HighlightState state)

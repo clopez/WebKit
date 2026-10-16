@@ -1,20 +1,4 @@
-[ macOS ] Modules/fetch/WindowOrWorkerGlobalScopeFetch.cpp
-[ macOS ] Modules/indexeddb/server/SQLiteIDBCursor.cpp
 StyleBuilderGenerated.cpp
-[ macOS ] accessibility/AXCoreObject.cpp
-[ macOS ] accessibility/AXCrossProcessSearch.cpp
-[ macOS ] accessibility/AXGeometryManager.cpp
-[ macOS ] accessibility/AXObjectCache.cpp
-[ macOS ] accessibility/AXSearchManager.cpp
-[ macOS ] accessibility/AXTextMarker.cpp
-[ macOS ] accessibility/AccessibilityListBoxOption.cpp
-[ macOS ] accessibility/AccessibilityNodeObject.cpp
-[ macOS ] accessibility/AccessibilityObject.cpp
-[ macOS ] accessibility/AccessibilityRenderObject.cpp
-[ macOS ] accessibility/AccessibilityScrollView.cpp
-[ macOS ] accessibility/isolatedtree/AXIsolatedObject.cpp
-[ macOS ] accessibility/isolatedtree/AXIsolatedObject.h
-[ macOS ] accessibility/isolatedtree/AXIsolatedTree.cpp
 [ macOS ] animation/KeyframeEffect.cpp
 [ macOS ] animation/KeyframeEffectStack.cpp
 [ macOS ] animation/StyleOriginatedAnimation.cpp
@@ -60,11 +44,6 @@ dom/ShadowRoot.cpp
 [ macOS ] editing/FrameSelection.cpp
 [ macOS ] fileapi/Blob.cpp
 [ macOS ] history/CachedFrame.cpp
-[ macOS ] html/BaseDateAndTimeInputType.cpp
-[ macOS ] html/HTMLFormControlElement.cpp
-[ macOS ] html/HTMLSelectElement.cpp
-[ macOS ] html/SearchInputType.cpp
-[ macOS ] html/canvas/CanvasRenderingContext2DBase.cpp
 [ macOS ] inspector/agents/InspectorCSSAgent.cpp
 [ macOS ] inspector/agents/frame/FrameCSSAgent.cpp
 layout/floats/FloatingContext.cpp
@@ -87,13 +66,10 @@ layout/formattingContexts/inline/TextOnlySimpleLineBuilder.cpp
 layout/formattingContexts/inline/display/InlineDisplayContentBuilder.cpp
 layout/formattingContexts/inline/display/InlineDisplayLineBuilder.cpp
 [ macOS ] layout/formattingContexts/inline/ruby/RubyFormattingContext.cpp
-[ macOS ] layout/formattingContexts/inline/text/TextUtil.cpp
 layout/integration/LayoutIntegrationBoxGeometryUpdater.cpp
 layout/integration/LayoutIntegrationBoxTreeUpdater.cpp
 layout/integration/LayoutIntegrationFormattingContextLayout.cpp
-[ macOS ] layout/integration/flex/FlexIntegrationUtils.cpp
 layout/integration/flex/LayoutIntegrationFlexLayout.cpp
-[ macOS ] layout/integration/grid/LayoutIntegrationGridLayout.cpp
 layout/integration/inline/InlineIteratorBox.cpp
 layout/integration/inline/InlineIteratorLineBox.h
 layout/integration/inline/InlineIteratorLineBoxInlines.h
@@ -123,7 +99,6 @@ layout/layouttree/LayoutContainingBlockChainIterator.h
 [ macOS ] platform/mediastream/AudioTrackPrivateMediaStream.cpp
 [ macOS ] platform/mediastream/MediaStreamTrackPrivate.cpp
 [ macOS ] rendering/AccessibilityRegionContext.cpp
-rendering/AttachmentLayout.mm
 rendering/AutoTableLayout.cpp
 rendering/BackgroundPainter.cpp
 rendering/BorderPainter.cpp
@@ -143,11 +118,9 @@ rendering/LayoutRepainter.cpp
 rendering/LogicalSelectionOffsetCachesInlines.h
 rendering/MarkedText.cpp
 rendering/MarkedText.h
-rendering/MotionPath.cpp
 [ macOS ] rendering/OutlinePainter.cpp
 rendering/PositionedLayoutConstraints.cpp
 rendering/RegionContext.h
-rendering/RenderAttachment.cpp
 rendering/RenderBlock.cpp
 rendering/RenderBlockFlow.cpp
 rendering/RenderBox.cpp
@@ -160,12 +133,9 @@ rendering/RenderDescendantIterator.h
 rendering/RenderElement.cpp
 rendering/RenderElement.h
 rendering/RenderElementStyleInlines.h
-rendering/RenderEmbeddedObject.cpp
-rendering/RenderFileUploadControl.cpp
 rendering/RenderFragmentContainer.cpp
 rendering/RenderFragmentContainerSet.cpp
 rendering/RenderFragmentedFlow.cpp
-rendering/RenderFrameSet.cpp
 rendering/RenderGeometryMap.cpp
 rendering/RenderGrid.cpp
 [ macOS ] rendering/RenderHighlight.cpp
@@ -175,15 +145,12 @@ rendering/RenderIterator.h
 rendering/RenderLayer.cpp
 rendering/RenderLayerBacking.cpp
 rendering/RenderLayerBacking.h
-rendering/RenderLayerBackingSVGAdditions.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerModelObject.cpp
 rendering/RenderLayerScrollableArea.cpp
 rendering/RenderLayoutState.cpp
-rendering/RenderListBox.cpp
 rendering/RenderListItem.cpp
 rendering/RenderListOutsideMarker.cpp
-rendering/RenderMenuList.cpp
 rendering/RenderMultiColumnFlow.cpp
 rendering/RenderMultiColumnSet.cpp
 [ macOS ] rendering/RenderMultiColumnSpannerPlaceholder.cpp
@@ -204,8 +171,6 @@ rendering/RenderTextControlMultiLine.cpp
 rendering/RenderTextControlSingleLine.cpp
 rendering/RenderTextControlSingleLine.h
 rendering/RenderTextFragment.cpp
-rendering/RenderTreeAsText.cpp
-rendering/RenderVTTCue.cpp
 rendering/RenderView.cpp
 rendering/RenderViewTransitionCapture.cpp
 rendering/RenderWidget.cpp
@@ -218,37 +183,14 @@ rendering/TextDecorationPainter.cpp
 rendering/cocoa/RenderThemeCocoa.mm
 [ iOS ] rendering/ios/RenderThemeIOS.mm
 rendering/line/WordTrailingSpace.h
-rendering/mathml/MathOperator.cpp
-rendering/mathml/RenderMathMLBlock.cpp
-rendering/mathml/RenderMathMLFenced.cpp
-rendering/mathml/RenderMathMLFencedOperator.cpp
-rendering/mathml/RenderMathMLFraction.cpp
-rendering/mathml/RenderMathMLMenclose.cpp
-rendering/mathml/RenderMathMLMenclose.h
-rendering/mathml/RenderMathMLOperator.cpp
-rendering/mathml/RenderMathMLPadded.cpp
-rendering/mathml/RenderMathMLRoot.cpp
-rendering/mathml/RenderMathMLScripts.cpp
-rendering/mathml/RenderMathMLSpace.cpp
-rendering/mathml/RenderMathMLToken.cpp
-rendering/mathml/RenderMathMLUnderOver.cpp
 rendering/shapes/ShapeOutsideInfo.cpp
 rendering/svg/RenderSVGBlock.cpp
-rendering/svg/RenderSVGImage.cpp
 rendering/svg/RenderSVGInline.cpp
 rendering/svg/RenderSVGInlineText.cpp
-rendering/svg/RenderSVGModelObject.cpp
-rendering/svg/RenderSVGResourceClipper.cpp
 [ macOS ] rendering/svg/RenderSVGResourceContainer.cpp
-rendering/svg/RenderSVGResourceFilterInlines.h
-rendering/svg/RenderSVGRoot.cpp
-rendering/svg/RenderSVGShape.cpp
 rendering/svg/RenderSVGText.cpp
-rendering/svg/RenderSVGViewportContainer.cpp
 rendering/svg/SVGBoundingBoxComputation.cpp
-rendering/svg/SVGContainerLayout.cpp
 [ macOS ] rendering/svg/SVGRenderSupport.cpp
-rendering/svg/SVGRenderTreeAsText.cpp
 rendering/svg/SVGRenderingContext.cpp
 rendering/svg/SVGTextBoxPainter.cpp
 rendering/svg/SVGTextLayoutEngine.cpp
@@ -256,8 +198,6 @@ rendering/svg/SVGTextLayoutEngineBaseline.cpp
 rendering/svg/SVGTextMetrics.cpp
 rendering/svg/SVGTextMetricsBuilder.cpp
 rendering/svg/SVGTextQuery.cpp
-rendering/svg/SVGTransformComputation.h
-rendering/svg/SVGVisitedRendererTracking.h
 rendering/svg/legacy/LegacyRenderSVGContainer.cpp
 rendering/svg/legacy/LegacyRenderSVGImage.cpp
 rendering/svg/legacy/LegacyRenderSVGModelObject.cpp
@@ -322,10 +262,3 @@ style/values/primitives/StyleLengthResolution.cpp
 [ macOS ] svg/SVGLengthContext.cpp
 [ macOS ] testing/Internals.cpp
 [ macOS ] testing/MockGamepadProvider.cpp
-[ macOS ] workers/Worker.cpp
-[ macOS ] workers/service/ServiceWorkerGlobalScope.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetchManager.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetchRegistration.cpp
-[ macOS ] workers/service/server/SWRegistrationDatabase.cpp
-[ macOS ] xml/parser/XMLDocumentParser.cpp
-[ macOS ] xml/parser/XMLDocumentParserLibxml2.cpp

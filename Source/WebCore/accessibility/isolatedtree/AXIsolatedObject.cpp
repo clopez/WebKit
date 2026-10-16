@@ -748,8 +748,8 @@ SRGBA<uint8_t> AXIsolatedObject::colorValue() const
 
 RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& point) const
 {
-    // For layout tests, we want to exercise hit testing using the accessibility thread, so don't
-    // use any caching or main-thread calls in testing contexts.
+    // For layout tests that hit-test directly (not through the page object, see accessibilityHitTestForScreenPoint),
+    // we want to exercise hit testing using the accessibility thread, so don't use any caching or main-thread calls.
     if (AXObjectCache::clientIsInTestMode()) [[unlikely]] {
         // In layout tests, we pass page-relative coordinates. Convert to screen for approximateHitTest, which works in screen-space.
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
@@ -768,6 +768,11 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
         return approximateHitTest(point);
     }
 
+    return accessibilityHitTestForScreenPoint(point);
+}
+
+RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTestForScreenPoint(const IntPoint& point) const
+{
     // Check if we have a cached result for this point.
     RefPtr geometryManager = tree().geometryManager();
     if (auto cachedID = geometryManager ? geometryManager->cachedHitTestResult(point) : std::nullopt)
@@ -775,10 +780,12 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
 
     struct HitTestResult {
         AXID resultID;
+        // With ENABLE(ACCESSIBILITY_LOCAL_FRAME), a hit in a same-process iframe belongs to that frame's tree.
+        std::optional<AXTreeID> resultTreeID;
         bool shouldCache;
     };
     auto hitTestOnMainThread = [axID = objectID(), treeID = treeID(), point] -> std::optional<HitTestResult> {
-        if (WeakPtr<AXObjectCache> cache = AXTreeStore<AXObjectCache>::axObjectCacheForID(treeID)) {
+        if (CheckedPtr cache = AXTreeStore<AXObjectCache>::axObjectCacheForID(treeID)) {
             RefPtr object = cache->objectForID(axID);
             auto pageRelativePoint = cache->mapScreenPointToPagePoint(point);
             if (RefPtr hitTestResult = object ? object->accessibilityHitTest(pageRelativePoint) : nullptr) {
@@ -797,7 +804,7 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
                         shouldCache = false;
                 }
 
-                return HitTestResult { hitTestResult->objectID(), shouldCache };
+                return HitTestResult { hitTestResult->objectID(), hitTestResult->treeID(), shouldCache };
             }
         }
         return std::nullopt;
@@ -807,6 +814,11 @@ RefPtr<AXCoreObject> AXIsolatedObject::accessibilityHitTest(const IntPoint& poin
     if (std::optional<std::optional<HitTestResult>> optionalResult = mainThreadValue.value) {
         if (*optionalResult) {
             HitTestResult result = **optionalResult;
+            if (result.resultTreeID != treeID()) {
+                // The cache is per tree, so don't cache hits from another frame's tree.
+                RefPtr resultTree = AXTreeStore<AXIsolatedTree>::isolatedTreeForID(result.resultTreeID);
+                return resultTree ? resultTree->objectForID(result.resultID) : nullptr;
+            }
             if (geometryManager) {
                 if (result.shouldCache) {
                     geometryManager->cacheHitTestResult(result.resultID, point);
@@ -859,7 +871,8 @@ RefPtr<AXIsolatedObject> AXIsolatedObject::approximateHitTest(const IntPoint& po
         return nullptr;
     }
 
-    AXIsolatedObject* mutableThis = const_cast<AXIsolatedObject*>(this);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST AXIsolatedObject* mutableThis = const_cast<AXIsolatedObject*>(this);
     auto children = mutableThis->unignoredChildren();
     for (int i = children.size() - 1; i >= 0; --i) {
         RefPtr child = downcast<AXIsolatedObject>(children[i].ptr());
@@ -1690,7 +1703,8 @@ FloatRect AXIsolatedObject::relativeFrame() const
         // If we are an exposable-to-accessibility table, we must have at least one valid row, so see if
         // our row(s) have cached geometry we can use. For tables, this will probably be more accurate
         // than the ancestor bounding-box fallback below.
-        for (const auto& child : const_cast<AXIsolatedObject*>(this)->unignoredChildren()) {
+        // FIXME: Remove suppression once rdar://189998365 is fixed.
+        SUPPRESS_MEMORY_UNSAFE_CAST for (const auto& child : const_cast<AXIsolatedObject*>(this)->unignoredChildren()) {
             if (std::optional cachedFrame = downcast<AXIsolatedObject>(child).cachedRelativeFrame())
                 relativeFrame.unite(*cachedFrame);
         }
@@ -1771,7 +1785,8 @@ FloatRect AXIsolatedObject::relativeFrame() const
 FloatRect AXIsolatedObject::relativeFrameFromChildren() const
 {
     FloatRect rect;
-    for (const auto& child : const_cast<AXIsolatedObject*>(this)->unignoredChildren())
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST for (const auto& child : const_cast<AXIsolatedObject*>(this)->unignoredChildren())
         rect.unite(child->relativeFrame());
     return rect;
 }
@@ -1960,6 +1975,20 @@ String AXIsolatedObject::doAXStringForRange(const CharacterRange& range) const
 {
     AX_ASSERT(!isMainThread());
     return textMarkerRange().toString().substring(range.location, range.length);
+}
+
+AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::visibleChildren()
+{
+    // Which children are visible depends on the scroll position, which isn't cached.
+    auto childIDs = Accessibility::retrieveValueFromMainThreadWithTimeoutAndDefault([context = mainThreadContext()] -> Vector<AXID> {
+        RefPtr object = context.axObjectOnMainThread();
+        if (!object)
+            return { };
+        return object->visibleChildren().map([](auto& child) {
+            return child->objectID();
+        });
+    }, Accessibility::GeneralPropertyTimeout, Vector<AXID> { });
+    return tree().objectsForIDs(childIDs);
 }
 
 CharacterRange AXIsolatedObject::characterRangeForPoint(const IntPoint& point) const
@@ -2550,12 +2579,14 @@ AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::relatedObjects(AXRel
 
 String AXIsolatedObject::innerHTML() const
 {
-    return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXProperty::InnerHTML);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXProperty::InnerHTML);
 }
 
 String AXIsolatedObject::outerHTML() const
 {
-    return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXProperty::OuterHTML);
+    // FIXME: Remove suppression once rdar://189998365 is fixed.
+    SUPPRESS_MEMORY_UNSAFE_CAST return const_cast<AXIsolatedObject*>(this)->getOrRetrievePropertyValue<String>(AXProperty::OuterHTML);
 }
 
 AXCoreObject::AccessibilityChildrenVector AXIsolatedObject::rowHeaders()

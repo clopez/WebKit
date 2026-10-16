@@ -92,6 +92,7 @@
 #import <WebCore/SharedBuffer.h>
 #import <WebCore/StyleColorOptions.h>
 #import <WebCore/VoidCallback.h>
+#import <wtf/Borrow.h>
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/HexNumber.h>
 #import <wtf/StdLibExtras.h>
@@ -1244,7 +1245,7 @@ void PDFPluginBase::writeItemsToGeneralPasteboard(Vector<PasteboardItem>&& paste
         return content;
     };
 
-    for (auto&& [data, type] : WTF::move(pasteboardItems)) {
+    for (auto&& [data, type] : borrow(pasteboardItems)) {
         if (![data length]) {
             ASSERT_NOT_REACHED();
             continue;
@@ -1670,7 +1671,7 @@ Color PDFPluginBase::pluginBackgroundColor() const
     RefPtr element = m_element.get();
     OptionSet<WebCore::StyleColorOptions> options;
     if (RefPtr element = m_element.get())
-        options = protect(element->renderer())->styleColorOptions();
+        options = protect(element->renderer())->styleColorOptions(WebCore::StyleColorOptionsPurpose::Rendering);
     return WebCore::RenderTheme::singleton().systemColor(CSSValueID::AppleSystemBackground, WTF::move(options));
 #else
     static NeverDestroyed color = roundAndClampToSRGBALossy(RetainPtr { [CocoaColor grayColor].CGColor }.get());

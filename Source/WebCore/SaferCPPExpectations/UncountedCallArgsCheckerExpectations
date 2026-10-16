@@ -1,10 +1,5 @@
 [ macOS ] InternalSettingsGenerated.cpp
 StyleChangedAnimatablePropertiesGenerated.cpp
-[ macOS ] accessibility/AXObjectCache.cpp
-[ macOS ] accessibility/AccessibilityNodeObject.cpp
-[ macOS ] accessibility/AccessibilityObject.cpp
-[ macOS ] accessibility/AccessibilityObject.h
-[ macOS ] accessibility/cocoa/WebAccessibilityObjectWrapperBase.mm
 [ macOS ] animation/KeyframeEffect.cpp
 [ macOS ] animation/KeyframeEffectStack.cpp
 [ macOS ] animation/StyleOriginatedAnimation.cpp
@@ -85,7 +80,6 @@ dom/ShadowRoot.cpp
 [ macOS ] platform/mediastream/cocoa/ScreenCaptureKitSharingSessionManager.mm
 [ macOS ] platform/mock/MockRealtimeMediaSourceCenter.cpp
 [ macOS ] platform/network/cocoa/WebCoreNSURLSession.mm
-[ macOS ] rendering/AttachmentLayout.mm
 rendering/BackgroundPainter.cpp
 [ iOS ] rendering/BorderPainter.cpp
 rendering/HitTestResult.cpp
@@ -96,19 +90,16 @@ rendering/RenderBlock.cpp
 rendering/RenderBox.cpp
 rendering/RenderElement.cpp
 rendering/RenderFragmentContainer.cpp
-rendering/RenderFrameSet.cpp
 rendering/RenderGeometryMap.cpp
 rendering/RenderImage.cpp
 rendering/RenderImageResource.h
 rendering/RenderLayer.cpp
 rendering/RenderLayerBacking.cpp
 rendering/RenderLayerBacking.h
-rendering/RenderLayerBackingSVGAdditions.cpp
 rendering/RenderLayerCompositor.cpp
 rendering/RenderLayerFilters.cpp
 rendering/RenderLayerModelObject.cpp
 rendering/RenderLayerScrollableArea.cpp
-rendering/RenderListBox.cpp
 [ macOS ] rendering/RenderListOutsideMarker.cpp
 [ macOS ] rendering/RenderMultiColumnSet.cpp
 [ macOS ] rendering/RenderMultiColumnSpannerPlaceholder.cpp
@@ -117,23 +108,14 @@ rendering/RenderReplica.cpp
 rendering/RenderTextControl.cpp
 rendering/RenderTextControlSingleLine.h
 [ macOS ] rendering/RenderTheme.cpp
-rendering/RenderTreeAsText.cpp
 rendering/RenderView.cpp
 rendering/RenderViewTransitionCapture.cpp
 rendering/RenderWidget.cpp
 [ macOS ] rendering/StyledMarkedText.cpp
 [ macOS ] rendering/cocoa/RenderThemeCocoa.mm
-rendering/mathml/MathOperator.cpp
-rendering/mathml/RenderMathMLMenclose.h
 rendering/shapes/ShapeOutsideInfo.h
 rendering/style/BorderData.cpp
-rendering/svg/RenderSVGImage.cpp
-rendering/svg/RenderSVGModelObject.cpp
-rendering/svg/RenderSVGResourceClipper.cpp
-rendering/svg/RenderSVGResourceFilterInlines.h
-rendering/svg/RenderSVGRoot.cpp
 rendering/svg/RenderSVGTextPath.cpp
-[ macOS ] rendering/svg/RenderSVGViewportContainer.cpp
 [ macOS ] rendering/svg/SVGRenderSupport.cpp
 rendering/svg/legacy/LegacyRenderSVGImage.cpp
 rendering/svg/legacy/LegacyRenderSVGResourceFilter.cpp
@@ -177,16 +159,3 @@ style/values/will-change/StyleWillChange.h
 [ macOS ] svg/properties/SVGAnimatedPropertyList.h
 [ macOS ] testing/InternalSettings.cpp
 [ macOS ] testing/Internals.cpp
-[ macOS ] workers/Worker.cpp
-[ macOS ] workers/WorkerGlobalScope.cpp
-[ macOS ] workers/WorkerMessagingProxy.cpp
-[ macOS ] workers/WorkerRunLoop.cpp
-[ macOS ] workers/service/ExtendableMessageEvent.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetch.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetchEngine.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetchManager.cpp
-[ macOS ] workers/service/background-fetch/BackgroundFetchRegistration.cpp
-[ macOS ] workers/service/server/SWServer.cpp
-[ macOS ] xml/XSLStyleSheetLibxslt.cpp
-[ macOS ] xml/XSLTProcessorLibxslt.cpp
-[ macOS ] xml/parser/XMLDocumentParserLibxml2.cpp

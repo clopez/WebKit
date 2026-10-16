@@ -205,7 +205,6 @@ https://www.imdb.com/
     NeedsZeroMaxTouchPointsQuirk
 https://www.instagram.com/
     NeedsInstagramResizingReelsQuirk
-    ShouldDisableElementFullscreenQuirk
     ShouldSendFakeTouchForceChangeEvent
 https://invideo.io/
     NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk

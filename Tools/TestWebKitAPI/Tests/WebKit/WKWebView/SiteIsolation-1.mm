@@ -42,6 +42,8 @@
 #import "InstanceMethodSwizzler.h"
 #import <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 #import <WebKit/WKFrameInfoPrivate.h>
+#import <WebKit/WKHitTestResult.h>
+#import <WebKit/WKJSHandle.h>
 #import <WebKit/WKUIDelegatePrivate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
@@ -51,6 +53,7 @@
 #import <WebKit/_WKAppHighlightDelegate.h>
 #import <WebKit/_WKAttachment.h>
 #import <WebKit/_WKFrameTreeNode.h>
+#import <WebKit/_WKOverlayScrollbarStyle.h>
 #import <WebKit/_WKResourceLoadInfo.h>
 #import <WebKit/_WKWebsiteDataStoreConfiguration.h>
 #import <pal/spi/cocoa/WritingToolsSPI.h>
@@ -77,6 +80,7 @@
 #endif
 
 #if PLATFORM(MAC)
+#import "ClassMethodSwizzler.h"
 #import "Helpers/mac/AppKitSPI.h"
 #import "Helpers/mac/LocalEventMonitorSwizzler.h"
 #import "Helpers/mac/WKWebViewForTestingImmediateActions.h"
@@ -457,6 +461,54 @@ TEST(SiteIsolation, CenterSelectionInVisibleAreaInCrossOriginIframe)
     EXPECT_TRUE(Util::waitFor([&] {
         return [[webView objectByEvaluatingJavaScript:@"window.scrollY" inFrame:childFrame.get()] intValue] > 0;
     }));
+}
+
+TEST(SiteIsolation, CandidateRectInCrossOriginIframe)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0; height: 2000px'><iframe id='iframe' style='display: block; margin: 300px 0 0 100px; width: 400px; height: 200px; border: none;' src='https://webkit.org/iframe'></iframe></body>"_s } },
+        { "/iframe"_s, { "<body style='margin: 0'>subframe text</body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate, childFrame] = webViewWithFocusedCrossOriginIframe(server);
+
+    auto selectTextAndWaitForCandidateRect = [&] {
+        [webView objectByEvaluatingJavaScript:@"getSelection().removeAllRanges()" inFrame:childFrame.get()];
+        EXPECT_TRUE(Util::waitFor([&] {
+            return NSIsEmptyRect([webView _candidateRect]);
+        }));
+        [webView objectByEvaluatingJavaScript:@"getSelection().selectAllChildren(document.body)" inFrame:childFrame.get()];
+        NSRect rect = NSZeroRect;
+        EXPECT_TRUE(Util::waitFor([&] {
+            rect = [webView _candidateRect];
+            return !NSIsEmptyRect(rect);
+        }));
+        [webView waitForNextPresentationUpdate];
+        return rect;
+    };
+
+    auto selectionRectInView = [&] {
+        auto rectInWindow = [[webView window] convertRectFromScreen:[(id<NSTextInputClient>)webView.get() unionRectInVisibleSelectedRange]];
+        return [webView convertRect:rectInWindow fromView:nil];
+    };
+
+    // The iframe is at (100, 300) in the main frame, so rects left relative to the iframe would be near the origin.
+    auto candidateRect = selectTextAndWaitForCandidateRect();
+    EXPECT_NEAR(NSMinX(candidateRect), 100, 2);
+    EXPECT_NEAR(NSMinY(candidateRect), 300, 2);
+    EXPECT_NEAR(NSMinY(selectionRectInView()), 300, 2);
+
+    [webView objectByEvaluatingJavaScript:@"window.scrollTo(0, 200)"];
+    EXPECT_TRUE(Util::waitFor([&] {
+        return [[webView objectByEvaluatingJavaScript:@"window.scrollY"] intValue] == 200;
+    }));
+    [webView waitForNextPresentationUpdate];
+    EXPECT_NEAR(NSMinY(selectionRectInView()), 100, 2);
+
+    candidateRect = selectTextAndWaitForCandidateRect();
+    EXPECT_NEAR(NSMinX(candidateRect), 100, 2);
+    EXPECT_NEAR(NSMinY(candidateRect), 100, 2);
+    EXPECT_NEAR(NSMinY(selectionRectInView()), 100, 2);
 }
 
 #endif // PLATFORM(MAC)
@@ -1134,6 +1186,91 @@ TEST(SiteIsolation, DeviceScaleFactorChangeUpdatesCrossOriginIframeCompositingSc
     EXPECT_TRUE(Util::waitFor([&] {
         return [[webView stringByEvaluatingJavaScript:layerTreeScript inFrame:childFrame.get()] containsString:@"(contentsScale 1.00)"];
     }));
+}
+
+static NSScrollerStyle siteIsolationScrollerStyle;
+
+static NSScrollerStyle siteIsolationPreferredScrollerStyle(id, SEL)
+{
+    return siteIsolationScrollerStyle;
+}
+
+TEST(SiteIsolation, ScrollerStyleChangeUpdatesCrossOriginIframe)
+{
+    static constexpr auto scrollerHTML = "<div id='scroller' style='width: 200px; height: 200px; overflow: scroll'><div id='content' style='height: 1000px'></div></div>"_s;
+    HTTPServer server({
+        { "/mainframe"_s, { makeString("<body style='margin: 0'>"_s, scrollerHTML, "<iframe id='iframe' style='width: 400px; height: 300px; border: none;' src='https://webkit.org/iframe'></iframe></body>"_s) } },
+        { "/iframe"_s, { makeString("<body style='margin: 0'>"_s, scrollerHTML, "</body>"_s) } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    {
+        // Web processes take their initial scroller style from the UI process, so they all start with legacy scroll bars.
+        siteIsolationScrollerStyle = NSScrollerStyleLegacy;
+        ClassMethodSwizzler swizzler(NSScroller.class, @selector(preferredScrollerStyle), reinterpret_cast<IMP>(siteIsolationPreferredScrollerStyle));
+
+        RetainPtr configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
+        RetainPtr storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+        [storeConfiguration setHTTPSProxy:[NSURL URLWithString:[NSString stringWithFormat:@"https://127.0.0.1:%d/", server.port()]]];
+        [configuration setWebsiteDataStore:adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]).get()];
+
+        auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+        [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+        [navigationDelegate waitForDidFinishNavigation];
+        RetainPtr childFrame = [webView firstChildFrame];
+
+        // AppKit restyles scrollers that aren't scrolled asynchronously by itself, so wait until both are.
+        NSString *controllerTypeScript = @"internals.scrollbarsControllerTypeForNode(document.getElementById('scroller'))";
+        EXPECT_TRUE(Util::waitFor([&] {
+            return [[webView stringByEvaluatingJavaScript:controllerTypeScript] isEqualToString:@"RemoteScrollbarsController"]
+                && [[webView stringByEvaluatingJavaScript:controllerTypeScript inFrame:childFrame.get()] isEqualToString:@"RemoteScrollbarsController"];
+        }));
+
+        // The content only gets the vertical scroll bar's space back once its scroller is laid out again for the new style.
+        NSString *contentWidthScript = @"document.getElementById('content').offsetWidth";
+        EXPECT_LT([webView stringByEvaluatingJavaScript:contentWidthScript].intValue, 200);
+        EXPECT_LT([webView stringByEvaluatingJavaScript:contentWidthScript inFrame:childFrame.get()].intValue, 200);
+
+        siteIsolationScrollerStyle = NSScrollerStyleOverlay;
+        [NSNotificationCenter.defaultCenter postNotificationName:NSPreferredScrollerStyleDidChangeNotification object:nil];
+
+        // The main frame checks that the new style reaches web processes at all, so a failure below is specific to the iframe.
+        EXPECT_TRUE(Util::waitFor([&] {
+            return [webView stringByEvaluatingJavaScript:contentWidthScript].intValue == 200;
+        }));
+        EXPECT_TRUE(Util::waitFor([&] {
+            return [webView stringByEvaluatingJavaScript:contentWidthScript inFrame:childFrame.get()].intValue == 200;
+        }));
+    }
+
+    // Put anything that observed the swizzled style back on the real one.
+    [NSNotificationCenter.defaultCenter postNotificationName:NSPreferredScrollerStyleDidChangeNotification object:nil];
+}
+
+TEST(SiteIsolation, OverlayScrollbarStyleChangeUpdatesCrossOriginIframe)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { mainFrameTextWithCrossOriginIframe } },
+        { "/iframe"_s, { "<body>iframe text</body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
+    RetainPtr storeConfiguration = adoptNS([[_WKWebsiteDataStoreConfiguration alloc] initNonPersistentConfiguration]);
+    [storeConfiguration setHTTPSProxy:[NSURL URLWithString:[NSString stringWithFormat:@"https://127.0.0.1:%d/", server.port()]]];
+    [configuration setWebsiteDataStore:adoptNS([[WKWebsiteDataStore alloc] _initWithConfiguration:storeConfiguration.get()]).get()];
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    RetainPtr childFrame = [webView firstChildFrame];
+
+    NSString *styleScript = @"internals.scrollbarOverlayStyle()";
+    EXPECT_WK_STREQ("default", [webView stringByEvaluatingJavaScript:styleScript inFrame:childFrame.get()]);
+
+    [webView _setOverlayScrollbarStyle:_WKOverlayScrollbarStyleLight];
+    EXPECT_TRUE(Util::waitFor([&] {
+        return [[webView stringByEvaluatingJavaScript:styleScript inFrame:childFrame.get()] isEqualToString:@"light"];
+    }));
+    EXPECT_WK_STREQ("light", [webView stringByEvaluatingJavaScript:styleScript]);
 }
 
 #endif // PLATFORM(MAC)
@@ -1978,6 +2115,42 @@ TEST(SiteIsolation, ImmediateActionAnimationBeginsBeforeCrossOriginIframeAnswers
     EXPECT_EQ(actionType, _WKImmediateActionLookupText);
 }
 
+// Once a force click's animation has run, the mouse up that ends it only dispatches mouseup, without a click. That
+// relies on the animation's progress reaching the process that did the hit test, which is the iframe's.
+TEST(SiteIsolation, MouseUpAfterImmediateActionInCrossOriginIframe)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { mainFrameWithCrossOriginIframeAtTopLeft } },
+        { "/iframe"_s, { "<script>window.events = []; for (const type of ['mousedown', 'mouseup', 'click']) addEventListener(type, () => events.push(type));</script><body style='margin: 0'><div style='font-size: 32px;'>Foobar</div></body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = immediateActionWebViewWithCrossOriginIframe(server);
+    RetainPtr childFrame = [webView firstChildFrame];
+    auto eventsInIframe = [&] {
+        return [webView stringByEvaluatingJavaScript:@"events.join()" inFrame:childFrame.get()];
+    };
+
+    NSPoint pointInWindow = [webView convertPoint:NSMakePoint(16, 16) toView:nil];
+    [webView mouseDownAtPoint:pointInWindow simulatePressure:NO];
+    EXPECT_TRUE(Util::waitFor([&] {
+        return [eventsInIframe() isEqualToString:@"mousedown"];
+    }));
+
+    auto [hitTestResult, actionType] = [webView simulateImmediateAction:NSMakePoint(16, 16)];
+    EXPECT_WK_STREQ("Foobar", [hitTestResult lookupText]);
+
+    auto immediateActionGesture = [webView immediateActionGesture];
+    [immediateActionGesture.delegate immediateActionRecognizerWillBeginAnimation:immediateActionGesture];
+    [immediateActionGesture.delegate immediateActionRecognizerDidUpdateAnimation:immediateActionGesture];
+    [immediateActionGesture.delegate immediateActionRecognizerDidCompleteAnimation:immediateActionGesture];
+
+    [webView mouseUpAtPoint:pointInWindow];
+    EXPECT_TRUE(Util::waitFor([&] {
+        return ![eventsInIframe() isEqualToString:@"mousedown"];
+    }));
+    EXPECT_WK_STREQ("mousedown,mouseup", eventsInIframe());
+}
+
 #endif // PLATFORM(MAC)
 
 #if ENABLE(ORIENTATION_EVENTS) && PLATFORM(IOS_FAMILY)
@@ -2002,6 +2175,45 @@ TEST(SiteIsolation, CrossSiteIFrameReceivesOrientationChangeEvent)
     EXPECT_TRUE(Util::waitFor([&] {
         return [[webView objectByEvaluatingJavaScript:@"window.gotOrientationChange === true" inFrame:childFrame.get()] boolValue];
     }));
+}
+
+TEST(SiteIsolation, ScreenOrientationChangeEventsContinueWhenFrameInAnotherProcessStopsListening)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<iframe src='https://webkit.org/listener'></iframe><iframe src='https://example.com/listener'></iframe>"_s } },
+        { "/listener"_s, { "<script>window.gotChange = false; screen.orientation.addEventListener('change', () => { window.gotChange = true; });</script>"_s } },
+        { "/blank"_s, { ""_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 800, 600));
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    constexpr NSUInteger crossSiteFrame = 0;
+    constexpr NSUInteger sameSiteFrame = 1;
+    auto waitForValueInChildFrame = [&](NSUInteger index, NSString *script, NSString *expectedValue) {
+        return Util::waitFor([&] {
+            return [[webView stringByEvaluatingJavaScript:script inFrame:[webView mainFrame].childFrames[index].info] isEqualToString:expectedValue];
+        });
+    };
+    auto navigateChildFrame = [&](NSUInteger index, NSString *path) {
+        [webView evaluateJavaScript:[NSString stringWithFormat:@"location.href = '%@'", path] inFrame:[webView mainFrame].childFrames[index].info completionHandler:nil];
+        EXPECT_TRUE(waitForValueInChildFrame(index, @"location.pathname", path));
+    };
+
+    EXPECT_TRUE(waitForValueInChildFrame(crossSiteFrame, @"window.gotChange", @"0"));
+    EXPECT_TRUE(waitForValueInChildFrame(sameSiteFrame, @"window.gotChange", @"0"));
+
+    // A process stops listening when its last document that used screen.orientation goes away.
+    navigateChildFrame(crossSiteFrame, @"/blank");
+    [webView _setInterfaceOrientationOverride:UIInterfaceOrientationLandscapeRight];
+    EXPECT_TRUE(waitForValueInChildFrame(sameSiteFrame, @"window.gotChange", @"1"));
+
+    navigateChildFrame(crossSiteFrame, @"/listener");
+    EXPECT_TRUE(waitForValueInChildFrame(crossSiteFrame, @"window.gotChange", @"0"));
+    navigateChildFrame(sameSiteFrame, @"/blank");
+    [webView _setInterfaceOrientationOverride:UIInterfaceOrientationPortrait];
+    EXPECT_TRUE(waitForValueInChildFrame(crossSiteFrame, @"window.gotChange", @"1"));
 }
 
 #endif // ENABLE(ORIENTATION_EVENTS) && PLATFORM(IOS_FAMILY)
@@ -2461,5 +2673,107 @@ TEST(SiteIsolation, ProofreadingDetailsPopoverInFrameNestedInScrolledCrossOrigin
 }
 
 #endif // ENABLE(WRITING_TOOLS)
+
+TEST(SiteIsolation, HitTestResultAPI)
+{
+    HTTPServer server({
+        { "/example"_s, { "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+            "<body style='margin: 0'>"
+            "<a id=mainframelink href='/destination' title='Main frame title' style='display: block; width: 200px; height: 100px'>Main frame <b>link</b></a>"
+            "<a id=untitledlink href='/untitled' style='display: block; width: 200px; height: 50px'>Untitled link</a>"
+            "<a id=emptylink href='/empty' title='' style='display: block; width: 200px; height: 50px'></a>"
+            "<iframe style='position: absolute; left: 0; top: 200px; width: 300px; height: 150px; border: none' src='https://webkit.org/iframe'></iframe>"
+            "</body>"_s } },
+        { "/iframe"_s, { "<body style='margin: 0'>"
+            "<a id=iframelink href='/iframedestination' title='Iframe title' style='display: block; width: 200px; height: 100px'>Iframe link</a>"
+            "</body>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto hitTest = [](WKWebView *webView, CGPoint point, WKContentWorld *world = WKContentWorld.pageWorld) -> RetainPtr<WKHitTestResult> {
+        __block bool done { false };
+        __block RetainPtr<WKHitTestResult> result;
+        [webView hitTestAtPoint:point inCoordinateSpaceOfFrame:nil inContentWorld:world completionHandler:^(WKHitTestResult *hitTestResult, NSError *error) {
+            EXPECT_NE(!hitTestResult, !error);
+            result = hitTestResult;
+            done = true;
+        }];
+        Util::run(&done);
+        return result;
+    };
+
+    auto idOfHitElement = [](TestWKWebView *webView, WKHitTestResult *result, WKContentWorld *world = WKContentWorld.pageWorld) -> NSString * {
+        RetainPtr handle = [result domNodeHandle];
+        if (!handle)
+            return @"(no handle)";
+        return [webView objectByCallingAsyncFunction:@"return (n.nodeType == Node.ELEMENT_NODE ? n : n.parentElement).id" withArguments:@{ @"n" : handle.get() } inFrame:[handle sourceFrame] inContentWorld:world];
+    };
+
+    auto runTest = [&](bool withSiteIsolation) {
+        RetainPtr configuration = server.httpsProxyConfiguration();
+        if (withSiteIsolation)
+            enableSiteIsolation(configuration.get());
+
+        RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:CGRectMake(0, 0, 400, 400) configuration:configuration.get()]);
+        [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+        [webView _test_waitForDidFinishNavigationWhileIgnoringSSLErrors];
+
+        auto mainFrameLinkResult = hitTest(webView.get(), CGPointMake(50, 50));
+        EXPECT_NOT_NULL(mainFrameLinkResult.get());
+        EXPECT_WK_STREQ([mainFrameLinkResult absoluteLinkURL].absoluteString, "https://example.com/destination");
+        EXPECT_WK_STREQ([mainFrameLinkResult linkTitle], "Main frame title");
+        EXPECT_WK_STREQ([mainFrameLinkResult linkLabel], "Main frame link");
+        EXPECT_EQ([mainFrameLinkResult domNodeHandle].contentWorld, WKContentWorld.pageWorld);
+        EXPECT_TRUE([mainFrameLinkResult domNodeHandle].sourceFrame.isMainFrame);
+        EXPECT_WK_STREQ(idOfHitElement(webView.get(), mainFrameLinkResult.get()), "mainframelink");
+
+        auto mainFrameNonLinkResult = hitTest(webView.get(), CGPointMake(350, 50));
+        EXPECT_NOT_NULL(mainFrameNonLinkResult.get());
+        EXPECT_NULL([mainFrameNonLinkResult absoluteLinkURL]);
+        EXPECT_NULL([mainFrameNonLinkResult linkTitle]);
+        EXPECT_NULL([mainFrameNonLinkResult linkLabel]);
+        EXPECT_NOT_NULL([mainFrameNonLinkResult domNodeHandle]);
+
+        // A link without a title attribute has a nil title.
+        auto untitledLinkResult = hitTest(webView.get(), CGPointMake(50, 125));
+        EXPECT_WK_STREQ([untitledLinkResult absoluteLinkURL].absoluteString, "https://example.com/untitled");
+        EXPECT_NULL([untitledLinkResult linkTitle]);
+        EXPECT_WK_STREQ([untitledLinkResult linkLabel], "Untitled link");
+
+        // A link with an empty title attribute and no text content has an empty title and label.
+        auto emptyLinkResult = hitTest(webView.get(), CGPointMake(50, 175));
+        EXPECT_WK_STREQ([emptyLinkResult absoluteLinkURL].absoluteString, "https://example.com/empty");
+        EXPECT_NOT_NULL([emptyLinkResult linkTitle]);
+        EXPECT_WK_STREQ([emptyLinkResult linkTitle], "");
+        EXPECT_NOT_NULL([emptyLinkResult linkLabel]);
+        EXPECT_WK_STREQ([emptyLinkResult linkLabel], "");
+
+        // The hit test continues into the iframe, even when it is cross-origin.
+        RetainPtr<WKHitTestResult> iframeLinkResult;
+        EXPECT_TRUE(Util::waitFor([&] {
+            iframeLinkResult = hitTest(webView.get(), CGPointMake(50, 250));
+            return [[iframeLinkResult absoluteLinkURL].absoluteString isEqualToString:@"https://webkit.org/iframedestination"];
+        }));
+        EXPECT_WK_STREQ([iframeLinkResult linkTitle], "Iframe title");
+        EXPECT_WK_STREQ([iframeLinkResult linkLabel], "Iframe link");
+        EXPECT_FALSE([iframeLinkResult domNodeHandle].sourceFrame.isMainFrame);
+        EXPECT_WK_STREQ([iframeLinkResult domNodeHandle].sourceFrame.securityOrigin.host, "webkit.org");
+        EXPECT_WK_STREQ(idOfHitElement(webView.get(), iframeLinkResult.get()), "iframelink");
+
+        // The handle can only be used in the content world that was hit tested in.
+        RetainPtr<WKContentWorld> world = [WKContentWorld worldWithName:@"HitTestResultAPI"];
+        auto worldResult = hitTest(webView.get(), CGPointMake(50, 50), world.get());
+        EXPECT_EQ([worldResult domNodeHandle].contentWorld, world.get());
+        EXPECT_WK_STREQ([worldResult absoluteLinkURL].absoluteString, "https://example.com/destination");
+        EXPECT_WK_STREQ(idOfHitElement(webView.get(), worldResult.get(), world.get()), "mainframelink");
+
+        // A nil content world means the page world.
+        auto nilWorldResult = hitTest(webView.get(), CGPointMake(50, 50), nil);
+        EXPECT_EQ([nilWorldResult domNodeHandle].contentWorld, WKContentWorld.pageWorld);
+        EXPECT_WK_STREQ([nilWorldResult absoluteLinkURL].absoluteString, "https://example.com/destination");
+        EXPECT_WK_STREQ(idOfHitElement(webView.get(), nilWorldResult.get()), "mainframelink");
+    };
+    runTest(true);
+    runTest(false);
+}
 
 } // namespace TestWebKitAPI

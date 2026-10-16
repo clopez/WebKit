@@ -247,7 +247,7 @@ inline static RetainPtr<NSParagraphStyle> reconstructStyle(const ParagraphStyle&
 
             RetainPtr tableBlock = adoptNS([[PlatformNSTextTableBlock alloc] initWithTable:foundTable->value.get() startingRow:item.startingRow rowSpan:item.rowSpan startingColumn:item.startingColumn columnSpan:item.columnSpan]);
             [tableBlock setVerticalAlignment:reconstructNSTextBlockVerticalAlignment(item.verticalAlignment)];
-            configureNSTextBlockFromParagraphStyleCommonTableAttributes(tableBlock.get(), item);
+            configureNSTextBlockFromParagraphStyleCommonTableAttributes(checked_objc_cast<NSTextTableBlock>(tableBlock.get()), item);
             return tableBlock;
         });
     };

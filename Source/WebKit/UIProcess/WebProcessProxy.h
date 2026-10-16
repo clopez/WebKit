@@ -694,8 +694,11 @@ public:
     void setIneligbleForWebProcessCache() { m_isEligibleForWebProcessCache = false; }
     bool isEligibleForWebProcessCache() const { return m_isEligibleForWebProcessCache; }
 
-    void setCOOPCacheOrigin(const WebCore::SecurityOriginData& origin) { m_coopCacheOrigin = origin; }
+    void setCOOPCacheOrigin(const WebCore::SecurityOriginData&);
     const std::optional<WebCore::SecurityOriginData>& coopCacheOrigin() const LIFETIME_BOUND { return m_coopCacheOrigin; }
+
+    void markCOOPCacheOriginAsUnconfirmed();
+    bool isCOOPCacheOriginUnconfirmed() const { return m_isCOOPCacheOriginUnconfirmed; }
 
     void incrementFrameProcessCount() { ++m_frameProcessCount; }
     void decrementFrameProcessCount();
@@ -910,7 +913,7 @@ private:
 
     HashSet<WebCore::ClientOrigin> m_committedClientOrigins; // Only grows because WebProcess can navigate back to an old origin in a history item.
     HashSet<WebCore::ClientOrigin> m_committedStorageClientOrigins; // Storage keys of frames with unpartitioned storage access. Only grows, like m_committedClientOrigins.
-    HashSet<WebCore::Site> m_remoteWorkerSites; // Only grows so that messages sent by a remote worker that is going away remain valid.
+    HashSet<WebCore::RegistrableDomain> m_remoteWorkerDomains; // Only grows so that messages sent by a remote worker that is going away remain valid.
 
     // A single page can register with a store more than once for the same process, e.g. when a
     // ProvisionalPageProxy and a RemotePageProxy for the same page live in the same process, so
@@ -943,6 +946,7 @@ private:
     bool m_isInProcessCache { false };
     bool m_isEligibleForWebProcessCache { true };
     std::optional<WebCore::SecurityOriginData> m_coopCacheOrigin;
+    bool m_isCOOPCacheOriginUnconfirmed { false };
     bool m_isShuttingDown { false };
     bool m_isRunningProcess { false };
 

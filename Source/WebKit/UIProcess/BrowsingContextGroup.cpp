@@ -479,9 +479,9 @@ WebCore::AgentClusterIdentifier BrowsingContextGroup::agentClusterIdentifier(con
     }).iterator->value;
 }
 
-AgentClusterRequest AgentClusterRequest::forNavigationAction(const URL& url, const URL& topLevelCreationURL, bool isSubstituteData)
+AgentClusterRequest AgentClusterRequest::forNavigationAction(const URL& url, const URL& topLevelCreationURL, IsSubstituteData isSubstituteData)
 {
-    return { isSubstituteData ? Source::SubstituteData : Source::NavigationAction, WebCore::SecurityOrigin::create(url)->data(), topLevelCreationURL };
+    return { isSubstituteData == IsSubstituteData::Yes ? Source::SubstituteData : Source::NavigationAction, WebCore::SecurityOrigin::create(url)->data(), topLevelCreationURL };
 }
 
 AgentClusterRequest AgentClusterRequest::forNavigationResponse(const WebCore::ResourceResponse& response, const URL& topLevelCreationURL, const WebPreferences& preferences)
@@ -490,7 +490,7 @@ AgentClusterRequest AgentClusterRequest::forNavigationResponse(const WebCore::Re
     auto isSecureContext = origin->isPotentiallyTrustworthy() && WebCore::SecurityOrigin::create(topLevelCreationURL)->isPotentiallyTrustworthy() ? WebCore::IsSecureContext::Yes : WebCore::IsSecureContext::No;
     AgentClusterRequest request { Source::NavigationResponse, origin->data(), topLevelCreationURL };
     // The WebContent process only applies these policies to http(s) and blob: documents.
-    bool hasPolicyHeaders = response.url().protocolIsInHTTPFamily() || response.url().protocolIsBlob();
+    bool hasPolicyHeaders = response.url().protocolIsInHTTPFamilyOrBlob();
     if (hasPolicyHeaders && preferences.documentIsolationPolicyEnabled() && preferences.siteIsolationEnabled())
         request.documentIsolationPolicy = WebCore::obtainDocumentIsolationPolicy(response, isSecureContext);
     if (preferences.originAgentClusterEnabled())

@@ -297,6 +297,21 @@ RefPtr<VideoFrame> VideoFrame::createBGRA(std::span<const uint8_t> span, size_t 
     CREATE_RGBA_FRAME(GST_VIDEO_FORMAT_BGRA);
 }
 
+// The fourth byte of RGBX and BGRX is padding: it is kept as is but ignored, frames are always opaque.
+RefPtr<VideoFrame> VideoFrame::createRGBX(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
+{
+    ensureVideoFrameDebugCategoryInitialized();
+    GST_TRACE("Creating VideoFrame from RGBX raw buffer");
+    CREATE_RGBA_FRAME(GST_VIDEO_FORMAT_RGBx);
+}
+
+RefPtr<VideoFrame> VideoFrame::createBGRX(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& plane, PlatformVideoColorSpace&& colorSpace)
+{
+    ensureVideoFrameDebugCategoryInitialized();
+    GST_TRACE("Creating VideoFrame from BGRX raw buffer");
+    CREATE_RGBA_FRAME(GST_VIDEO_FORMAT_BGRx);
+}
+
 #undef CREATE_RGBA_FRAME
 
 RefPtr<VideoFrame> VideoFrame::createI420(std::span<const uint8_t> span, size_t width, size_t height, const ComputedPlaneLayout& planeY, const ComputedPlaneLayout& planeU, const ComputedPlaneLayout& planeV, PlatformVideoColorSpace&& colorSpace)
@@ -563,7 +578,7 @@ void VideoFrameGStreamer::setMaxFrameRate(double maxFrameRate)
 
 void VideoFrameGStreamer::setPresentationTime(const MediaTime& presentationTime)
 {
-    updateTimestamp(presentationTime, VideoFrame::ShouldCloneWithDifferentTimestamp::No);
+    updateTimestamp(presentationTime, VideoFrame::ShouldClone::No);
     auto buffer = gst_sample_get_buffer(m_sample.get());
     GST_BUFFER_PTS(buffer) = GST_BUFFER_DTS(buffer) = toGstClockTime(presentationTime);
 }
@@ -605,6 +620,13 @@ void VideoFrame::copyTo(std::span<uint8_t> destination, VideoPixelFormat pixelFo
 {
     ensureVideoFrameDebugCategoryInitialized();
     auto& self = downcast<VideoFrameGStreamer>(*this);
+
+    // Converting the frame to another RGB pixel format is not supported.
+    if (isRGBVideoPixelFormat(pixelFormat) && convertVideoFramePixelFormat(self.pixelFormat()) != pixelFormat) {
+        GST_WARNING("Converting a frame to %s is not supported", convertVideoPixelFormatToString(pixelFormat).ascii().data());
+        callback({ });
+        return;
+    }
 
     GRefPtr<GstSample> inputSample;
     switch (self.memoryType()) {

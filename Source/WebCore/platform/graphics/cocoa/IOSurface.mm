@@ -53,6 +53,10 @@
 #import <pal/cg/CoreGraphicsSoftLink.h>
 #import <pal/cocoa/QuartzCoreSoftLink.h>
 
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/IOSurfaceAdditionsBefore.mm>)
+#import <WebKitAdditions/IOSurfaceAdditionsBefore.mm>
+#endif
+
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(IOSurface);
@@ -639,9 +643,8 @@ RetainPtr<CGImageRef> IOSurface::createImage(CGContextRef context)
     return adoptCF(CGIOSurfaceContextCreateImage(context));
 }
 
-RefPtr<NativeImage> IOSurface::createNativeImage(ShouldForceOpaque shouldForceOpaque)
+static std::optional<CGImageAlphaInfo> alphaInfoForNativeImage(const IOSurface& surface, IOSurface::ShouldForceOpaque shouldForceOpaque)
 {
-    std::optional<CGImageAlphaInfo> alphaInfo;
 #if ENABLE(PIXEL_FORMAT_RGBA16F) || ENABLE(PIXEL_FORMAT_RGBA16)
     // A 64-bit surface always uses IOSurface::Format::RGBA16F or RGBA16 regardless of whether
     // its contents are opaque, so bitmapConfiguration() assumes premultiplied alpha.
@@ -650,21 +653,38 @@ RefPtr<NativeImage> IOSurface::createNativeImage(ShouldForceOpaque shouldForceOp
     // the contents composite transparently.
     bool formatCannotEncodeOpacity = false;
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
-    formatCannotEncodeOpacity = formatCannotEncodeOpacity || pixelFormat() == Format::RGBA16F;
+    formatCannotEncodeOpacity = formatCannotEncodeOpacity || surface.pixelFormat() == IOSurface::Format::RGBA16F;
 #endif
 #if ENABLE(PIXEL_FORMAT_RGBA16)
-    formatCannotEncodeOpacity = formatCannotEncodeOpacity || pixelFormat() == Format::RGBA16;
+    formatCannotEncodeOpacity = formatCannotEncodeOpacity || surface.pixelFormat() == IOSurface::Format::RGBA16;
 #endif
-    if (shouldForceOpaque == ShouldForceOpaque::Yes && formatCannotEncodeOpacity)
-        alphaInfo = kCGImageAlphaNoneSkipLast;
+    if (shouldForceOpaque == IOSurface::ShouldForceOpaque::Yes && formatCannotEncodeOpacity)
+        return kCGImageAlphaNoneSkipLast;
 #else
+    UNUSED_PARAM(surface);
     UNUSED_PARAM(shouldForceOpaque);
 #endif
-    RetainPtr<CGContextRef> cgContext { createPlatformContext(0, alphaInfo) };
+    return std::nullopt;
+}
+
+RefPtr<NativeImage> IOSurface::createNativeImage(ShouldForceOpaque shouldForceOpaque)
+{
+    RetainPtr<CGContextRef> cgContext { createPlatformContext(0, alphaInfoForNativeImage(*this, shouldForceOpaque)) };
     if (!cgContext)
         return nullptr;
 
     return NativeImage::create(createImage(cgContext.get()));
+}
+
+void IOSurface::withNativeImage(ShouldForceOpaque shouldForceOpaque, NOESCAPE const Function<void(NativeImage*)>& function)
+{
+    RetainPtr<CGContextRef> cgContext { createPlatformContext(0, alphaInfoForNativeImage(*this, shouldForceOpaque)) };
+    if (!cgContext)
+        return function(nullptr);
+
+    RefPtr image = NativeImage::create(createImage(cgContext.get()));
+    function(image.get());
+    image = nullptr;
 }
 
 RetainPtr<CGImageRef> IOSurface::sinkIntoImage(std::unique_ptr<IOSurface> surface, RetainPtr<CGContextRef> context)
@@ -741,15 +761,22 @@ RetainPtr<CGContextRef> IOSurface::createCompatibleBitmap(unsigned width, unsign
     return adoptCF(CGBitmapContextCreate(NULL, width, height, configuration.bitsPerComponent, bytesPerRow, protect(m_colorSpace->platformColorSpace()).get(), configuration.bitmapInfo));
 }
 
-RetainPtr<CGContextRef> IOSurface::createPlatformContext(PlatformDisplayID displayID, std::optional<CGImageAlphaInfo> overrideAlphaInfo)
+RetainPtr<CGContextRef> IOSurface::createPlatformContext(PlatformDisplayID displayID, std::optional<CGImageAlphaInfo> overrideAlphaInfo, bool useWebKitBehavior)
 {
     auto configuration = bitmapConfiguration();
     if (overrideAlphaInfo)
         configuration.bitmapInfo = (configuration.bitmapInfo & ~kCGBitmapAlphaInfoMask) | *overrideAlphaInfo;
     auto bitsPerPixel = configuration.bitsPerComponent * 4;
 
+    RetainPtr<CFDictionaryRef> options;
+    if (useWebKitBehavior) {
+        const void* keys[] = { CFSTR("useWebKitBehavior") };
+        const void* values[] = { kCFBooleanTrue };
+        options = adoptCF(CFDictionaryCreate(kCFAllocatorDefault, keys, values, std::size(keys), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+    }
+
     ensureColorSpace();
-    auto cgContext = adoptCF(CGIOSurfaceContextCreate(m_surface.get(), m_size.width(), m_size.height(), configuration.bitsPerComponent, bitsPerPixel, protect(m_colorSpace->platformColorSpace()).get(), configuration.bitmapInfo));
+    RetainPtr cgContext = adoptCF(CGIOSurfaceContextCreateWithOptions(m_surface.get(), m_size.width(), m_size.height(), configuration.bitsPerComponent, bitsPerPixel, protect(m_colorSpace->platformColorSpace()).get(), configuration.bitmapInfo, options.get()));
 
 #if PLATFORM(MAC)
     if (auto displayMask = primaryOpenGLDisplayMask()) {
@@ -1099,3 +1126,7 @@ TextStream& operator<<(TextStream& ts, const IOSurface& surface)
 }
 
 } // namespace WebCore
+
+#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/IOSurfaceAdditionsAfter.mm>)
+#import <WebKitAdditions/IOSurfaceAdditionsAfter.mm>
+#endif

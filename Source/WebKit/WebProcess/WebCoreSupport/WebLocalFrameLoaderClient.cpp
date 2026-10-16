@@ -111,6 +111,7 @@
 #include <WebCore/UIEventWithKeyState.h>
 #include <WebCore/Widget.h>
 #include <WebCore/WindowFeatures.h>
+#include <wtf/Borrow.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/ProcessID.h>
 #include <wtf/ProcessPrivilege.h>
@@ -532,6 +533,7 @@ void WebLocalFrameLoaderClient::didSameDocumentNavigationForFrameViaJS(SameDocum
         { }, /* originatorAdvancedPrivacyProtections */
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         std::nullopt, /* webHitTestResultData */
+        std::nullopt, /* hitTestJSHandleInfo */
 #endif
         m_frame->info(),
         std::nullopt, /* originatingPageID */
@@ -791,7 +793,7 @@ void WebLocalFrameLoaderClient::dispatchDidFinishDocumentLoad()
 #if ASSERT_ENABLED
     if (RefPtr document = m_localFrame->document()) {
         auto& url = document->url();
-        ASSERT_WITH_MESSAGE(document->agentClusterIdentifier() || protect(document->securityOrigin())->isOpaque() || !(url.protocolIsInHTTPFamily() || url.protocolIsBlob()), "The UI process did not assign an agent cluster to %s", url.string().utf8());
+        ASSERT_WITH_MESSAGE(document->agentClusterIdentifier() || protect(document->securityOrigin())->isOpaque() || !url.protocolIsInHTTPFamilyOrBlob(), "The UI process did not assign an agent cluster to %s", url.string().utf8());
     }
 #endif
 
@@ -1048,6 +1050,9 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
     auto listenerID = m_frame->setUpPolicyListener(WTF::move(function), WebFrame::ForNavigationAction::No, WebFrame::PolicyCheckKind::NewWindow, initiatingDocument);
 
     auto& mouseEventData = navigationAction.mouseEventData();
+#if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
+    auto hitTestJSHandleInfo = jsHandleInfoForHitTestResult(hitTestResult);
+#endif
     NavigationActionData navigationActionData {
         navigationAction.type(),
         modifiersForNavigationAction(navigationAction),
@@ -1082,6 +1087,7 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
         { }, /* originatorAdvancedPrivacyProtections */
 #if PLATFORM(MAC) || HAVE(UIKIT_WITH_MOUSE_SUPPORT)
         hitTestResult ? std::optional(WebKit::WebHitTestResultData(WTF::move(*hitTestResult), false)) : std::nullopt,
+        WTF::move(hitTestJSHandleInfo),
 #endif
         m_frame->info(),
         std::nullopt, /* originatingPageID */
@@ -1097,27 +1103,6 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForNewWindowAction(const Nav
     webPage->sendWithAsyncReply(Messages::WebPageProxy::DecidePolicyForNewWindowAction(navigationActionData, frameName), [frame = m_frame, listenerID] (PolicyDecision&& policyDecision) {
         frame->didReceivePolicyDecision(listenerID, WTF::move(policyDecision));
     });
-}
-
-void WebLocalFrameLoaderClient::clearLastBroadcastFrameTreeSyncData()
-{
-    m_lastBroadcastFrameGeometry = std::nullopt;
-    m_lastBroadcastFrameViewportInfo = std::nullopt;
-    m_lastAllRemoteDescendantsWereOffscreen = false;
-}
-
-void WebLocalFrameLoaderClient::broadcastFrameViewportInfoToOtherProcessesIfNeeded(const FrameViewportInfo& viewportInfo, bool hasOnScreenRemoteDescendant)
-{
-    if (m_localFrame->isMainFrame()) {
-        bool allRemoteDescendantsAreOffscreen = !hasOnScreenRemoteDescendant;
-        bool lastAllRemoteDescendantsWereOffscreen = m_lastAllRemoteDescendantsWereOffscreen;
-        m_lastAllRemoteDescendantsWereOffscreen = allRemoteDescendantsAreOffscreen;
-
-        if (allRemoteDescendantsAreOffscreen && lastAllRemoteDescendantsWereOffscreen)
-            return;
-    }
-
-    broadcastFrameViewportInfoToOtherProcesses(viewportInfo);
 }
 
 void WebLocalFrameLoaderClient::applyWebsitePolicies(WebsitePoliciesData&& websitePolicies)
@@ -1176,16 +1161,6 @@ void WebLocalFrameLoaderClient::broadcastAllFrameTreeSyncDataToOtherProcesses(Fr
 
 void WebLocalFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(FrameTreeSyncSerializationData&& data)
 {
-    if (auto* frameGeometry = std::get_if<FrameGeometrySyncData>(&data.value)) {
-        if (m_lastBroadcastFrameGeometry == *frameGeometry)
-            return;
-        m_lastBroadcastFrameGeometry = *frameGeometry;
-    } else if (auto* viewportInfo = std::get_if<FrameViewportInfo>(&data.value)) {
-        if (m_lastBroadcastFrameViewportInfo == *viewportInfo)
-            return;
-        m_lastBroadcastFrameViewportInfo = *viewportInfo;
-    }
-
     WebFrameLoaderClient::broadcastFrameTreeSyncDataToOtherProcesses(WTF::move(data));
 }
 
@@ -1283,7 +1258,7 @@ void WebLocalFrameLoaderClient::dispatchBackForwardItemLoading(const URL& url, c
         return;
     }
 
-    auto frameLoadRequest = loader->createFrameLoadRequest(URL { url });
+    auto frameLoadRequest = loader->createFrameLoadRequest(URL { url }, referer);
     frameLoadRequest.setTargetBackForwardItemIdentifier(item->itemID());
     childClient->dispatchDecidePolicyForBackForwardNavigationAction(WTF::move(frameLoadRequest), referer, loader->loadType());
 }
@@ -2161,7 +2136,7 @@ void WebLocalFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<W
         return;
 
     HashMap<CallbackID, WebCore::LinkIcon> callbackIdIconMap;
-    for (auto& icon : icons)
+    for (auto& icon : borrow(icons))
         callbackIdIconMap.add(CallbackID::fromInteger(icon.second), icon.first);
 
     webPage->send(Messages::WebPageProxy::GetLoadDecisionForIcons(WTF::move(callbackIdIconMap)));

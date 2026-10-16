@@ -84,7 +84,7 @@ messages -> WebPageProxy {
     [EnabledBy=ContactPickerAPIEnabled] ShowContactPicker(struct WebCore::ContactsRequestData requestData) -> (std::optional<Vector<WebCore::ContactInfo>> info)
 
 #if ENABLE(WEB_AUTHN)
-    [EnabledBy=DigitalCredentialsEnabled] ShowDigitalCredentialsChooser(std::optional<WebCore::FrameIdentifier> frameID, Variant<WebCore::DigitalCredentialsMobileDocumentRequestData> requestData) -> (std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData> response)
+    [EnabledBy=DigitalCredentialsEnabled] ShowDigitalCredentialsChooser(std::optional<WebCore::FrameIdentifier> frameID, Variant<WebCore::DigitalCredentialsMobileDocumentRequestData, WebCore::DigitalCredentialsOpenID4VPRequestData> requestData) -> (std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData> response)
     [EnabledBy=DigitalCredentialsEnabled] DismissDigitalCredentialsChooser() -> (bool didDismiss)
 #endif
 
@@ -464,6 +464,8 @@ messages -> WebPageProxy {
 
     DidChangeInspectorFrontendCount(uint32_t count)
     SendMessageToInspectorFrontend(String targetId, String message)
+    FrameDidPauseForDebugger(WebCore::FrameIdentifier frameID)
+    FrameDidContinueForDebugger(WebCore::FrameIdentifier frameID)
 
     # Search popup menus
     SaveRecentSearches(String name, Vector<WebCore::RecentSearch> searchItems)
@@ -660,6 +662,7 @@ messages -> WebPageProxy {
 
     [EnabledBy=SiteIsolationEnabled] BroadcastFrameTreeSyncData(WebCore::FrameIdentifier frameID, struct WebCore::FrameTreeSyncSerializationData frameTreeSyncData)
     [EnabledBy=SiteIsolationEnabled] BroadcastAllFrameTreeSyncData(WebCore::FrameIdentifier frameID, Ref<WebCore::FrameTreeSyncData> frameTreeSyncData)
+    [EnabledBy=SiteIsolationEnabled] HandleFrameGeometryUpdates(Vector<WebCore::FrameGeometryUpdate> updates)
 
     [EnabledBy=SiteIsolationEnabled] DidNotifyUserActivation(WebCore::FrameIdentifier sourceFrameID, MonotonicTime activationTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken)
     [EnabledBy=SiteIsolationEnabled] DidConsumeUserActivation(WebCore::FrameIdentifier sourceFrameID)

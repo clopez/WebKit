@@ -331,7 +331,9 @@ public:
     std::optional<WebCore::IntRect> remoteFrameRect() const { return m_remoteFrameRect; }
     void setRemoteFrameRect(WebCore::IntRect rect) { m_remoteFrameRect = rect; }
 
+    const WebCore::FrameGeometrySyncData& frameGeometry() const LIFETIME_BOUND { return m_frameGeometry; }
     void setFrameGeometry(const WebCore::FrameGeometrySyncData& geometry) { m_frameGeometry = geometry; }
+    const WebCore::FrameViewportInfo& frameViewportInfo() const LIFETIME_BOUND { return m_frameViewportInfo; }
     void setFrameViewportInfo(const WebCore::FrameViewportInfo& viewportInfo) { m_frameViewportInfo = viewportInfo; }
 
     void takeSnapshotOfNode(WebCore::JSHandleIdentifier, CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
@@ -365,7 +367,6 @@ private:
     WebFrameProxy(WebPageProxy&, FrameProcess&, WebCore::FrameIdentifier, WebCore::SandboxFlags, WebCore::ReferrerPolicy, WebCore::ScrollbarMode, WebFrameProxy*, WebFrameProxy*, IsMainFrame, std::optional<URL>&&);
 
     std::optional<SharedPreferencesForWebProcess> LEGACY_NODELETE sharedPreferencesForWebProcess() const;
-    std::optional<WebCore::PageIdentifier> LEGACY_NODELETE pageIdentifier() const;
 
     void updateDocumentSecurityOrigin(WebFrameProxy*);
     WebCore::SecurityOriginData committedDocumentSecurityOriginData() const;

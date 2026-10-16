@@ -774,6 +774,7 @@ set(WebKitSwift_SOURCES
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentController.swift
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentMobileDocumentRequest.swift
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentMobileDocumentRequest+Extras.swift
+    ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentOpenID4VPRequest.swift
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentRawRequest.swift
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentRequest.swift
     ${_wks_dir}/IdentityDocumentServices/WKIdentityDocumentPresentmentResponse.swift
@@ -816,12 +817,22 @@ set_target_properties(WebKitSwift PROPERTIES
 # the derived sources directory for the Xcode build; do the same here, or the
 # declarations they implement compile but have no implementation at runtime.
 if (USE_APPLE_INTERNAL_SDK)
-    foreach (_additions_swift_source
+    set(_additions_swift_sources
         AppKitGesturesExtras
         TestWebKitAPILibraryAdditions
         UIWindowScene+Extras
         WKSExperienceController+Transitions
         WKWebView+SystemTextExtraction)
+
+    # WebKitAdditions may predate DigitalCredentialsExtras.swift.in; its call sites are behind
+    # HAVE(DIGITAL_CREDENTIALS_OPENID4VP), which the same WebKitAdditions defines.
+    set(_digital_credentials_extras_available OFF)
+    if (EXISTS "${CMAKE_SOURCE_DIR}/../Internal/WebKit/WebKitAdditions/Additions/DigitalCredentialsExtras.swift.in")
+        set(_digital_credentials_extras_available ON)
+        list(APPEND _additions_swift_sources DigitalCredentialsExtras)
+    endif ()
+
+    foreach (_additions_swift_source ${_additions_swift_sources})
         add_custom_command(
             OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/${_additions_swift_source}.swift
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
@@ -845,6 +856,9 @@ if (USE_APPLE_INTERNAL_SDK)
     target_sources(WebKitSwift PRIVATE
         ${WebKit_DERIVED_SOURCES_DIR}/WKSExperienceController+Transitions.swift
     )
+    if (_digital_credentials_extras_available)
+        target_sources(WebKitSwift PRIVATE ${WebKit_DERIVED_SOURCES_DIR}/DigitalCredentialsExtras.swift)
+    endif ()
 endif ()
 
 target_include_directories(WebKitSwift PRIVATE
@@ -882,6 +896,13 @@ webkit_target_add_swift_options(WebKitSwift
     "-Xcc -I${WTF_FRAMEWORK_HEADERS_DIR}"
     "-Xcc -I${bmalloc_FRAMEWORK_HEADERS_DIR}"
 )
+
+# Without -clang-target, explicit module builds import Clang modules at the SDK
+# version rather than the deployment target, so headers would see different
+# HAVE()/ENABLE() values than the Swift compilation conditions.
+if (CMAKE_Swift_COMPILER_TARGET)
+    webkit_target_add_swift_options(WebKitSwift "-clang-target ${CMAKE_Swift_COMPILER_TARGET}")
+endif ()
 
 # WebKit's custom Swift @available macros, as a response file.
 set(_swift_tba_resp "${CMAKE_CURRENT_BINARY_DIR}/swift-tba-availability-macros.resp")
@@ -1207,8 +1228,6 @@ function(WEBKIT_DEFINE_DAEMONS)
     if (WEBKIT_SDK_IS_MACOS AND DEVELOPER_MODE)
         target_link_options(webpushd PRIVATE
             "LINKER:-rpath,@executable_path/."
-            "LINKER:-dyld_env,DYLD_FRAMEWORK_PATH=@executable_path/."
-            "LINKER:-dyld_env,DYLD_LIBRARY_PATH=@executable_path/."
         )
     endif ()
 
@@ -1933,6 +1952,7 @@ unset(_webkit_api_headers)
 list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
     UIProcess/API/Cocoa/WKDOMNodeSnapshot.h
     UIProcess/API/Cocoa/WKFormInfo.h
+    UIProcess/API/Cocoa/WKHitTestResult.h
     UIProcess/API/Cocoa/WKImmersiveEnvironment.h
     UIProcess/API/Cocoa/WKImmersiveEnvironmentDelegate.h
     UIProcess/API/Cocoa/WKJSHandle.h
@@ -2518,8 +2538,8 @@ function(WEBKIT_DEFINE_MACOS_RESOURCES)
 
     if (ENABLE_GPU_PROCESS)
         add_custom_command(OUTPUT ${WebKit_RESOURCES_DIR}/com.apple.WebKit.GPUProcess.sb COMMAND
-            grep -o "^[^;]*" ${WEBKIT_DIR}/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in | clang -E -P -w -include wtf/Platform.h -I ${WTF_FRAMEWORK_HEADERS_DIR} -I ${bmalloc_FRAMEWORK_HEADERS_DIR} -I ${WEBKIT_DIR} ${_sb_extra_includes} - > ${WebKit_RESOURCES_DIR}/com.apple.WebKit.GPUProcess.sb
-            DEPENDS ${WEBKIT_DIR}/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in
+            grep -o "^[^;]*" ${WEBKIT_DIR}/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in | clang -E -P -w -include wtf/Platform.h -I ${WTF_FRAMEWORK_HEADERS_DIR} -I ${bmalloc_FRAMEWORK_HEADERS_DIR} -I ${WEBKIT_DIR} -I ${WebKitAdditions_FRAMEWORK_HEADERS_DIR} ${_sb_extra_includes} - > ${WebKit_RESOURCES_DIR}/com.apple.WebKit.GPUProcess.sb
+            DEPENDS ${WEBKIT_DIR}/GPUProcess/mac/com.apple.WebKit.GPUProcess.sb.in ${WEBKITADDITIONS_HEADERS_DEPENDENCIES}
             VERBATIM)
         list(APPEND WebKit_SB_FILES ${WebKit_RESOURCES_DIR}/com.apple.WebKit.GPUProcess.sb)
     endif ()

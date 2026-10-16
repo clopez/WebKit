@@ -91,8 +91,6 @@ public:
     bool isShowingAltText() const;
 
     virtual bool shouldDisplayBrokenImageIcon() const;
-    bool shouldRespectZeroIntrinsicWidth() const final;
-    bool shouldRespectZeroIntrinsicHeight() const final;
 
     String accessibilityDescription() const;
 
@@ -100,7 +98,6 @@ public:
     bool isMultiRepresentationHEIC() const;
 #endif
 
-    LayoutRect imagePaintRect() const;
     WEBCORE_EXPORT std::optional<FloatSize> usedImageSize() const final;
 
     WEBCORE_EXPORT virtual RefPtr<ShareableBitmap> createShareableBitmap(const CreateShareableBitmapFromImageOptions& = { }) const;
@@ -122,7 +119,6 @@ protected:
 #endif
 
     bool shouldInvalidateContentWidths() const final;
-    NaturalDimensions zoomedNaturalDimensions() const override;
     RenderReplaced* embeddedSVGRoot() const final;
     bool foregroundIsKnownToBeOpaqueInRect(const LayoutRect& localRect, unsigned maxDepthToTest) const override;
 
@@ -139,6 +135,8 @@ protected:
     {
         imageChanged(imageResource().imagePtr());
     }
+
+    NaturalDimensions zoomedNaturalDimensions() const override;
 
 private:
     ASCIILiteral renderName() const override { return "RenderImage"_s; }

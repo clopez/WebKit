@@ -38,19 +38,6 @@
 #include <wtf/RetainPtr.h>
 #include <wtf/WeakPtr.h>
 
-#if USE(APPLE_INTERNAL_SDK)
-// FIXME: Properly support using WKA in modules.
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wnon-modular-include-in-module"
-#include <WebKitAdditions/JSGlobalObjectAdditions.h>
-#pragma clang diagnostic pop
-#else
-#define JS_GLOBAL_OBJECT_ADDITIONS_1
-#define JS_GLOBAL_OBJECT_ADDITIONS_2
-#define JS_GLOBAL_OBJECT_ADDITIONS_3
-#define JS_GLOBAL_OBJECT_ADDITIONS_4
-#endif
-
 struct OpaqueJSClass;
 struct OpaqueJSClassContextData;
 struct OpaqueJSWeakObjectMap;
@@ -253,8 +240,6 @@ public:
     WriteBarrier<JSCallee> m_zombieFrameCallee;
     WriteBarrier<JSCallee> m_evalCallee;
 
-    JS_GLOBAL_OBJECT_ADDITIONS_1;
-
     LazyClassStructure m_evalErrorStructure;
     LazyClassStructure m_rangeErrorStructure;
     LazyClassStructure m_referenceErrorStructure;
@@ -300,6 +285,10 @@ public:
     WriteBarrier<IntlCollator> m_cachedLocaleCompareCollator;
     String m_cachedLocaleCompareCollatorLocale;
     uint64_t m_cachedLocaleCompareCollatorLanguagesEpoch { 0 };
+
+    WriteBarrier<IntlNumberFormat> m_cachedToLocaleStringNumberFormat;
+    String m_cachedToLocaleStringNumberFormatLocale;
+    uint64_t m_cachedToLocaleStringNumberFormatLanguagesEpoch { 0 };
 
     LazyClassStructure m_durationStructure;
     LazyClassStructure m_instantStructure;
@@ -790,6 +779,7 @@ public:
     IntlDateTimeFormat* defaultDateFormat() const LIFETIME_BOUND { return m_defaultDateFormat.get(this); }
     IntlDateTimeFormat* defaultTimeFormat() const LIFETIME_BOUND { return m_defaultTimeFormat.get(this); }
     IntlNumberFormat* defaultNumberFormat() const LIFETIME_BOUND { return m_defaultNumberFormat.get(this); }
+    IntlNumberFormat* cachedToLocaleStringNumberFormat(JSString* locale);
 
     NullGetterFunction* nullGetterFunction() const LIFETIME_BOUND { return m_nullGetterFunction.get(); }
     NullSetterFunction* nullSetterFunction() const LIFETIME_BOUND { return m_nullSetterFunction.get(); }

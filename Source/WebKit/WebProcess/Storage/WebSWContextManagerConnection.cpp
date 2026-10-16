@@ -60,8 +60,11 @@
 #include "WebStorageProvider.h"
 #include "WebUserContentController.h"
 #include "WebWorkerClient.h"
+#include <WebCore/DocumentLoader.h>
 #include <WebCore/EditorClient.h>
 #include <WebCore/EmptyClients.h>
+#include <WebCore/FrameLoader.h>
+#include <WebCore/LocalFrame.h>
 #include <WebCore/MessageWithMessagePorts.h>
 #include <WebCore/NotificationData.h>
 #include <WebCore/PageConfiguration.h>
@@ -74,6 +77,7 @@
 #include <WebCore/ServiceWorkerJobDataIdentifier.h>
 #include <WebCore/UserAgent.h>
 #include <WebCore/UserContentURLPattern.h>
+#include <wtf/Borrow.h>
 #include <wtf/ProcessID.h>
 
 #if USE(QUICK_LOOK)
@@ -169,7 +173,8 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
 #endif
         pageConfiguration.storageProvider = makeUniqueRef<WebStorageProvider>(WebProcess::singleton().mediaKeysStorageDirectory(), WebProcess::singleton().mediaKeysStorageSalt());
 
-        if (RefPtr serviceWorkerPage = m_serviceWorkerPageIdentifier ? Page::serviceWorkerPage(*m_serviceWorkerPageIdentifier) : nullptr)
+        RefPtr serviceWorkerPage = m_serviceWorkerPageIdentifier ? Page::serviceWorkerPage(*m_serviceWorkerPageIdentifier) : nullptr;
+        if (serviceWorkerPage)
             pageConfiguration.corsDisablingPatterns = serviceWorkerPage->corsDisablingPatterns();
 
         auto effectiveUserAgent =  WTF::move(userAgent);
@@ -199,6 +204,14 @@ void WebSWContextManagerConnection::installServiceWorker(ServiceWorkerContextDat
             WebPage::adjustSettingsForLockdownMode(page->settings(), m_preferencesStore ? &m_preferencesStore.value() : nullptr);
 
         page->setupForRemoteWorker(contextData.scriptURL, contextData.registration.key.topOrigin(), contextData.referrerPolicy, advancedPrivacyProtections, contextData.globalPrivacyControlEnabled);
+
+        if (RefPtr serviceWorkerPageMainFrame = serviceWorkerPage ? serviceWorkerPage->localMainFrame() : nullptr) {
+            RefPtr serviceWorkerPageDocumentLoader = serviceWorkerPageMainFrame->loader().documentLoader();
+            RefPtr mainFrame = page->localMainFrame();
+            RefPtr documentLoader = mainFrame ? mainFrame->loader().documentLoader() : nullptr;
+            if (serviceWorkerPageDocumentLoader && documentLoader)
+                documentLoader->copyContentRuleListPoliciesFrom(*serviceWorkerPageDocumentLoader);
+        }
 
         std::unique_ptr<WebCore::NotificationClient> notificationClient;
 #if ENABLE(NOTIFICATIONS)
@@ -520,7 +533,7 @@ void WebSWContextManagerConnection::setRegistrationUpdateViaCache(WebCore::Servi
 
 void WebSWContextManagerConnection::postMessageToServiceWorkerClient(const ScriptExecutionContextIdentifier& destinationIdentifier, const MessageWithMessagePorts& message, ServiceWorkerIdentifier sourceIdentifier, const SecurityOriginData& sourceOrigin)
 {
-    for (auto& port : message.transferredPorts)
+    for (auto& port : borrow(message.transferredPorts))
         WebMessagePortChannelProvider::singleton().messagePortSentToRemote(port.first);
 
     Vector<URL> blobURLs;

@@ -2738,54 +2738,30 @@ void Editor::setComposition(const String& text, const Vector<CompositionUnderlin
 #endif
 }
 
-void Editor::ignoreSpelling()
+void Editor::ignoreSpelling(const std::optional<SimpleRange>& range)
 {
     if (!client())
         return;
 
-    if (auto selectedRange = document().selection().selection().toNormalizedRange())
-        removeMarkers(*selectedRange, DocumentMarkerType::Spelling);
+    if (auto rangeToIgnore = range ?: document().selection().selection().toNormalizedRange())
+        removeMarkers(*rangeToIgnore, DocumentMarkerType::Spelling);
 
-    String text = selectedText();
+    String text = range ? plainText(*range) : selectedText();
     ASSERT(text.length());
     textChecker()->ignoreWordInSpellDocument(text);
 }
 
-void Editor::learnSpelling()
+void Editor::learnSpelling(const std::optional<SimpleRange>& range)
 {
     if (!client())
         return;
-        
+
     // FIXME: On macOS, when use "learn" button on "Spelling and Grammar" panel, we don't call this function. It should remove misspelling markers around the learned word, see <rdar://problem/5396072>.
 
-    if (auto selectedRange = document().selection().selection().toNormalizedRange())
-        removeMarkers(*selectedRange, DocumentMarkerType::Spelling);
+    if (auto rangeToLearn = range ?: document().selection().selection().toNormalizedRange())
+        removeMarkers(*rangeToLearn, DocumentMarkerType::Spelling);
 
-    String text = selectedText();
-    ASSERT(text.length());
-    textChecker()->learnWord(text);
-}
-
-void Editor::ignoreSpelling(const SimpleRange& range)
-{
-    if (!client())
-        return;
-
-    removeMarkers(range, DocumentMarkerType::Spelling);
-
-    String text = plainText(range);
-    ASSERT(text.length());
-    textChecker()->ignoreWordInSpellDocument(text);
-}
-
-void Editor::learnSpelling(const SimpleRange& range)
-{
-    if (!client())
-        return;
-
-    removeMarkers(range, DocumentMarkerType::Spelling);
-
-    String text = plainText(range);
+    String text = range ? plainText(*range) : selectedText();
     ASSERT(text.length());
     textChecker()->learnWord(text);
 }
@@ -5181,7 +5157,8 @@ RefPtr<Font> Editor::fontForSelection(bool& hasMultipleFonts)
         if (renderer->isBR()) {
             if (!lineBreakFont) {
                 Ref primaryFont = protect(renderer->style().fontCascade())->primaryFont();
-                lineBreakFont = const_cast<Font*>(primaryFont.ptr());
+                // FIXME: Remove suppression once rdar://189998365 is fixed.
+                SUPPRESS_MEMORY_UNSAFE_CAST lineBreakFont = const_cast<Font*>(primaryFont.ptr());
             }
             continue;
         }
@@ -5190,9 +5167,10 @@ RefPtr<Font> Editor::fontForSelection(bool& hasMultipleFonts)
         if (!node->isTextNode() && !TextNodeTraversal::firstChild(node))
             continue;
         Ref primaryFont = protect(renderer->style().fontCascade())->primaryFont();
-        if (!font)
-            font = const_cast<Font*>(primaryFont.ptr());
-        else if (font != primaryFont.ptr()) {
+        if (!font) {
+            // FIXME: Remove suppression once rdar://189998365 is fixed.
+            SUPPRESS_MEMORY_UNSAFE_CAST font = const_cast<Font*>(primaryFont.ptr());
+        } else if (font != primaryFont.ptr()) {
             hasMultipleFonts = true;
             break;
         }

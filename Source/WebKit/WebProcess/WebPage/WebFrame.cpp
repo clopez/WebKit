@@ -139,6 +139,7 @@
 #include <WebCore/TextIterator.h>
 #include <WebCore/TextResourceDecoder.h>
 #include <WebCore/WebKitJSHandle.h>
+#include <wtf/Borrow.h>
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
@@ -298,11 +299,9 @@ Awaitable<std::optional<FrameInfoData>> WebFrame::getFrameInfo()
 
 FrameInfoData WebFrame::info() const
 {
-    RefPtr parent = parentFrame();
     RefPtr coreFrame = this->coreFrame();
     RefPtr coreLocalFrame = this->coreLocalFrame();
     RefPtr document = coreLocalFrame ? coreLocalFrame->document() : nullptr;
-    RefPtr page = m_page.get();
     RefPtr loadingFrame = m_provisionalFrame ? m_provisionalFrame : coreLocalFrame;
 
     WebFrameMetrics metrics;
@@ -326,7 +325,6 @@ FrameInfoData WebFrame::info() const
         coreFrame ? SecurityOriginData::fromFrame(*coreFrame) : SecurityOriginData { },
         coreFrame ? coreFrame->tree().specifiedName().string() : String(),
         frameID(),
-        page ? std::optional { page->webPageProxyIdentifier() } : std::nullopt,
         document ? std::optional { document->identifier() } : std::nullopt,
         isFocused(),
         loadingFrame && loadingFrame->loader().errorOccurredInLoading(),
@@ -656,6 +654,11 @@ void WebFrame::removeFromTree()
     if (RefPtr parent = coreFrame->tree().parent())
         parent->tree().removeChild(*coreFrame);
     coreFrame->disconnectView();
+
+    RefPtr localFrame = dynamicDowncast<LocalFrame>(*coreFrame);
+    bool detachFromPageWillRemoveRootFrame = localFrame && corePage->rootFrames().contains(*localFrame);
+    if (RefPtr drawingArea = webPage->drawingArea(); drawingArea && !detachFromPageWillRemoveRootFrame && drawingArea->hasRootFrame(frameID()))
+        drawingArea->removeRootFrame(frameID());
 }
 
 void WebFrame::didFinishLoadInAnotherProcess()
@@ -1922,7 +1925,7 @@ static Vector<TextExtraction::Item> itemsForPDFTextAndLinks(String&& text, Vecto
 
     Vector<TextExtraction::Item> items;
     unsigned cursor = 0;
-    for (auto& link : links) {
+    for (auto& link : borrow(links)) {
         auto linkLocation = static_cast<unsigned>(link.rangeInText.location);
         auto linkLength = static_cast<unsigned>(link.rangeInText.length);
         if (linkLocation < cursor)
@@ -2104,7 +2107,7 @@ void WebFrame::requestContentFrameIdentifierForNode(NodeIdentifier nodeIdentifie
 
 void WebFrame::findFirstConnectedNode(Vector<NodeIdentifier>&& candidates, CompletionHandler<void(std::optional<NodeIdentifier>)>&& completion)
 {
-    for (auto& candidate : candidates) {
+    for (auto& candidate : borrow(candidates)) {
         RefPtr node = Node::fromIdentifier(candidate);
         if (node && node->isConnected())
             return completion(candidate);
