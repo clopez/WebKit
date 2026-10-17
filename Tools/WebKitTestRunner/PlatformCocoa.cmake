@@ -125,17 +125,17 @@ list(APPEND TestRunnerInjectedBundle_SOURCES
     ${WebKitTestRunner_DIR}/cocoa/CrashReporterInfo.mm
 
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityCommonCocoa.mm
+    ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityNotificationHandler.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityTextMarkerRangeCocoa.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/ActivateFontsCocoa.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/InjectedBundlePageCocoa.mm
+    ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/TestRunnerCocoa.mm
 
     ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityControllerMac.mm
-    ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityNotificationHandler.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityTextMarkerMac.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityUIElementClientMac.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityUIElementMac.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/mac/InjectedBundleMac.mm
-    ${WebKitTestRunner_DIR}/InjectedBundle/mac/TestRunnerMac.mm
 
     ${WebKitTestRunner_SHARED_DIR}/EventSerialization/mac/EventSerializerMac.mm
     ${WebKitTestRunner_SHARED_DIR}/EventSerialization/mac/SharedEventStreamsMac.mm
@@ -279,12 +279,11 @@ list(APPEND TestRunnerInjectedBundle_SOURCES
     ${WebKitTestRunner_DIR}/cocoa/CrashReporterInfo.mm
 
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityCommonCocoa.mm
+    ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityNotificationHandler.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/AccessibilityTextMarkerRangeCocoa.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/ActivateFontsCocoa.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/InjectedBundlePageCocoa.mm
-
-    ${WebKitTestRunner_DIR}/InjectedBundle/mac/AccessibilityNotificationHandler.mm
-    ${WebKitTestRunner_DIR}/InjectedBundle/mac/TestRunnerMac.mm
+    ${WebKitTestRunner_DIR}/InjectedBundle/cocoa/TestRunnerCocoa.mm
 
     ${WebKitTestRunner_DIR}/InjectedBundle/ios/AccessibilityControllerIOS.mm
     ${WebKitTestRunner_DIR}/InjectedBundle/ios/AccessibilityTextMarkerIOS.mm
@@ -381,13 +380,11 @@ endif ()
 
 if (WEBKIT_SDK_IS_SIMULATOR)
     WEBKIT_EMBED_ENTITLEMENTS(WebKitTestRunner ${_wktr_entitlements})
-    set(_wktr_sign_entitlements "${CMAKE_CURRENT_BINARY_DIR}/WebKitTestRunnerApp-get-task-allow.entitlements")
-    WEBKIT_WRITE_SIMULATOR_SIGNING_ENTITLEMENTS(${_wktr_sign_entitlements})
 else ()
-    set(_wktr_sign_entitlements "${_wktr_entitlements}")
+    set_target_properties(WebKitTestRunner PROPERTIES
+        CODE_SIGN_ENTITLEMENTS "${_wktr_entitlements}")
 endif ()
 set_target_properties(WebKitTestRunner PROPERTIES
-    CODE_SIGN_ENTITLEMENTS "${_wktr_sign_entitlements}"
     CODE_SIGN_BUNDLE "$<TARGET_BUNDLE_DIR:WebKitTestRunner>"
 )
 

@@ -101,8 +101,6 @@ endif ()
 
 list(APPEND WebKit_UNIFIED_SOURCE_LIST_FILES
     "SourcesCocoa.txt"
-
-    "Platform/SourcesCocoa.txt"
 )
 # FIXME: Test building on iOS and then enable on iOS.
 if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
@@ -110,6 +108,12 @@ if (NOT WEBKIT_SDK_IS_IOS_FAMILY)
         "SourcesCMakeCocoa.txt"
     )
 endif ()
+
+# See WebKit_USE_PLATFORM_SUBTARGET in CMakeLists.txt.
+list(APPEND WebKitPlatform_UNIFIED_SOURCE_LIST_FILES
+    "Platform/SourcesCMakeCocoa.txt"
+    "Platform/SourcesCocoa.txt"
+)
 
 list(APPEND WebKit_SOURCES
     GPUProcess/media/RemoteAudioDestinationManager.cpp
@@ -430,12 +434,6 @@ list(APPEND WebCore_SERIALIZATION_IN_FILES
 )
 
 
-file(GLOB _webkit_additional_cocoa_sources RELATIVE "${WEBKIT_DIR}"
-    "${WEBKIT_DIR}/Shared/Cocoa/CoreIPC*.mm"
-    "${WEBKIT_DIR}/Shared/cf/CoreIPC*.mm"
-)
-list(APPEND WebKit_SOURCES ${_webkit_additional_cocoa_sources})
-unset(_webkit_additional_cocoa_sources)
 list(APPEND WebKit_SOURCES
     NetworkProcess/cocoa/DeviceManagementSoftLink.mm
     NetworkProcess/cocoa/NetworkSoftLink.mm
@@ -446,15 +444,10 @@ list(APPEND WebKit_SOURCES
     Shared/AdditionalFonts.mm
 
     Shared/Cocoa/AnnotatedMachSendRight.mm
-    Shared/Cocoa/ArgumentCodersCocoa.mm
     Shared/Cocoa/BackgroundFetchStateCocoa.mm
-    Shared/Cocoa/CoreTextHelpers.mm
-    Shared/Cocoa/DataDetectionResult.mm
     Shared/Cocoa/LaunchLogHook.mm
-    Shared/Cocoa/WKKeyedCoder.mm
     Shared/Cocoa/WKProcessExtension.mm
     Shared/Cocoa/WebKit2InitializeCocoa.mm
-    Shared/Cocoa/WebPushMessageCocoa.mm
 
     UIProcess/EndowmentStateTracker.mm
 
@@ -629,6 +622,7 @@ list(APPEND WebKit_PRIVATE_LIBRARIES
 if (WEBKIT_SDK_IS_MACOS)
     list(APPEND WebKit_PRIVATE_LIBRARIES
         ${APPLICATIONSERVICES_LIBRARY}
+        ${PDFKIT_LIBRARY}
         ${SECURITYINTERFACE_LIBRARY}
         $<$<BOOL:${AVFAUDIO_LIBRARY}>:${AVFAUDIO_LIBRARY}>
     )
@@ -726,10 +720,6 @@ target_link_options(WebKit PRIVATE
     "LINKER:-unexported_symbol,_$s*3Cxx*"
 )
 
-# FIXME: Hide WebKit's Objective-C++ symbols too, as Xcode does. TestIPC needs
-# to be refactored to import WebKit's IPC serialization code.
-target_compile_options(WebKit PRIVATE "$<$<COMPILE_LANGUAGE:OBJC,OBJCXX>:-fvisibility=default>")
-
 # Like Xcode, which dead-strips WebKit in every configuration. The precompiled headers' objects
 # otherwise keep references to inline functions that call hidden WebCore and WTF symbols.
 target_link_options(WebKit PRIVATE "$<$<CONFIG:Debug>:LINKER:-dead_strip>")
@@ -752,6 +742,8 @@ set(WebKit_GENERATED_SERIALIZERS_SUFFIX mm)
 
 list(APPEND WebKit_DERIVED_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.h
+)
+list(APPEND WebKitPlatform_SOURCES
     ${WebKit_DERIVED_SOURCES_DIR}/GeneratedWebKitSecureCoding.${WebKit_GENERATED_SERIALIZERS_SUFFIX}
 )
 
@@ -1002,7 +994,7 @@ function(WEBKIT_DEFINE_AUXILIARY_PROCESSES)
     endfunction()
 
     set(_get_task_allow "${CMAKE_CURRENT_BINARY_DIR}/XPCService-get-task-allow.entitlements")
-    WEBKIT_WRITE_SIMULATOR_SIGNING_ENTITLEMENTS(${_get_task_allow})
+    WEBKIT_WRITE_DEFAULT_DEVELOPMENT_ENTITLEMENTS(${_get_task_allow})
 
     if (USE_EXTENSIONKIT)
         WEBKIT_DEFINE_PROCESS_EXTENSIONS()
@@ -1233,7 +1225,7 @@ function(WEBKIT_DEFINE_DAEMONS)
 
     # adattributiond doesn't have any custom entitlements on macOS.
     if (WEBKIT_SDK_IS_MACOS AND DEVELOPER_MODE)
-        set(_adattributiond_entitlements ENTITLEMENTS "${_get_task_allow}")
+        set(_adattributiond_entitlements ENTITLEMENTS OFF)
     endif ()
     WEBKIT_DAEMON(adattributiond
         ${WEBKIT_DIR}/Shared/EntryPointUtilities/Cocoa/Daemon/adattributiond.cpp

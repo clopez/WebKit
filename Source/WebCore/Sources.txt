@@ -3073,7 +3073,6 @@ rendering/RenderHighlight.cpp
 rendering/RenderIFrame.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderImage.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderImageResource.cpp @header:RenderStyleGetters @cost:5
-rendering/RenderInline.cpp @header:RenderStyleGetters @cost:7
 rendering/RenderLayer.cpp @header:RenderStyleGetters @cost:11
 rendering/RenderLayerBacking.cpp @header:RenderStyleGetters @cost:10
 rendering/RenderLayerBackingSVGAdditions.cpp @header:RenderStyleGetters @cost:7
@@ -3212,6 +3211,7 @@ rendering/svg/SVGRenderingContext.cpp @header:RenderStyleGetters
 rendering/svg/SVGTextBoxPainter.cpp @header:RenderStyleGetters
 rendering/svg/SVGTextChunk.cpp @header:RenderStyleGetters
 rendering/svg/SVGTextChunkBuilder.cpp
+rendering/svg/SVGTextLayoutAlgorithm.cpp @header:RenderStyleGetters
 rendering/svg/SVGTextLayoutAttributes.cpp
 rendering/svg/SVGTextLayoutAttributesBuilder.cpp @header:RenderStyleGetters
 rendering/svg/SVGTextLayoutEngine.cpp @header:RenderStyleGetters
