@@ -67,6 +67,7 @@
 #include "ContentfulPaintChecker.h"
 #include "Cookie.h"
 #include "CookieJar.h"
+#include "CrossOriginMode.h"
 #include "CryptoClient.h"
 #include "ContainerNodeInlines.h"
 #include "CustomEffect.h"
@@ -575,14 +576,16 @@ static bool canAccessAncestor(const SecurityOrigin& activeSecurityOrigin, Frame*
         return false;
 
     const bool isLocalActiveOrigin = activeSecurityOrigin.isLocal();
-    for (Ref localAncestor : inclusiveAncestorFrames<LocalFrame>(*targetFrame)) {
-        RefPtr ancestorDocument = localAncestor->document();
+    for (Ref ancestor : inclusiveAncestorFrames(*targetFrame)) {
         // FIXME: Should be an ASSERT? Frames should alway have documents.
-        if (!ancestorDocument)
+        if (RefPtr localAncestor = dynamicDowncast<LocalFrame>(ancestor); localAncestor && !localAncestor->document())
             return true;
 
-        Ref ancestorSecurityOrigin = ancestorDocument->securityOrigin();
-        if (activeSecurityOrigin.isSameOriginDomain(ancestorSecurityOrigin))
+        // Same-origin documents can be in different processes, such as when only one of them has a Document-Isolation-Policy.
+        RefPtr ancestorSecurityOrigin = ancestor->frameDocumentSecurityOrigin();
+        if (!ancestorSecurityOrigin)
+            continue;
+        if (activeSecurityOrigin.isSameOriginDomain(*ancestorSecurityOrigin))
             return true;
 
         // Allow file URL descendant navigation even when allowFileAccessFromFileURLs is false.
@@ -665,7 +668,7 @@ auto Document::allDocuments() -> DocumentsMap::ValuesIteratorRange
     return allDocumentsMap().values();
 }
 
-static inline IntDegrees currentOrientation(LocalFrame* frame)
+static inline IntDegrees LEGACY_NODELETE currentOrientation(LocalFrame* frame)
 {
 #if ENABLE(ORIENTATION_EVENTS)
     if (frame)
@@ -1903,7 +1906,7 @@ CustomElementRegistry* Document::effectiveGlobalCustomElementRegistry()
     return customElementRegistry();
 }
 
-static inline bool isPotentialCustomElementNameCharacter(char32_t character)
+static inline bool LEGACY_NODELETE isPotentialCustomElementNameCharacter(char32_t character)
 {
     static constexpr auto ranges = WTF::toArray<UnicodeCodePointRange>({
         { '-', '.' },
@@ -1976,7 +1979,7 @@ static ALWAYS_INLINE CustomElementNameCharacterKind LEGACY_NODELETE customElemen
     return table[character];
 }
 
-static ALWAYS_INLINE CustomElementNameValidationStatus validateCustomElementNameWithoutCheckingStandardElementNames(const AtomString& localName)
+static ALWAYS_INLINE CustomElementNameValidationStatus LEGACY_NODELETE validateCustomElementNameWithoutCheckingStandardElementNames(const AtomString& localName)
 {
     if (!isASCIILower(localName[0]))
         return CustomElementNameValidationStatus::FirstCharacterIsNotLowercaseASCIILetter;
@@ -8867,7 +8870,9 @@ bool Document::isSecureContext() const
 
 bool Document::isInCrossOriginIsolatedAgentCluster() const
 {
-    return crossOriginOpenerPolicy().value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP;
+    if (crossOriginOpenerPolicy().value == CrossOriginOpenerPolicyValue::SameOriginPlusCOEP)
+        return true;
+    return documentIsolationPolicy() != DocumentIsolationPolicy::None && ScriptExecutionContext::crossOriginMode() == CrossOriginMode::Isolated;
 }
 
 bool Document::crossOriginIsolated() const

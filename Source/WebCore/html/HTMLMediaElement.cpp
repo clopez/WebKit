@@ -5935,7 +5935,7 @@ void HTMLMediaElement::configureTextTracks()
     configureTextTrackDisplay();
 }
 
-static bool isSubtitleOrCaptionTrackKind(TextTrack::Kind kind)
+static bool LEGACY_NODELETE isSubtitleOrCaptionTrackKind(TextTrack::Kind kind)
 {
     return kind == TextTrack::Kind::Subtitles || kind == TextTrack::Kind::Captions;
 }
@@ -9776,7 +9776,7 @@ bool HTMLMediaElement::supportsSeeking() const
 }
 
 #if ENABLE(MEDIA_STREAM)
-static bool isCameraTrack(const MediaStreamTrack& track)
+static bool LEGACY_NODELETE isCameraTrack(const MediaStreamTrack& track)
 {
     return track.isCaptureTrack() && track.isVideo();
 }
@@ -9814,6 +9814,12 @@ bool HTMLMediaElement::shouldOverrideBackgroundPlaybackRestriction(PlatformMedia
         }
         if (hasMediaStreamSrcObject() && mediaState().containsAny(MediaProducerMediaState::IsPlayingAudio) && document().mediaState().containsAny(MediaProducerMediaState::HasActiveAudioCaptureDevice)) {
             INFO_LOG(LOGIDENTIFIER, "returning true because playing an audio MediaStreamTrack");
+            return true;
+        }
+#endif
+#if HAVE(AVEXPERIENCECONTROLLER)
+        if (m_videoFullscreenMode == VideoFullscreenModeStandard && document().settings().isAVExperienceControllerFullscreenEnabled()) {
+            INFO_LOG(LOGIDENTIFIER, "returning true, presented in Now Playing");
             return true;
         }
 #endif

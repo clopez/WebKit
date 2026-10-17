@@ -942,11 +942,11 @@ CSSFontFaceMetricOverrideDescriptorsEnabled:
 
 CSSFontPaletteMixFunctionEnabled:
   type: bool
-  status: testable
+  status: stable
   category: css
   humanReadableName: "CSS palette-mix() function"
   humanReadableDescription: "Enable the CSS palette-mix() function"
-  defaultValue: false
+  defaultValue: true
 
 CSSFontSynthesisStyleObliqueOnlyEnabled:
   type: bool
@@ -2028,6 +2028,7 @@ DocumentIsolationPolicyEnabled:
   humanReadableName: "Document-Isolation-Policy header"
   humanReadableDescription: "Support for the Document-Isolation-Policy header"
   defaultValue: false
+  sharedPreferenceForWebProcess: true
 
 # FIXME: This is on by default in WebKit2. Perhaps we should consider turning it on for WebKitLegacy as well.
 DownloadAttributeEnabled:
@@ -2220,6 +2221,14 @@ EventTimingEnabled:
   defaultValue:
     default: true
     WebKitLegacy: false
+
+ExemptAllowlistedCookiesFromItp:
+  type: bool
+  status: unstable
+  category: privacy
+  humanReadableName: "Exempt Allowlisted Cookies From ITP Data Removal"
+  humanReadableDescription: "Exempt allowlisted cookies and local storage from ITP data deletion"
+  defaultValue: false
 
 ExperimentalSandboxEnabled:
   type: bool

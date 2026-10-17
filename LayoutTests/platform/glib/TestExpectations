@@ -1301,6 +1301,7 @@ webkit.org/b/228915 accessibility/selected-state-changed-notifications.html [ Fa
 # Not supported
 accessibility/embedded-image-description.html [ Skip ]
 accessibility/image-data.html [ Skip ]
+accessibility/image-data-svg.html [ Skip ]
 accessibility/aria-keyshortcuts.html [ Skip ]
 accessibility/radio-button-group-dynamic-changes.html [ Failure ]
 
@@ -1892,6 +1893,9 @@ media/media-source/media-managedmse-memorypressure-inactive.html [ Timeout ]
 media/media-source/media-managedmse-eviction.html [ Timeout ]
 media/media-source/media-source-evict-invalid-time-crash.html [ Timeout ]
 media/media-source/media-source-evict-ignorable-gap.html [ Skip ]
+
+# This tests behavior specific to the AVFoundation MSE player
+media/media-source/media-source-video-flush-after-late-audio-track.html [ Skip ]
 
 webkit.org/b/211995 fast/images/animated-image-mp4.html [ Timeout ]
 

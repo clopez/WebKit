@@ -102,8 +102,8 @@
 #else
 namespace WebCore {
 namespace Style {
-static inline void adjustForManipulationSurfaceQuirk(ComputedStyle&) { }
-static inline void adjustForBoxAnnotationQuirk(ComputedStyle&) { }
+static inline void LEGACY_NODELETE adjustForManipulationSurfaceQuirk(ComputedStyle&) { }
+static inline void LEGACY_NODELETE adjustForBoxAnnotationQuirk(ComputedStyle&) { }
 } // namespace Style
 } // namespace WebCore
 #endif
@@ -1262,7 +1262,7 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
         static MainThreadNeverDestroyed<const AtomString> class1("eNjKGZ"_s);
         if (is<HTMLLabelElement>(*m_element)
             && m_element->hasClassName(class1)
-            && style.backgroundColor() == Color { WebCore::Color::white })
+            && style.backgroundColorResolvingCurrentColor() == WebCore::Color::white)
             style.setBackgroundColor({ WebCore::Color::transparentBlack });
     }
 #endif
