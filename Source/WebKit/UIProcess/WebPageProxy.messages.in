@@ -171,6 +171,7 @@ messages -> WebPageProxy {
 #if PLATFORM(MAC)
     [EnabledBy=SiteIsolationEnabled] PerformAccessibilitySearchInRemoteFrame(WebCore::FrameIdentifier frameID, struct WebCore::AccessibilitySearchCriteriaIPC criteria) -> (Vector<WebCore::AccessibilityRemoteToken> results)
     [EnabledBy=SiteIsolationEnabled] ContinueAccessibilitySearchFromChildFrame(WebCore::FrameIdentifier childFrameID, struct WebCore::AccessibilitySearchCriteriaIPC criteria) -> (Vector<WebCore::AccessibilityRemoteToken> results)
+    [EnabledBy=SiteIsolationEnabled] RelayAccessibilitySelectedTextChangeToMainFrame(WebCore::FrameIdentifier frameID, struct WebCore::AXRemoteFrameSelectedTextChange change)
 #endif
 
     MainFramePluginHandlesPageScaleGestureDidChange(bool mainFramePluginHandlesPageScaleGesture, double minScale, double maxScale)
@@ -661,7 +662,6 @@ messages -> WebPageProxy {
     [EnabledBy=SiteIsolationEnabled] BroadcastAllDocumentSyncData(Ref<WebCore::DocumentSyncData> documentSyncData)
 
     [EnabledBy=SiteIsolationEnabled] BroadcastFrameTreeSyncData(WebCore::FrameIdentifier frameID, struct WebCore::FrameTreeSyncSerializationData frameTreeSyncData)
-    [EnabledBy=SiteIsolationEnabled] BroadcastAllFrameTreeSyncData(WebCore::FrameIdentifier frameID, Ref<WebCore::FrameTreeSyncData> frameTreeSyncData)
     [EnabledBy=SiteIsolationEnabled] HandleFrameGeometryUpdates(Vector<WebCore::FrameGeometryUpdate> updates)
 
     [EnabledBy=SiteIsolationEnabled] DidNotifyUserActivation(WebCore::FrameIdentifier sourceFrameID, MonotonicTime activationTime, std::optional<WebCore::UserGestureTokenIdentifier> forcedActivationToken)

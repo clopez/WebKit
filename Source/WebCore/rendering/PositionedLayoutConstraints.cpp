@@ -113,7 +113,7 @@ bool PositionedLayoutConstraints::containingCoordsAreFlipped() const
     return !m_useStaticPosition && ((isBlockOpposing() && m_containingAxis == LogicalBoxAxis::Block) || (isOrthogonal() && orthogonalOpposing));
 }
 
-static bool isFlippedOnAxis(WritingMode writingMode, BoxAxis physicalAxis)
+static bool LEGACY_NODELETE isFlippedOnAxis(WritingMode writingMode, BoxAxis physicalAxis)
 {
     bool axisIsBlock = writingMode.isHorizontal() != (physicalAxis == BoxAxis::Horizontal);
     return axisIsBlock ? writingMode.isBlockFlipped() : writingMode.isInlineFlipped();
@@ -842,11 +842,9 @@ void PositionedLayoutConstraints::fixupLogicalLeftPosition(RenderBox::LogicalExt
     if (!firstInlineBox)
         return;
 
-    auto lastInlineBox = [&] {
-        auto inlineBox = firstInlineBox;
-        for (; inlineBox->nextInlineBoxLineRightward(); inlineBox.traverseInlineBoxLineRightward()) { }
-        return inlineBox;
-    }();
+    auto lastInlineBox = firstInlineBox;
+    while (auto next = std::ranges::next(lastInlineBox))
+        lastInlineBox = next;
     if (firstInlineBox == lastInlineBox)
         return;
 

@@ -8850,11 +8850,14 @@ bool Document::computeIsSecureContext() const
     if (!parentFrame)
         parentFrame = m_frame->loader().client().provisionalParentFrame();
     if (!parentFrame)
-        return isDocumentSecure(*this);
+        return !url().protocolIsData() && isDocumentSecure(*this);
 
     auto parentSecurityPolicy = parentFrame->frameDocumentSecurityPolicy();
     if (!parentSecurityPolicy || parentSecurityPolicy->isSecureContext == IsSecureContext::No)
         return false;
+
+    if (url().protocolIsData())
+        return true;
 
     return isDocumentSecure(*this);
 }
@@ -10397,6 +10400,11 @@ bool Document::useDarkAppearance([[maybe_unused]] const Style::ComputedStyle* st
     if (colorScheme.contains(ColorScheme::Dark))
         return pageUsesDarkAppearance;
 #endif
+
+    if (RefPtr frame = this->frame(); frame && frame->isMainFrame()) {
+        if (url().isAboutBlank() || !frame->loader().stateMachine().committedFirstRealDocumentLoad())
+            return pageUsesDarkAppearance;
+    }
 
     return false;
 }

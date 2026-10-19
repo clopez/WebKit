@@ -601,7 +601,7 @@ void FrameSelection::updateDataDetectorsForSelection()
 #endif
 }
 
-static bool removingNodeRemovesPosition(Node& node, const Position& position)
+static bool LEGACY_NODELETE removingNodeRemovesPosition(Node& node, const Position& position)
 {
     if (!position.anchorNode())
         return false;
@@ -1887,7 +1887,7 @@ IntRect FrameSelection::absoluteCaretBounds(bool* insideFixed)
     return m_absCaretBounds;
 }
 
-static LayoutBoxExtent computeOutsetFromInnerOuterRect(const LayoutRect& innerRect, const LayoutRect& outerRect)
+static LayoutBoxExtent LEGACY_NODELETE computeOutsetFromInnerOuterRect(const LayoutRect& innerRect, const LayoutRect& outerRect)
 {
     LayoutBoxExtent result;
     result.setLeft(std::max<LayoutUnit>(0, innerRect.x() - outerRect.x()));
@@ -2037,14 +2037,14 @@ static bool inlineBackgroundCoversCaret(const RenderBoxModelObject& inlineBox, c
     auto logicalCaretRect = isHorizontal ? caretRect : caretRect.transposedRect();
     auto caretMiddleAlongBlockAxis = logicalCaretRect.y() + logicalCaretRect.height() / 2;
 
-    for (auto box = InlineIterator::lineLeftmostInlineBoxFor(inlineBox); box; box.traverseInlineBoxLineRightward()) {
-        auto lineRect = LayoutRect { LineSelection::logicalRect(*box->lineBox()) };
+    for (auto& box : InlineIterator::inlineBoxesFor(inlineBox)) {
+        auto lineRect = LayoutRect { LineSelection::logicalRect(box.lineBox()) };
         lineRect.move(logicalOffset);
         if (caretMiddleAlongBlockAxis < lineRect.y())
             break;
         if (caretMiddleAlongBlockAxis >= lineRect.maxY())
             continue;
-        auto boxRect = LayoutRect { box->logicalRectIgnoringInlineDirection() };
+        auto boxRect = LayoutRect { box.logicalRectIgnoringInlineDirection() };
         boxRect.move(logicalOffset);
         if (logicalCaretRect.x() >= boxRect.x() && logicalCaretRect.maxX() <= boxRect.maxX())
             return true;

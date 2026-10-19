@@ -6384,6 +6384,18 @@ TEST(SiteIsolation, LoadHTMLStringRecordsHistoricalAgentClusterKeying)
     EXPECT_FALSE([[webView objectByEvaluatingJavaScript:@"frames[0].originAgentCluster"] boolValue]);
 }
 
+TEST(SiteIsolation, FrameUnderTopLevelDataURLIgnoresOriginAgentCluster)
+{
+    HTTPServer server({
+        { "/frame"_s, { { { "Content-Type"_s, "text/html"_s }, { "Origin-Agent-Cluster"_s, "?1"_s } }, "<script>alert(`${originAgentCluster} ${isSecureContext}`)</script>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    // A top-level data: document is not a secure context, so neither is its frame, which can't be origin-keyed.
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"data:text/html,%3Ciframe%20src=%27https://example.com/frame%27%3E%3C/iframe%3E"]]];
+    EXPECT_WK_STREQ([webView _test_waitForAlert], "false false");
+}
+
 TEST(SiteIsolation, AlternateHTMLStringIsInTheAgentClusterOfSameOriginFrames)
 {
     HTTPServer server({
@@ -6587,7 +6599,6 @@ TEST(SiteIsolation, PrefetchWithDocumentIsolationPolicyServesNavigation)
 TEST(SiteIsolation, NavigationJoiningPrefetchWithDifferentDocumentIsolationPolicy)
 {
     auto speculationRules = "<script type='speculationrules'>{\"prefetch\":[{\"source\":\"list\",\"urls\":[\"/destination\"]}]}</script>"_s;
-    std::optional<Connection> prefetchConnection;
     size_t destinationRequests = 0;
     HTTPServer server(HTTPServer::UseCoroutines::Yes, [&](Connection connection) -> ConnectionTask {
         while (1) {
@@ -6598,11 +6609,9 @@ TEST(SiteIsolation, NavigationJoiningPrefetchWithDifferentDocumentIsolationPolic
                 continue;
             }
             if (path == "/destination"_s) {
-                // Hold the prefetch, so the navigation finds it still loading.
-                if (!destinationRequests++) {
-                    prefetchConnection = connection;
+                // Never answer the prefetch, so the navigation finds it still loading.
+                if (!destinationRequests++)
                     continue;
-                }
                 co_await connection.awaitableSend(HTTPResponse("destination"_s).serialize());
                 continue;
             }
@@ -6616,13 +6625,13 @@ TEST(SiteIsolation, NavigationJoiningPrefetchWithDifferentDocumentIsolationPolic
     [navigationDelegate waitForDidFinishNavigation];
     pid_t isolatedProcess = [webView _webProcessIdentifier];
     EXPECT_TRUE(Util::waitFor([&] {
-        return !!prefetchConnection;
+        return destinationRequests == 1;
     }));
 
+    // The navigation makes its own request rather than waiting for the prefetch.
     [webView evaluateJavaScript:@"location.href = '/destination'" completionHandler:nil];
-    Util::runFor(0.2_s);
-    prefetchConnection->send(HTTPResponse("destination"_s).serialize());
     [navigationDelegate waitForDidFinishNavigation];
+    EXPECT_EQ(destinationRequests, 2u);
     EXPECT_WK_STREQ([webView URL].absoluteString, "https://example.com/destination");
     EXPECT_WK_STREQ([webView objectByEvaluatingJavaScript:@"typeof SharedArrayBuffer"], "undefined");
     EXPECT_NE([webView _webProcessIdentifier], isolatedProcess);
@@ -7688,6 +7697,63 @@ TEST(SiteIsolation, BFCacheRestoredIframeIsVisibleAndFiresPageShow)
 
     EXPECT_EQ(2, [[webView objectByEvaluatingJavaScript:@"window.__pageshowCount"] intValue]);
     EXPECT_WK_STREQ([webView objectByEvaluatingJavaScript:@"document.visibilityState"], "visible");
+}
+
+TEST(SiteIsolation, BFCacheRestoredIframeWaitsForMainFrameCommit)
+{
+    auto recordMessages = "<script>"
+        "  window.__messages = [];"
+        "  window.addEventListener('message', (event) => window.__messages.push(event.data));"
+        "</script>"_s;
+    auto iframeHTML = "<script>"
+        "  window.addEventListener('pageshow', (event) => {"
+        "    if (event.persisted)"
+        "      top.postMessage('restored', '*');"
+        "  });"
+        "</script>"_s;
+
+    HTTPServer server({
+        { "/a"_s, { makeString(recordMessages, "<iframe src='https://frame.com/frame'></iframe>"_s) } },
+        { "/b"_s, { recordMessages } },
+        { "/frame"_s, { iframeHTML } }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto *configuration = server.httpsProxyConfiguration();
+    setFeatureEnabled(configuration, @"MultiProcessBackForwardCacheEnabled", true);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+
+    // Same-site, so the main frame stays in its process and a.com/a goes into its back/forward cache.
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    __block BlockPtr<void(WKNavigationActionPolicy)> heldDecision;
+    navigationDelegate.get().decidePolicyForNavigationAction = ^(WKNavigationAction *action, void (^completionHandler)(WKNavigationActionPolicy)) {
+        if (action.navigationType == WKNavigationTypeBackForward && action.targetFrame.isMainFrame) {
+            heldDecision = makeBlockPtr(completionHandler);
+            return;
+        }
+        completionHandler(WKNavigationActionPolicyAllow);
+    };
+
+    [webView goBack];
+    EXPECT_TRUE(TestWebKitAPI::Util::waitFor(^{
+        return !!heldDecision;
+    }));
+
+    // While the main frame's policy decision is pending, the restored iframe must not run script.
+    TestWebKitAPI::Util::runFor(0.5_s);
+    EXPECT_EQ(0, [[webView objectByEvaluatingJavaScript:@"window.__messages.length"] intValue]);
+
+    heldDecision(WKNavigationActionPolicyAllow);
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_TRUE(TestWebKitAPI::Util::waitFor([&] {
+        return [[webView objectByEvaluatingJavaScript:@"window.__messages.length"] intValue] == 1;
+    }));
+    EXPECT_WK_STREQ([webView objectByEvaluatingJavaScript:@"window.__messages[0]"], "restored");
+    EXPECT_WK_STREQ([webView objectByEvaluatingJavaScript:@"location.pathname"], "/a");
 }
 
 TEST(SiteIsolation, BFCacheSameSitePageChangesTopDocumentURL)

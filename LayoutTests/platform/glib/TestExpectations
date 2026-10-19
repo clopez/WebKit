@@ -1610,8 +1610,6 @@ webkit.org/b/325853 [ x86_64 ] imported/w3c/web-platform-tests/xml/xslt/encoding
 # Damage Tracking-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
 
-webkit.org/b/307135 platform/glib/damage/animations-opacity-to-invisibility.html [ Failure Pass ]
-
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Damage Tracking-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -2865,10 +2863,9 @@ imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-getStats.https.html?res
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-mandatory-getStats.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc/RTCRtpReceiver-getSynchronizationSources.https.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webrtc/transfer-datachannel.html [ Pass Failure ]
-webkit.org/b/311846 webrtc/h264-baseline.html [ Pass Crash Timeout ]
-webkit.org/b/311846 webrtc/h264-high.html [ Pass Crash Timeout ]
-webrtc/vp8-then-h264.html [ Pass Crash ]
-webkit.org/b/310095 imported/w3c/web-platform-tests/webrtc/simulcast/screenshare.https.html [ Crash Failure ]
+webkit.org/b/311846 webrtc/h264-baseline.html [ Pass Timeout ]
+webkit.org/b/311846 webrtc/h264-high.html [ Pass Timeout ]
+webkit.org/b/310095 imported/w3c/web-platform-tests/webrtc/simulcast/screenshare.https.html [ Failure ]
 
 imported/w3c/web-platform-tests/webrtc/RTCIceTransport.html?rest [ Pass Failure Slow ]
 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-setRemoteDescription-offer.html?rest [ Slow ]
@@ -2898,7 +2895,7 @@ fast/mediastream/video-rotation2.html [ Failure ]
 
 http/wpt/mediastream/webrtc-vp9-colorspace.html [ Failure ]
 
-webkit.org/b/314659 webrtc/getDisplayMedia-pc-resolution.html [ Pass Crash Failure Timeout ]
+webkit.org/b/314659 webrtc/getDisplayMedia-pc-resolution.html [ Pass Failure Timeout ]
 
 # Autoplay related restrictions
 webrtc/audio-autoplay-no-renderer.html [ Skip ]
@@ -5167,6 +5164,7 @@ webkit.org/b/323781 webrtc/concurrentVideoPlayback2.html [ Failure Pass Timeout 
 webkit.org/b/318887 [ Release ] media/video-seek-pause.html [ Pass Failure ]
 webkit.org/b/313034 [ Release ] http/tests/resourceLoadStatistics/user-interaction-reported-after-website-data-removal.html [ Pass Failure ]
 webkit.org/b/305514 imported/w3c/web-platform-tests/fullscreen/rendering/fullscreen-root-block-scroll.html [ Failure Pass ]
+webkit.org/b/326318 imported/w3c/web-platform-tests/fullscreen/api/document-fullscreen-keyboard-lock-escape.window.html [ Pass Failure ]
 
 # Gardening 2026-09-15
 webkit.org/b/324248 [ Release ] media/video-seek-with-negative-playback.html [ Timeout Failure Pass ]

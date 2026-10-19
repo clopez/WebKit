@@ -300,6 +300,7 @@ enum class AttachmentAssociatedElementType : uint8_t;
 #endif
 
 struct AXDebugInfo;
+struct AXRemoteFrameSelectedTextChange;
 struct AccessibilityRemoteToken;
 struct AccessibilitySearchCriteriaIPC;
 struct AgentClusterAssignment;
@@ -678,6 +679,7 @@ struct NavigationActionData;
 struct NetworkResourceLoadIdentifierType;
 struct PDFContextMenu;
 struct PDFPluginIdentifierType;
+struct PendingBackForwardIframeRestore;
 struct PlatformPopupMenuData;
 struct PolicyDecision;
 struct PolicyDecisionConsoleMessage;
@@ -2810,7 +2812,6 @@ public:
     void applyDeferredTopDocumentSyncDataFromCommittedProcess(Ref<WebCore::DocumentSyncData>&&);
 
     void broadcastFrameTreeSyncData(IPC::Connection&, WebCore::FrameIdentifier, const WebCore::FrameTreeSyncSerializationData&);
-    void broadcastAllFrameTreeSyncData(IPC::Connection&, WebCore::FrameIdentifier,  Ref<WebCore::FrameTreeSyncData>&&);
     void handleFrameGeometryUpdates(IPC::Connection&, const Vector<WebCore::FrameGeometryUpdate>&);
 
     void didNotifyUserActivation(IPC::Connection&, WebCore::FrameIdentifier, MonotonicTime, std::optional<WebCore::UserGestureTokenIdentifier>);
@@ -3302,6 +3303,7 @@ private:
 #if PLATFORM(MAC)
     void performAccessibilitySearchInRemoteFrame(IPC::Connection&, WebCore::FrameIdentifier, WebCore::AccessibilitySearchCriteriaIPC, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&&);
     void continueAccessibilitySearchFromChildFrame(IPC::Connection&, WebCore::FrameIdentifier childFrameID, WebCore::AccessibilitySearchCriteriaIPC, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&&);
+    void relayAccessibilitySelectedTextChangeToMainFrame(IPC::Connection&, WebCore::FrameIdentifier, WebCore::AXRemoteFrameSelectedTextChange&&);
 #endif
     void updateSandboxFlags(IPC::Connection&, WebCore::FrameIdentifier, WebCore::SandboxFlags);
     void updateReferrerPolicy(IPC::Connection&, WebCore::FrameIdentifier, WebCore::ReferrerPolicy);
@@ -3842,6 +3844,7 @@ private:
     void didCacheBackForwardItem(WebCore::BackForwardItemIdentifier, CompletionHandler<void(bool)>&&);
     void didEvictBackForwardItem(WebCore::BackForwardItemIdentifier);
     void didTakeBackForwardItemForRestoration(WebCore::BackForwardItemIdentifier);
+    void restoreOrCancelPendingBackForwardIframes(const PendingBackForwardIframeRestore&, WebCore::RestoredFromBackForwardCache);
 
     Vector<Ref<WebProcessProxy>> activeRemoteFrameProcesses() const;
     void discardBackForwardCacheEntry(WebCore::BackForwardItemIdentifier);

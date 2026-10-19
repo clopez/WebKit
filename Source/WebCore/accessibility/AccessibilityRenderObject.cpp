@@ -411,7 +411,7 @@ Element* AccessibilityRenderObject::anchorElement() const
 }
 
 // Null is distinct from empty: empty asks for the content to be ignored.
-static const String& generatedContentAltText(const RenderText* renderText)
+static const String& LEGACY_NODELETE generatedContentAltText(const RenderText* renderText)
 {
     if (auto* renderTextFragment = dynamicDowncast<RenderTextFragment>(renderText))
         return renderTextFragment->altText();
@@ -731,7 +731,7 @@ static Path computePathForRenderBox(const RenderBox& renderBox)
 // different block-direction positions. For horizontal text, rects on different
 // lines have different Y positions. For vertical text, different columns have
 // different X positions.
-static bool rectsSpanMultipleLines(const Vector<LayoutRect>& rects, bool isHorizontal)
+static bool LEGACY_NODELETE rectsSpanMultipleLines(const Vector<LayoutRect>& rects, bool isHorizontal)
 {
     for (size_t i = 1; i < rects.size(); ++i) {
         if (isHorizontal) {
@@ -1460,7 +1460,7 @@ CharacterRange AccessibilityRenderObject::selectedTextRange() const
 // content cannot be a valid text position nor be selected (with a mouse or otherwise), so emitting
 // text runs for it would make the isolated tree's text-marker strings diverge from what can actually
 // be represented on the main-thread.
-static bool shouldExcludeTextRunsForPseudoElement(std::optional<PseudoElementType> pseudoElementType)
+static bool LEGACY_NODELETE shouldExcludeTextRunsForPseudoElement(std::optional<PseudoElementType> pseudoElementType)
 {
     if (!pseudoElementType) {
         // No pseudo type, so this function is not applicable.
@@ -1620,7 +1620,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
     };
 
     // Appends text to the current lineString, collapsing whitespace as necessary (similar to how TextIterator::handleTextRun() does).
-    auto appendToLineString = [&] (const InlineIterator::TextBoxIterator& textBox) {
+    auto appendToLineString = [&](const InlineIterator::TextBoxIterator& textBox) {
         auto text = textBox->originalText();
         if (text.isEmpty())
             return;
@@ -1637,9 +1637,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
 
         auto textRun = textBox->textRun(InlineIterator::TextRunMode::Editing);
         auto lineBox = textBox->lineBox();
-        if (!lineBox)
-            return;
-        lineHeight = LineSelection::logicalRect(*lineBox).height();
+        lineHeight = LineSelection::logicalRect(lineBox).height();
 
         // Compute distanceFromBoundsInDirection only for the first text box on each
         // line. Multiple text boxes can share a line (e.g. due to inline formatting
@@ -1649,7 +1647,7 @@ AXTextRuns AccessibilityRenderObject::textRuns()
         if (!didComputeDistanceFromBounds) {
             didComputeDistanceFromBounds = true;
             computeBoundsOffsetsIfNeeded();
-            distanceFromBoundsInDirection = isHorizontal ? textRun.xPos() + lineBox->contentLogicalLeft() + containingBlockOffset - elementRectOffset : -textRun.xPos() + containingBlockOffset - elementRectOffset;
+            distanceFromBoundsInDirection = isHorizontal ? textRun.xPos() + lineBox.contentLogicalLeft() + containingBlockOffset - elementRectOffset : -textRun.xPos() + containingBlockOffset - elementRectOffset;
         }
 
         // Populate GlyphBuffer with all of the glyphs for the text runs, enabling us to measure character widths.

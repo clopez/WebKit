@@ -82,7 +82,6 @@
 #include "RunJavaScriptParameters.h"
 #include "SessionState.h"
 #include "SessionStateConversion.h"
-#include "ShareableBitmapUtilities.h"
 #include "SharedBufferReference.h"
 #include "TextRecognitionUpdateResult.h"
 #include "UserMediaPermissionRequestManager.h"
@@ -190,6 +189,7 @@
 #include <WebCore/BackForwardCache.h>
 #include <WebCore/BackForwardController.h>
 #include <WebCore/BitmapImage.h>
+#include <WebCore/CSSValueKeywords.h>
 #include <WebCore/CachedImage.h>
 #include <WebCore/CachedPage.h>
 #include <WebCore/CaptionUserPreferences.h>
@@ -320,6 +320,7 @@
 #include <WebCore/RenderImage.h>
 #include <WebCore/RenderLayer.h>
 #include <WebCore/RenderLayerCompositor.h>
+#include <WebCore/RenderTheme.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/RenderVideoInlines.h>
 #include <WebCore/RenderView.h>
@@ -1010,6 +1011,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 
     m_backgroundColor = parameters.backgroundColor;
+    setUseColorAppearance(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
 
     // We need to set the device scale factor before creating the drawing area
     // to ensure it's created with the right size.
@@ -1146,8 +1148,6 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     setPaginationBehavesLikeColumns(parameters.paginationBehavesLikeColumns);
     setPageLength(parameters.pageLength);
     setGapBetweenPages(parameters.gapBetweenPages);
-
-    setUseColorAppearance(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
 
     if (parameters.isEditable)
         setEditable(true);
@@ -2460,6 +2460,8 @@ void WebPage::close(CompletionHandler<void()>&& completionHandler)
     m_drawingArea = nullptr;
     m_webPageTesting = nullptr;
     m_textExtractionFilterPage = nullptr;
+    m_cachedPageForRestorationID = std::nullopt;
+    m_cachedPageForRestoration = nullptr;
     m_page = nullptr;
 
     bool isRunningModal = m_isRunningModal;
@@ -4849,6 +4851,18 @@ void WebPage::setBackgroundColor(const std::optional<WebCore::Color>& background
     drawingArea->backgroundColorDidChange();
 #endif
     drawingArea->setNeedsDisplay();
+}
+
+WebCore::Color WebPage::effectiveBackgroundColor() const
+{
+    if (m_backgroundColor)
+        return *m_backgroundColor;
+
+    OptionSet<WebCore::StyleColorOptions> styleColorOptions;
+    if (RefPtr page = corePage(); page && page->useDarkAppearance())
+        styleColorOptions.add(WebCore::StyleColorOptions::UseDarkAppearance);
+
+    return WebCore::RenderTheme::singleton().systemColor(WebCore::CSSValueID::Canvas, styleColorOptions);
 }
 
 void WebPage::setObscuredContentInsets(const FloatBoxExtent& obscuredContentInsets)
@@ -7302,6 +7316,13 @@ void WebPage::setUseColorAppearance(bool useDarkAppearance, bool useElevatedUser
     for (Ref pluginView : m_pluginViews)
         pluginView->effectiveAppearanceDidChange();
 #endif
+
+#if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
+    if (!m_backgroundColor) {
+        if (RefPtr drawingArea = m_drawingArea)
+            drawingArea->backgroundColorDidChange();
+    }
+#endif
 }
 
 void WebPage::swipeAnimationDidStart()
@@ -9411,7 +9432,12 @@ void WebPage::suspendWithFrameItem(BackForwardFrameItemIdentifier identifier, Co
 
 void WebPage::restoreWithFrameItem(BackForwardFrameItemIdentifier identifier, std::optional<std::pair<URL, SecurityOriginData>>&& mainFrameURLAndOrigin, CompletionHandler<void(bool)>&& completionHandler)
 {
-    if (!BackForwardCache::singleton().isInBackForwardCache(identifier))
+    bool wasPrepared = m_cachedPageForRestorationID == identifier;
+    std::unique_ptr<CachedPage> cachedPage;
+    if (wasPrepared) {
+        m_cachedPageForRestorationID = std::nullopt;
+        cachedPage = std::exchange(m_cachedPageForRestoration, nullptr);
+    } else if (!BackForwardCache::singleton().isInBackForwardCache(identifier))
         return completionHandler(true);
 
     RefPtr page = corePage();
@@ -9420,7 +9446,8 @@ void WebPage::restoreWithFrameItem(BackForwardFrameItemIdentifier identifier, st
         return completionHandler(false);
     }
 
-    auto cachedPage = BackForwardCache::singleton().take(identifier, page);
+    if (!wasPrepared)
+        cachedPage = BackForwardCache::singleton().take(identifier, page);
     if (!cachedPage) {
         WEBPAGE_RELEASE_LOG_ERROR(ProcessSwapping, "restoreWithFrameItem: take failed, cache entry missing or expired");
         m_isSuspended = false;
@@ -9438,6 +9465,25 @@ void WebPage::restoreWithFrameItem(BackForwardFrameItemIdentifier identifier, st
 
     cachedPage->restore(*page);
     completionHandler(true);
+}
+
+void WebPage::prepareToRestoreWithFrameItem(BackForwardFrameItemIdentifier identifier)
+{
+    RefPtr page = corePage();
+    if (!page)
+        return;
+
+    m_cachedPageForRestorationID = identifier;
+    m_cachedPageForRestoration = BackForwardCache::singleton().take(identifier, page);
+}
+
+void WebPage::cancelRestoreWithFrameItem(BackForwardFrameItemIdentifier identifier)
+{
+    if (m_cachedPageForRestorationID != identifier)
+        return;
+
+    m_cachedPageForRestorationID = std::nullopt;
+    m_cachedPageForRestoration = nullptr;
 }
 
 void WebPage::detachResidualSubframesForBackForwardCacheRestore(WebCore::Page& page)
@@ -10304,11 +10350,7 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
         completionHandlers.append(WTF::move(completion));
     m_elementsPendingTextRecognition.append({ WeakPtr { element }, WTF::move(completionHandlers) });
 
-    auto bitmap = createShareableBitmapAsync(*renderImage, {
-        std::nullopt,
-        WebCore::CreateShareableBitmapFromImageOptions::AllowAnimatedImages::No,
-        options.allowSnapshots == TextRecognitionOptions::AllowSnapshots::Yes ? WebCore::CreateShareableBitmapFromImageOptions::UseSnapshotForTransparentImages::Yes : WebCore::CreateShareableBitmapFromImageOptions::UseSnapshotForTransparentImages::No
-    })->whenSettled(RunLoop::mainSingleton(), [weakThis = WeakPtr { *this }, weakElement = WeakPtr { *htmlElement }, options = WTF::move(options)](auto&& result) mutable {
+    auto bitmap = renderImage->createShareableBitmapAsyncForImageAnalysis(options.allowSnapshots == TextRecognitionOptions::AllowSnapshots::Yes ? WebCore::CreateShareableBitmapFromImageOptions::UseSnapshotForTransparentImages::Yes : WebCore::CreateShareableBitmapFromImageOptions::UseSnapshotForTransparentImages::No)->whenSettled(RunLoop::mainSingleton(), [weakThis = WeakPtr { *this }, weakElement = WeakPtr { *htmlElement }, options = WTF::move(options)](auto&& result) mutable {
 
         auto resolveAndRemoveHandlerFollowingError = [weakPage = weakThis](WeakPtr<WebCore::HTMLElement, WebCore::WeakPtrImplWithEventTargetData>& originalElement) {
             RefPtr page = weakPage.get();
@@ -10336,7 +10378,7 @@ void WebPage::requestTextRecognition(Element& element, TextRecognitionOptions&& 
             return;
         }
 
-        auto bitmapHandle = (*result)->createHandle();
+        auto bitmapHandle = protect(*result)->createHandle();
         if (!bitmapHandle) {
             resolveAndRemoveHandlerFollowingError(weakElement);
             return;
@@ -10458,7 +10500,7 @@ void WebPage::requestImageBitmap(const ElementContext& context, CompletionHandle
         return;
     }
 
-    auto bitmap = renderImage->createShareableBitmap();
+    auto bitmap = renderImage->createShareableBitmapForImageBitmapRequest();
     if (!bitmap) {
         completion({ }, { });
         return;
@@ -10723,7 +10765,7 @@ void WebPage::beginTextRecognitionForVideoInElementFullScreen(const HTMLVideoEle
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis || protectedThis->m_elementIsPerformingTextRecognitionInElementFullScreen != identifier)
             return;
-        if (auto handle = (*result)->createHandle())
+        if (auto handle = protect(*result)->createHandle())
             protectedThis->send(Messages::WebPageProxy::BeginTextRecognitionForVideoInElementFullScreen(identifier, WTF::move(*handle), rectInRootView));
         protectedThis->m_elementIsPerformingTextRecognitionInElementFullScreen.reset();
     });

@@ -422,7 +422,7 @@ void RenderGrid::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit)
     repainter.repaintAfterLayout();
 }
 
-static void clearGridItemOverridingSizesBeforeLayout(RenderGrid& renderGrid)
+static void LEGACY_NODELETE clearGridItemOverridingSizesBeforeLayout(RenderGrid& renderGrid)
 {
     // Grid's layout logic controls the grid item's override content size, hence we need to
     // clear any override set previously, so it doesn't interfere in current layout
@@ -1838,7 +1838,7 @@ void RenderGrid::populateGridPositionsForDirection(const GridTrackSizingAlgorith
     }
 }
 
-static LayoutUnit computeOverflowAlignmentOffset(OverflowAlignment overflow, LayoutUnit trackSize, LayoutUnit gridItemSize)
+static LayoutUnit LEGACY_NODELETE computeOverflowAlignmentOffset(OverflowAlignment overflow, LayoutUnit trackSize, LayoutUnit gridItemSize)
 {
     LayoutUnit offset = trackSize - gridItemSize;
     switch (overflow) {

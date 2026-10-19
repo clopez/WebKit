@@ -53,44 +53,48 @@
 namespace WebCore {
 
 // SVG specific inputs live on the renderers and the DOM.
-static RenderSVGInlineText* svgInlineText(const Layout::InlineTextBox& inlineTextBox)
+static RenderSVGInlineText* LEGACY_NODELETE svgInlineText(const Layout::InlineTextBox& inlineTextBox)
 {
     return dynamicDowncast<RenderSVGInlineText>(inlineTextBox.rendererForIntegration());
 }
 
-static const SVGTextContentElement* textContentElement(const Layout::ElementBox& elementBox)
+static const SVGTextContentElement* LEGACY_NODELETE textContentElement(const Layout::ElementBox& elementBox)
 {
-    return SVGTextContentElement::elementFromRenderer(elementBox.rendererForIntegration());
+    // Anonymous inline boxes, like the ones for display: contents, have no element.
+    CheckedPtr renderer = elementBox.rendererForIntegration();
+    if (!renderer || renderer->isAnonymous())
+        return nullptr;
+    return SVGTextContentElement::elementFromRenderer(renderer.get());
 }
 
-static const RenderSVGTextPath* svgTextPath(const Layout::ElementBox& elementBox)
+static const RenderSVGTextPath* LEGACY_NODELETE svgTextPath(const Layout::ElementBox& elementBox)
 {
     return dynamicDowncast<RenderSVGTextPath>(elementBox.rendererForIntegration());
 }
 
-static const Vector<SVGTextMetrics>& textMetrics(const Layout::InlineTextBox& inlineTextBox)
+static const Vector<SVGTextMetrics>& LEGACY_NODELETE textMetrics(const Layout::InlineTextBox& inlineTextBox)
 {
     return svgInlineText(inlineTextBox)->layoutAttributes()->textMetricsValues();
 }
 
 // Text boxes have a style with the non-inherited properties reset. The SVG text properties like alignment-baseline and
 // baseline-shift come from the parent.
-static const Style::ComputedStyle& textStyle(const Layout::InlineTextBox& inlineTextBox)
+static const Style::ComputedStyle& LEGACY_NODELETE textStyle(const Layout::InlineTextBox& inlineTextBox)
 {
     return inlineTextBox.parent().style();
 }
 
-static bool isUnspecified(float value)
+static bool LEGACY_NODELETE isUnspecified(float value)
 {
     return std::isnan(value);
 }
 
-static float valueAt(std::span<const float> values, unsigned index)
+static float LEGACY_NODELETE valueAt(std::span<const float> values, unsigned index)
 {
     return values.empty() ? SVGTextLayoutAttributes::emptyValue() : values[index];
 }
 
-static float valueOrZeroAt(std::span<const float> values, unsigned index)
+static float LEGACY_NODELETE valueOrZeroAt(std::span<const float> values, unsigned index)
 {
     auto value = valueAt(values, index);
     return isUnspecified(value) ? 0 : value;
@@ -381,7 +385,7 @@ void SVGTextLayoutAlgorithm::collectTextBoxes()
 
             CheckedRef elementBox = downcast<Layout::ElementBox>(layoutBox);
             auto contentTextPathIndex = textPathIndex;
-            if (svgTextPath(elementBox)) {
+            if (svgTextPath(elementBox) && textContentElement(elementBox)) {
                 // FIXME: Bidi reordering may split a text path into several inline boxes, each restarting at the start offset.
                 m_textPaths.append({ elementBox, textPathElementIndex(elementBox) });
                 contentTextPathIndex = m_textPaths.size() - 1;

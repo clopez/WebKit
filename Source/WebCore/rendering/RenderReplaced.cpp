@@ -813,7 +813,7 @@ static inline bool LEGACY_NODELETE hasIntrinsicSize(const RenderReplaced* svgRoo
     return (hasIntrinsicWidth && hasIntrinsicHeight) || ((hasIntrinsicWidth || hasIntrinsicHeight) && svgRoot);
 }
 
-static bool behavesAsAutoSize(const Style::PreferredSize& size, const Style::PreferredSize& otherAxisSize)
+static bool LEGACY_NODELETE behavesAsAutoSize(const Style::PreferredSize& size, const Style::PreferredSize& otherAxisSize)
 {
     return size.isAuto() && (!size.isCalcSize() || otherAxisSize.isCalcSize());
 }
@@ -1085,8 +1085,8 @@ PositionWithAffinity RenderReplaced::positionForPoint(const LayoutPoint& point, 
     auto [top, bottom] = [&]() -> std::pair<float, float> {
         if (auto run = InlineIterator::boxFor(*this)) {
             auto lineBox = run->lineBox();
-            auto lineContentTop = LayoutUnit { std::min(previousLineBoxContentBottomOrBorderAndPadding(*lineBox), lineBox->contentLogicalTop()) };
-            return std::make_pair(lineContentTop, LineSelection::logicalBottom(*lineBox));
+            auto lineContentTop = LayoutUnit { std::min(previousLineBoxContentBottomOrBorderAndPadding(lineBox), lineBox.contentLogicalTop()) };
+            return std::make_pair(lineContentTop, LineSelection::logicalBottom(lineBox));
         }
         return std::make_pair(logicalTop(), logicalBottom());
     }();

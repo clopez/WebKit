@@ -314,6 +314,7 @@ enum class PaginationMode : uint8_t;
 enum class PaintBehavior : uint32_t;
 
 struct AXDebugInfo;
+struct AXRemoteFrameSelectedTextChange;
 struct AccessibilityRemoteToken;
 struct AccessibilitySearchCriteriaIPC;
 struct AppHighlight;
@@ -1953,6 +1954,7 @@ public:
     WebCore::IntRect rectForElementAtInteractionLocation() const;
 
     const std::optional<WebCore::Color>& backgroundColor() const LIFETIME_BOUND { return m_backgroundColor; }
+    WebCore::Color effectiveBackgroundColor() const;
 
     void suspendAllMediaBuffering();
     void resumeAllMediaBuffering();
@@ -2786,6 +2788,8 @@ private:
     void setIsSuspended(bool, CompletionHandler<void(std::optional<bool>)>&&);
     void suspendWithFrameItem(WebCore::BackForwardFrameItemIdentifier, CompletionHandler<void(bool)>&&);
     void restoreWithFrameItem(WebCore::BackForwardFrameItemIdentifier, std::optional<std::pair<URL, WebCore::SecurityOriginData>>&&, CompletionHandler<void(bool)>&&);
+    void prepareToRestoreWithFrameItem(WebCore::BackForwardFrameItemIdentifier);
+    void cancelRestoreWithFrameItem(WebCore::BackForwardFrameItemIdentifier);
     void detachResidualSubframesForBackForwardCacheRestore(WebCore::Page&);
 
     RefPtr<WebImage> snapshotAtSize(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions, WebCore::LocalFrame&, WebCore::LocalFrameView&);
@@ -2884,6 +2888,7 @@ private:
 #if PLATFORM(MAC)
     void performAccessibilitySearchInRemoteFrame(WebCore::FrameIdentifier, WebCore::AccessibilitySearchCriteriaIPC, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&&);
     void continueAccessibilitySearchInParentFrame(WebCore::FrameIdentifier childFrameID, WebCore::AccessibilitySearchCriteriaIPC, CompletionHandler<void(Vector<WebCore::AccessibilityRemoteToken>&&)>&&);
+    void postAccessibilitySelectedTextChangeFromRemoteFrame(const WebCore::AXRemoteFrameSelectedTextChange&);
 #endif
 
     void requestAllTextAndRects(CompletionHandler<void(Vector<std::pair<String, WebCore::FloatRect>>&&)>&&);
@@ -3373,7 +3378,7 @@ private:
     bool m_isSuspendedUnderLock { false };
 
     HashSet<String, ASCIICaseInsensitiveHash> m_mimeTypesWithCustomContentProviders;
-    std::optional<WebCore::Color> m_backgroundColor { WebCore::Color::white };
+    std::optional<WebCore::Color> m_backgroundColor;
 
     std::optional<WebCore::ScrollbarOverlayStyle> m_scrollbarOverlayStyle;
 
@@ -3485,6 +3490,8 @@ private:
     Vector<String> m_corsDisablingPatterns;
 
     std::unique_ptr<WebCore::CachedPage> m_cachedPage;
+    std::optional<WebCore::BackForwardFrameItemIdentifier> m_cachedPageForRestorationID;
+    std::unique_ptr<WebCore::CachedPage> m_cachedPageForRestoration;
 
 #if ENABLE(IPC_TESTING_API)
     bool m_ipcTestingAPIEnabled { false };

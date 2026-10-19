@@ -49,16 +49,21 @@
 #include "CachedImage.h"
 #include "CanvasDrawImageSizing.h"
 #include "CanvasFilterContextSwitcher.h"
+#include "CanvasFontKerning.h"
+#include "CanvasFontStretch.h"
+#include "CanvasFontVariantCaps.h"
 #include "CanvasGradient.h"
 #include "CanvasImageSource+OriginClean.h"
 #include "CanvasImageSource+Usability.h"
 #include "CanvasLayerContextSwitcher.h"
 #include "CanvasPattern.h"
 #include "CanvasPatternSizing.h"
+#include "CanvasTextRendering.h"
 #include "ColorConversion.h"
 #include "ColorSerialization.h"
 #include "DOMMatrix.h"
 #include "DOMMatrix2DInit.h"
+#include "Document.h"
 #include "FloatQuad.h"
 #include "FontCascadeFonts.h"
 #include "FontCascadeInlines.h"
@@ -75,10 +80,13 @@
 #include "InspectorInstrumentation.h"
 #include "NativeImage.h"
 #include "OffscreenCanvas.h"
+#include "Page.h"
 #include "PaintRenderingContext2D.h"
 #include "Path2D.h"
 #include "PixelBufferConversion.h"
 #include "PixelFormat.h"
+#include "PlatformDynamicRangeLimit.h"
+#include "PlatformScreen.h"
 #include "PlatformVideoColorSpace.h"
 #include "RenderElement.h"
 #include "RenderImage.h"
@@ -466,6 +474,185 @@ CanvasTextBaseline CanvasRenderingContext2DBase::State::canvasTextBaseline() con
     return toCanvasTextBaseline(textBaseline);
 }
 
+static FontSelectionValue fontSelectionWidthValue(CanvasFontStretch fontStretch)
+{
+    switch (fontStretch) {
+    case CanvasFontStretch::UltraCondensed:
+        return ultraCondensedWidthValue();
+    case CanvasFontStretch::ExtraCondensed:
+        return extraCondensedWidthValue();
+    case CanvasFontStretch::Condensed:
+        return condensedWidthValue();
+    case CanvasFontStretch::SemiCondensed:
+        return semiCondensedWidthValue();
+    case CanvasFontStretch::Normal:
+        return normalWidthValue();
+    case CanvasFontStretch::SemiExpanded:
+        return semiExpandedWidthValue();
+    case CanvasFontStretch::Expanded:
+        return expandedWidthValue();
+    case CanvasFontStretch::ExtraExpanded:
+        return extraExpandedWidthValue();
+    case CanvasFontStretch::UltraExpanded:
+        return ultraExpandedWidthValue();
+    }
+    ASSERT_NOT_REACHED();
+    return normalWidthValue();
+}
+
+static CanvasFontStretch toCanvasFontStretch(FontSelectionValue width)
+{
+    if (width == ultraCondensedWidthValue())
+        return CanvasFontStretch::UltraCondensed;
+    if (width == extraCondensedWidthValue())
+        return CanvasFontStretch::ExtraCondensed;
+    if (width == condensedWidthValue())
+        return CanvasFontStretch::Condensed;
+    if (width == semiCondensedWidthValue())
+        return CanvasFontStretch::SemiCondensed;
+    if (width == semiExpandedWidthValue())
+        return CanvasFontStretch::SemiExpanded;
+    if (width == expandedWidthValue())
+        return CanvasFontStretch::Expanded;
+    if (width == extraExpandedWidthValue())
+        return CanvasFontStretch::ExtraExpanded;
+    if (width == ultraExpandedWidthValue())
+        return CanvasFontStretch::UltraExpanded;
+    return CanvasFontStretch::Normal;
+}
+
+static FontVariantCaps toFontVariantCaps(CanvasFontVariantCaps fontVariantCaps)
+{
+    switch (fontVariantCaps) {
+    case CanvasFontVariantCaps::Normal:
+        return FontVariantCaps::Normal;
+    case CanvasFontVariantCaps::SmallCaps:
+        return FontVariantCaps::Small;
+    case CanvasFontVariantCaps::AllSmallCaps:
+        return FontVariantCaps::AllSmall;
+    case CanvasFontVariantCaps::PetiteCaps:
+        return FontVariantCaps::Petite;
+    case CanvasFontVariantCaps::AllPetiteCaps:
+        return FontVariantCaps::AllPetite;
+    case CanvasFontVariantCaps::Unicase:
+        return FontVariantCaps::Unicase;
+    case CanvasFontVariantCaps::TitlingCaps:
+        return FontVariantCaps::Titling;
+    }
+    ASSERT_NOT_REACHED();
+    return FontVariantCaps::Normal;
+}
+
+static CanvasFontVariantCaps toCanvasFontVariantCaps(FontVariantCaps fontVariantCaps)
+{
+    switch (fontVariantCaps) {
+    case FontVariantCaps::Normal:
+        return CanvasFontVariantCaps::Normal;
+    case FontVariantCaps::Small:
+        return CanvasFontVariantCaps::SmallCaps;
+    case FontVariantCaps::AllSmall:
+        return CanvasFontVariantCaps::AllSmallCaps;
+    case FontVariantCaps::Petite:
+        return CanvasFontVariantCaps::PetiteCaps;
+    case FontVariantCaps::AllPetite:
+        return CanvasFontVariantCaps::AllPetiteCaps;
+    case FontVariantCaps::Unicase:
+        return CanvasFontVariantCaps::Unicase;
+    case FontVariantCaps::Titling:
+        return CanvasFontVariantCaps::TitlingCaps;
+    }
+    ASSERT_NOT_REACHED();
+    return CanvasFontVariantCaps::Normal;
+}
+
+static Kerning toKerning(CanvasFontKerning fontKerning)
+{
+    switch (fontKerning) {
+    case CanvasFontKerning::Auto:
+        return Kerning::Auto;
+    case CanvasFontKerning::Normal:
+        return Kerning::Normal;
+    case CanvasFontKerning::None:
+        return Kerning::NoShift;
+    }
+    ASSERT_NOT_REACHED();
+    return Kerning::Auto;
+}
+
+static CanvasFontKerning toCanvasFontKerning(Kerning kerning)
+{
+    switch (kerning) {
+    case Kerning::Auto:
+        return CanvasFontKerning::Auto;
+    case Kerning::Normal:
+        return CanvasFontKerning::Normal;
+    case Kerning::NoShift:
+        return CanvasFontKerning::None;
+    }
+    ASSERT_NOT_REACHED();
+    return CanvasFontKerning::Auto;
+}
+
+static TextRenderingMode toTextRenderingMode(CanvasTextRendering textRendering)
+{
+    switch (textRendering) {
+    case CanvasTextRendering::Auto:
+        return TextRenderingMode::Auto;
+    case CanvasTextRendering::OptimizeSpeed:
+        return TextRenderingMode::OptimizeSpeed;
+    case CanvasTextRendering::OptimizeLegibility:
+        return TextRenderingMode::OptimizeLegibility;
+    case CanvasTextRendering::GeometricPrecision:
+        return TextRenderingMode::GeometricPrecision;
+    }
+    ASSERT_NOT_REACHED();
+    return TextRenderingMode::Auto;
+}
+
+static CanvasTextRendering toCanvasTextRendering(TextRenderingMode textRenderingMode)
+{
+    switch (textRenderingMode) {
+    case TextRenderingMode::Auto:
+        return CanvasTextRendering::Auto;
+    case TextRenderingMode::OptimizeSpeed:
+        return CanvasTextRendering::OptimizeSpeed;
+    case TextRenderingMode::OptimizeLegibility:
+        return CanvasTextRendering::OptimizeLegibility;
+    case TextRenderingMode::GeometricPrecision:
+        return CanvasTextRendering::GeometricPrecision;
+    }
+    ASSERT_NOT_REACHED();
+    return CanvasTextRendering::Auto;
+}
+
+CanvasFontKerning CanvasRenderingContext2DBase::State::canvasFontKerning() const
+{
+    if (!font.realized())
+        return CanvasFontKerning::Auto;
+    return toCanvasFontKerning(font.fontDescription().kerning());
+}
+
+CanvasTextRendering CanvasRenderingContext2DBase::State::canvasTextRendering() const
+{
+    if (!font.realized())
+        return CanvasTextRendering::Auto;
+    return toCanvasTextRendering(font.fontDescription().textRenderingMode());
+}
+
+CanvasFontStretch CanvasRenderingContext2DBase::State::canvasFontStretch() const
+{
+    if (!font.realized())
+        return CanvasFontStretch::Normal;
+    return toCanvasFontStretch(font.fontDescription().width());
+}
+
+CanvasFontVariantCaps CanvasRenderingContext2DBase::State::canvasFontVariantCaps() const
+{
+    if (!font.realized())
+        return CanvasFontVariantCaps::Normal;
+    return toCanvasFontVariantCaps(font.fontDescription().variantCaps());
+}
+
 String CanvasRenderingContext2DBase::State::globalCompositeOperationString() const
 {
     return compositeOperatorName(globalComposite, globalBlend);
@@ -531,6 +718,18 @@ void CanvasRenderingContext2DBase::FontProxy::initialize(FontSelector& fontSelec
     m_font.update(&fontSelector);
     ASSERT(&fontSelector == m_font.fontSelector());
     protect(m_font.fontSelector())->registerForInvalidationCallbacks(*this);
+}
+
+void CanvasRenderingContext2DBase::FontProxy::update(NOESCAPE const Invocable<void(FontCascadeDescription&)> auto& function)
+{
+    ASSERT(realized());
+    RefPtr fontSelector = m_font.fontSelector();
+    FontCascadeDescription description = m_font.fontDescription();
+    function(description);
+
+    FontCascade font { WTF::move(description), m_font };
+    font.update(fontSelector.get());
+    initialize(*fontSelector, font);
 }
 
 const FontMetrics& CanvasRenderingContext2DBase::FontProxy::metricsOfPrimaryFont() const
@@ -3424,6 +3623,53 @@ bool CanvasRenderingContext2DBase::willReadFrequently() const
     return m_settings.willReadFrequently;
 }
 
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+
+void CanvasRenderingContext2DBase::setDynamicRangeLimit(PlatformDynamicRangeLimit dynamicRangeLimit)
+{
+    m_dynamicRangeLimit = dynamicRangeLimit;
+}
+
+namespace {
+struct DisplayEDRState {
+    float headroom { 1.f };
+    bool suppressEDR { false };
+};
+}
+
+static DisplayEDRState displayEDRState(const CanvasBase& canvas)
+{
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    RefPtr document = dynamicDowncast<Document>(canvas.scriptExecutionContext());
+    if (RefPtr page = document ? document->page() : nullptr)
+        return { currentEDRHeadroomForDisplay(page->displayID()), suppressEDRForDisplay(page->displayID()) };
+#else
+    UNUSED_PARAM(canvas);
+#endif
+    return { };
+}
+
+std::optional<double> CanvasRenderingContext2DBase::getEffectiveDynamicRangeLimitValue() const
+{
+    return effectiveDynamicRangeLimit(m_dynamicRangeLimit, displayEDRState(protect(canvasBase())).suppressEDR).value();
+}
+
+ImagePaintingOptions CanvasRenderingContext2DBase::paintingOptionsForDisplay() const
+{
+    if (!isHDR() || m_dynamicRangeLimit == PlatformDynamicRangeLimit::noLimit())
+        return { };
+
+    auto display = displayEDRState(protect(canvasBase()));
+
+    return {
+        Headroom(headroomForDynamicRangeLimit(m_dynamicRangeLimit, display.headroom, display.suppressEDR)),
+        m_dynamicRangeLimit,
+        DrawsHDRContent::Yes
+    };
+}
+
+#endif // ENABLE(PIXEL_FORMAT_RGBA16F)
+
 std::optional<RenderingMode> CanvasRenderingContext2DBase::renderingModeForTesting() const
 {
     if (!m_settings.renderingModeForTesting)
@@ -3565,6 +3811,60 @@ void CanvasRenderingContext2DBase::setWordSpacing(const String& wordSpacing)
 
     modifiableState().wordSpacing = CSS::serializationForCSS(CSS::defaultSerializationContext(), *rawLength);
     modifiableState().font.setWordSpacing(pixels);
+}
+
+void CanvasRenderingContext2DBase::carryOverKerningAndTextRendering(FontCascadeDescription& description) const
+{
+    description.setKerning(toKerning(state().canvasFontKerning()));
+    description.setTextRenderingMode(toTextRenderingMode(state().canvasTextRendering()));
+}
+
+void CanvasRenderingContext2DBase::setFontKerning(CanvasFontKerning fontKerning)
+{
+    if (state().canvasFontKerning() == fontKerning)
+        return;
+    if (!fontProxy()->realized())
+        return;
+    realizeSaves();
+    modifiableState().font.update([&](FontCascadeDescription& description) {
+        description.setKerning(toKerning(fontKerning));
+    });
+}
+
+void CanvasRenderingContext2DBase::setTextRendering(CanvasTextRendering textRendering)
+{
+    if (state().canvasTextRendering() == textRendering)
+        return;
+    if (!fontProxy()->realized())
+        return;
+    realizeSaves();
+    modifiableState().font.update([&](FontCascadeDescription& description) {
+        description.setTextRenderingMode(toTextRenderingMode(textRendering));
+    });
+}
+
+void CanvasRenderingContext2DBase::setFontStretch(CanvasFontStretch fontStretch)
+{
+    if (state().canvasFontStretch() == fontStretch)
+        return;
+    if (!fontProxy()->realized())
+        return;
+    realizeSaves();
+    modifiableState().font.update([&](FontCascadeDescription& description) {
+        description.setWidth(fontSelectionWidthValue(fontStretch));
+    });
+}
+
+void CanvasRenderingContext2DBase::setFontVariantCaps(CanvasFontVariantCaps fontVariantCaps)
+{
+    if (state().canvasFontVariantCaps() == fontVariantCaps)
+        return;
+    if (!fontProxy()->realized())
+        return;
+    realizeSaves();
+    modifiableState().font.update([&](FontCascadeDescription& description) {
+        description.setVariantCaps(toFontVariantCaps(fontVariantCaps));
+    });
 }
 
 ImageBuffer* CanvasRenderingContext2DBase::buffer() const

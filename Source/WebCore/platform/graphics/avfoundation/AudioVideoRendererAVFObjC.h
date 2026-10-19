@@ -163,8 +163,8 @@ public:
 private:
     WEBCORE_EXPORT AudioVideoRendererAVFObjC(const Logger&, uint64_t, std::unique_ptr<SharedTimebase>&&);
 
-    MediaTime clampTimeToLastSeekTime(const MediaTime&) const;
-    void setTimeFloor(const MediaTime&);
+    MediaTime LEGACY_NODELETE clampTimeToLastSeekTime(const MediaTime&) const;
+    void LEGACY_NODELETE setTimeFloor(const MediaTime&);
     void maybeCompleteSeek();
     bool shouldBePlaying() const;
     bool allRenderersHaveAvailableSamples() const { return m_allRenderersHaveAvailableSamples; }
