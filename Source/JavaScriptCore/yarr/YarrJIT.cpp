@@ -6727,6 +6727,10 @@ class YarrGenerator final : public YarrJITInfo {
             size_t stackSizeForCalleeSaves = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(m_calleeSaves.registerCount() * sizeof(UCPURegister));
 #if CPU(X86_64) || CPU(ARM64)
             m_jit.subPtr(GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), MacroAssembler::stackPointerRegister);
+#elif CPU(ARM_THUMB2)
+            // regT0 is r4, one of the callee saves, so it can't be used as a temporary before they are saved.
+            // Right after the prologue the stack pointer equals the frame pointer, so subtract from it instead.
+            m_jit.subPtr(CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), MacroAssembler::stackPointerRegister);
 #else
             m_jit.subPtr(GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), m_regs.regT0);
             m_jit.move(m_regs.regT0, MacroAssembler::stackPointerRegister);
@@ -6990,8 +6994,8 @@ public:
 #if CPU(ARM_THUMB2)
             // Not enough argument registers: try to load the 5th argument from the stack
             MacroAssembler::RegisterID matchingContext = m_regs.regT1;
-            unsigned offset = POKE_ARGUMENT_OFFSET;
-            m_jit.loadPtr(MacroAssembler::Address(GPRInfo::callFrameRegister, offset * sizeof(void*)), matchingContext);
+            unsigned offset = sizeof(CallerFrameAndPC) + POKE_ARGUMENT_OFFSET * sizeof(void*);
+            m_jit.loadPtr(MacroAssembler::Address(GPRInfo::callFrameRegister, offset), matchingContext);
 #else
             // The MatchingContextHolder* arrives in the 5th argument register.
             MacroAssembler::RegisterID matchingContext = GPRInfo::argumentGPR4;
