@@ -102,6 +102,7 @@
 #import <WebCore/HTMLIFrameElement.h>
 #import <WebCore/HTMLImageElement.h>
 #import <WebCore/HTMLLabelElement.h>
+#import <WebCore/HTMLMediaElement.h>
 #import <WebCore/HTMLOListElement.h>
 #import <WebCore/HTMLPlugInElement.h>
 #import <WebCore/HTMLSelectElement.h>
@@ -234,7 +235,7 @@ void WebPage::platformInitialize(const WebPageCreationParameters& parameters)
     platformInitializeAccessibility(shouldInitializeAccessibility ? ShouldInitializeNSAccessibility::Yes : ShouldInitializeNSAccessibility::No);
 
 #if ENABLE(MEDIA_STREAM)
-    protect(WebProcess::singleton().userMediaCaptureManager())->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.shouldCaptureAudioInGPUProcess, parameters.shouldCaptureVideoInUIProcess, parameters.shouldCaptureVideoInGPUProcess, parameters.shouldCaptureDisplayInUIProcess, parameters.shouldCaptureDisplayInGPUProcess,
+    protect(WebProcess::singleton().userMediaCaptureManager())->setupCaptureProcesses(parameters.shouldCaptureAudioInUIProcess, parameters.store.getBoolValueForKey(WebPreferencesKey::captureAudioInGPUProcessEnabledKey()), parameters.shouldCaptureVideoInUIProcess, parameters.store.getBoolValueForKey(WebPreferencesKey::captureVideoInGPUProcessEnabledKey()), parameters.shouldCaptureDisplayInUIProcess, parameters.store.getBoolValueForKey(WebPreferencesKey::useGPUProcessForDisplayCaptureKey()),
 #if ENABLE(WEB_RTC)
         m_page->settings().webRTCRemoteVideoFrameEnabled()
 #else
@@ -3822,7 +3823,9 @@ void WebPage::completeSyntheticClick(std::optional<WebCore::FrameIdentifier> fra
     if (nodeRespondingToClick.document().settings().contentChangeObserverEnabled()) {
         Ref document = nodeRespondingToClick.document();
         // Dispatch mouseOut to dismiss tooltip content when tapping on the control bar buttons (cc, settings).
-        if (document->quirks().needsYouTubeMouseOutQuirk()) {
+        RefPtr mediaElement = dynamicDowncast<HTMLMediaElement>(nodeRespondingToClick);
+        bool isShowingNativeMediaControls = mediaElement && (mediaElement->controls() || mediaElement->shouldForceControlsDisplay());
+        if (document->quirks().needsYouTubeMouseOutQuirk() && !isShowingNativeMediaControls) {
             if (RefPtr frame = document->frame()) {
                 PlatformMouseEvent event { roundedAdjustedPoint, globalPoint, MouseButton::Left, PlatformEvent::Type::NoType, 0, platformModifiers, MonotonicTime::now(), 0, WebCore::SyntheticClickType::NoTap, m_potentialTapInputSource, pointerId };
                 RefPtr<Element> newHoveredNode;

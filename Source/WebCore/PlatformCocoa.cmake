@@ -569,8 +569,6 @@ list(APPEND WebCore_SOURCES
     accessibility/mac/AccessibilityObjectMac.mm
     accessibility/mac/WebAccessibilityObjectWrapperMac.mm
 
-    dom/DataTransferMac.mm
-
     editing/mac/EditorMac.mm
     editing/mac/TextUndoInsertionMarkupMac.mm
 
@@ -1536,7 +1534,7 @@ set(WebCore_USER_AGENT_SCRIPTS
     ${WEBCORE_DIR}/Modules/modern-media-controls/media/CNNCaptionQuirk.js
 )
 
-list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE WebCore)
+list(APPEND WebCoreTestSupport_LIBRARIES PRIVATE WebCore ${IOKIT_LIBRARY})
 list(APPEND WebCoreTestSupport_PRIVATE_HEADERS
     testing/cocoa/CocoaColorSerialization.h
     testing/cocoa/WebArchiveDumpSupport.h
@@ -1665,6 +1663,7 @@ set(WebCore_BUNDLE_RESOURCES
     ${WEBCORE_DIR}/Resources/panIcon.png
     ${WEBCORE_DIR}/Resources/textAreaResizeCorner.png
     ${WEBCORE_DIR}/Resources/textAreaResizeCorner@2x.png
+    ${WEBCORE_DIR}/page/QuirkTable.json
 )
 WEBKIT_COPY_FILES(WebCore_CopyBundleResources
     DESTINATION "${CMAKE_LIBRARY_OUTPUT_DIRECTORY}/WebCore.framework/Versions/A/Resources"
@@ -1826,6 +1825,7 @@ add_custom_command(TARGET WebCore POST_BUILD
         "${WEBCORE_DIR}/Resources/modelDefaultSpecularData"
         "${WEBCORE_DIR}/Resources/textAreaResizeCorner.png"
         "${WEBCORE_DIR}/Resources/textAreaResizeCorner@2x.png"
+        "${WEBCORE_DIR}/page/QuirkTable.json"
         "${_wc_fw}/"
     COMMAND ${CMAKE_COMMAND} -E make_directory "${_wc_fw}/audio"
     COMMAND ${CMAKE_COMMAND} -E copy_if_different

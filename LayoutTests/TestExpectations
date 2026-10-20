@@ -513,9 +513,6 @@ imported/w3c/web-platform-tests/editing/crashtests/insertparagraph-in-listitem-i
 imported/w3c/web-platform-tests/selection/anonymous/details-ancestor.html [ Pass Failure ]
 imported/w3c/web-platform-tests/selection/caret/move-around-contenteditable-false.html [ Pass Failure ]
 
-# This test hits a debug assertion
-[ Debug ] imported/w3c/web-platform-tests/selection/caret/move-around-generated-content.html [ Skip ]
-
 # This crash test is a timeout.
 # These crash tests time out.
 imported/w3c/web-platform-tests/selection/crashtests/selectall-and-find-svg-text-on-selectstart.html [ Timeout ]
@@ -2357,9 +2354,6 @@ webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subg
 webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-inherited-tracks-001.html [ ImageOnlyFailure ]
 webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-inherited-tracks-002.html [ ImageOnlyFailure ]
 webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-inherited-tracks-003.html [ ImageOnlyFailure ]
-webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-001.html [ Crash ]
-webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-002.html [ Crash ]
-webkit.org/b/316453 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-inherited-tracks-003.html [ Crash ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-nested-subgrid-inherited-tracks-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-nested-subgrid-inherited-tracks-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-auto-placed-subgrid-nested-subgrid-inherited-tracks-003.html [ ImageOnlyFailure ]
@@ -2367,9 +2361,6 @@ imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/column-subgrid-auto-fit-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-subgrid-auto-fill-007.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-subgrid-auto-fit-001.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-001.html [ Crash ]
-imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-002.html [ Crash ]
-imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/track-sizing/row-auto-placed-subgrid-nested-subgrid-inherited-tracks-003.html [ Crash ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/alignment/column-subgrid-alignment-in-subgridded-axis-002.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/alignment/column-subgrid-stretch-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/subgrid/grid-subgridded-to-grid-lanes/alignment/row-subgrid-stretch-001.html [ ImageOnlyFailure ]
@@ -6116,6 +6107,15 @@ webkit.org/b/237108 http/tests/websocket/tests/hybi/handshake-ok-with-legacy-sec
 
 # Only certain ports have WebGPU implementations.
 http/tests/webgpu [ Skip ]
+
+# IOKit blocking needs the sandbox state flags, which need the Apple internal SDK, and a sandboxed WebContent
+# process, which the iOS simulator does not have.
+http/tests/workers/iokit-blocked-in-main-thread.html [ Skip ]
+http/tests/workers/iokit-blocked-in-dedicated-worker.html [ Skip ]
+http/tests/workers/iokit-blocked-in-shared-worker.html [ Skip ]
+http/tests/workers/iokit-blocked-in-shared-worker-separate-process.html [ Skip ]
+http/tests/workers/iokit-blocked-in-service-worker.html [ Skip ]
+http/tests/workers/iokit-blocked-in-service-worker-separate-process.html [ Skip ]
 
 # Only some ports automatically relayout if a font is installed while the page is open
 fast/text/install-font-style-recalc.html [ Failure ]

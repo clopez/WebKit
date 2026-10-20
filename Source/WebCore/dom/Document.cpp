@@ -4096,6 +4096,8 @@ void Document::collectHighlightRangesFromRegister(Vector<WeakPtr<HighlightRange>
             if (&simpleRange.startContainer().treeScope() != &simpleRange.endContainer().treeScope())
                 continue;
             highlightRanges.append(highlightRange.get());
+            // This range's positions are about to be updated, which can change the renderers it highlights.
+            highlight.value->invalidateHighlightRangesForRenderer();
         }
     }
 
@@ -4110,17 +4112,21 @@ void Document::collectHighlightRangesFromRegister(Vector<WeakPtr<HighlightRange>
 
 void Document::updateHighlightPositions()
 {
-    Vector<WeakPtr<HighlightRange>> highlightRanges;
+    Vector<Ref<HighlightRegistry>, 4> highlightRegistries;
     if (m_highlightRegistry)
-        collectHighlightRangesFromRegister(highlightRanges, *m_highlightRegistry.get());
+        highlightRegistries.append(*m_highlightRegistry);
     if (m_fragmentHighlightRegistry)
-        collectHighlightRangesFromRegister(highlightRanges, *m_fragmentHighlightRegistry.get());
+        highlightRegistries.append(*m_fragmentHighlightRegistry);
     if (m_textExtractionHighlightRegistry)
-        collectHighlightRangesFromRegister(highlightRanges, *m_textExtractionHighlightRegistry.get());
+        highlightRegistries.append(*m_textExtractionHighlightRegistry);
 #if ENABLE(APP_HIGHLIGHTS)
     if (m_appHighlightRegistry)
-        collectHighlightRangesFromRegister(highlightRanges, *m_appHighlightRegistry.get());
+        highlightRegistries.append(*m_appHighlightRegistry);
 #endif
+
+    Vector<WeakPtr<HighlightRange>> highlightRanges;
+    for (auto& highlightRegistry : highlightRegistries)
+        collectHighlightRangesFromRegister(highlightRanges, highlightRegistry);
 
     for (auto& weakRangeData : highlightRanges) {
         if (RefPtr highlightRange = weakRangeData.get()) {
@@ -4143,6 +4149,11 @@ void Document::updateHighlightPositions()
 
             Highlight::repaintRange(highlightRange->range());
         }
+    }
+
+    for (auto& highlightRegistry : highlightRegistries) {
+        for (Ref highlight : highlightRegistry->map().values())
+            highlight->updateHighlightRangesForRendererIfNeeded(*this);
     }
 }
 
@@ -6800,12 +6811,7 @@ void Document::invalidateRenderingDependentRegions()
 #endif
 }
 
-bool Document::setFocusedElement(Element* element, BroadcastFocusedElement broadcast)
-{
-    return setFocusedElement(element, { }, broadcast);
-}
-
-bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions& options, BroadcastFocusedElement broadcast)
+bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions& options)
 {
     // Make sure newFocusedElement is actually in this document
     if (newFocusedElement && (&newFocusedElement->document() != this))
@@ -6968,7 +6974,7 @@ bool Document::setFocusedElement(Element* newFocusedElement, const FocusOptions&
         cache->onFocusChange(oldFocusedElement.get(), newFocusedElement);
 
     if (RefPtr page = this->page())
-        page->chrome().focusedElementChanged(protect(focusedElement()).get(), protect(page->focusController().localFocusedFrame()), options, broadcast);
+        page->chrome().focusedElementChanged(protect(focusedElement()).get(), protect(page->focusController().localFocusedFrame()), options);
 
     return true;
 }
@@ -8253,6 +8259,18 @@ void Document::setTransformSource(std::unique_ptr<TransformSource> source)
 }
 
 #endif
+
+void Document::logXMLExternalEntityDeprecationWarningIfNeeded()
+{
+    // Documents created by DOMParser and XMLHttpRequest have no frame, and addConsoleMessage
+    // silently drops messages in that case, so report on the context document instead. Throttling
+    // on the target document also keeps repeated DOMParser parses from logging more than once.
+    Ref document = contextDocument();
+    if (document->m_hasLoggedXMLExternalEntityDeprecationWarning)
+        return;
+    document->m_hasLoggedXMLExternalEntityDeprecationWarning = true;
+    document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "XML external entities are deprecated and will be removed in a future version of WebKit."_s);
+}
 
 String Document::designMode() const
 {

@@ -540,7 +540,6 @@ class BrowsingContextGroup;
 class BrowsingWarning;
 class CallbackID;
 class ContextMenuContextData;
-class DebuggerPauseCoordinator;
 class DownloadProxy;
 class DrawingAreaProxy;
 class FrameState;
@@ -916,7 +915,6 @@ public:
     void sendMessageToInspectorFrontend(const String& targetId, const String& message);
     void frameDidPauseForDebugger(IPC::Connection&, WebCore::FrameIdentifier);
     void frameDidContinueForDebugger(IPC::Connection&, WebCore::FrameIdentifier);
-    void lastInspectorFrontendDidDisconnect();
 
     void getAllFrames(CompletionHandler<void(std::optional<FrameTreeNodeData>&&)>&&);
     void getAllFrameTreesForSiteIsolationTesting(CompletionHandler<void(Vector<FrameTreeNodeData>&&)>&&);
@@ -1843,7 +1841,7 @@ public:
 #if ENABLE(MHTML)
     void getContentsAsMHTMLData(CompletionHandler<void(API::Data*)>&&);
 #endif
-    void saveResources(WebFrameProxy*, const Vector<WebCore::MarkupExclusionRule>&, const String& directory, const String& suggestedMainResourceName, CompletionHandler<void(std::expected<void, WebCore::ArchiveError>)>&&);
+    void saveResources(WebFrameProxy*, const Vector<WebCore::MarkupExclusionRule>&, const String& directory, const String& suggestedMainResourceName, const String& originalURLsFileName, CompletionHandler<void(std::expected<void, WebCore::ArchiveError>)>&&);
     void getMainResourceDataOfFrame(WebFrameProxy*, CompletionHandler<void(API::Data*)>&&);
     void getResourceDataFromFrame(WebFrameProxy&, API::URL*, CompletionHandler<void(API::Data*)>&&);
     void getRenderTreeExternalRepresentation(CompletionHandler<void(const String&)>&&);
@@ -3571,7 +3569,6 @@ private:
     static WebCore::ScreenOrientationType toScreenOrientationType(WebCore::IntDegrees);
 #endif
 
-    void focusedElementChanged(IPC::Connection&, const std::optional<WebCore::FrameIdentifier>&, WebCore::FocusOptions);
     void focusedFrameChanged(IPC::Connection&, std::optional<WebCore::FrameIdentifier>&&);
 
     void didFinishLoadingDataForCustomContentProvider(String&& suggestedFilename, std::span<const uint8_t>);
@@ -4376,7 +4373,6 @@ private:
 #endif
 
     const UniqueRef<WebPageInspectorController> m_inspectorController;
-    std::unique_ptr<DebuggerPauseCoordinator> m_debuggerPauseCoordinator;
 #if ENABLE(REMOTE_INSPECTOR)
     RefPtr<WebPageDebuggable> m_inspectorDebuggable;
 #endif

@@ -35,11 +35,6 @@ namespace WebGPU::Metal {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(PresentationContext);
 
-Ref<PresentationContext> PresentationContext::create(const WGPUSurfaceDescriptor& descriptor, const Instance& instance)
-{
-    return PresentationContextIOSurface::create(descriptor, instance);
-}
-
 Ref<PresentationContext> PresentationContext::create(const WebGPU::PresentationContextDescriptor& descriptor, const Instance& instance)
 {
     return PresentationContextIOSurface::create(descriptor, instance);
@@ -93,49 +88,4 @@ void LEGACY_NODELETE wgpuSurfaceAddRef(WGPUSurface surface)
 void wgpuSurfaceRelease(WGPUSurface surface)
 {
     WebGPU::Metal::fromAPI(surface).deref();
-}
-
-void LEGACY_NODELETE wgpuSwapChainAddRef(WGPUSwapChain swapChain)
-{
-    WebGPU::Metal::fromAPI(swapChain).ref();
-}
-
-void wgpuSwapChainRelease(WGPUSwapChain swapChain)
-{
-    WebGPU::Metal::fromAPI(swapChain).deref();
-}
-
-WGPUTextureFormat wgpuSurfaceGetPreferredFormat(WGPUSurface surface, WGPUAdapter adapter)
-{
-    return WebGPU::Metal::toAPI(WebGPU::Metal::fromAPI(surface).getPreferredFormat(WebGPU::Metal::fromAPI(adapter)));
-}
-
-double wgpuSurfaceGetLastFrameGPUCostSeconds(WGPUSurface surface)
-{
-    return protect(WebGPU::Metal::fromAPI(surface))->lastFrameGPUCost().seconds();
-}
-
-double wgpuSurfaceGetLastFramePresentStallSeconds(WGPUSurface surface)
-{
-    return protect(WebGPU::Metal::fromAPI(surface))->lastFramePresentStall().seconds();
-}
-
-WGPUTexture wgpuSwapChainGetCurrentTexture(WGPUSwapChain swapChain, uint32_t index)
-{
-    return protect(WebGPU::Metal::fromAPI(swapChain))->currentTexture(index);
-}
-
-WGPUTextureView wgpuSwapChainGetCurrentTextureView(WGPUSwapChain swapChain)
-{
-    return protect(WebGPU::Metal::fromAPI(swapChain))->getCurrentTextureView();
-}
-
-void wgpuSwapChainPresent(WGPUSwapChain swapChain, uint32_t index)
-{
-    protect(WebGPU::Metal::fromAPI(swapChain))->present(index);
-}
-
-RetainPtr<CGImageRef> wgpuSwapChainGetTextureAsNativeImage(WGPUSwapChain swapChain, uint32_t bufferIndex, bool& isIOSurfaceSupportedFormat)
-{
-    return protect(WebGPU::Metal::fromAPI(swapChain))->getTextureAsNativeImage(bufferIndex, isIOSurfaceSupportedFormat);
 }

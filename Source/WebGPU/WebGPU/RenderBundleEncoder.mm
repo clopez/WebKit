@@ -157,10 +157,9 @@ RefPtr<WebGPU::RenderBundleEncoder> Device::createRenderBundleEncoder(const WebG
     for (auto [ i, apiTextureFormat ] : indexedRange(descriptor.colorFormats)) {
         if (!apiTextureFormat)
             continue;
-        // The format helpers take the C API format.
-        auto textureFormat = toAPI(*apiTextureFormat);
+        auto textureFormat = *apiTextureFormat;
         if (!Texture::isColorRenderableFormat(textureFormat, *this)) {
-            NSString* error = [NSString stringWithFormat:@"createRenderBundleEncoder - colorAttachment[%zu] with format %d is not renderable", i, textureFormat];
+            NSString* error = [NSString stringWithFormat:@"createRenderBundleEncoder - colorAttachment[%zu] with format %s is not renderable", i, Texture::formatToString(textureFormat).characters()];
             generateAValidationError(error);
             return RenderBundleEncoder::createInvalid(*this, error);
         }
@@ -174,9 +173,9 @@ RefPtr<WebGPU::RenderBundleEncoder> Device::createRenderBundleEncoder(const WebG
     }
 
     if (auto apiDepthStencilFormat = descriptor.depthStencilFormat) {
-        auto depthStencilFormat = toAPI(*apiDepthStencilFormat);
+        auto depthStencilFormat = *apiDepthStencilFormat;
         if (!Texture::isDepthOrStencilFormat(depthStencilFormat)) {
-            NSString* error = [NSString stringWithFormat:@"createRenderBundleEncoder - provided depthStencilFormat %d is not a depth or stencil format", depthStencilFormat];
+            NSString* error = [NSString stringWithFormat:@"createRenderBundleEncoder - provided depthStencilFormat %s is not a depth or stencil format", Texture::formatToString(depthStencilFormat).characters()];
             generateAValidationError(error);
             return RenderBundleEncoder::createInvalid(*this, error);
         }
@@ -189,23 +188,14 @@ RefPtr<WebGPU::RenderBundleEncoder> Device::createRenderBundleEncoder(const WebG
     return RenderBundleEncoder::create(icbDescriptor, descriptor, *this);
 }
 
-// The encoder stores the formats as the C API values that the pipelines and passes compare, with
-// WGPUTextureFormat_Undefined for an empty slot.
-static Vector<WGPUTextureFormat> colorFormats(const WebGPU::RenderBundleEncoderDescriptor& descriptor)
-{
-    return WTF::map(descriptor.colorFormats, [](auto format) {
-        return format ? toAPI(*format) : WGPUTextureFormat_Undefined;
-    });
-}
-
 RenderBundleEncoder::RenderBundleEncoder(MTLIndirectCommandBufferDescriptor *indirectCommandBufferDescriptor, const WebGPU::RenderBundleEncoderDescriptor& descriptor, Device& device)
     : m_device(device)
     , m_icbDescriptor(indirectCommandBufferDescriptor)
     , m_resources([NSMapTable strongToStrongObjectsMapTable])
     , m_vertexBuffers(m_device->maxBuffersPlusVertexBuffersForVertexStage() + 1)
     , m_fragmentBuffers(m_device->maxBuffersForFragmentStage() + 1)
-    , m_colorFormats(colorFormats(descriptor))
-    , m_depthStencilFormat(descriptor.depthStencilFormat ? toAPI(*descriptor.depthStencilFormat) : WGPUTextureFormat_Undefined)
+    , m_colorFormats(descriptor.colorFormats)
+    , m_depthStencilFormat(descriptor.depthStencilFormat)
     , m_sampleCount(descriptor.sampleCount)
     , m_depthReadOnly(descriptor.depthReadOnly)
     , m_stencilReadOnly(descriptor.stencilReadOnly)
@@ -560,7 +550,7 @@ NSString* RenderBundleEncoder::errorValidatingStripIndexFormat() const
         return nil;
 
     auto topology = pipeline->primitiveTopology();
-    if (topology != WGPUPrimitiveTopology_LineStrip && topology != WGPUPrimitiveTopology_TriangleStrip)
+    if (topology != WebGPU::PrimitiveTopology::LineStrip && topology != WebGPU::PrimitiveTopology::TriangleStrip)
         return nil;
 
     if (m_indexType != pipeline->stripIndexFormat())
@@ -623,7 +613,7 @@ bool RenderBundleEncoder::runIndexBufferValidation(uint32_t firstInstance, uint3
         auto bufferSize = vertexBuffer.size;
         auto stride = bufferData.stride;
         auto lastStride = bufferData.lastStride;
-        if (bufferData.stepMode == WGPUVertexStepMode_Instance) {
+        if (bufferData.stepMode == WebGPU::VertexStepMode::Instance) {
             auto product = checkedProduct<NSUInteger>(strideCount - 1, stride);
             if (product.hasOverflowed())
                 return false;
@@ -658,14 +648,14 @@ bool RenderBundleEncoder::runVertexBufferValidation(uint32_t vertexCount, uint32
     for (auto& [bufferIndex, bufferData] : requiredBufferIndices) {
         Checked<uint64_t, WTF::RecordOverflow> strideCount = 0;
         switch (bufferData.stepMode) {
-        case WGPUVertexStepMode_Vertex:
+        case WebGPU::VertexStepMode::Vertex:
             strideCount = checkedSum<uint32_t>(firstVertex, vertexCount);
             if (strideCount.hasOverflowed()) {
                 makeInvalid(@"StrideCount invalid");
                 return false;
             }
             break;
-        case WGPUVertexStepMode_Instance:
+        case WebGPU::VertexStepMode::Instance:
             strideCount = checkedSum<uint32_t>(firstInstance, instanceCount);
             if (strideCount.hasOverflowed()) {
                 makeInvalid(@"StrideCount invalid");
@@ -1655,11 +1645,6 @@ void wgpuRenderBundleEncoderPushDebugGroup(WGPURenderBundleEncoder renderBundleE
 
 void LEGACY_NODELETE wgpuRenderBundleEncoderSetBindGroup(WGPURenderBundleEncoder, uint32_t, WGPUBindGroup, size_t, const uint32_t*)
 {
-}
-
-void wgpuRenderBundleEncoderSetBindGroupWithDynamicOffsets(WGPURenderBundleEncoder renderBundleEncoder, uint32_t groupIndex, WGPUBindGroup group, std::optional<Vector<uint32_t>>&& dynamicOffsets)
-{
-    protect(WebGPU::Metal::fromAPI(renderBundleEncoder))->setBindGroup(groupIndex, group ? protect(WebGPU::Metal::fromAPI(group)).ptr() : nullptr, dynamicOffsets ? std::optional { dynamicOffsets->span() } : std::nullopt);
 }
 
 void wgpuRenderBundleEncoderSetIndexBuffer(WGPURenderBundleEncoder renderBundleEncoder, WGPUBuffer buffer, WGPUIndexFormat format, uint64_t offset, uint64_t size)

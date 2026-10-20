@@ -1506,6 +1506,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/PaintRenderingContext2D.idl \
     $(WebCore)/html/canvas/Path2D.idl \
     $(WebCore)/html/canvas/PredefinedColorSpace.idl \
+    $(WebCore)/html/canvas/RenderingMode.idl \
 	$(WebCore)/html/canvas/UpdateElementGeometryOptions.idl \
     $(WebCore)/html/canvas/WebGL2RenderingContext.idl \
     $(WebCore)/html/canvas/WebGLActiveInfo.idl \
@@ -2629,6 +2630,7 @@ GENERATE_QUIRK_BEHAVIORS = \
     QuirkBehaviorDeclarations.h \
     QuirkBehaviorDefinitions.h \
     QuirkBehaviorID.h \
+    QuirkBehaviorID.serialization.in \
     QuirksAccessors.cpp \
     QuirksAccessors.h \
 #

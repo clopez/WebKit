@@ -1397,6 +1397,7 @@ set(WebCore_NON_SVG_IDL_FILES
     html/canvas/PaintRenderingContext2D.idl
     html/canvas/Path2D.idl
     html/canvas/PredefinedColorSpace.idl
+    html/canvas/RenderingMode.idl
     html/canvas/UpdateElementGeometryOptions.idl
 
     html/closewatcher/CloseWatcher.idl
@@ -3094,6 +3095,7 @@ set(QUIRK_BEHAVIORS_TEMPLATES
     ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirkBehaviorDeclarations.h.erb
     ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirkBehaviorDefinitions.h.erb
     ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirkBehaviorID.h.erb
+    ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirkBehaviorID.serialization.in.erb
     ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirksAccessors.cpp.erb
     ${WEBCORE_DIR}/Scripts/QuirkBehaviorsTemplates/QuirksAccessors.h.erb)
 add_custom_command(
@@ -3101,6 +3103,7 @@ add_custom_command(
        ${WebCore_DERIVED_SOURCES_DIR}/QuirkBehaviorDeclarations.h
        ${WebCore_DERIVED_SOURCES_DIR}/QuirkBehaviorDefinitions.h
        ${WebCore_DERIVED_SOURCES_DIR}/QuirkBehaviorID.h
+       ${WebCore_DERIVED_SOURCES_DIR}/QuirkBehaviorID.serialization.in
        ${WebCore_DERIVED_SOURCES_DIR}/QuirksAccessors.cpp
        ${WebCore_DERIVED_SOURCES_DIR}/QuirksAccessors.h
     MAIN_DEPENDENCY ${WEBCORE_DIR}/page/QuirkBehaviors.yaml

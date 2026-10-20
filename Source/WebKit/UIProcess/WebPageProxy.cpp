@@ -71,7 +71,6 @@
 #include "CallbackID.h"
 #include "ColorControlSupportsAlpha.h"
 #include "Connection.h"
-#include "DebuggerPauseCoordinator.h"
 #include "DidFilterKnownLinkDecoration.h"
 #include "DigitalCredentialsCoordinatorMessages.h"
 #include "DownloadManager.h"
@@ -325,6 +324,7 @@
 #include <wtf/CoroutineUtilities.h>
 #include <wtf/EnumTraits.h>
 #include <wtf/FileSystem.h>
+#include <wtf/JSONValues.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/NumberOfCores.h>
@@ -2041,7 +2041,6 @@ void WebPageProxy::close()
     m_inspector->invalidate();
 
     backForwardList().pageClosed();
-    m_debuggerPauseCoordinator = nullptr;
     m_inspectorController->pageClosed();
 #if ENABLE(REMOTE_INSPECTOR)
     if (RefPtr inspectorDebuggable = std::exchange(m_inspectorDebuggable, nullptr))
@@ -2122,7 +2121,7 @@ void WebPageProxy::close()
 #endif
 
     if (protect(preferences())->siteIsolationEnabled())
-        protect(browsingContextGroup())->removePage(*this);
+        protect(browsingContextGroup())->removePage(*this, ShouldSendCloseMessage::No);
 }
 
 bool WebPageProxy::tryClose()
@@ -3371,21 +3370,12 @@ void WebPageProxy::frameDidPauseForDebugger(IPC::Connection& connection, WebCore
         return;
     MESSAGE_CHECK_BASE(frame->page() == this, connection);
 
-    if (!m_debuggerPauseCoordinator)
-        m_debuggerPauseCoordinator = makeUnique<DebuggerPauseCoordinator>(*this);
-    m_debuggerPauseCoordinator->frameDidPause(process, frameID);
+    m_inspectorController->frameDidPauseForDebugger(process, frameID);
 }
 
 void WebPageProxy::frameDidContinueForDebugger(IPC::Connection& connection, WebCore::FrameIdentifier frameID)
 {
-    if (m_debuggerPauseCoordinator)
-        m_debuggerPauseCoordinator->frameDidContinue(WebProcessProxy::fromConnection(connection), frameID);
-}
-
-void WebPageProxy::lastInspectorFrontendDidDisconnect()
-{
-    if (m_debuggerPauseCoordinator)
-        m_debuggerPauseCoordinator->closeSession();
+    m_inspectorController->frameDidContinueForDebugger(WebProcessProxy::fromConnection(connection), frameID);
 }
 
 #if ENABLE(REMOTE_INSPECTOR)
@@ -8559,7 +8549,36 @@ void WebPageProxy::getSelectionOrContentsAsString(FrameIdentifier frameID, Compl
     sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::GetSelectionOrContentsAsString(frameID), WTF::move(callback));
 }
 
-void WebPageProxy::saveResources(WebFrameProxy* frame, const Vector<WebCore::MarkupExclusionRule>& markupExclusionRules, const String& directory, const String& suggestedMainResourceName, CompletionHandler<void(std::expected<void, WebCore::ArchiveError>)>&& completionHandler)
+#if PLATFORM(COCOA)
+static void addOriginalURLs(const Archive& archive, JSON::Object& originalURLs)
+{
+    if (RefPtr mainResource = archive.mainResource())
+        originalURLs.setString(mainResource->relativeFilePath(), mainResource->url().string());
+
+    for (auto& subresource : archive.subresources())
+        originalURLs.setString(subresource->relativeFilePath(), subresource->url().string());
+
+    for (auto& subframeArchive : archive.subframeArchives())
+        addOriginalURLs(subframeArchive, originalURLs);
+}
+
+static bool saveOriginalURLsToDisk(const Archive& archive, const String& directory, const String& fileName)
+{
+    Ref originalURLs = JSON::Object::create();
+    addOriginalURLs(archive, originalURLs);
+
+    auto filePath = FileSystem::pathByAppendingComponent(directory, fileName);
+    auto fileData = originalURLs->toJSONString().utf8();
+    auto bytesWritten = FileSystem::overwriteEntireFile(filePath, byteCast<uint8_t>(fileData.span()));
+    if (bytesWritten && *bytesWritten == fileData.length())
+        return true;
+
+    FileSystem::deleteFile(filePath);
+    return false;
+}
+#endif
+
+void WebPageProxy::saveResources(WebFrameProxy* frame, const Vector<WebCore::MarkupExclusionRule>& markupExclusionRules, const String& directory, const String& suggestedMainResourceName, const String& originalURLsFileName, CompletionHandler<void(std::expected<void, WebCore::ArchiveError>)>&& completionHandler)
 {
     if (!frame)
         return completionHandler(makeUnexpected(WebCore::ArchiveError::InvalidFrame));
@@ -8573,7 +8592,7 @@ void WebPageProxy::saveResources(WebFrameProxy* frame, const Vector<WebCore::Mar
         mainResourceName = host.isEmpty() ? "main"_s : host.toString();
     }
 
-    sendWithAsyncReply(Messages::WebPage::GetWebArchiveOfFrameWithFileName(frame->frameID(), markupExclusionRules, mainResourceName), [directory = directory, completionHandler = WTF::move(completionHandler)](const std::optional<IPC::SharedBufferReference>& data) mutable {
+    sendWithAsyncReply(Messages::WebPage::GetWebArchiveOfFrameWithFileName(frame->frameID(), markupExclusionRules, mainResourceName), [directory = directory, originalURLsFileName = originalURLsFileName, completionHandler = WTF::move(completionHandler)](const std::optional<IPC::SharedBufferReference>& data) mutable {
 #if PLATFORM(COCOA)
         if (!data)
             return completionHandler(makeUnexpected(WebCore::ArchiveError::SerializationFailure));
@@ -8582,12 +8601,17 @@ void WebPageProxy::saveResources(WebFrameProxy* frame, const Vector<WebCore::Mar
         if (!buffer)
             return completionHandler(makeUnexpected(WebCore::ArchiveError::SerializationFailure));
 
-        sharedFileQueueSingleton().dispatch([directory = directory.isolatedCopy(), buffer, completionHandler = WTF::move(completionHandler)]() mutable {
+        sharedFileQueueSingleton().dispatch([directory = directory.isolatedCopy(), originalURLsFileName = originalURLsFileName.isolatedCopy(), buffer, completionHandler = WTF::move(completionHandler)] mutable {
             RefPtr archive = LegacyWebArchive::create(*buffer);
             auto result = archive->saveResourcesToDisk(directory);
             std::optional<WebCore::ArchiveError> error;
             if (!result)
                 error = result.error();
+            else if (!originalURLsFileName.isEmpty() && !saveOriginalURLsToDisk(*archive, directory, originalURLsFileName)) {
+                for (auto& filePath : *result)
+                    FileSystem::deleteFile(filePath);
+                error = WebCore::ArchiveError::FileSystemError;
+            }
             RunLoop::mainSingleton().dispatch([completionHandler = WTF::move(completionHandler), error]() mutable {
                 if (error)
                     return completionHandler(makeUnexpected(*error));
@@ -8597,6 +8621,7 @@ void WebPageProxy::saveResources(WebFrameProxy* frame, const Vector<WebCore::Mar
         });
 #else
         ASSERT_UNUSED(data, !data);
+        UNUSED_PARAM(originalURLsFileName);
         completionHandler(makeUnexpected(WebCore::ArchiveError::NotImplemented));
 #endif
     });
@@ -15122,22 +15147,6 @@ void WebPageProxy::logScrollingEvent(uint32_t eventType, MonotonicTime timestamp
     }
 }
 
-void WebPageProxy::focusedElementChanged(IPC::Connection& connection, const std::optional<FrameIdentifier>& frameID, FocusOptions options)
-{
-    if (!frameID)
-        return;
-
-    RefPtr frame = WebFrameProxy::webFrame(*frameID);
-    if (!frame)
-        return;
-
-    forEachWebContentProcess([&](auto& webProcess, auto pageID) {
-        if (!webProcess.hasConnection() || &webProcess.connection() == &connection)
-            return;
-        webProcess.send(Messages::WebPage::ElementWasFocusedInAnotherProcess(*frameID, options), pageID);
-    });
-}
-
 void WebPageProxy::focusedFrameChanged(IPC::Connection& connection, std::optional<FrameIdentifier>&& frameID)
 {
     RefPtr frame = frameID ? WebFrameProxy::webFrame(*frameID) : nullptr;
@@ -15279,6 +15288,8 @@ void WebPageProxy::dispatchProcessDidTerminate(WebProcessProxy& process, Process
     WEBPAGEPROXY_RELEASE_LOG_ERROR(Loading, "dispatchProcessDidTerminate: reason=%" PUBLIC_LOG_STRING, processTerminationReasonToString(reason).characters());
 
     revokeOutstandingForcedUserActivationsForProcess(process);
+
+    m_inspectorController->processDidTerminate(process);
 
     if (protect(preferences())->siteIsolationEnabled()) {
         processDidBecomeResponsive(process); // Check if all other processes are responsive.
@@ -15917,15 +15928,6 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
         parameters.urlSchemeHandlers.set(iterator.key, iterator.value->identifier());
     parameters.urlSchemesWithLegacyCustomProtocolHandlers = WebProcessPool::urlSchemesWithCustomProtocolHandlers();
 
-#if ENABLE(WEB_RTC)
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.iceCandidateFilteringEnabled = preferences->iceCandidateFilteringEnabled();
-#if USE(LIBWEBRTC)
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.enumeratingAllNetworkInterfacesEnabled = preferences->enumeratingAllNetworkInterfacesEnabled();
-#endif
-#endif
-
 #if ENABLE(APPLICATION_MANIFEST)
     parameters.applicationManifest = m_configuration->applicationManifest() ? std::optional<WebCore::ApplicationManifest>(m_configuration->applicationManifest()->applicationManifest()) : std::nullopt;
 #endif
@@ -15951,25 +15953,9 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
         parameters.webExtensionControllerParameters = weakWebExtensionController->parameters(m_configuration, process);
 #endif
 
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldCaptureAudioInGPUProcess = preferences->captureAudioInGPUProcessEnabled();
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldCaptureVideoInGPUProcess = preferences->captureVideoInGPUProcessEnabled();
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldRenderCanvasInGPUProcess = preferences->useGPUProcessForCanvasRenderingEnabled();
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
+    // Not the same as the preference: on Cocoa, a user default, Lockdown Mode or a related page may also enable it.
     parameters.shouldRenderDOMInGPUProcess = useGPUProcessForDOMRenderingEnabled();
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldPlayMediaInGPUProcess = preferences->useGPUProcessForMediaEnabled();
-#if ENABLE(WEBGL)
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldRenderWebGLInGPUProcess = preferences->useGPUProcessForWebGLEnabled();
-#endif
-
-    // FIXME: This is also being passed over the to WebProcess via the PreferencesStore.
-    parameters.shouldEnableVP9Decoder = preferences->vp9DecoderEnabled();
     parameters.shouldCaptureDisplayInUIProcess = m_configuration->processPool().configuration().shouldCaptureDisplayInUIProcess();
-    parameters.shouldCaptureDisplayInGPUProcess = preferences->useGPUProcessForDisplayCapture();
 #if ENABLE(APP_BOUND_DOMAINS)
     parameters.limitsNavigationsToAppBoundDomains = m_limitsNavigationsToAppBoundDomains;
 #endif

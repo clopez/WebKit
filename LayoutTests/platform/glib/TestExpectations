@@ -1852,7 +1852,7 @@ webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRec
 webkit.org/b/213699 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-peerconnection.https.html [ Failure ]
 webkit.org/b/213699 http/wpt/mediarecorder/set-srcObject-MediaStream-Blob.html [ Pass Failure ]
 webkit.org/b/306457 [ Release ] http/wpt/mediarecorder/MediaRecorder-audio-bitrate-webm.html [ Failure Pass ]
-webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavailable.html [ Crash Timeout Failure ]
+webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-AV-audio-video-dataavailable.html [ Failure ]
 webkit.org/b/213699 http/wpt/mediarecorder/MediaRecorder-first-frame.html [ Failure Pass ]
 
 webkit.org/b/323054 http/wpt/mediarecorder/MediaRecorder-single-frame-timeslice.html [ Skip ]
@@ -1933,9 +1933,10 @@ imported/w3c/web-platform-tests/video-rvfc [ Pass ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-before-xr-session.https.html [ Skip ]
 imported/w3c/web-platform-tests/video-rvfc/request-video-frame-callback-during-xr-session.https.html [ Skip ]
 
-# Expected to pass when we enable playbin3 by default.
-webkit.org/b/131546 media/track/track-in-band-cues-added-once.html [ Timeout ]
+webkit.org/b/233836 http/tests/media/media-blocked-by-willsendrequest.html [ Pass Timeout ]
+
 webkit.org/b/131546 media/track/track-in-band-mode.html [ Failure ]
+webkit.org/b/131546 media/track/track-in-band-cues-added-once.html [ Pass Timeout ]
 
 # Even with playbin3 enabled there is still a failure here, h264parse is unable
 # to calculate the framerate of test.mp4 and the calculated bitrate tag is too
@@ -2052,6 +2053,10 @@ webkit.org/b/312138 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-v
 webkit.org/b/312138 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/text-decoration_underline.html [ ImageOnlyFailure ]
 
 webkit.org/b/322706 media/media-source/worker/media-source-worker-logger-observer-crash.html [ Timeout ]
+
+# Tweaking download buffering in a running uridecodebin3 is not supported.
+# https://gitlab.freedesktop.org/gstreamer/gstreamer/-/issues/1419
+http/tests/media/video-play-stall-seek.html [ Skip ] # Timeout
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of GStreamer-related bugs
@@ -2830,6 +2835,7 @@ webkit.org/b/251107 webgl/2.0.y/conformance/textures/video/tex-2d-alpha-alpha-un
 webkit.org/b/251107 webgl/2.0.y/conformance2/reading/read-pixels-from-fbo-test.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/rendering/blitframebuffer-filter-outofbounds.html [ Failure ]
 webkit.org/b/251107 webgl/2.0.y/conformance/context/premultiplyalpha-test.html [ Failure ]
+webkit.org/b/251107 webgl/webgl-texture-from-canvas-gradient-unpremultiplied.html [ ImageOnlyFailure ]
 webkit.org/b/251107 webgl/2.0.y/conformance2/extensions/ext-texture-norm16.html [ Failure ]
 webkit.org/b/308025 [ x86_64 ] webgl/2.0.y/conformance2/query/occlusion-query-scissor.html [ Failure ]
 webkit.org/b/308025 [ arm64 ] webgl/2.0.y/conformance2/query/occlusion-query-scissor.html [ Pass ]
@@ -2885,8 +2891,6 @@ webkit.org/b/79203 fast/mediastream/RTCPeerConnection-stats.html [ Timeout ]
 webkit.org/b/187603 fast/mediastream/media-stream-track-source-failure.html [ Crash Timeout Failure Pass ]
 
 webkit.org/b/264803 fast/mediastream/mediastreamtrack-video-resize-event.html [ Failure ]
-
-http/tests/media/video-play-stall-seek.html [ Skip ] # Timeout
 
 # Times out waiting for DTLS transport setup. Some bug related with data-channel, pending investigation.
 webkit.org/b/265860 imported/w3c/web-platform-tests/webrtc-stats/supported-stats.https.html [ Skip ]
@@ -3019,7 +3023,7 @@ webkit.org/b/308371 imported/w3c/web-platform-tests/webrtc/simulcast/basic.https
 
 # RTP sender de-activation is not working as expected due to internal queues in rtpbin. The valve we
 # use in our RTPPacketizer is not sufficient, we would need it to be further downstream.
-imported/w3c/web-platform-tests/webrtc/simulcast/setParameters-active.https.html [ Failure Crash ]
+imported/w3c/web-platform-tests/webrtc/simulcast/setParameters-active.https.html [ Failure ]
 
 # For simulcast outbound streams webrtcbin currently returns the stats for the merged stream.
 # Instead it should create one outbound-rtp stat structure per configured rid.
@@ -3120,7 +3124,7 @@ webkit.org/b/211692 imported/w3c/web-platform-tests/xhr/event-timeout-order.any.
 webkit.org/b/212217 imported/w3c/web-platform-tests/fetch/api/redirect/redirect-location-escape.tentative.any.html [ Failure ]
 webkit.org/b/212217 imported/w3c/web-platform-tests/fetch/api/redirect/redirect-location-escape.tentative.any.worker.html [ Failure ]
 
-webkit.org/b/214029 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback.html [ Failure Crash ]
+webkit.org/b/214029 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-video-element/resize-during-playback.html [ Failure ]
 
 webkit.org/b/214125 imported/w3c/web-platform-tests/html/rendering/widgets/select-wrap-no-spill.optional.html [ Failure ]
 imported/w3c/web-platform-tests/html/rendering/widgets/button-layout/propagate-text-decoration.html [ ImageOnlyFailure ]
@@ -3460,13 +3464,11 @@ http/tests/media/audio-session-category-cross-site-pause-resume.html [ Skip ]
 media/unsupported-rtsp.html [ WontFix Skip ]
 
 # This test is specific to QuickTime media engine.
-media/video-does-not-loop.html [ WontFix Timeout Crash ]
+media/video-does-not-loop.html [ WontFix Timeout ]
 
 # No support for MPEG-4 caption support
 webkit.org/b/131546 media/track/track-forced-subtitles-in-band.html [ Timeout Failure ]
-media/track/track-in-band-chapters.html [ Timeout Failure ]
-media/track/track-in-band-layout.html [ Skip ]
-media/track/track-paint-on-captions.html [ Skip ]
+media/track/track-in-band-chapters.html [ Skip ]
 
 # Modern-media-controls support expected to pass, excepted for Apple-specific tests.
 media/modern-media-controls [ Pass ]
@@ -3725,6 +3727,9 @@ fast/speechsynthesis/lockdown-mode [ Skip ]
 
 # ManagedMediaSource is not supported
 imported/w3c/web-platform-tests/html/infrastructure/safe-passing-of-structured-data/transfer-mediasourcehandle.html [ Skip ]
+
+# Animation callbacks are outside GLib rendering frame records.
+inspector/timeline/timeline-event-RenderingFrame.html [ Skip ]
 
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of UNSUPPORTED tests.
@@ -4672,10 +4677,6 @@ imported/w3c/web-platform-tests/cookiestore/change_eventhandler_for_document_coo
 imported/w3c/web-platform-tests/cookiestore/httponly_cookies.https.window.html [ Skip ]
 
 
-# Assertion failure if ASSERT_ENABLED
-webkit.org/b/298433 [ Debug ] imported/w3c/web-platform-tests/selection/caret/move-around-generated-content.html [ Skip ]
-webkit.org/b/298433 [ Release ] imported/w3c/web-platform-tests/selection/caret/move-around-generated-content.html [ Crash Pass Failure ]
-
 # Needs rebaseline.
 fast/text/glyph-display-lists [ Skip ]
 fast/repaint/table-in-inline-repaint.html [ Failure ]
@@ -5093,12 +5094,6 @@ webkit.org/b/230277 imported/w3c/web-platform-tests/css/css-transforms/backface-
 webkit.org/b/227061 imported/w3c/web-platform-tests/css/css-ui/outline-negative-offset-composited-scroll.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/dom/events/scrolling/scrollend-event-fires-for-repeat-key-ending-after-scroll-container-end-is-reached.html [ Failure ] # Different outputs
-
-# Assertion failure since 317783@main -- see webkit.org/b/320000. Crashes on assert-enabled builds; image-fails without assertions.
-webkit.org/b/320212 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-014.html [ Crash ImageOnlyFailure ]
-webkit.org/b/320212 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/intrinsic-auto-repeat/row-auto-repeat-auto-019.html [ Crash ImageOnlyFailure ]
-webkit.org/b/320212 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-015.html [ Crash ImageOnlyFailure ]
-webkit.org/b/320212 imported/w3c/web-platform-tests/css/css-grid/grid-lanes/track-sizing/auto-repeat/row-auto-repeat-021.html [ Crash ImageOnlyFailure ]
 
 webkit.org/b/224596 imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-lr-001.html [ ImageOnlyFailure ]
 webkit.org/b/224596 imported/w3c/web-platform-tests/css/css-grid/grid-model/grid-container-scrollbar-vertical-rl-001.html [ ImageOnlyFailure ]

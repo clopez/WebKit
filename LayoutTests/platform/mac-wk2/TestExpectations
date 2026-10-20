@@ -1377,6 +1377,12 @@ fast/webgpu/nocrash/fuzz-286820.html [ Skip ]
 webkit.org/b/293808 [ Sequoia+ arm64 ] http/tests/webgpu/webgpu/api [ Slow ]
 webkit.org/b/293808 [ Sequoia+ arm64 ] http/tests/webgpu/webgpu/shader [ Slow ]
 [ Release arm64 Sequoia+ ] http/tests/webgpu/webgpu/web_platform [ Pass Failure Timeout ]
+http/tests/webgpu/webgpu-in-main-thread.html [ Pass ]
+http/tests/webgpu/webgpu-in-dedicated-worker.html [ Pass ]
+http/tests/webgpu/webgpu-in-shared-worker.html [ Pass ]
+http/tests/webgpu/webgpu-in-shared-worker-separate-process.html [ Pass ]
+http/tests/webgpu/webgpu-in-service-worker.html [ Pass ]
+http/tests/webgpu/webgpu-in-service-worker-separate-process.html [ Pass ]
 
 # Thousands of canvases, so context eviction warnings are logged a GC-dependent number of times.
 http/tests/webgpu/webgpu/web_platform/canvas/readbackFromWebGPUCanvas.html [ Pass DumpJSConsoleLogInStdErr ]
@@ -2506,30 +2512,6 @@ webkit.org/b/323246 [ Debug x86_64 ] accessibility/isolated-tree/canvas-fallback
 
 webkit.org/b/323902 [ x86_64 ] http/tests/webgpu/webgpu/web_platform/copyToTexture/ImageBitmap.html [ Pass Crash Timeout ]
 webkit.org/b/323902 [ x86_64 ] http/tests/webgpu/webgpu/shader/execution/expression/binary/f32_matrix_matrix_multiplication.html [ Pass Crash Timeout ]
-
-# webkit.org/b/325194 REGRESSION(macOS 27): 22X fast/text-extraction/debug-text-extraction (layout-tests) are constant timeouts
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-click-offscreen-element.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-lightweight-discretionary.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-lightweight.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-word-limit-with-links.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-all-container-uids.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-autofilled-attributes.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-basic.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-covered-button.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-form-controls-2.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-form-controls.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-hidden-radio-checkbox.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-highlight-text.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-ignore-autofilled-fields.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-interactions.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-markup.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-offscreen-button.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-offscreen-password-fields.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-role-suppression.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-select-options.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-sanitization.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-shorten-urls.html [ Skip ]
-[ GoldenGate ] fast/text-extraction/debug-text-extraction-svg-sprite-sheet.html [ Skip ]  
 
 # webkit.org/b/325200 REGRESSION(macOS GoldenGate)[ Debug ]: 12X http/tests/iframe-monitor/ (layout-tests) are constant timeouts
 [ GoldenGate Debug ] http/tests/iframe-monitor/blob-resource.html [ Skip ] 

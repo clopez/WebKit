@@ -424,7 +424,7 @@ void Buffer::mapAsync(OptionSet<WebGPU::MapMode> mode, uint64_t apiOffset, std::
 
     m_mapMode = mode;
 
-    device->getQueue()->onSubmittedWorkDone(CompletionHandler<void(WGPUQueueWorkDoneStatus)> { [protectedThis = protect(*this), offset = offsetAndSize->first, rangeSize = offsetAndSize->second, callback = WTF::move(callback)](WGPUQueueWorkDoneStatus status) mutable {
+    device->getQueue()->onSubmittedWorkDone(CompletionHandler<void(bool)> { [protectedThis = protect(*this), offset = offsetAndSize->first, rangeSize = offsetAndSize->second, callback = WTF::move(callback)](bool success) mutable {
         if (protectedThis->m_state == State::MappingPending) {
             protectedThis->setState(State::Mapped);
 
@@ -433,8 +433,7 @@ void Buffer::mapAsync(OptionSet<WebGPU::MapMode> mode, uint64_t apiOffset, std::
             protectedThis->m_mappedRanges = MappedRanges();
         }
 
-        ASSERT(status != WGPUQueueWorkDoneStatus_Force32);
-        callback(status == WGPUQueueWorkDoneStatus_Success);
+        callback(success);
     } });
 }
 
@@ -706,21 +705,6 @@ std::span<uint8_t> wgpuBufferGetMappedRange(WGPUBuffer buffer, size_t offset, si
     return protect(WebGPU::Metal::fromAPI(buffer))->getMappedRangeSpan(offset, WebGPU::Metal::mapSizeFromAPI(size));
 }
 
-std::span<uint8_t> wgpuBufferGetBufferContents(WGPUBuffer buffer)
-{
-    return protect(WebGPU::Metal::fromAPI(buffer))->getBufferContents();
-}
-
-uint64_t wgpuBufferGetInitialSize(WGPUBuffer buffer)
-{
-    return WebGPU::Metal::fromAPI(buffer).initialSize();
-}
-
-uint64_t wgpuBufferGetCurrentSize(WGPUBuffer buffer)
-{
-    return protect(WebGPU::Metal::fromAPI(buffer))->currentSize();
-}
-
 // mapAsync() validates only the Read and Write bits of the mode, as in the WebGPU specification, so the
 // conversion drops unknown bits instead of failing.
 static OptionSet<WebGPU::MapMode> mapModeFromAPIIgnoringUnknownBits(WGPUMapMode mode)
@@ -740,21 +724,9 @@ void wgpuBufferMapAsync(WGPUBuffer buffer, WGPUMapMode mode, size_t offset, size
     });
 }
 
-void wgpuBufferMapAsyncWithBlock(WGPUBuffer buffer, WGPUMapMode mode, size_t offset, size_t size, WGPUBufferMapBlockCallback callback)
-{
-    protect(WebGPU::Metal::fromAPI(buffer))->mapAsync(mapModeFromAPIIgnoringUnknownBits(mode), offset, WebGPU::Metal::mapSizeFromAPI(size), [callback = WebGPU::Metal::fromAPI(WTF::move(callback))](bool success) {
-        callback(mapAsyncStatusToAPI(success));
-    });
-}
-
 void wgpuBufferUnmap(WGPUBuffer buffer)
 {
     protect(WebGPU::Metal::fromAPI(buffer))->unmap();
-}
-
-void wgpuBufferGenerateAValidationError(WGPUBuffer buffer)
-{
-    protect(WebGPU::Metal::fromAPI(buffer))->generateAValidationError();
 }
 
 void wgpuBufferSetLabel(WGPUBuffer buffer, WGPUStringView label)
@@ -765,16 +737,4 @@ void wgpuBufferSetLabel(WGPUBuffer buffer, WGPUStringView label)
 WGPUBufferUsage wgpuBufferGetUsage(WGPUBuffer buffer)
 {
     return WebGPU::Metal::toAPI(WebGPU::Metal::fromAPI(buffer).usage());
-}
-
-void wgpuBufferCopy(WGPUBuffer buffer, std::span<const uint8_t> data, size_t offset)
-{
-#if ENABLE(WEBGPU_SWIFT)
-    protect(WebGPU::Metal::fromAPI(buffer))->copyFrom(data, offset);
-#else
-    UNUSED_PARAM(buffer);
-    UNUSED_PARAM(data);
-    UNUSED_PARAM(offset);
-
-#endif
 }

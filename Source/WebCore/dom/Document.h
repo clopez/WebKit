@@ -1025,8 +1025,7 @@ public:
     MouseEventWithHitTestResults prepareMouseEvent(const HitTestRequest&, const DoublePoint&, const PlatformMouseEvent&);
     // Returns whether focus was blocked. A true value does not necessarily mean the element was focused.
     // The element could have already been focused or may not be focusable (e.g. <input disabled>).
-    WEBCORE_EXPORT bool setFocusedElement(Element*, BroadcastFocusedElement = BroadcastFocusedElement::Yes);
-    WEBCORE_EXPORT bool setFocusedElement(Element*, const FocusOptions&, BroadcastFocusedElement = BroadcastFocusedElement::Yes);
+    WEBCORE_EXPORT bool setFocusedElement(Element*, const FocusOptions& = { });
     Element* focusedElement() const { return m_focusedElement.get(); }
     inline bool wasLastFocusByClick() const;
     void setLatestFocusTrigger(FocusTrigger trigger) { m_latestFocusTrigger = trigger; }
@@ -1357,8 +1356,13 @@ public:
     TransformSource* transformSource() const LIFETIME_BOUND { return m_transformSource.get(); }
 #endif
 
+    void logXMLExternalEntityDeprecationWarningIfNeeded();
+
     void incDOMTreeVersion() { m_domTreeVersion = ++s_globalTreeVersion; }
     uint64_t domTreeVersion() const { return m_domTreeVersion; }
+
+    void incRenderTreeVersion() { ++m_renderTreeVersion; }
+    uint64_t renderTreeVersion() const { return m_renderTreeVersion; }
 
     WEBCORE_EXPORT String originIdentifierForPasteboard() const;
 
@@ -2424,6 +2428,7 @@ private:
 
     uint64_t m_domTreeVersion;
     static uint64_t s_globalTreeVersion;
+    uint64_t m_renderTreeVersion { 0 };
 
     mutable String m_uniqueIdentifier;
 
@@ -2902,6 +2907,7 @@ private:
     bool m_hasPendingXSLTransforms : 1 { false };
     bool m_hasLoggedXSLTDeprecationWarning : 1 { false };
 #endif
+    bool m_hasLoggedXMLExternalEntityDeprecationWarning : 1 { false };
 #if ENABLE(MEDIA_STREAM)
     bool m_hasHadCaptureMediaStreamTrack : 1 { false };
 #endif
