@@ -73,6 +73,7 @@
 #import <WebCore/AXObjectCache.h>
 #import <WebCore/CPUMonitor.h>
 #import <WebCore/DisplayRefreshMonitorManager.h>
+#import <WebCore/DocumentView.h>
 #import <WebCore/FocusController.h>
 #import <WebCore/FontCache.h>
 #import <WebCore/FontCacheCoreText.h>
@@ -1218,10 +1219,10 @@ void WebProcess::scrollerStylePreferenceChanged(bool useOverlayScrollbars)
         RefPtr corePage = page->corePage();
         if (!corePage)
             continue;
-        for (Ref rootFrame : copyToVectorOf<Ref<LocalFrame>>(corePage->rootFrames())) {
-            if (RefPtr frameView = rootFrame->view())
+        corePage->forEachLocalFrame([](LocalFrame& frame) {
+            if (RefPtr frameView = frame.view())
                 frameView->scrollbarStyleDidChange();
-        }
+        });
     }
 
     NSScrollerStyle style = useOverlayScrollbars ? NSScrollerStyleOverlay : NSScrollerStyleLegacy;

@@ -640,6 +640,19 @@ void run(const TestConfig* config)
     RUN_UNARY(testInt52RoundTripUnary, int32Operands());
     RUN(testInt52RoundTripBinary());
     RUN(testTruncSShrAddUnalignedConstant());
+    RUN(testTruncSShrShlSExt32(-64));
+    RUN(testTruncSShrShlSExt32(-33));
+    RUN(testTruncSShrShlSExt32(-32));
+    RUN(testTruncSShrShlSExt32(-31));
+    RUN(testTruncSShrShlSExt32(-1));
+    RUN(testTruncSShrShlSExt32(0));
+    RUN(testTruncSShrShlSExt32(1));
+    RUN(testTruncSShrShlSExt32(12));
+    RUN(testTruncSShrShlSExt32(30));
+    RUN(testTruncSShrShlSExt32(31));
+    RUN(testTruncSShrShlSExt32(32));
+    RUN(testTruncSShrShlSExt32(63));
+    RUN(testTruncSShrShlSExt32(64));
 
     RUN_UNARY(testCheckAddRemoveCheckWithSExt8, int8Operands());
     RUN_UNARY(testCheckAddRemoveCheckWithSExt16, int16Operands());
@@ -1544,6 +1557,7 @@ void run(const TestConfig* config)
         RUN(testVectorShrZipToExtend());
         RUN(testVectorShrZipToExtendI32());
         RUN(testVectorShrZipToExtendI64());
+        RUN(testVectorShrZipWithMismatchedLane());
         RUN_UNARY(testVectorXorOrAllOnesConstantToVectorAndXor, v128Operands());
         RUN_UNARY(testVectorXorAndAllOnesConstantToVectorOrXor, v128Operands());
         RUN_BINARY(testVectorOrConstants, v128Operands(), v128Operands());
@@ -1553,6 +1567,7 @@ void run(const TestConfig* config)
         RUN(testVectorFmulByElementFloat());
         RUN(testVectorFmulByElementDouble());
         RUN(testVectorXorRotateRight64());
+        RUN(testVectorXorRotateRight64ShiftKindAndAmount());
         RUN(testVectorXor3());
         RUN(testVectorShlImmediate());
         RUN(testVectorShrImmediate());

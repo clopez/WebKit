@@ -1500,6 +1500,7 @@ void testSShrCompare64(int64_t);
 void testInt52RoundTripUnary(int32_t);
 void testInt52RoundTripBinary();
 void testTruncSShrAddUnalignedConstant();
+void testTruncSShrShlSExt32(int32_t);
 
 void testMulHigh32();
 void testMulHigh64();
@@ -1567,11 +1568,13 @@ void testFCCmpNegatedAndDouble(double, double, double, double);
 
 // SIMD XOR+rotate pattern matching
 void testVectorXorRotateRight64();
+void testVectorXorRotateRight64ShiftKindAndAmount();
 void testVectorXor3();
 void testVectorDotProductSplatOne();
 void testVectorShrZipToExtend();
 void testVectorShrZipToExtendI32();
 void testVectorShrZipToExtendI64();
+void testVectorShrZipWithMismatchedLane();
 
 // SIMD VectorUnzip/Zip/Transpose/Reverse B3 opcodes
 void testVectorUnzipEven();

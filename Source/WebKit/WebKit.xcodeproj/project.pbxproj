@@ -2022,6 +2022,7 @@
 		9ACC07B925C8218400DC6386 /* WKMediaKeySystemPermissionCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = 9ACC07B825C8218300DC6386 /* WKMediaKeySystemPermissionCallback.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9B02E0CB235EB953004044B2 /* _WKTextManipulationDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B02E0C9235EB62D004044B2 /* _WKTextManipulationDelegate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9B02E0CC235EB957004044B2 /* _WKTextManipulationItem.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B02E0CA235EB884004044B2 /* _WKTextManipulationItem.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		5C2BD66D00B1C6FDA7ACCF3F /* _WKTextManipulationItemInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = FA1A7C0913B4A27C31053F05 /* _WKTextManipulationItemInternal.h */; };
 		9B02E0D1235EB953004044B2 /* _WKTranslationDelegate.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B02E0D0235EB62D004044B2 /* _WKTranslationDelegate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9B02E0D7235FC94F004044B2 /* _WKTextManipulationToken.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B02E0CD235EB967004044B2 /* _WKTextManipulationToken.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		9B1229CD23FF25F2008CA751 /* RemoteAudioDestinationManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 9B1229CB23FF25F2008CA751 /* RemoteAudioDestinationManager.h */; };
@@ -6800,6 +6801,10 @@
 		5C6CE6D01F59BC460007C6CB /* PageClientImplCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = PageClientImplCocoa.mm; sourceTree = "<group>"; };
 		5C6CE6D31F59EA350007C6CB /* PageClientImplCocoa.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PageClientImplCocoa.h; sourceTree = "<group>"; };
 		5C6CED8E2900598000B5D522 /* EditorState.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = EditorState.serialization.in; sourceTree = "<group>"; };
+		B137D753F91C36FF00507094 /* AgentClusterKeyingReservation.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AgentClusterKeyingReservation.cpp; sourceTree = "<group>"; };
+		719831986E6E5BA296C91792 /* AgentClusterKeyingReservation.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AgentClusterKeyingReservation.h; sourceTree = "<group>"; };
+		DB727F57955C818A68DB0AFA /* AgentClusterRequest.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = AgentClusterRequest.cpp; sourceTree = "<group>"; };
+		5176354F146186C311E0E0A1 /* AgentClusterRequest.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AgentClusterRequest.h; sourceTree = "<group>"; };
 		5C6D69352AC3935D0099BDAF /* BrowsingContextGroup.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = BrowsingContextGroup.cpp; sourceTree = "<group>"; };
 		5C6D69362AC3935D0099BDAF /* BrowsingContextGroup.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = BrowsingContextGroup.h; sourceTree = "<group>"; };
 		5C6E7D86232361E700C2159D /* WKWebsiteDataStoreConfigurationRef.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = WKWebsiteDataStoreConfigurationRef.h; sourceTree = "<group>"; };
@@ -7791,6 +7796,7 @@
 		9B02E0CE235EBB14004044B2 /* _WKTextManipulationToken.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = _WKTextManipulationToken.mm; sourceTree = "<group>"; };
 		9B02E0D0235EB62D004044B2 /* _WKTranslationDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _WKTranslationDelegate.h; sourceTree = "<group>"; };
 		9B02E0D0235EBCCA004044B2 /* _WKTextManipulationItem.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = _WKTextManipulationItem.mm; sourceTree = "<group>"; };
+		FA1A7C0913B4A27C31053F05 /* _WKTextManipulationItemInternal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = _WKTextManipulationItemInternal.h; sourceTree = "<group>"; };
 		9B033E71252580F300501071 /* IPCTestingAPI.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IPCTestingAPI.h; sourceTree = "<group>"; };
 		9B033E72252580F300501071 /* IPCTestingAPI.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = IPCTestingAPI.cpp; sourceTree = "<group>"; };
 		9B1229CB23FF25F2008CA751 /* RemoteAudioDestinationManager.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = RemoteAudioDestinationManager.h; sourceTree = "<group>"; };
@@ -13155,6 +13161,7 @@
 				9B5499B12362A7EC00DF8BA5 /* _WKTextManipulationExclusionRule.mm */,
 				9B02E0CA235EB884004044B2 /* _WKTextManipulationItem.h */,
 				9B02E0D0235EBCCA004044B2 /* _WKTextManipulationItem.mm */,
+				FA1A7C0913B4A27C31053F05 /* _WKTextManipulationItemInternal.h */,
 				9B02E0CD235EB967004044B2 /* _WKTextManipulationToken.h */,
 				9B02E0CE235EBB14004044B2 /* _WKTextManipulationToken.mm */,
 				07F327F02CB085A4006D9918 /* _WKTextPreview.h */,
@@ -16333,6 +16340,10 @@
 				A19DD3BF1D07D16800AC823B /* _WKWebViewPrintFormatterInternal.h */,
 				EB8322142D72600C009515DA /* AboutSchemeHandler.cpp */,
 				EB8322132D72600C009515DA /* AboutSchemeHandler.h */,
+				B137D753F91C36FF00507094 /* AgentClusterKeyingReservation.cpp */,
+				719831986E6E5BA296C91792 /* AgentClusterKeyingReservation.h */,
+				DB727F57955C818A68DB0AFA /* AgentClusterRequest.cpp */,
+				5176354F146186C311E0E0A1 /* AgentClusterRequest.h */,
 				1AD4C1911B39F33200ABC28E /* ApplicationStateTracker.h */,
 				1AD4C1901B39F33200ABC28E /* ApplicationStateTracker.mm */,
 				E1513C64166EABB200149FCB /* AuxiliaryProcessProxy.cpp */,
@@ -18229,6 +18240,7 @@
 				9B02E0CB235EB953004044B2 /* _WKTextManipulationDelegate.h in Headers */,
 				9B5499B22362A7EC00DF8BA5 /* _WKTextManipulationExclusionRule.h in Headers */,
 				9B02E0CC235EB957004044B2 /* _WKTextManipulationItem.h in Headers */,
+				5C2BD66D00B1C6FDA7ACCF3F /* _WKTextManipulationItemInternal.h in Headers */,
 				9B02E0D7235FC94F004044B2 /* _WKTextManipulationToken.h in Headers */,
 				07F327F22CB09B74006D9918 /* _WKTextPreview.h in Headers */,
 				F42A04722CA1B3FC000D3118 /* _WKTextRun.h in Headers */,

@@ -74,6 +74,7 @@
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebCore/LocalFrameInlines.h>
+#import <WebCore/LocalFrameView.h>
 #import <WebCore/LocalizedStrings.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PageIdentifier.h>
@@ -102,6 +103,8 @@
 #import <wtf/cocoa/VectorCocoa.h>
 #import <wtf/text/MakeString.h>
 #import <wtf/text/TextStream.h>
+
+#import <pal/cocoa/PDFKitSoftLink.h>
 
 namespace WebKit {
 using namespace WebCore;
@@ -243,7 +246,7 @@ void PDFPluginBase::destroy()
 
 void PDFPluginBase::createPDFDocument()
 {
-    m_pdfDocument = adoptNS([[PDFDocument alloc] initWithData:RetainPtr { originalData() }.get()]);
+    m_pdfDocument = adoptNS([PAL::allocPDFDocumentInstance() initWithData:RetainPtr { originalData() }.get()]);
 }
 
 bool PDFPluginBase::isFullFramePlugin() const
@@ -721,10 +724,10 @@ bool PDFPluginBase::geometryDidChange(const IntSize& pluginSize, const AffineTra
     return true;
 }
 
-RefPtr<FrameView> PDFPluginBase::rootView() const
+RefPtr<LocalFrameView> PDFPluginBase::rootView() const
 {
     RefPtr view = m_view.get();
-    return view ? view->root() : nullptr;
+    return view ? dynamicDowncast<LocalFrameView>(view->root()) : nullptr;
 }
 
 FloatPoint PDFPluginBase::convertFromRootViewToMainFrameView(FloatPoint point) const

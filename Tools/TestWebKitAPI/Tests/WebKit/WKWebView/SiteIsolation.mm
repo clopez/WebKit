@@ -6396,6 +6396,30 @@ TEST(SiteIsolation, FrameUnderTopLevelDataURLIgnoresOriginAgentCluster)
     EXPECT_WK_STREQ([webView _test_waitForAlert], "false false");
 }
 
+TEST(SiteIsolation, ReplacedLoadHTMLStringDoesNotRecordHistoricalAgentClusterKeying)
+{
+    HTTPServer server({
+        { "/origin-keyed"_s, { { { "Content-Type"_s, "text/html"_s }, { "Origin-Agent-Cluster"_s, "?1"_s } }, "origin-keyed"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+    RetainPtr<TestWKWebView> view = webView;
+
+    // The HTML string is assigned to a site-keyed agent cluster, but a load of the same origin replaces it before its document exists.
+    __block bool replaced = false;
+    navigationDelegate.get().decidePolicyForNavigationAction = ^(WKNavigationAction *, void (^decisionHandler)(WKNavigationActionPolicy)) {
+        decisionHandler(WKNavigationActionPolicyAllow);
+        if (std::exchange(replaced, true))
+            return;
+        [view loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/origin-keyed"]]];
+    };
+    [webView loadHTMLString:@"site-keyed" baseURL:[NSURL URLWithString:@"https://example.com/"]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    EXPECT_WK_STREQ([webView objectByEvaluatingJavaScript:@"document.body.textContent"], "origin-keyed");
+    EXPECT_TRUE([[webView objectByEvaluatingJavaScript:@"originAgentCluster"] boolValue]);
+}
+
 TEST(SiteIsolation, AlternateHTMLStringIsInTheAgentClusterOfSameOriginFrames)
 {
     HTTPServer server({
@@ -9302,6 +9326,53 @@ TEST(SiteIsolation, ProcessTerminationReason)
     while (server.totalRequests() < 5u)
         Util::spinRunLoop();
     EXPECT_EQ(server.totalRequests(), 5u);
+}
+
+TEST(SiteIsolation, HistoryTraversalAfterProvisionalProcessTerminatesBeforeCommit)
+{
+    size_t requestsForA { 0 };
+    HTTPServer server(HTTPServer::UseCoroutines::Yes, [&](Connection connection) -> ConnectionTask {
+        while (1) {
+            auto request = co_await connection.awaitableReceiveHTTPRequest();
+            auto path = HTTPServer::parsePath(request);
+            if (path == "/a"_s) {
+                // Only the first load of a gets an answer.
+                if (++requestsForA == 1)
+                    co_await connection.awaitableSend(HTTPResponse({ { "Cache-Control"_s, "no-store"_s } }, "a"_s).serialize());
+                continue;
+            }
+            if (path == "/b"_s) {
+                co_await connection.awaitableSend(HTTPResponse("b"_s).serialize());
+                continue;
+            }
+            EXPECT_FALSE(true);
+        }
+    }, HTTPServer::Protocol::HttpsProxy);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server);
+
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/a"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://webkit.org/b"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView objectByEvaluatingJavaScript:@"history.pushState(null, '', '#1')"];
+
+    // The load of a continues in a provisional process, which is killed before the server answers it.
+    [webView evaluateJavaScript:@"history.go(-2)" completionHandler:nil];
+    while (requestsForA < 2)
+        Util::spinRunLoop();
+    pid_t provisionalProcessIdentifier = [webView _provisionalWebProcessIdentifier];
+    ASSERT_TRUE(provisionalProcessIdentifier);
+    kill(provisionalProcessIdentifier, 9);
+    while ([webView _provisionalWebProcessIdentifier])
+        Util::spinRunLoop();
+
+    // Only check that the traversal applies. Its promises do not settle, because the back/forward list's current item
+    // stayed on a after its load was dropped, so the traversal is not seen as same-origin and fires no navigate event.
+    NSString *traversal = @"navigation.traverseTo(navigation.entries()[0].key);"
+        "for (let i = 0; i < 200 && location.hash; ++i)"
+        "    await new Promise(resolve => setTimeout(resolve, 10));"
+        "return location.href;";
+    EXPECT_WK_STREQ([webView objectByCallingAsyncFunction:traversal withArguments:nil], "https://webkit.org/b");
 }
 
 TEST(SiteIsolation, RemoteProcessTerminationAfterDisablingSiteIsolation)
@@ -20018,6 +20089,42 @@ TEST(SiteIsolation, DrawPagesToPDFIncludesCrossSiteFrameOnEveryPageItSpans)
     EXPECT_TRUE(pdfPageHasColorAtPoint(data.get(), 2, CGPointMake(100, 100), blue));
     EXPECT_TRUE(pdfPageHasColorAtPoint(data.get(), 2, CGPointMake(100, 500), white));
     EXPECT_TRUE(pdfPageHasColorAtPoint(data.get(), 2, CGPointMake(500, 100), white));
+}
+
+TEST(SiteIsolation, DrawPagesToPDFDoesNotCarryTransformIntoNextPage)
+{
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin:0;print-color-adjust:exact'>"
+            "<iframe style='display:block;border:0;width:400px;height:200px' src='https://b.com/subframe'></iframe>"
+            "<div style='break-before:page;width:10px;height:10px;transform:translateX(1px)'></div>"
+            "<div style='position:relative;width:200px;height:200px;background:rgb(0, 128, 0)'></div>"
+            "</body>"_s } },
+        { "/subframe"_s, { "<body style='margin:0'>Subframe</body>"_s } },
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    RetainPtr configuration = server.httpsProxyConfiguration();
+    setFeatureEnabled(configuration.get(), @"RemoteSnapshottingEnabled", true);
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(configuration, CGRectMake(0, 0, 800, 600));
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://a.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigationAndLoadInSubframe];
+
+    RetainPtr<WKFrameInfo> mainFrame = [webView mainFrame].info;
+    RetainPtr<WKFrameInfo> subframe = [webView mainFrame].childFrames.firstObject.info;
+    EXPECT_NE([mainFrame _processIdentifier], [subframe _processIdentifier]);
+
+    __block bool computedPages = false;
+    [webView _computePagesForPrinting:[mainFrame _handle] completionHandler:^{
+        computedPages = true;
+    }];
+    Util::run(&computedPages);
+
+    RetainPtr data = [webView _drawPagesToPDFSynchronouslyForTesting:[mainFrame _handle] pageCount:2];
+    ASSERT_NOT_NULL(data.get());
+    RetainPtr document = adoptNS([[TestPDFDocument alloc] initFromData:data.get()]);
+    EXPECT_EQ([document pageCount], 2);
+
+    constexpr std::array<uint8_t, 3> green { 0, 128, 0 };
+    EXPECT_TRUE(pdfPageHasColorAtPoint(data.get(), 2, CGPointMake(100, 100), green));
 }
 
 #endif // HAVE(PDFKIT)

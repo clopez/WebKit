@@ -528,7 +528,7 @@ bool NetworkResourceLoader::shouldFetchWithCompressionDictionary(const ResourceR
         return false;
 
     // 5. If request's client is not a secure context, then return the result of running fallback.
-    return shouldTreatAsPotentiallyTrustworthy(request.url());
+    return request.url().protocolIs("https"_s);
 }
 
 void NetworkResourceLoader::continueStartNetworkLoad(ResourceRequest&& request, NetworkLoadParameters&& parameters)
@@ -1172,16 +1172,14 @@ void NetworkResourceLoader::processUseAsDictionaryHeader(const ResourceResponse&
         return;
 
     auto& url = m_networkLoad ? m_networkLoad->currentRequest().url() : originalRequest().url();
-    if (!WebCore::shouldTreatAsPotentiallyTrustworthy(url))
+    if (!url.protocolIs("https"_s))
         return;
 
-    auto patternResult = URLPattern::create(info.match, String { url.string() }, { });
+    auto patternResult = URLPattern::createWithoutRegExpSupport(info.match, String { url.string() }, { });
     if (patternResult.hasException())
         return;
-    Ref pattern = patternResult.releaseReturnValue();
-    if (pattern->hasRegExpGroups())
-        return;
 
+    Ref pattern = patternResult.releaseReturnValue();
     auto port = url.port();
     if (pattern->protocol() != url.protocol() || pattern->hostname() != url.host() || pattern->port() != (port ? String::number(*port) : emptyString()))
         return;
