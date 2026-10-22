@@ -6795,6 +6795,13 @@ bool ByteCodeParser::handleConstantFunction(
         }
     }
 
+    auto hasNoOpIterable = [&] {
+        if (argumentCountIncludingThis <= 1)
+            return true;
+        Node* iterable = get(virtualRegisterForArgumentIncludingThis(1, registerOffset));
+        return iterable->hasConstant() && iterable->asJSValue().isUndefinedOrNull();
+    };
+
     if (function->classInfo() == MapConstructor::info() && kind == CodeSpecializationKind::CodeForConstruct) {
         Node* newTargetNode = get(virtualRegisterForArgumentIncludingThis(0, registerOffset));
         // We cannot handle the case where new.target != callee (i.e. a construct from a super call) because we
@@ -6804,7 +6811,7 @@ bool ByteCodeParser::handleConstantFunction(
             return false;
 
         auto* structure = function->realm()->mapStructureConcurrently();
-        if (argumentCountIncludingThis <= 1 && structure) {
+        if (structure && hasNoOpIterable()) {
             insertChecks();
             Node* resultNode = addToGraph(NewMap, OpInfo(m_graph.registerStructure(structure)));
             set(result, resultNode);
@@ -6821,7 +6828,7 @@ bool ByteCodeParser::handleConstantFunction(
             return false;
 
         auto* structure = function->realm()->setStructureConcurrently();
-        if (argumentCountIncludingThis <= 1 && structure) {
+        if (structure && hasNoOpIterable()) {
             insertChecks();
             Node* resultNode = addToGraph(NewSet, OpInfo(m_graph.registerStructure(structure)));
             set(result, resultNode);
@@ -6838,7 +6845,7 @@ bool ByteCodeParser::handleConstantFunction(
             return false;
 
         auto* structure = function->realm()->weakMapStructureConcurrently();
-        if (argumentCountIncludingThis <= 1 && structure) {
+        if (structure && hasNoOpIterable()) {
             insertChecks();
             Node* resultNode = addToGraph(NewWeakMap, OpInfo(m_graph.registerStructure(structure)));
             set(result, resultNode);
@@ -6855,7 +6862,7 @@ bool ByteCodeParser::handleConstantFunction(
             return false;
 
         auto* structure = function->realm()->weakSetStructureConcurrently();
-        if (argumentCountIncludingThis <= 1 && structure) {
+        if (structure && hasNoOpIterable()) {
             insertChecks();
             Node* resultNode = addToGraph(NewWeakSet, OpInfo(m_graph.registerStructure(structure)));
             set(result, resultNode);
@@ -11189,7 +11196,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
             auto bytecode = currentInstruction->as<OpHasPrivateName>();
             Node* base = get(bytecode.m_base);
             Node* property = get(bytecode.m_property);
-            bool compiledAsInById = false;
+            bool compiledAsMatchStructure = false;
 
             if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
@@ -11204,12 +11211,11 @@ void ByteCodeParser::parseBlock(unsigned limit)
                     ASSERT(identifier.isSymbolCell());
                     FrozenValue* frozen = m_graph.freezeStrong(identifier.cell());
                     addToGraph(CheckIsConstant, OpInfo(frozen), property);
-                    handleInById(bytecode.m_dst, base, identifier, status, nextOpcodeIndex());
-                    compiledAsInById = true;
+                    compiledAsMatchStructure = handleInByAsMatchStructure(bytecode.m_dst, base, status);
                 }
             }
 
-            if (!compiledAsInById)
+            if (!compiledAsMatchStructure)
                 set(bytecode.m_dst, addToGraph(HasPrivateName, base, property));
             NEXT_OPCODE(op_has_private_name);
         }

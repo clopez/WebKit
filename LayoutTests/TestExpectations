@@ -576,9 +576,6 @@ imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiobuffersourcenode
 # This test crashes.
 webkit.org/b/321393 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/audiocontextoptions.html [ Skip ]
 
-# This test is timing out due to lack of support for SharedArrayBuffer.
-imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioworklet-interface/audioworklet-postmessage-sharedarraybuffer.https.html [ Skip ]
-
 # Webaudio tests that are flaky.
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audioparam-interface/k-rate-stereo-panner.html [ Pass Failure ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-mediaelementaudiosourcenode-interface/cors-check.https.html [ Pass Failure ]
@@ -668,11 +665,12 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/align_start.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/align_start_wrapped.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/audio_has_no_subtitles.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/bidi_ruby.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u06E9_no_strong_dir.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/vertical_lr.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/vertical_rl.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/cue_too_long.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/dom_override_remove_cue_while_paused.html [ Pass ]
-imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_cascade_priority.html [ Pass ]
-imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_cascade_priority_layer.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_imports_blocked.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_invalid_format.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/embedded_style_media_queries.html [ Pass ]
@@ -724,6 +722,8 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u0041_first.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/color_rgba.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/cue_selector_single_colon.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/font_properties.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/font_shorthand.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue/white-space_pre-line_wrapped.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/background_box.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/bold_object/bold_color.html [ Pass ]
@@ -751,6 +751,8 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/class_object/class_with_class_object_specific_selector.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/color_rgba.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/cue_func_selector_single_colon.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/font_properties.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/font_shorthand.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/italic_object/italic_color.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/italic_object/italic_font_properties.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/selectors/cue_function/italic_object/italic_font_shorthand.html [ Pass ]
@@ -1113,7 +1115,6 @@ imported/w3c/web-platform-tests/html/rendering/replaced-elements/embedded-conten
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/adopt-from-image-document.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-img-element/image-loading-lazy-slow-aspect-ratio.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-input-element/range-tick-marks-02.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/html/semantics/forms/the-option-element/dynamic-content-change-rendering.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/phrasing-content-0/font-element-text-decoration-color/001-x.xhtml [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/phrasing-content-0/font-element-text-decoration-color/001-a.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/rendering/non-replaced-elements/phrasing-content-0/font-element-text-decoration-color/001-s.html [ ImageOnlyFailure ]
@@ -3811,8 +3812,9 @@ imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-004
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-020.html [ ImageOnlyFailure ]
 webkit.org/b/197430 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-023.html [ ImageOnlyFailure ]
 webkit.org/b/197430 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-break-all-024.html [ ImageOnlyFailure ]
-imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-003.html [ ImageOnlyFailure ]
 webkit.org/b/195275 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-006.html [ ImageOnlyFailure ]
+webkit.org/b/327360 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-001.html [ ImageOnlyFailure ]
+webkit.org/b/327360 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-keep-all-011.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-normal-my-000.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/word-break/word-break-normal-tdd-000.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-text/word-space-transform/word-space-transform-001.html [ ImageOnlyFailure ]
@@ -5001,6 +5003,10 @@ imported/w3c/web-platform-tests/css/css-fonts/font-weight-normal-001.xht [ Image
 # WebGL 2 Conformance Suite rules for regular bots post ANGLE backend adoption.
 # DEQP is skipped on the main fleet of bots because of the long run time.
 webgl/2.0.y/deqp [ Skip ]
+
+# These tests cause a real GPU failure, so they are run only manually, with run-webkit-tests --force.
+webgl/context-lost-gpu-reset-long-fragment-shader.html [ Skip ]
+webgl/context-lost-gpu-reset-long-vertex-shader.html [ Skip ]
 
 # Flaky failures
 
@@ -8271,8 +8277,6 @@ imported/w3c/web-platform-tests/svg/linking/reftests/media-fragment-spatial-perc
 
 imported/w3c/web-platform-tests/scroll-animations/css/scroll-timeline-on-pseudo-002.html [ ImageOnlyFailure ]
 
-imported/w3c/web-platform-tests/css/css-box/margin-trim/block-container-block-in-inline-001.html [ Crash ]
-imported/w3c/web-platform-tests/css/css-box/margin-trim/block-container-block-in-inline-006.html [ Crash ]
 imported/w3c/web-platform-tests/css/css-box/margin-trim/block-container-block-end-self-collapsing-and-border.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-box/margin-trim/multicol-spanner-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-box/margin-trim/multicol-spanner-003.html [ ImageOnlyFailure ]

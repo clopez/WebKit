@@ -597,6 +597,7 @@ public:
         LAYER_TREE_INCLUDES_ROOT_LAYERS = 4096,
     };
     ExceptionOr<String> layerTreeAsText(Document&, unsigned short flags) const;
+    String viewTransitionOldCaptureState(Document&, const AtomString& name) const;
     ExceptionOr<uint64_t> layerIDForElement(Element&);
     ExceptionOr<String> repaintRectsAsText() const;
 
@@ -1625,6 +1626,10 @@ public:
 
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
     unsigned telephoneNumberRangesChangedCount() const;
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+    void setHasRelevantSelectionServicesForTesting(bool);
 #endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)

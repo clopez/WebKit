@@ -2247,6 +2247,8 @@ public:
 
     bool LEGACY_NODELETE isPlayingAudio() const;
     bool LEGACY_NODELETE hasMediaStreaming() const;
+    bool LEGACY_NODELETE hasProtectedMedia() const;
+
     void isPlayingMediaDidChange(WebCore::MediaProducerMediaStateFlags);
     void updateReportedMediaCaptureState();
     void setIsPromptingForGetDisplayMedia(WebCore::MediaProducerMediaStateFlags);
@@ -3214,6 +3216,7 @@ private:
     template<typename M> void sendToEveryWebContentProcess();
 
     void sendCORSDisablingPatternsToNetworkProcessIfNecessary();
+    void requestTargetedElementForText(WebCore::TargetedElementRequest&&, CompletionHandler<void(const Vector<Ref<API::TargetedElementInfo>>&)>&&);
     std::optional<WebCore::RegistrableDomain> unpartitionedStorageSiteForNavigation(const WebFrameProxy&, const URL&) const;
 
     void getWebCryptoMasterKey(CompletionHandler<void(std::optional<Vector<uint8_t>>&&)>&&);

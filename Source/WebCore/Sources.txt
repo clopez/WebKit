@@ -1981,6 +1981,7 @@ inspector/InspectorCanvasCallTracer.cpp
 inspector/InspectorFrontendAPIDispatcher.cpp
 inspector/InspectorFrontendClientLocal.cpp
 inspector/InspectorFrontendHost.cpp
+inspector/InspectorFontData.cpp @header:RenderStyleGetters
 inspector/InspectorHistory.cpp
 inspector/InspectorIdentifierRegistry.cpp
 inspector/InspectorInstrumentation.cpp @header:RenderStyleGetters
@@ -2726,10 +2727,10 @@ platform/graphics/ImageBufferContextSwitcher.cpp
 platform/graphics/ImageBufferDisplayListBackend.cpp
 platform/graphics/ImageDecoder.cpp
 platform/graphics/ImageDrawingExtras.cpp
+platform/graphics/ImageDrawingOptions.cpp
 platform/graphics/ImageFrame.cpp
 platform/graphics/ImageFrameAnimator.cpp
 platform/graphics/ImageFrameWorkQueue.cpp
-platform/graphics/ImagePaintingOptions.cpp
 platform/graphics/ImageResolution.cpp
 platform/graphics/ImageSizingContext.cpp
 platform/graphics/ImageSource.cpp
@@ -3097,7 +3098,6 @@ rendering/RenderMultiColumnSet.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderMultiColumnSpannerPlaceholder.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderObject.cpp @header:RenderStyleGetters @cost:9
 rendering/RenderProgress.cpp @header:RenderStyleGetters @cost:5
-rendering/RenderQuote.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderReplaced.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderReplica.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderScrollbar.cpp @header:RenderStyleGetters @cost:7

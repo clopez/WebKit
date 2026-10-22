@@ -2698,6 +2698,7 @@ void WebPage::loadRequest(LoadParameters&& loadParameters)
     frameLoadRequest.setLockHistory(loadParameters.lockHistory);
     frameLoadRequest.setLockBackForwardList(loadParameters.lockBackForwardList);
     frameLoadRequest.setNavigationHistoryBehavior(loadParameters.navigationHistoryBehavior);
+    frameLoadRequest.setReplaceIfNotCompletelyLoaded(loadParameters.replaceIfNotCompletelyLoaded);
     frameLoadRequest.setClientRedirectSourceForHistory(WTF::move(loadParameters.clientRedirectSourceForHistory));
     frameLoadRequest.setIsHandledByAboutSchemeHandler(loadParameters.isHandledByAboutSchemeHandler);
     if (loadParameters.isRequestFromClientOrUserInput)
@@ -5860,6 +5861,9 @@ void WebPage::finalizeRenderingUpdate(OptionSet<FinalizeRenderingUpdateFlags> fl
 #endif
 
     protect(corePage())->finalizeRenderingUpdate(flags);
+#if !PLATFORM(COCOA)
+    serviceCanvasPaintEvents();
+#endif
 #if ENABLE(GPU_PROCESS)
     if (m_remoteRenderingBackendProxy)
         m_remoteRenderingBackendProxy->finalizeRenderingUpdate();
@@ -5883,6 +5887,11 @@ void WebPage::didCompleteRenderingUpdateDisplay()
     if (m_isClosed)
         return;
     protect(corePage())->didCompleteRenderingUpdateDisplay();
+}
+
+void WebPage::serviceCanvasPaintEvents()
+{
+    protect(corePage())->serviceCanvasPaintEvents();
 }
 
 void WebPage::didCompleteRenderingFrame()
@@ -11133,6 +11142,15 @@ void WebPage::requestTargetedElement(TargetedElementRequest&& request, Completio
         return completion({ });
 
     completion(protect(page->elementTargetingController())->findTargets(WTF::move(request)));
+}
+
+void WebPage::requestTargetedElementsForText(TargetedElementRequest&& request, CompletionHandler<void(WebCore::TargetedTextSearchResult&&)>&& completion)
+{
+    RefPtr page = corePage();
+    if (!page || !std::holds_alternative<String>(request.data))
+        return completion({ });
+
+    completion(protect(page->elementTargetingController())->searchTextInLocalFrames(WTF::move(request)));
 }
 
 void WebPage::requestAllTargetableElements(float hitTestInterval, CompletionHandler<void(Vector<Vector<WebCore::TargetedElementInfo>>&&)>&& completion)

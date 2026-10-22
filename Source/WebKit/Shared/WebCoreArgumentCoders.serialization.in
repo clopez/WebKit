@@ -507,6 +507,17 @@ header: <WebCore/ElementTargetingTypes.h>
     bool hasAudibleMedia
 };
 
+header: <WebCore/ElementTargetingTypes.h>
+[CustomHeader] struct WebCore::TargetedTextMatch {
+    Vector<WebCore::TargetedElementInfo> targets
+};
+
+header: <WebCore/ElementTargetingTypes.h>
+[CustomHeader] struct WebCore::TargetedTextSearchResult {
+    HashMap<WebCore::FrameIdentifier, Vector<WebCore::TargetedTextSearchItem>> itemsByFrame
+    HashMap<WebCore::FrameIdentifier, Vector<WebCore::TargetedElementInfo>> targetsBySubframe
+};
+
 header: <WebCore/RenderStyleConstants.h>
 [CustomHeader] enum class WebCore::PositionType : uint8_t {
     Static,
@@ -3529,7 +3540,7 @@ header: <WebCore/ImageTypes.h>
 };
 #endif
 
-[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ImagePaintingOptions {
+[AdditionalEncoder=StreamConnectionEncoder] struct WebCore::ImageDrawingOptions {
     WebCore::CompositeOperator compositeOperator();
     WebCore::BlendMode blendMode();
     WebCore::DecodingMode decodingMode();
@@ -7387,6 +7398,7 @@ header: <WebCore/AXObjectTypes.h>
     bool isAXHidden;
     bool isInert;
     bool isRenderHidden;
+    String hostingFrameName;
 };
 
 header: <WebCore/AXObjectTypes.h>

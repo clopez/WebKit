@@ -278,6 +278,7 @@
 #include "UserGestureIndicator.h"
 #include "UserMediaController.h"
 #include "VideoConfiguration.h"
+#include "ViewTransition.h"
 #include "ViewportArguments.h"
 #include "ViewportConfiguration.h"
 #include "VoidCallback.h"
@@ -650,6 +651,9 @@ void Internals::resetToConsistentState(Page& page)
     page.setConsoleMessageListenerForTesting(nullptr);
     page.setQuirksSubframeURLForTesting({ });
     page.setQuirksTopDocumentHostForTesting({ });
+#if ENABLE(SERVICE_CONTROLS)
+    page.servicesOverlayController().setHasRelevantSelectionServicesForTesting(std::nullopt);
+#endif
 
     RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
@@ -3801,6 +3805,21 @@ ExceptionOr<String> Internals::layerTreeAsText(Document& document, unsigned shor
     if (!document.frame() || !document.frame()->contentRenderer())
         return Exception { ExceptionCode::InvalidAccessError };
     return protect(protect(document.frame()->contentRenderer())->compositor())->layerTreeAsText(toLayerTreeAsTextOptions(flags));
+}
+
+String Internals::viewTransitionOldCaptureState(Document& document, const AtomString& name) const
+{
+    RefPtr viewTransition = document.activeViewTransition();
+    if (!viewTransition)
+        return "none"_s;
+    auto* capturedElement = viewTransition->namedElements().find(name);
+    if (!capturedElement)
+        return "none"_s;
+    if (capturedElement->oldDisplayOnlyImage)
+        return "remote"_s;
+    if (capturedElement->oldImage && *capturedElement->oldImage)
+        return "local"_s;
+    return "none"_s;
 }
 
 ExceptionOr<uint64_t> Internals::layerIDForElement(Element& element)
@@ -8523,6 +8542,16 @@ unsigned Internals::telephoneNumberRangesChangedCount() const
     }
 #endif
     return 0;
+}
+#endif
+
+#if ENABLE(SERVICE_CONTROLS)
+void Internals::setHasRelevantSelectionServicesForTesting(bool hasServices)
+{
+    if (RefPtr document = contextDocument()) {
+        if (RefPtr page = document->page())
+            page->servicesOverlayController().setHasRelevantSelectionServicesForTesting(hasServices);
+    }
 }
 #endif
 
