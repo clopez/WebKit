@@ -5108,7 +5108,16 @@ class YarrGenerator final : public YarrJITInfo {
             size_t stackSizeForCalleeSaves = WTF::roundUpToMultipleOf<stackAlignmentBytes()>(m_calleeSaves.registerCount() * sizeof(UCPURegister));
 #if CPU(X86_64) || CPU(ARM64)
             m_jit.subPtr(GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), MacroAssembler::stackPointerRegister);
+#elif CPU(ARM_THUMB2)
+            // Thumb-2 sub can only write SP when the source is SP too, so use LR as a
+            // temporary. Can't use regT0 like below since it hasn't been
+            // saved by emitSaveCalleeSavesFor yet and can't save the callee
+            // saves until we've adjusted SP (no red zone).
+            ASSERT(!m_calleeSaves.find(MacroAssembler::linkRegister));
+            m_jit.subPtr(GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), MacroAssembler::linkRegister);
+            m_jit.move(MacroAssembler::linkRegister, MacroAssembler::stackPointerRegister);
 #else
+            ASSERT(!m_calleeSaves.find(MacroAssembler::regT0));
             m_jit.subPtr(GPRInfo::callFrameRegister, CCallHelpers::TrustedImm32(stackSizeForCalleeSaves), m_regs.regT0);
             m_jit.move(m_regs.regT0, MacroAssembler::stackPointerRegister);
 #endif
