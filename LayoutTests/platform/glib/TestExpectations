@@ -1077,6 +1077,7 @@ accessibility/base-select-list-box-content.html [ Skip ]
 accessibility/base-select-search-predicate.html [ Skip ]
 # pathDescription is not implemented for this platform.
 accessibility/base-select-option-border-radius-path.html [ Skip ]
+accessibility/element-path-in-scaled-container.html [ Skip ]
 accessibility/element-path-with-css-transforms.html [ Skip ]
 
 # Failing because the mtable cannot be found as an accessible element.
@@ -3066,6 +3067,8 @@ webkit.org/b/212818 http/tests/websocket/tests/hybi/send-object-tostring-check.h
 
 webkit.org/b/324243 http/tests/websocket/tests/hybi/websocket-samesite-none-sent-cross-site.html [ Failure ]
 
+webkit.org/b/328549 http/tests/storageAccess/websocket-blocked-sending-cookie-as-third-party-after-ws-redirect-from-worker.https.html [ Failure ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of WebSocket-related bugs
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -4374,8 +4377,6 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/align_left_right_with_and_without_snap_to_lines.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/align_start.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/basic.html [ Pass ]
-imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u002E_LF_u05D0.html [ Pass ]
-imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u002E_u2029_u05D0.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u0041_first.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u06E9_no_strong_dir.html [ Skip ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/disable_controls_reposition.html [ Pass ]
@@ -4997,8 +4998,6 @@ webkit.org/b/314776 media/media-source/media-source-append-pt-collision-tail.htm
 webkit.org/b/314809 fast/repaint/table-row-move-after-content-change.html [ Pass ImageOnlyFailure ]
 
 
-webkit.org/b/315756 fast/css/container-query-orientation-modal-dialog-crash.html [ Crash Pass ]
-
 webkit.org/b/316158 fullscreen/full-screen-enter-while-exiting-mid-completion-handler.html [ Crash Pass ]
 
 webkit.org/b/316427 webkit.org/b/315994 animations/restart-after-scroll.html [ Pass Failure Crash ]
@@ -5055,17 +5054,8 @@ webkit.org/b/321706 imported/w3c/web-platform-tests/web-locks/acquire.https.any.
 webkit.org/b/319045 [ Debug ] accessibility/button-in-deep-dom.html [ Timeout ]
 webkit.org/b/319049 [ Debug ] http/tests/cache/cancel-multiple-post-xhrs.html [ Pass Failure ]
 webkit.org/b/319050 [ Debug ] imported/w3c/web-platform-tests/fetch/local-network-access/iframe.tentative.https.window.html [ Failure ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/iframe.tentative.https.window.html?include=from-public [ Failure ]
-webkit.org/b/295047 http/wpt/fetch/local-network-access/address-space-overrides-apply-to-both-host-forms.html [ Skip ]
-webkit.org/b/295047 http/wpt/fetch/local-network-access/a-forged-client-is-judged-by-what-the-network-process-served.html [ Skip ]
-webkit.org/b/295047 http/wpt/fetch/local-network-access/navigating-a-frame-is-checked-against-the-initiator.html [ Skip ]
-webkit.org/b/295047 http/wpt/fetch/local-network-access/prompt-records-the-answer.html [ Skip ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/dedicated-worker.tentative.https.html [ Failure ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/fetch.tentative.https.html [ Failure ]
 webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/service-worker-background-fetch.tentative.https.html [ Failure ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/service-worker.tentative.https.html [ Failure ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/shared-worker.tentative.https.html [ Failure ]
-webkit.org/b/295047 imported/w3c/web-platform-tests/fetch/local-network-access/webtransport.tentative.https.html [ Failure ]
+webkit.org/b/319008 imported/w3c/web-platform-tests/fetch/local-network-access/webtransport.tentative.https.html [ Failure ]
 webkit.org/b/319051 [ Debug ] imported/w3c/web-platform-tests/uievents/mouse/mouse_boundary_events_after_removing_last_over_element.html [ Failure Pass ]
 webkit.org/b/319053 [ Debug ] media/video-playback-restriction-play-before-load.html [ Failure Pass ]
 webkit.org/b/319310 [ Debug ] fast/repaint/iframe-avoid-redundant-repaint.html [ Failure Pass ]
@@ -5252,12 +5242,23 @@ media/modern-media-controls/spatial-video-support [ Skip ]
 # Gardening 2026-10-20
 webkit.org/b/309894 [ Release ] http/tests/inspector/target/pause-on-inline-debugger-statement.html [ Pass Timeout Crash ]
 webkit.org/b/320214 [ Debug ] inspector/debugger/async-stack-trace-truncate.html [ Failure Timeout ]
-webkit.org/b/328192 [ Debug ] fast/canvas/draw-element-image/2d-drawElementImage-rotated-text.html [ ImageOnlyFailure Pass ]
+webkit.org/b/328192 fast/canvas/draw-element-image/2d-drawElementImage-rotated-text.html [ ImageOnlyFailure Pass ]
 webkit.org/b/328194 inspector/timeline/timeline-event-EventDispatch.html [ Failure Pass Timeout ]
 webkit.org/b/328194 inspector/timeline/timeline-event-TimerRemove.html [ Failure Pass Timeout ]
 
 # Gardening 2026-10-22
 webkit.org/b/328432 [ Debug ] imported/w3c/web-platform-tests/mixed-content/tentative/autoupgrades/mixed-content-cors.https.sub.html [ Failure Pass ]
+
+webkit.org/b/328003 imported/w3c/web-platform-tests/svg/painting/marker-with-mask-cycle-crash.html [ Crash Timeout ]
+webkit.org/b/328474 media/track/track-paint-on-captions.html [ Pass Timeout ]
+webkit.org/b/328474 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/audio_has_no_subtitles.html [ ImageOnlyFailure Pass ]
+webkit.org/b/328474 media/track/in-band/track-in-band-srt-mkv-cues-added-once.html [ Failure Pass ]
+webkit.org/b/328474 http/tests/media/media-seeking-no-ranges-server.html [ Failure Pass ]
+webkit.org/b/328474 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/evil/non-standard-pseudo-elements.html [ Pass Timeout ]
+webkit.org/b/328311 [ Debug ] media/media-source/media-source-dropped-iframe.html [ Crash Pass ]
+
+# Gardening 2026-10-23
+webkit.org/b/312871 media/media-source/media-source-seek-to-zero-then-play.html [ Pass Timeout ]
 
 # End: Common failures between GTK and WPE.
 

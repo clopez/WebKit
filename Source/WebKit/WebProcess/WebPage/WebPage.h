@@ -512,6 +512,7 @@ class WebUserContentController;
 class WebWheelEvent;
 
 enum class ContentAsStringIncludesChildFrames : bool;
+enum class ContentInversion : uint8_t;
 enum class DragControllerAction : uint8_t;
 #if ENABLE(TILED_CA_DRAWING_AREA)
 enum class DrawingAreaType : bool;
@@ -1070,6 +1071,7 @@ public:
 #endif
 
     void setUseColorAppearance(bool useDarkAppearance, bool useElevatedUserInterfaceLevel);
+    void setContentInversion(ContentInversion);
 
     bool LEGACY_NODELETE windowIsFocused() const;
     bool LEGACY_NODELETE windowAndWebPageAreFocused() const;
@@ -2548,6 +2550,7 @@ private:
     void getContentsAsString(ContentAsStringIncludesChildFrames, CompletionHandler<void(const String&)>&&);
 #if PLATFORM(COCOA)
     void getContentsAsAttributedString(CompletionHandler<void(const WebCore::AttributedString&)>&&);
+    void getSelectionAsAttributedStringForTesting(CompletionHandler<void(const WebCore::AttributedString&)>&&);
 #endif
 #if ENABLE(MHTML)
     void getContentsAsMHTMLData(CompletionHandler<void(const IPC::SharedBufferReference&)>&& callback);
@@ -2631,6 +2634,7 @@ private:
     void updateLastNodeBeforeWritingSuggestions(const WebCore::KeyboardEvent&);
 
     void findString(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(std::optional<WebCore::FrameIdentifier>, Vector<WebCore::IntRect>&&, uint32_t, int32_t, bool)>&&);
+    void countStringMatchesByFrame(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(Vector<std::pair<WebCore::FrameIdentifier, uint32_t>>&&)>&&);
     void selectLastFoundRange(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(std::optional<WebCore::FrameIdentifier>, Vector<WebCore::IntRect>&&, int32_t, bool)>&&);
 #if ENABLE(IMAGE_ANALYSIS)
     void findStringIncludingImages(const String&, OptionSet<FindOptions>, uint32_t maxMatchCount, CompletionHandler<void(std::optional<WebCore::FrameIdentifier>, Vector<WebCore::IntRect>&&, uint32_t, int32_t, bool)>&&);

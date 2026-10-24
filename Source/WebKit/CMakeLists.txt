@@ -182,8 +182,6 @@ set(WebKit_BINDINGS_IN_FILES
     WebProcess/Extensions/Interfaces/WebExtensionAPIScripting
     WebProcess/Extensions/Interfaces/WebExtensionAPISidePanel
     WebProcess/Extensions/Interfaces/WebExtensionAPISidebarAction
-    WebProcess/Extensions/Interfaces/WebExtensionAPIStorage
-    WebProcess/Extensions/Interfaces/WebExtensionAPIStorageArea
     WebProcess/Extensions/Interfaces/WebExtensionAPITabs
     WebProcess/Extensions/Interfaces/WebExtensionAPIWebNavigation
     WebProcess/Extensions/Interfaces/WebExtensionAPIWebNavigationEvent
@@ -197,6 +195,8 @@ set(WebKit_CPP_BINDINGS_IN_FILES
     WebProcess/Extensions/Interfaces/WebExtensionAPIAlarms
     WebProcess/Extensions/Interfaces/WebExtensionAPINamespace
     WebProcess/Extensions/Interfaces/WebExtensionAPIRuntime
+    WebProcess/Extensions/Interfaces/WebExtensionAPIStorage
+    WebProcess/Extensions/Interfaces/WebExtensionAPIStorageArea
     WebProcess/Extensions/Interfaces/WebExtensionAPITest
     WebProcess/Extensions/Interfaces/WebExtensionAPIWebPageNamespace
     WebProcess/Extensions/Interfaces/WebExtensionAPIWebPageRuntime
@@ -498,6 +498,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/BackgroundFetchState.serialization.in
     Shared/CacheModel.serialization.in
     Shared/CallbackID.serialization.in
+    Shared/ContentInversion.serialization.in
     Shared/ContentWorldData.serialization.in
     Shared/ContextMenuContextData.serialization.in
     Shared/CoordinateSystem.serialization.in
@@ -728,6 +729,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/XR/PlatformXR.serialization.in
     Shared/XR/XRSystem.serialization.in
 
+    Shared/graphics/DisplayListData.serialization.in
     Shared/graphics/RemoteImageBufferSetConfiguration.serialization.in
 
     UIProcess/Extensions/WebExtension.serialization.in

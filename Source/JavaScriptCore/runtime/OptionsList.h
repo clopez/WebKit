@@ -209,6 +209,7 @@ bool hasCapacityToUseLargeGigacage();
     v(Bool, useConcurrentGC, true, Normal, nullptr) \
     v(Bool, collectContinuously, false, Normal, nullptr) \
     v(Double, collectContinuouslyPeriodMS, 1, Normal, nullptr) \
+    v(Unsigned, initialHeapVersion, 0, Restricted, "If nonzero, the version each heap's marking, newly allocated and Eden versions start at. A value near the maximum makes them wrap within a few collections."_s) \
     v(Bool, forceFencedBarrier, false, Normal, nullptr) \
     v(Bool, verboseVisitRace, false, Normal, nullptr) \
     v(Bool, verboseHeapSnapshotLogging, true, Normal, nullptr) \

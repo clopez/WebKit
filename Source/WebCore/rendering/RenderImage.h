@@ -102,6 +102,7 @@ public:
 
     // FIXME: Condense these into fewer concrete categories of sizing algorithms once we know all the different sizing rules needed.
     ConcreteObjectSize concreteObjectSizeForPainting() const;
+    ConcreteObjectSize concreteObjectSizeForInteractionRegion() const;
     ConcreteObjectSize concreteObjectSizeForPasteboard() const;
     ConcreteObjectSize concreteObjectSizeForAccessibility() const;
     ConcreteObjectSize concreteObjectSizeForImageAnalysis() const;
@@ -112,6 +113,7 @@ public:
     WEBCORE_EXPORT RefPtr<ShareableBitmap> createShareableBitmapForHitTestResult() const;
     WEBCORE_EXPORT RefPtr<ShareableBitmap> createShareableBitmapForPositionInformation(FloatSize screenSizeInPixels) const;
     WEBCORE_EXPORT RefPtr<ShareableBitmap> createShareableBitmapForImageBitmapRequest() const;
+    WEBCORE_EXPORT RefPtr<ShareableBitmap> createShareableBitmapForFullScreen() const;
     WEBCORE_EXPORT Ref<NativePromise<Ref<ShareableBitmap>, void>> createShareableBitmapAsyncForImageAnalysis(CreateShareableBitmapFromImageOptions::UseSnapshotForTransparentImages) const;
 
     // Returns an image as `paint()` would draw it. Sized and placed respecting 'object-fit', 'object-position', 'object-view-box', and orientation, and clipped to the content box.

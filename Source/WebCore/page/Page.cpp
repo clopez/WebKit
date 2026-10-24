@@ -2332,7 +2332,10 @@ std::optional<MonotonicTime> Page::nextRenderingUpdateTimestamp() const
         return std::nullopt;
     if (!m_renderingUpdateIsScheduled)
         return std::nullopt;
-    auto interval = preferredRenderingUpdateInterval();
+    auto framesPerSecond = preferredRenderingUpdateFramesPerSecond();
+    if (!framesPerSecond)
+        framesPerSecond = 60;
+    Seconds interval = Seconds { 1.0 / *framesPerSecond };
     auto now = MonotonicTime::now();
     ASSERT(now > m_lastRenderingUpdateTimestamp);
     return m_lastRenderingUpdateTimestamp + std::floor((now + interval - m_lastRenderingUpdateTimestamp) / interval) * interval;
@@ -2402,7 +2405,7 @@ void Page::enumerateLocalFrameGeometry(NOESCAPE const Function<void(LocalFrame&,
 #if PLATFORM(IOS_FAMILY)
         auto exposedContentRect = [&frameView, rect = std::optional<LayoutRect> { }]() mutable {
             if (!rect)
-                rect = LayoutRect { frameView->exposedContentRect() };
+                rect = LayoutRect { frameView->exposedContentRect().raw() };
             return *rect;
         };
 #endif

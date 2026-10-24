@@ -99,9 +99,19 @@ class MessageEnumerator(object):
         assert(all([message.has_attribute(SYNCHRONOUS_ATTRIBUTE) == is_synchronous for message in self.messages]))
         return is_synchronous
 
+    def has_async_reply(self):
+        def message_has_async_reply(message):
+            return (not message.is_async_reply
+                    and message.reply_parameters is not None
+                    and not message.has_attribute(SYNCHRONOUS_ATTRIBUTE)
+                    and not self.receiver.has_attribute(NOT_USING_IPC_CONNECTION_ATTRIBUTE))
+        has_async_reply = message_has_async_reply(self.messages[0])
+        assert (all([message_has_async_reply(message) == has_async_reply for message in self.messages]))
+        return has_async_reply
+
     @classmethod
     def sort_key(cls, obj):
-        return obj.synchronous(), receiver_enumerator_order_key(obj.receiver.name), str(obj)
+        return obj.synchronous(), obj.has_async_reply(), receiver_enumerator_order_key(obj.receiver.name), str(obj)
 
 
 def get_message_enumerators(receivers):
@@ -271,7 +281,7 @@ def message_to_struct_declaration(receiver, message):
     result.append('public:\n')
     result.append('    using Arguments = std::tuple<%s>;\n' % ', '.join([parameter.type for parameter in message.parameters]))
     result.append('\n')
-    result.append('    static IPC::MessageName name() { return IPC::MessageName::%s_%s; }\n' % (receiver.name, message.name))
+    result.append('    static constexpr IPC::MessageName name() { return IPC::MessageName::%s_%s; }\n' % (receiver.name, message.name))
     result.append('    static constexpr bool isSync = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(SYNCHRONOUS_ATTRIBUTE)])
     result.append('    static constexpr bool canDispatchOutOfOrder = %s;\n' % ('false', 'true')[message.has_attribute(CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE)])
     result.append('    static constexpr bool replyCanDispatchOutOfOrder = %s;\n' % ('false', 'true')[message.reply_parameters is not None and message.has_attribute(REPLY_CAN_DISPATCH_OUT_OF_ORDER_ATTRIBUTE)])
@@ -907,6 +917,32 @@ def message_to_complete_with_default_reply_definition(receiver, message):
     ])
 
 
+# The C++ type of a message's reply if it is a single primitive, which Swift passes through complete().
+def swift_primitive_reply_type(message):
+    reply_parameters = message.reply_parameters or []
+    if len(reply_parameters) != 1:
+        return None
+    cpp_type = _strip_cpp_type_decorations(reply_parameters[0].type)
+    return cpp_type if _swift_primitive_type_name(cpp_type) else None
+
+
+def messages_with_distinct_primitive_reply_types(receiver):
+    return [x for x in messages_with_distinct_reply_types(receiver) if swift_primitive_reply_type(x)]
+
+
+def message_to_complete_declaration(receiver, message):
+    return 'void complete(%sCompletionHandler&, %s);' % (message.name, swift_primitive_reply_type(message))
+
+
+def message_to_complete_definition(receiver, message):
+    return '\n'.join([
+        'void complete(%sCompletionHandler& completionHandler, %s reply)' % (message.name, swift_primitive_reply_type(message)),
+        '{',
+        '    (*completionHandler)(reply);',
+        '}',
+    ])
+
+
 def generate_messages_header(receiver):
     result = []
 
@@ -940,7 +976,7 @@ def generate_messages_header(receiver):
         else:
             result.append('class ' + forwarder_class + ': public RefCounted<' + forwarder_class + '>, public IPC::MessageReceiver {\n')
         result.append('public:\n')
-        result.append('    static Ref<' + forwarder_class + '> createFromWeak(' + handler_namespace + '::' + weak_ref_class + '* _Nonnull handler)\n')
+        result.append('    static Ref<' + forwarder_class + '> createFromWeak(' + handler_namespace + '::' + weak_ref_class + '* WTF_NONNULL handler)\n')
         result.append('    {\n')
         result.append('        return adoptRef(*new ' + forwarder_class + '(handler));\n')
         result.append('    }\n')
@@ -958,7 +994,7 @@ def generate_messages_header(receiver):
             result.append('    void ref() const final { RefCounted::ref(); }\n')
             result.append('    void deref() const final { RefCounted::deref(); }\n')
         result.append('private:\n')
-        result.append('    ' + forwarder_class + '(' + handler_namespace + '::' + weak_ref_class + '* _Nonnull);\n')
+        result.append('    ' + forwarder_class + '(' + handler_namespace + '::' + weak_ref_class + '* WTF_NONNULL);\n')
         result.append('    std::unique_ptr<' + handler_namespace + '::' + class_name + '> getMessageTarget();\n')
         result.append('    std::unique_ptr<' + handler_namespace + '::' + weak_ref_class + '> m_handler;\n')
         result.append('} DERIVED_CLASS_SWIFT_SHARED_REFERENCE(.ref, .deref);\n\n')
@@ -1010,6 +1046,8 @@ def generate_messages_header(receiver):
             result.append('\n')
             result.append('\n\n'.join([message_to_complete_with_default_reply_declaration(receiver, x) for x in messages_with_distinct_reply_types(receiver)]))
             result.append('\n')
+            for message in messages_with_distinct_primitive_reply_types(receiver):
+                result.append('\n%s\n' % message_to_complete_declaration(receiver, message))
         result.append('} // namespace %s\n} // namespace CompletionHandlers\n' % receiver.name)
         result.append('\n')
     if_swift_enabled(receiver, result, append_completion_handler_types_for_swift, None)
@@ -1122,18 +1160,20 @@ def swift_dispatch_target_and_function(receiver, message):
 
 
 # How a Swift handler's return value is handed to the C++ completion handler. C++ reply types are
-# moved into the handler; Swift primitives are passed by value.
-def swift_reply_completion_argument(message, reply_variable):
+# moved into the handler. A primitive reply goes through complete(), whose parameter is spelled with
+# the reply's typedef: Swift maps uint64_t to UInt64 by name, but the completion handler itself is a
+# template instantiation, whose parameter has the canonical type, and that is unsigned long (UInt)
+# on Linux but unsigned long long (UInt64) on Darwin.
+def swift_reply_completion_call(receiver, message, reply_variable):
     reply_parameters = message.reply_parameters or []
     if not reply_parameters:
-        return ''
+        return 'completionHandler.pointee()'
     if len(reply_parameters) > 1:
         raise UnmappableSwiftType("Cannot derive a Swift reply for '%s': multi-value replies would need "
                                   "a tuple return, which is not implemented." % message.name)
-    cpp_type = _strip_cpp_type_decorations(reply_parameters[0].type)
-    if _swift_primitive_type_name(cpp_type):
-        return reply_variable
-    return 'consuming: %s' % reply_variable
+    if swift_primitive_reply_type(message):
+        return 'CompletionHandlers.%s.complete(completionHandler, %s)' % (receiver.name, reply_variable)
+    return 'completionHandler.pointee(consuming: %s)' % reply_variable
 
 
 def generates_swift_trampoline(receiver, message):
@@ -2180,34 +2220,6 @@ def generate_message_handler(receiver):
             result.append('    decoder.markInvalid();\n')
         result.append('}\n')
 
-    if receiver.wants_send_cancel_reply:
-        result.append('\n')
-        result.append('void %s::sendCancelReply(IPC::Connection& connection, IPC::Decoder& decoder)\n' % (receiver.name))
-        result.append('{\n')
-        result.append('    ASSERT(decoder.messageReceiverName() == IPC::ReceiverName::%s);\n' % (receiver.name))
-        result.append('    switch (decoder.messageName()) {\n')
-        for message in receiver.messages:
-            if message.reply_parameters is None or message.has_attribute(SYNCHRONOUS_ATTRIBUTE):
-                continue
-            result.append('    case IPC::MessageName::%s_%s: {\n' % (receiver.name, message.name))
-            result.append('        auto arguments = decoder.decode<typename Messages::%s::%s::Arguments>();\n' % (receiver.name, message.name))
-            result.append('        if (!arguments) [[unlikely]]\n')
-            result.append('            return;\n')
-            result.append('        auto replyID = decoder.decode<IPC::AsyncReplyID>();\n')
-            result.append('        if (!replyID) [[unlikely]]\n')
-            result.append('            return;\n')
-            result.append('        connection.sendAsyncReply<Messages::%s::%s>(*replyID\n' % (receiver.name, message.name))
-            for parameter in message.reply_parameters:
-                result.append('            , IPC::AsyncReplyError<%s>::create()\n' % (parameter.type))
-            result.append('        );\n')
-            result.append('        return;\n')
-            result.append('    }\n')
-        result.append('    default:\n')
-        result.append('        // No reply to send.\n')
-        result.append('        return;\n')
-        result.append('    }\n')
-        result.append('}\n')
-
     def append_swift_message_forwarder_methods(result):
         class_name = receiver.name
         weak_ref_class = class_name + 'WeakRef'
@@ -2215,14 +2227,14 @@ def generate_message_handler(receiver):
 
         result.append('\n')
         # Workaround for rdar://163107752
-        result.append('static std::unique_ptr<%s> make%sWeakRefUniquePtr(%s* _Nonnull handler)\n' % (weak_ref_class, class_name, weak_ref_class))
+        result.append('static std::unique_ptr<%s> make%sWeakRefUniquePtr(%s* WTF_NONNULL handler)\n' % (weak_ref_class, class_name, weak_ref_class))
         result.append('{\n')
         result.append('    auto newRef = _impl::_impl_%s::makeRetained(handler);\n' % (weak_ref_class))
         result.append('    return WTF::makeUniqueWithoutFastMallocCheck<%s>(newRef);\n' % (weak_ref_class))
         result.append('}\n')
         result.append('\n')
 
-        result.append('%s::%s(%s* _Nonnull target)\n' % (forwarder_class, forwarder_class, weak_ref_class))
+        result.append('%s::%s(%s* WTF_NONNULL target)\n' % (forwarder_class, forwarder_class, weak_ref_class))
         result.append('    : m_handler(make%sWeakRefUniquePtr(target))\n' % (class_name))
         result.append('{\n')
         result.append('}\n')
@@ -2254,6 +2266,8 @@ def generate_message_handler(receiver):
         result.append('\n')
         result.append('namespace CompletionHandlers {\nnamespace %s {\n\n' % receiver.name)
         result.append('\n\n'.join([message_to_complete_with_default_reply_definition(receiver, x) for x in messages_with_distinct_reply_types(receiver)]))
+        for message in messages_with_distinct_primitive_reply_types(receiver):
+            result.append('\n\n%s' % message_to_complete_definition(receiver, message))
         result.append('\n\n')
         result.append('} // namespace %s\n} // namespace CompletionHandlers\n' % receiver.name)
     if_swift_enabled(receiver, result, append_complete_with_default_reply_definitions, None)
@@ -2343,6 +2357,7 @@ def generate_swift_message_handler(receiver):
         result.append('#if ENABLE_%s\n' % (receiver.swift_receiver_build_enabled_by))
 
     result.append('// Safety: target is only written in init, assumeIsolated asserts the main thread, and weak loads are atomic in the Swift runtime\n')
+    result.append('@_expose(Cxx)\n')
     result.append('final class %s: @unchecked Sendable {\n' % (weak_ref_class))
     result.append('    private weak var target: %s?\n' % (class_name))
     result.append('    init(target: %s) {\n' % (class_name))
@@ -2434,7 +2449,7 @@ def generate_swift_message_handler(receiver):
             result.append('\n'.join(['%s    %s' % (base, part) for part in line.split('\n')]))
             result.append('\n')
         if completion_handler:
-            result.append('%s    completionHandler.pointee(%s)\n' % (base, swift_reply_completion_argument(message, 'reply')))
+            result.append('%s    %s\n' % (base, swift_reply_completion_call(receiver, message, 'reply')))
         result.append('%s} catch {\n' % base)
         result.append('%s    markMessageInvalid(error, on: connection)\n' % base)
         if completion_handler:
@@ -2498,8 +2513,14 @@ def generate_message_names_header(receivers):
 
     result.append('enum class MessageName : uint16_t {\n')
     message_enumerators = get_message_enumerators(receivers)
+    has_any_async_reply = any(e.has_async_reply() for e in message_enumerators)
     seen_synchronous = False
-    for (condition, synchronous), enumerators in itertools.groupby(message_enumerators, lambda e: (e.condition(), e.synchronous())):
+    seen_async_reply = False
+    for (condition, synchronous, has_async_reply), enumerators in itertools.groupby(message_enumerators, lambda e: (e.condition(), e.synchronous(), e.has_async_reply())):
+        if not synchronous and has_async_reply and not seen_async_reply:
+            result.append('    FirstAsyncWithReply,\n')
+            result.append('    LastAsyncWithoutReply = FirstAsyncWithReply - 1,\n')
+            seen_async_reply = True
         if synchronous and not seen_synchronous:
             result.append('    FirstSynchronous,\n')
             result.append('    LastAsynchronous = FirstSynchronous - 1,\n')
@@ -2539,7 +2560,7 @@ def generate_message_names_header(receivers):
         result.append('    return Detail::messageDescriptions[static_cast<size_t>(messageName)].%s;\n' % fname)
         result.append('}\n')
         result.append('\n')
-    result.append('inline bool isAsyncReply(MessageName messageName)\n')
+    result.append('inline bool messageIsReplyToAsyncWithReply(MessageName messageName)\n')
     result.append('{\n')
     result.append('    messageName = std::min(messageName, MessageName::Last);\n')
     result.append('    return Detail::messageDescriptions[static_cast<size_t>(messageName)].isAsyncReply;\n')
@@ -2552,6 +2573,17 @@ def generate_message_names_header(receivers):
     else:
         result.append('    UNUSED_PARAM(name);\n')
         result.append('    return false;\n')
+    result.append('}\n')
+    result.append('\n')
+    result.append('constexpr bool messageIsAsyncWithReply(MessageName name)\n')
+    result.append('{\n')
+    if not has_any_async_reply:
+        result.append('    UNUSED_PARAM(name);\n')
+        result.append('    return false;\n')
+    elif seen_synchronous:
+        result.append('    return name >= MessageName::FirstAsyncWithReply && name < MessageName::FirstSynchronous;\n')
+    else:
+        result.append('    return name >= MessageName::FirstAsyncWithReply && name <= MessageName::Last;\n')
     result.append('}\n')
     result.append('\n')
     result.append('ASCIILiteral processLiteral(ProcessName);\n')

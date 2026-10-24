@@ -498,11 +498,13 @@ NS_SWIFT_SENDABLE
 
 - (nullable id<MTLCommandBuffer>)commandBuffer;
 - (void)renderWithTexture:(id<MTLTexture>)texture commandBuffer:(id<MTLCommandBuffer>)commandBuffer;
-- (void)updateMesh:(NSArray<WKBridgeUpdateMesh *> *)descriptor;
+- (void)updateMesh:(NSArray<WKBridgeUpdateMesh *> *)descriptor forNode:(uint64_t)node;
+- (void)removeNode:(uint64_t)node;
 - (void)updateTexture:(NSArray<WKBridgeUpdateTexture *> *)descriptor;
 - (void)updateMaterial:(NSArray<WKBridgeUpdateMaterial *> *)descriptor;
 - (BOOL)processRemovals:(NSArray<WKBridgeTypedResourceId *> *)meshRemovals materialRemovals:(NSArray<WKBridgeTypedResourceId *> *)materialRemovals  textureRemovals:(NSArray<WKBridgeTypedResourceId *> *)textureRemovals;
 - (void)setTransform:(simd_float4x4)transform;
+- (void)setTransform:(simd_float4x4)transform forNode:(uint64_t)node;
 - (void)setFOV:(float)fovY;
 - (void)setPlaying:(BOOL)play;
 - (void)setEnvironmentMap:(WKBridgeUpdateTexture *)imageAsset;
@@ -520,7 +522,6 @@ NS_SWIFT_SENDABLE
 - (double)currentTime;
 - (void)setCurrentTime:(double)newTime;
 - (double)duration;
-- (BOOL)treatZAsUpAxis;
 - (BOOL)loadModel:(NSData *)data mimeType:(NSString *)mimeType;
 - (nullable WKBridgeUpdateTexture *)loadEnvironmentMap:(NSData *)data;
 - (void)update:(double)deltaTime;

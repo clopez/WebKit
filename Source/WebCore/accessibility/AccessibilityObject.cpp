@@ -118,6 +118,7 @@
 #include "SVGNames.h"
 #include "Settings.h"
 #include "SharedBuffer.h"
+#include "SimulatedClick.h"
 #include "TextCheckerClient.h"
 #include "TextCheckingHelper.h"
 #include "TextControlInnerElements.h"
@@ -705,8 +706,7 @@ AccessibilityObject* firstAccessibleObjectFromNode(const Node* node, NOESCAPE co
     if (!cache)
         return nullptr;
 
-    // FIXME: Remove suppression once rdar://189998365 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST RefPtr accessibleObject = cache->getOrCreate(const_cast<Node&>(*axNode));
+    RefPtr accessibleObject = cache->getOrCreate(const_cast<Node&>(*axNode));
     while (accessibleObject && !isAccessible(*accessibleObject)) {
         axNode = NodeTraversal::next(*axNode);
 
@@ -716,8 +716,7 @@ AccessibilityObject* firstAccessibleObjectFromNode(const Node* node, NOESCAPE co
         if (!axNode)
             return nullptr;
 
-        // FIXME: Remove suppression once rdar://189998365 is fixed.
-        SUPPRESS_MEMORY_UNSAFE_CAST accessibleObject = cache->getOrCreate(const_cast<Node&>(*axNode));
+        accessibleObject = cache->getOrCreate(const_cast<Node&>(*axNode));
     }
 
     return accessibleObject.unsafeGet();
@@ -1645,9 +1644,14 @@ bool AccessibilityObject::press()
     UserGestureIndicator gestureIndicator(IsProcessingUserGesture::Yes, document.get());
 
     bool dispatchedEvent = false;
+    bool dispatchedSimulatedTouch = false;
 #if PLATFORM(IOS_FAMILY)
-    if (hasTouchEventListener())
+    if (hasTouchEventListener()) {
+#if ENABLE(IOS_TOUCH_EVENTS)
+        dispatchedSimulatedTouch = !!localMainFrame();
+#endif
         dispatchedEvent = dispatchTouchEvent();
+    }
 #endif
 
     if (dispatchedEvent)
@@ -1659,6 +1663,12 @@ bool AccessibilityObject::press()
             return true;
         }
     }
+
+    // The simulated touch already dispatched pointerdown and pointerup, so like a tap, follow it with the
+    // compatibility mouse events and a click, but not a second set of pointer events.
+    std::optional<SimulatedClickWithoutPointerEventsScope> withoutPointerEventsScope;
+    if (dispatchedSimulatedTouch)
+        withoutPointerEventsScope.emplace();
 
     return pressElement->accessKeyAction(true) || pressElement->dispatchSimulatedClick(nullptr, SendMouseUpDownEvents);
 }

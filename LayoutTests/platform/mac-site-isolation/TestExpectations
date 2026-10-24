@@ -21,6 +21,7 @@ imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-vi
 ########################
 # Tests that Text fail #
 ########################
+webkit.org/b/328426 http/tests/navigation/forward-and-cancel.html [ Failure ]
 http/tests/inspector/network/resource-sizes-network.html [ Pass Failure Timeout ]
 http/tests/inspector/network/fetch-response-body-304.html [ Failure ]
 webkit.org/b/318430 http/tests/inspector/network/clear-non-buffered-resource-data-on-navigate.html [ Failure ]
@@ -31,11 +32,10 @@ webkit.org/b/311836 http/tests/site-isolation/inspector/page/set-emulated-media-
 http/wpt/webrtc/third-party-frame-ice-candidate-filtering.html [ Failure ]
 imported/w3c/web-platform-tests/cookies/partitioned-cookies/partitioned-cookies.tentative.https.html [ Failure ]
 imported/w3c/web-platform-tests/content-security-policy/inheritance/history.sub.html [ Failure ]
-imported/w3c/web-platform-tests/content-security-policy/inheritance/history-iframe.sub.html [ Failure ]
+webkit.org/b/327859 imported/w3c/web-platform-tests/content-security-policy/inheritance/history-iframe.sub.html [ Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/event_pause_noautoplay.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/event_play_noautoplay.html [ Pass Failure ]
 imported/w3c/web-platform-tests/html/semantics/embedded-content/media-elements/track/track-element/track-cues-pause-on-exit.html [ Pass Failure ]
-imported/w3c/web-platform-tests/html/browsers/browsing-the-web/navigating-across-documents/same-origin-top-navigation-without-user-activation.window.html [ Failure ]
 imported/w3c/web-platform-tests/webaudio/the-audio-api/the-audiocontext-interface/suspend-with-navigation.html [ Failure ]
 imported/w3c/web-platform-tests/webcodecs/videoFrame-serialization.crossAgentCluster.https.html [ Failure ]
 imported/w3c/web-platform-tests/webmessaging/postMessage_cross_domain_image_transfer_2d.sub.htm [ Failure ]
@@ -91,6 +91,8 @@ imported/w3c/web-platform-tests/html/document-isolation-policy/no-secure-context
 imported/w3c/web-platform-tests/html/document-isolation-policy/no-secure-context.tentative.html [ Pass ]
 imported/w3c/web-platform-tests/html/document-isolation-policy/origin-agent-cluster.tentative.https.html [ Pass ]
 imported/w3c/web-platform-tests/html/document-isolation-policy/partial-deployment.tentative.https.html [ Pass ]
+imported/w3c/web-platform-tests/html/document-isolation-policy/reporting-cached-and-service-worker-responses.tentative.https.html [ Pass ]
+imported/w3c/web-platform-tests/html/document-isolation-policy/reporting.tentative.https.html [ Pass ]
 imported/w3c/web-platform-tests/html/document-isolation-policy/shared-array-buffer.tentative.https.html [ Pass ]
 imported/w3c/web-platform-tests/html/document-isolation-policy/window-reuse.tentative.https.html [ Pass ]
 http/tests/document-isolation-policy/xslt-result-agent-cluster.https.html [ Pass ]

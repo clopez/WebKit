@@ -281,6 +281,11 @@ bool WebModelPlayer::ensureModelBacking(WebCore::LayoutSize size)
         return false;
     m_currentModel->setViewportSize(cssSize.width().toFloat(), cssSize.height().toFloat());
 
+#if ENABLE(SPATIAL_PORTAL)
+    if (m_portalTransform)
+        protect(m_currentModel)->setPortalTransform(*m_portalTransform);
+#endif
+
     return true;
 }
 
@@ -412,6 +417,11 @@ void WebModelPlayer::loadHostedModel(WebCore::NodeIdentifier nodeID, WebCore::Mo
     hosted.loader = adoptNS([allocWKBridgeModelLoaderInstance() initWithGPUFamily:MTLGPUFamilyApple7]);
     setLoaderCallbacks(nodeID, hosted.loader.get());
 
+#if ENABLE(SPATIAL_PORTAL)
+    if (hosted.childTransform)
+        protect(m_currentModel)->setPortalChildTransform(nodeID, static_cast<simd_float4x4>(*hosted.childTransform));
+#endif
+
     hosted.retainedData = modelSource.data()->createNSData();
     Ref protectedThis { *this };
     if ([hosted.loader loadModel:hosted.retainedData.get() mimeType:modelSource.mimeType().createNSString().get()])
@@ -446,14 +456,25 @@ void WebModelPlayer::unload(WebCore::NodeIdentifier nodeID)
 
     removeHostedModelResources(nodeID, *hosted);
 
-    if (m_hostedModels.isEmpty())
+    if (m_hostedModels.isEmpty()) {
         releaseModelResources();
-    else
-        startUpdateLoopIfNeeded();
+        return;
+    }
+
+    notifyEntityTransformUpdated();
+    startUpdateLoopIfNeeded();
 }
 
 void WebModelPlayer::notifyEntityTransformUpdated()
 {
+#if ENABLE(SPATIAL_PORTAL)
+    if (isSpatialPortal()) {
+        m_needsEntityTransformNotification = false;
+        notifyPortalTransformUpdated();
+        return;
+    }
+#endif
+
     RefPtr model = m_currentModel;
     RefPtr client { m_client };
     if (!model || !client || !model->entityTransform())
@@ -1012,8 +1033,17 @@ void WebModelPlayer::setCurrentTime(WebCore::NodeIdentifier nodeID, Seconds curr
     completion();
 }
 
-std::optional<WebCore::TransformationMatrix> WebModelPlayer::entityTransform(WebCore::NodeIdentifier) const
+std::optional<WebCore::TransformationMatrix> WebModelPlayer::entityTransform(WebCore::NodeIdentifier nodeID) const
 {
+#if ENABLE(SPATIAL_PORTAL)
+    if (isSpatialPortal()) {
+        CheckedPtr hosted = hostedModel(nodeID);
+        return hosted ? hosted->childTransform : std::nullopt;
+    }
+#else
+    UNUSED_PARAM(nodeID);
+#endif
+
 #if PLATFORM(COCOA)
     if (RefPtr model = m_currentModel) {
         if (auto transform = model->entityTransform())
@@ -1027,25 +1057,78 @@ void WebModelPlayer::setStageMode(WebCore::StageModeOperation stageMode)
 {
     m_stageMode = stageMode;
     if (RefPtr model = m_currentModel) {
-        model->setStageMode(m_stageMode);
+        model->setStageMode(effectiveStageMode());
         notifyEntityTransformUpdated();
         startUpdateLoopIfNeeded();
     }
 }
 
-#if ENABLE(SPATIAL_PORTAL)
-void WebModelPlayer::setPortalTransform(const WebCore::UsedPortalTransform&)
+WebCore::StageModeOperation WebModelPlayer::effectiveStageMode() const
 {
-    m_isSpatialPortal = true;
-    // TODO: rdar://185056576
+#if ENABLE(SPATIAL_PORTAL)
+    if (m_portalAction == WebCore::PortalActionKind::Orbit)
+        return WebCore::StageModeOperation::Orbit;
+#endif
+    return m_stageMode;
+}
+
+#if ENABLE(SPATIAL_PORTAL)
+void WebModelPlayer::setPortalTransform(const WebCore::UsedPortalTransform& portalTransform)
+{
+    m_portalTransform = portalTransform;
+
+    if (RefPtr model = m_currentModel) {
+        model->setPortalTransform(portalTransform);
+        notifyPortalTransformUpdated();
+        startUpdateLoopIfNeeded();
+    }
+}
+
+void WebModelPlayer::setPortalAction(WebCore::PortalActionKind kind)
+{
+    if (m_portalAction == kind)
+        return;
+
+    m_portalAction = kind;
+
+    if (m_portalAction == WebCore::PortalActionKind::None) {
+        [m_orbitSimulator reset];
+        m_initialPoint = std::nullopt;
+    }
+
+    if (RefPtr model = m_currentModel) {
+        model->setStageMode(effectiveStageMode());
+        notifyPortalTransformUpdated();
+        startUpdateLoopIfNeeded();
+    }
+}
+
+void WebModelPlayer::notifyPortalTransformUpdated()
+{
+    RefPtr model = m_currentModel;
+    RefPtr client = m_client;
+    if (!model || !client)
+        return;
+
+    if (auto transform = model->resolvedPortalTransform())
+        client->didUpdatePortalTransform(*this, WebCore::TransformationMatrix(static_cast<simd_float4x4>(*transform)));
 }
 #endif
 
-void WebModelPlayer::setEntityTransform(WebCore::NodeIdentifier, WebCore::TransformationMatrix transform)
+void WebModelPlayer::setEntityTransform(WebCore::NodeIdentifier nodeID, WebCore::TransformationMatrix transform)
 {
 #if ENABLE(SPATIAL_PORTAL)
-    if (m_isSpatialPortal)
+    if (isSpatialPortal()) {
+        ensureHostedModel(nodeID).childTransform = transform;
+
+        if (RefPtr model = m_currentModel) {
+            model->setPortalChildTransform(nodeID, static_cast<simd_float4x4>(transform));
+            startUpdateLoopIfNeeded();
+        }
         return;
+    }
+#else
+    UNUSED_PARAM(nodeID);
 #endif
 
     if (RefPtr model = m_currentModel) {
@@ -1177,9 +1260,6 @@ std::pair<WebCore::FloatPoint3D, WebCore::FloatPoint3D> WebModelPlayer::bounding
         return { };
 
     auto [simdCenter, simdExtents] = *bounds;
-    CheckedPtr hosted = hostedModel(nodeID);
-    if (hosted && [hosted->loader treatZAsUpAxis])
-        return { WebCore::FloatPoint3D(simdCenter.x, -simdCenter.z, simdCenter.y), WebCore::FloatPoint3D(simdExtents.x, simdExtents.z, simdExtents.y) };
     return { WebCore::FloatPoint3D(simdCenter.x, simdCenter.y, simdCenter.z), WebCore::FloatPoint3D(simdExtents.x, simdExtents.y, simdExtents.z) };
 }
 

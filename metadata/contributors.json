@@ -1102,6 +1102,13 @@
    },
    {
       "emails" : [
+         "arjunbear2000@gmail.com"
+      ],
+      "github" : "arjunbear",
+      "name" : "Arjun Balu"
+   },
+   {
+      "emails" : [
          "arko@motorola.com"
       ],
       "name" : "Arko Saha",
@@ -7905,7 +7912,7 @@
       "nicks" : [
          "syg"
       ],
-      "status" : "committer"
+      "status" : "reviewer"
    },
    {
       "emails" : [
@@ -7990,6 +7997,7 @@
    },
    {
       "emails" : [
+         "sosuke@anthropic.com",
          "sosuke@bun.com",
          "sosuke@bun.sh",
          "aosukeke@gmail.com"

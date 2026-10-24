@@ -710,6 +710,7 @@ void Internals::resetToConsistentState(Page& page)
     AXObjectCache::setAnnouncementTranslationTimeoutForTesting(std::nullopt);
 #if PLATFORM(COCOA)
     AXFormActivityMonitor::setSettleDelayForTesting(std::nullopt);
+    resetPresentationIntentHTMLInterchangeEnabled();
 #endif
     WebCore::setShouldMockParentSearchResultsForTesting(false);
     WebCore::setShouldMockChildFrameSearchResultsForTesting(false);
@@ -783,6 +784,9 @@ void Internals::resetToConsistentState(Page& page)
 
 #if PLATFORM(IOS) || PLATFORM(VISION)
     WebCore::setContentSizeCategory(kCTFontContentSizeCategoryL);
+#endif
+#if HAVE(TEXT_SCALE_FACTOR)
+    WebCore::setTextScaleFactor(std::nullopt);
 #endif
 
 #if PLATFORM(COCOA)
@@ -2577,7 +2581,7 @@ ExceptionOr<Ref<DOMRect>> Internals::exposedContentRect()
     document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
     Ref frameView = *document->view();
-    return DOMRect::create(frameView->exposedContentRect());
+    return DOMRect::create(frameView->exposedContentRect().raw());
 }
 
 ExceptionOr<void> Internals::setViewIsTransparent(bool transparent)
@@ -8390,6 +8394,10 @@ String Internals::encodedPreferenceValue(const String&, const String&)
     return emptyString();
 }
 
+void Internals::setPresentationIntentHTMLInterchangeEnabled(bool)
+{
+}
+
 bool Internals::isRemoteUIAppForAccessibility()
 {
     return false;
@@ -8529,6 +8537,16 @@ void Internals::setContentSizeCategory(Internals::ContentSizeCategory category)
     Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
 #else
     UNUSED_PARAM(category);
+#endif
+}
+
+void Internals::setTextScaleFactor(float textScaleFactor)
+{
+#if HAVE(TEXT_SCALE_FACTOR)
+    WebCore::setTextScaleFactor(textScaleFactor);
+    Page::updateStyleForAllPagesAfterGlobalChangeInEnvironment();
+#else
+    UNUSED_PARAM(textScaleFactor);
 #endif
 }
 
@@ -8753,8 +8771,7 @@ String Internals::dumpStyleResolvers()
 
     for (Ref shadowRoot : document->inDocumentShadowRoots()) {
         auto name = shadowRoot->mode() == ShadowRootMode::UserAgent ? "shadow root resolver (user agent)"_s : "shadow root resolver (author)"_s;
-        // FIXME: Remove suppression once rdar://189998365 is fixed.
-        SUPPRESS_MEMORY_UNSAFE_CAST dumpResolver(name, protect(protect(const_cast<ShadowRoot&>(shadowRoot.get()).styleScope())->resolver()));
+        dumpResolver(name, protect(protect(const_cast<ShadowRoot&>(shadowRoot.get()).styleScope())->resolver()));
     }
 
     return result.toString();

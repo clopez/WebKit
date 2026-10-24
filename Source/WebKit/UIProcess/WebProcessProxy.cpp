@@ -1556,6 +1556,8 @@ bool WebProcessProxy::shouldDisableJITCage() const
 
 void WebProcessProxy::getNetworkProcessConnection(CompletionHandler<void(NetworkProcessConnectionInfo&&)>&& reply)
 {
+    MESSAGE_CHECK_COMPLETION(!m_isPrintProcess, reply({ }));
+
     RefPtr dataStore = websiteDataStore();
     if (!dataStore) {
         ASSERT_NOT_REACHED();
@@ -1816,8 +1818,6 @@ bool WebProcessProxy::dispatchMessage(IPC::Connection& connection, IPC::Decoder&
     if (messageName == Messages::WebFrameProxy::messageReceiverName()) {
         if (RefPtr frame = FrameIdentifier::isValidIdentifier(decoder.destinationID()) ? WebFrameProxy::webFrame(FrameIdentifier(decoder.destinationID())) : nullptr)
             frame->didReceiveMessage(connection, decoder);
-        else
-            WebFrameProxy::sendCancelReply(connection, decoder);
         return true;
     }
 #if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
@@ -2187,6 +2187,11 @@ void WebProcessProxy::didDestroyUserGestureToken(PageIdentifier pageID, UserGest
 
 bool WebProcessProxy::canBeAddedToWebProcessCache() const
 {
+    if (m_isPrintProcess) {
+        WEBPROCESSPROXY_RELEASE_LOG(Process, "canBeAddedToWebProcessCache: Not adding to process cache because the process is the print process");
+        return false;
+    }
+
     if (isRunningServiceWorkers()) {
         WEBPROCESSPROXY_RELEASE_LOG(Process, "canBeAddedToWebProcessCache: Not adding to process cache because the process is running workers");
         return false;
@@ -3352,8 +3357,7 @@ void WebProcessProxy::updateRemoteWorkerProcessAssertion(RemoteWorkerType worker
 
     WEBPROCESSPROXY_RELEASE_LOG(ProcessSuspension, "updateRemoteWorkerProcessAssertion: workerType=%" PUBLIC_LOG_STRING, workerType == RemoteWorkerType::SharedWorker ? "shared" : "service");
 
-    // FIXME: Drop SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE once <rdar://150855062> is fixed.
-    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE bool shouldTakeForegroundActivity = std::ranges::any_of(workerInformation->clientProcesses, [&](auto& process) {
+    bool shouldTakeForegroundActivity = std::ranges::any_of(workerInformation->clientProcesses, [&](auto& process) {
         return &process != this && !!process.m_foregroundToken;
     });
     if (shouldTakeForegroundActivity) {
@@ -3362,8 +3366,7 @@ void WebProcessProxy::updateRemoteWorkerProcessAssertion(RemoteWorkerType worker
         return;
     }
 
-    // FIXME: Drop SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE once <rdar://150855062> is fixed.
-    SUPPRESS_UNCOUNTED_LAMBDA_CAPTURE bool shouldTakeBackgroundActivity = std::ranges::any_of(workerInformation->clientProcesses, [&](auto& process) {
+    bool shouldTakeBackgroundActivity = std::ranges::any_of(workerInformation->clientProcesses, [&](auto& process) {
         return &process != this && !!process.m_backgroundToken;
     });
     if (shouldTakeBackgroundActivity) {

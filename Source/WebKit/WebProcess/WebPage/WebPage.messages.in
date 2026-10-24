@@ -273,6 +273,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     GetContentsAsString(enum:bool WebKit::ContentAsStringIncludesChildFrames inChildFrames) -> (String string)
 #if PLATFORM(COCOA)
     GetContentsAsAttributedString() -> (struct WebCore::AttributedString result)
+    GetSelectionAsAttributedStringForTesting() -> (struct WebCore::AttributedString result)
 #endif
 #if ENABLE(MHTML)
     GetContentsAsMHTMLData() -> (IPC::SharedBufferReference data)
@@ -382,6 +383,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
 
     # Find.
     FindString(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (std::optional<WebCore::FrameIdentifier> frameID, Vector<WebCore::IntRect> matchRects, uint32_t matchCount, int32_t matchIndex, bool didWrap)
+    CountStringMatchesByFrame(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (Vector<std::pair<WebCore::FrameIdentifier, uint32_t>> counts)
     SelectLastFoundRange(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (std::optional<WebCore::FrameIdentifier> frameID, Vector<WebCore::IntRect> matchRects, int32_t matchIndex, bool didWrap)
 #if ENABLE(IMAGE_ANALYSIS)
     FindStringIncludingImages(String string, OptionSet<WebKit::FindOptions> findOptions, unsigned maxMatchCount) -> (std::optional<WebCore::FrameIdentifier> frameID, Vector<WebCore::IntRect> matchRects, uint32_t matchCount, int32_t matchIndex, bool didWrap)
@@ -717,6 +719,7 @@ messages -> WebPage WantsAsyncDispatchMessage {
     PerformHitTestForModifierFlagsChangeOnMouseEvent(WebCore::FrameIdentifier frameID, Ref<WebKit::WebMouseEvent> event) -> (Variant<WebKit::WebHitTestResultData, WebCore::RemoteUserInputEventData> result, OptionSet<WebKit::WebEventModifier> modifiers)
 
     SetUseColorAppearance(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
+    SetContentInversion(enum:uint8_t WebKit::ContentInversion contentInversion)
 
 #if HAVE(APP_ACCENT_COLORS)
     SetAccentColor(WebCore::Color color)

@@ -666,6 +666,9 @@ imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-mode
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/align_start_wrapped.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/audio_has_no_subtitles.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/bidi_ruby.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/start_alignment.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u05D0_first.html [ Pass ]
+imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u0628_first.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/u06E9_no_strong_dir.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/vertical_lr.html [ Pass ]
 imported/w3c/web-platform-tests/webvtt/rendering/cues-with-video/processing-model/bidi/vertical_rl.html [ Pass ]
@@ -1767,8 +1770,6 @@ editing/spelling/grammar-text-effect-not-reapplied.html [ Skip ]
 
 # This test is somewhat heavy and better skipped for debug
 [ Debug ] fast/css/many-rules.html [ Skip ]
-
-webkit.org/b/315069 [ Debug ] fast/css/container-query-orientation-modal-dialog-crash.html [ Skip ]
 
 webkit.org/b/112521 [ Release ] webaudio/audioprocessingevent.html [ Pass Failure ]
 webkit.org/b/112521 [ Debug ] webaudio/audioprocessingevent.html [ Skip ]
@@ -4307,10 +4308,6 @@ imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-05
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-063.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-text-overflow-001.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/webkit-line-clamp-035.html [ ImageOnlyFailure ]
-[ Debug ] imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-with-abspos-025.html [ Crash ]
-[ Release ] imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-with-abspos-025.html [ ImageOnlyFailure ]
-[ Debug ] imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-with-abspos-026.html [ Crash ]
-[ Release ] imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-with-abspos-026.html [ ImageOnlyFailure ]
 
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/block-ellipsis-bidi-004.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/css/css-overflow/line-clamp/line-clamp-auto-045.html [ ImageOnlyFailure ]
@@ -8302,3 +8299,8 @@ accessibility/isolated-tree/line-clamp-text.html [ Skip ]
 
 webkit.org/b/327137 imported/w3c/web-platform-tests/resource-timing/resource-timing-failed-fetch.html [ Failure Pass ]
 webkit.org/b/328230 media/modern-media-controls/spatial-video-support/spatial-video-support-teardown-releases-context-objects.html [ Failure ]
+
+# webkit.org/b/328236 NEW TEST(323881@main): 3x media/modern-media-controls/spatial-video-support/* (layout-tests) are constant text failures.
+media/modern-media-controls/spatial-video-support/spatial-video-support-render-cubemap.html [ Failure ]
+media/modern-media-controls/spatial-video-support/spatial-video-support-render-equirect.html [ Failure ]
+media/modern-media-controls/spatial-video-support/spatial-video-support-render-fisheye.html [ Failure ]

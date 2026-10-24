@@ -1572,7 +1572,7 @@ bool NetworkResourceLoader::shouldConsiderProcessSwapForDocumentIsolationPolicy(
 
     // This ignores the top-level creation URL, which the UI process takes into account when it decides.
     auto isSecureContext = SecurityOrigin::create(url)->isPotentiallyTrustworthy() ? IsSecureContext::Yes : IsSecureContext::No;
-    bool needsIsolation = obtainDocumentIsolationPolicy(response, isSecureContext) != DocumentIsolationPolicy::None;
+    bool needsIsolation = obtainDocumentIsolationPolicy(response, isSecureContext).value != DocumentIsolationPolicyValue::None;
     return needsIsolation != (crossOriginIsolation == ProcessCrossOriginIsolation::DocumentIsolationPolicy);
 }
 
@@ -1682,7 +1682,7 @@ void NetworkResourceLoader::sendDidReceiveResponseWithPotentialProcessSwap(const
     // https://fetch.spec.whatwg.org/#navigation-tao-check
     auto originalNavigationStartTime = (m_networkLoadChecker && m_networkLoadChecker->navigationTAOCheckPassed()) ? m_parameters.originalNavigationStartTime : MonotonicTime { };
 
-    NavigationResponseForProcessSwap responseForProcessSwap { response.url(), parseDocumentIsolationPolicy(response.httpHeaderField(HTTPHeaderName::DocumentIsolationPolicy)) };
+    NavigationResponseForProcessSwap responseForProcessSwap { response.url(), parseDocumentIsolationPolicy(response).value };
     protect(NetworkProcess::singleton().parentProcessConnection())->sendWithAsyncReply(Messages::NetworkProcessProxy::ConsiderProcessSwapForNavigationResponse(webPageProxyID(), *m_parameters.navigationID, browsingContextGroupSwitchDecision, reason, responseForProcessSwap, connection->webProcessIdentifier(), existingNetworkResourceLoadIdentifierToResume, originalNavigationStartTime), WTF::move(swapResultHandler));
 }
 
@@ -2514,6 +2514,8 @@ void NetworkResourceLoader::continueDidRetrieveCacheEntryAfterLocalNetworkAccess
 {
     auto response = entry->response();
     recordLocalNetworkAccessFrame(protect(connectionToWebProcess()), response);
+    if (!m_firstResponseURL.isValid())
+        m_firstResponseURL = response.url();
 
     if (isMainResource() && shouldInterruptLoadForCSPFrameAncestorsOrXFrameOptions(response)) {
         LOADER_RELEASE_LOG_ERROR("didRetrieveCacheEntry: Stopping load due to CSP Frame-Ancestors or X-Frame-Options");
@@ -2989,6 +2991,12 @@ WebCore::FrameIdentifier NetworkResourceLoader::frameIdentifierForReport() const
     if (isMainResource() && m_parameters.parentFrameID)
         return *m_parameters.parentFrameID;
     return frameID();
+}
+
+const URL& NetworkResourceLoader::contextURLForReport() const
+{
+    auto& url = isMainResource() ? m_parameters.parentFrameURL : m_parameters.frameURL;
+    return url.isValid() ? url : aboutBlankURL();
 }
 
 void NetworkResourceLoader::notifyReportObservers(Ref<Report>&& report)

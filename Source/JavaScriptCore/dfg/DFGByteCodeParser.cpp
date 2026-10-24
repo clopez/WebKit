@@ -1404,9 +1404,7 @@ private:
                 node->mergeFlags(NodeMayHaveNonNumericResult);
             if (observed.didObserveInt32Overflow())
                 node->mergeFlags(NodeMayOverflowInt32InBaseline);
-            if (observed.didObserveBigInt32())
-                node->mergeFlags(NodeMayHaveBigInt32Result);
-            if (observed.didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
+            if (observed.didObserveHeapBigInt())
                 node->mergeFlags(NodeMayHaveHeapBigIntResult);
             break;
         }
@@ -1443,9 +1441,7 @@ private:
                 node->mergeFlags(NodeMayHaveDoubleResult);
             if (arithProfile->didObserveNonNumeric())
                 node->mergeFlags(NodeMayHaveNonNumericResult);
-            if (arithProfile->didObserveBigInt32())
-                node->mergeFlags(NodeMayHaveBigInt32Result);
-            if (arithProfile->didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
+            if (arithProfile->didObserveHeapBigInt())
                 node->mergeFlags(NodeMayHaveHeapBigIntResult);
             break;
         }
@@ -1468,9 +1464,7 @@ private:
                 node->mergeFlags(NodeMayOverflowInt32InBaseline);
             if (arithProfile->didObserveNonNumeric())
                 node->mergeFlags(NodeMayHaveNonNumericResult);
-            if (arithProfile->didObserveBigInt32())
-                node->mergeFlags(NodeMayHaveBigInt32Result);
-            if (arithProfile->didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
+            if (arithProfile->didObserveHeapBigInt())
                 node->mergeFlags(NodeMayHaveHeapBigIntResult);
             break;
         }
@@ -1514,9 +1508,7 @@ private:
 
         BinaryArithProfile* arithProfile = m_inlineStackTop->m_profiledBlock->binaryArithProfileForBytecodeIndex(m_currentIndex);
 
-        if (arithProfile->didObserveBigInt32())
-            node->mergeFlags(NodeMayHaveBigInt32Result);
-        if (arithProfile->didObserveHeapBigInt() || m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BigInt32Overflow))
+        if (arithProfile->didObserveHeapBigInt())
             node->mergeFlags(NodeMayHaveHeapBigIntResult);
 
         return node;
@@ -2205,9 +2197,7 @@ void ByteCodeParser::inlineCall(Node* callTargetNode, Operand result, CallVarian
     case InlineCallFrame::SetterCall:
     case InlineCallFrame::ProxyObjectLoadCall:
     case InlineCallFrame::ProxyObjectStoreCall:
-    case InlineCallFrame::ProxyObjectInCall:
-    case InlineCallFrame::BoundFunctionCall:
-    case InlineCallFrame::BoundFunctionTailCall: {
+    case InlineCallFrame::ProxyObjectInCall: {
         // When inlining getter and setter calls, we setup a stack frame which does not appear in the bytecode.
         // Because Inlining can switch on executable, we could have a graph like this.
         //
@@ -2959,7 +2949,6 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 {
     VERBOSE_LOG("       The intrinsic is ", intrinsic, "\n");
     UNUSED_PARAM(callOp);
-    UNUSED_PARAM(kind);
     UNUSED_PARAM(specializationKind);
 
     if (!isOpcodeShape<OpCallShape>(m_currentInstruction)) {
@@ -5767,7 +5756,7 @@ auto ByteCodeParser::handleIntrinsicCall(Node* callee, Operand resultOperand, Ca
 
             // Bound function itself is completely wiped. And we should behave as if the current caller is directly calling this function.
             // If the current caller is calling the callee in a tail-call form, then it should be a tail-call.
-            Terminality terminality = handleCall(resultOperand, callOp, callOp == Call ? InlineCallFrame::BoundFunctionCall : InlineCallFrame::BoundFunctionTailCall, osrExitIndex, jsConstant(boundFunction->targetFunction()), numberOfParameters - 1, newRegisterOffset, CallLinkStatus(CallVariant(boundFunction->targetFunction())), prediction, nullptr);
+            Terminality terminality = handleCall(resultOperand, callOp, kind, osrExitIndex, jsConstant(boundFunction->targetFunction()), numberOfParameters - 1, newRegisterOffset, CallLinkStatus(CallVariant(boundFunction->targetFunction())), prediction, nullptr);
             didSetResult = true;
             return terminality == NonTerminal ? CallOptimizationResult::Inlined : CallOptimizationResult::InlinedTerminal;
         }
@@ -9164,17 +9153,6 @@ void ByteCodeParser::parseBlock(unsigned limit)
             Node* value = get(bytecode.m_operand);
             set(bytecode.m_dst, addToGraph(IsNumber, value));
             NEXT_OPCODE(op_is_number);
-        }
-
-        case op_is_big_int: {
-#if USE(BIGINT32)
-            auto bytecode = currentInstruction->as<OpIsBigInt>();
-            Node* value = get(bytecode.m_operand);
-            set(bytecode.m_dst, addToGraph(IsBigInt, value));
-            NEXT_OPCODE(op_is_big_int);
-#else
-            RELEASE_ASSERT_NOT_REACHED();
-#endif
         }
 
         case op_is_cell_with_type: {

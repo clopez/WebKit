@@ -588,7 +588,7 @@ template<typename Layer> void BackgroundPainter::paintFillLayerImpl(const Color&
 
             if (drawResult != ImageDrawResult::DidNothing && !context.paintingDisabled()) {
                 if (m_renderer.element())
-                    protect(m_renderer)->element()->setHasEverPaintedImages(true);
+                    m_renderer.element()->setHasEverPaintedImages(true);
 
                 if (RefPtr image = bgImage->cachedImage(); image && image->currentFrameIsComplete()) {
                     if (auto styleable = Styleable::fromRenderer(m_renderer))
@@ -650,7 +650,7 @@ template<typename Layer> BackgroundImageGeometry BackgroundPainter::calculateFil
     bool fixedAttachment = fillLayer.attachment() == FillAttachment::FixedBackground && !isTransformed;
 
     LayoutRect destinationRect(borderBoxRect);
-    float snappingScaleFactor = protect(renderer)->document().pixelSnappingScaleFactor();
+    float snappingScaleFactor = renderer.document().pixelSnappingScaleFactor();
     if (!fixedAttachment) {
         LayoutUnit right;
         LayoutUnit bottom;
@@ -681,8 +681,8 @@ template<typename Layer> BackgroundImageGeometry BackgroundPainter::calculateFil
                 left += flippedRootBorderBox.x() - borderBoxRect.x();
                 top += flippedRootBorderBox.y() - borderBoxRect.y();
             }
-            if (protect(view)->frameView().hasExtendedBackgroundRectForPainting()) {
-                LayoutRect extendedBackgroundRect = protect(view)->frameView().extendedBackgroundRectForPainting();
+            if (view.frameView().hasExtendedBackgroundRectForPainting()) {
+                LayoutRect extendedBackgroundRect = view.frameView().extendedBackgroundRectForPainting();
                 left += (renderer.marginLeft() - extendedBackgroundRect.x());
                 top += (renderer.marginTop() - extendedBackgroundRect.y());
             }
@@ -829,7 +829,7 @@ template<typename Layer> BackgroundImageGeometry BackgroundPainter::calculateFil
 template<typename Layer> LayoutSize BackgroundPainter::calculateFillTileSize(const RenderBoxModelObject& renderer, const Layer& fillLayer, Style::ZoomFactor zoom, const LayoutSize& positioningAreaSize)
 {
     RefPtr image = fillLayer.image().tryStyleImage();
-    auto devicePixelSize = LayoutUnit { 1.0 / protect(renderer)->document().deviceScaleFactor() };
+    auto devicePixelSize = LayoutUnit { 1.0 / renderer.document().deviceScaleFactor() };
 
     using Sizing = typename FillLayerSizingKind<Layer>::type;
 
@@ -1177,8 +1177,7 @@ bool BackgroundPainter::boxShadowShouldBeAppliedToBackground(const RenderBoxMode
         return false;
 
     if (auto* imageRenderer = dynamicDowncast<RenderImage>(renderer)) {
-        // FIXME: Remove suppression once rdar://189998365 is fixed.
-        SUPPRESS_MEMORY_UNSAFE_CAST return !const_cast<RenderImage&>(*imageRenderer).backgroundIsKnownToBeObscured(paintOffset);
+        return !const_cast<RenderImage&>(*imageRenderer).backgroundIsKnownToBeObscured(paintOffset);
     }
 
     return true;

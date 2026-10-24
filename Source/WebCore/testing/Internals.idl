@@ -1520,6 +1520,8 @@ enum ContentsFormat {
     long readPreferenceInteger(DOMString domain, DOMString key);
     DOMString encodedPreferenceValue(DOMString domain, DOMString key);
 
+    undefined setPresentationIntentHTMLInterchangeEnabled(boolean enabled);
+
     boolean supportsPictureInPicture();
 
     boolean isRemoteUIAppForAccessibility();
@@ -1540,6 +1542,7 @@ enum ContentsFormat {
     [Conditional=ENCRYPTED_MEDIA] unsigned long mediaKeySessionInternalInstanceSessionObjectRefCount(MediaKeySession session);
 
     undefined setContentSizeCategory(ContentSizeCategory category);
+    undefined setTextScaleFactor(float textScaleFactor);
 
     [Conditional=TELEPHONE_NUMBER_DETECTION] unsigned long telephoneNumberRangesChangedCount();
     [Conditional=SERVICE_CONTROLS] undefined setHasRelevantSelectionServicesForTesting(boolean hasServices);

@@ -102,7 +102,6 @@
 		0562F9611573F88F0031CA16 /* PlatformLayer.h in Headers */ = {isa = PBXBuildFile; fileRef = 0562F9601573F88F0031CA16 /* PlatformLayer.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		056A7AC8256C4F48002F9DDC /* ShadowRootInit.h in Headers */ = {isa = PBXBuildFile; fileRef = 054E3A33256C3BD90072C5B9 /* ShadowRootInit.h */; };
 		056A7AC8256C4F48002F9DDF /* GetHTMLOptions.h in Headers */ = {isa = PBXBuildFile; fileRef = 054E3A33256C3BD90072C5BF /* GetHTMLOptions.h */; };
-		05D4770CFFB4C18C6BA6928C /* QuirkTable.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D4770BFFB4C18C6BA6928C /* QuirkTable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		05D4770FFFB4C18C6BA6928F /* QuirkMatchPattern.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D4770EFFB4C18C6BA6928E /* QuirkMatchPattern.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		05D47712FFB4C18C6BA69292 /* RuntimeQuirkTable.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D47711FFB4C18C6BA69291 /* RuntimeQuirkTable.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		05D4770FFFB4C18C6BA6928C /* QuirkSelectors.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D4770EFFB4C18C6BA6928C /* QuirkSelectors.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -1698,7 +1697,6 @@
 		45830D4E1679B4F800ACF8C3 /* AutoscrollController.h in Headers */ = {isa = PBXBuildFile; fileRef = 45830D4C1679B4F800ACF8C3 /* AutoscrollController.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		458FE40A1589DF0B005609E6 /* RenderSearchField.h in Headers */ = {isa = PBXBuildFile; fileRef = 458FE4081589DF0B005609E6 /* RenderSearchField.h */; };
 		45B5D8612A968620004C85A0 /* LoaderMalloc.h in Headers */ = {isa = PBXBuildFile; fileRef = 45B5D85F2A968620004C85A0 /* LoaderMalloc.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		45E434C32E74E6E5004BD91D /* IOSurfacePoolIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		45EA87922D35D30400DD0194 /* CSSParserFastPaths.h in Headers */ = {isa = PBXBuildFile; fileRef = BC7C5E522BE2A8FB00AE645C /* CSSParserFastPaths.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		45FEA5D0156DDE8C00654101 /* Decimal.h in Headers */ = {isa = PBXBuildFile; fileRef = 45FEA5CE156DDE8C00654101 /* Decimal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		46014ACC28333F65004C0B84 /* FrameDestructionObserverInlines.h in Headers */ = {isa = PBXBuildFile; fileRef = 46014ACB28333F52004C0B84 /* FrameDestructionObserverInlines.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -5006,6 +5004,7 @@
 		B6566270120B1227006EA85C /* JSIDBTransaction.h in Headers */ = {isa = PBXBuildFile; fileRef = B656626E120B1227006EA85C /* JSIDBTransaction.h */; };
 		B658FFA21522EF3A00DD5595 /* JSRadioNodeList.h in Headers */ = {isa = PBXBuildFile; fileRef = B658FFA01522EF3A00DD5595 /* JSRadioNodeList.h */; };
 		B658FFA61522EFAA00DD5595 /* RadioNodeList.h in Headers */ = {isa = PBXBuildFile; fileRef = B658FFA41522EFAA00DD5595 /* RadioNodeList.h */; };
+		B65F48F93089162D00E24595 /* PortalInteractionGesture.h in Headers */ = {isa = PBXBuildFile; fileRef = B65F48F73089162D00E24595 /* PortalInteractionGesture.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6621299300A6EA900330D60 /* SpatialPortalController.h in Headers */ = {isa = PBXBuildFile; fileRef = B6621297300A6EA900330D60 /* SpatialPortalController.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6885C5F0B6BD0CFDBE1DB17 /* StyleFlexLineCount.h in Headers */ = {isa = PBXBuildFile; fileRef = 17E2804C741600AE026FD7D4 /* StyleFlexLineCount.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		B6D814722EE0C6D400397547 /* SpatialImageTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = B6D8146E2EE0C39C00397547 /* SpatialImageTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -7811,10 +7810,8 @@
 		054E3A35256C3BD90072C5B9 /* ShadowRootInit.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = ShadowRootInit.idl; sourceTree = "<group>"; };
 		054E3A35256C3BD90072C5BF /* GetHTMLOptions.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = GetHTMLOptions.idl; sourceTree = "<group>"; };
 		0562F9601573F88F0031CA16 /* PlatformLayer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformLayer.h; sourceTree = "<group>"; };
-		05D4770AFFB4C18C6BA6928B /* QuirkTable.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = QuirkTable.cpp; sourceTree = "<group>"; };
 		7A1C4E2F2E8B9D0100A1B2C3 /* QuirkTable.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = QuirkTable.json; sourceTree = "<group>"; };
 		7A1C4E2F2E8B9D0100A1B2C5 /* QuirkTableCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = QuirkTableCocoa.mm; sourceTree = "<group>"; };
-		05D4770BFFB4C18C6BA6928C /* QuirkTable.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QuirkTable.h; sourceTree = "<group>"; };
 		05D4770DFFB4C18C6BA6928D /* QuirkMatchPattern.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = QuirkMatchPattern.cpp; sourceTree = "<group>"; };
 		05D4770EFFB4C18C6BA6928E /* QuirkMatchPattern.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = QuirkMatchPattern.h; sourceTree = "<group>"; };
 		05D47710FFB4C18C6BA69290 /* RuntimeQuirkTable.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = RuntimeQuirkTable.cpp; sourceTree = "<group>"; };
@@ -9178,7 +9175,7 @@
 		1C16B86C284D73EF00318FEC /* FontCacheCocoa.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = FontCacheCocoa.mm; sourceTree = "<group>"; };
 		1C18DA56181AF6A500C4EF22 /* TextPainter.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TextPainter.cpp; sourceTree = "<group>"; };
 		1C18DA57181AF6A500C4EF22 /* TextPainter.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TextPainter.h; sourceTree = "<group>"; };
-		1C21E57A183ED1FF001C289D /* IOSurfacePool.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOSurfacePool.cpp; sourceTree = "<group>"; };
+		1C21E57A183ED1FF001C289D /* IOSurfacePool.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = IOSurfacePool.mm; sourceTree = "<group>"; };
 		1C21E57B183ED1FF001C289D /* IOSurfacePool.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOSurfacePool.h; sourceTree = "<group>"; };
 		1C24EEA11C729B320080F8FC /* FontFaceSet.idl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = FontFaceSet.idl; sourceTree = "<group>"; };
 		1C24EEA21C729CE40080F8FC /* FontFaceSet.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = FontFaceSet.cpp; sourceTree = "<group>"; };
@@ -11824,7 +11821,6 @@
 		45BA2FCA2C3C77870042DA4F /* JSWebCodecsAudioEncoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsAudioEncoderCustom.cpp; sourceTree = "<group>"; };
 		45BA2FCB2C3C77870042DA4F /* JSWebCodecsVideoEncoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsVideoEncoderCustom.cpp; sourceTree = "<group>"; };
 		45D021E32C8B91F40089F09A /* JSStylePropertyMapReadOnlyCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSStylePropertyMapReadOnlyCustom.cpp; sourceTree = "<group>"; };
-		45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = IOSurfacePoolIdentifier.h; sourceTree = "<group>"; };
 		45F4864B2C38CCE9008B9897 /* JSWebCodecsVideoDecoderCustom.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSWebCodecsVideoDecoderCustom.cpp; sourceTree = "<group>"; };
 		45FEA5CD156DDE8C00654101 /* Decimal.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = Decimal.cpp; sourceTree = "<group>"; };
 		45FEA5CE156DDE8C00654101 /* Decimal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Decimal.h; sourceTree = "<group>"; };
@@ -18304,7 +18300,6 @@
 		AD726FE916D9F40A003A4E6D /* JSCSSRuleCustom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSCSSRuleCustom.h; sourceTree = "<group>"; };
 		AD726FEA16D9F40B003A4E6D /* JSCSSStyleDeclarationCustom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSCSSStyleDeclarationCustom.h; sourceTree = "<group>"; };
 		AD726FEC16D9F4B9003A4E6D /* JSStyleSheetCustom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSStyleSheetCustom.h; sourceTree = "<group>"; };
-		AD9FF6E01908391D003B61E0 /* IOSurfacePoolCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = IOSurfacePoolCocoa.mm; sourceTree = "<group>"; };
 		ADBAD6EC1BCDD95000381325 /* ResourceUsageOverlay.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ResourceUsageOverlay.cpp; sourceTree = "<group>"; };
 		ADBAD6ED1BCDD95000381325 /* ResourceUsageOverlay.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ResourceUsageOverlay.h; sourceTree = "<group>"; };
 		ADDA94BF19686F8000453029 /* JSDocumentCustom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JSDocumentCustom.h; sourceTree = "<group>"; };
@@ -18959,6 +18954,8 @@
 		B65C81DD305DD4BF00DE9CAF /* CSSEnvironmentMapRule.idl */ = {isa = PBXFileReference; lastKnownFileType = text; path = CSSEnvironmentMapRule.idl; sourceTree = "<group>"; };
 		B65C81DE305DD4E200DE9CAF /* EnvironmentMapLoader.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = EnvironmentMapLoader.h; sourceTree = "<group>"; };
 		B65C81DF305DD4E200DE9CAF /* EnvironmentMapLoader.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = EnvironmentMapLoader.cpp; sourceTree = "<group>"; };
+		B65F48F73089162D00E24595 /* PortalInteractionGesture.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = PortalInteractionGesture.h; sourceTree = "<group>"; };
+		B65F48F83089162D00E24595 /* PortalInteractionGesture.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = PortalInteractionGesture.cpp; sourceTree = "<group>"; };
 		B6621297300A6EA900330D60 /* SpatialPortalController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpatialPortalController.h; sourceTree = "<group>"; };
 		B6621298300A6EA900330D60 /* SpatialPortalController.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = SpatialPortalController.cpp; sourceTree = "<group>"; };
 		B6D8146E2EE0C39C00397547 /* SpatialImageTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SpatialImageTypes.h; sourceTree = "<group>"; };
@@ -31405,8 +31402,6 @@
 				CD9A87FB215D6CF3006F17B5 /* Quirks.h */,
 				7ABB0F5F2CE7C170009A837D /* QuirksData.h */,
 				05D4770EFFB4C18C6BA6928C /* QuirkSelectors.h */,
-				05D4770AFFB4C18C6BA6928B /* QuirkTable.cpp */,
-				05D4770BFFB4C18C6BA6928C /* QuirkTable.h */,
 				7A1C4E2F2E8B9D0100A1B2C3 /* QuirkTable.json */,
 				46B9518D207D632A00A7D2DD /* RemoteDOMWindow.cpp */,
 				46B9518E207D632A00A7D2DD /* RemoteDOMWindow.h */,
@@ -32116,6 +32111,8 @@
 				52597BE62DC6533200CAAF01 /* PlaceholderModelPlayer.cpp */,
 				52597BE52DC6533200CAAF01 /* PlaceholderModelPlayer.h */,
 				1F2E3D4C5B6A79880716253F /* PortalAction.h */,
+				B65F48F83089162D00E24595 /* PortalInteractionGesture.cpp */,
+				B65F48F73089162D00E24595 /* PortalInteractionGesture.h */,
 				329D390B53E4795024178E9D /* PortalTransform.h */,
 				B6621298300A6EA900330D60 /* SpatialPortalController.cpp */,
 				B6621297300A6EA900330D60 /* SpatialPortalController.h */,
@@ -36588,9 +36585,8 @@
 				B27535320B053814002CE64F /* IntPointCG.cpp */,
 				B27535330B053814002CE64F /* IntRectCG.cpp */,
 				B27535340B053814002CE64F /* IntSizeCG.cpp */,
-				1C21E57A183ED1FF001C289D /* IOSurfacePool.cpp */,
 				1C21E57B183ED1FF001C289D /* IOSurfacePool.h */,
-				45E434C22E74E18B004BD91D /* IOSurfacePoolIdentifier.h */,
+				1C21E57A183ED1FF001C289D /* IOSurfacePool.mm */,
 				377A3A8F15EFCE9A0059F5C7 /* NativeImageCG.cpp */,
 				B27535350B053814002CE64F /* PathCG.cpp */,
 				7246F02E2A1549CB00FD74F1 /* PathCG.h */,
@@ -37239,7 +37235,6 @@
 				2D0B4AA918DA1CCD00434DE1 /* IOSurface.h */,
 				2D0B4AAA18DA1CCD00434DE1 /* IOSurface.mm */,
 				7B66CFD22D31387D00BD6CB5 /* IOSurfaceDrawingBuffer.h */,
-				AD9FF6E01908391D003B61E0 /* IOSurfacePoolCocoa.mm */,
 				B588D918E3A23CFD5275BDE9 /* ISOBMFFPreParser.cpp */,
 				B588D917E3A23CFD5275BDE9 /* ISOBMFFPreParser.h */,
 				B588D931E3A23CFD5275BDE9 /* ISOBMFFTrackInfoParser.cpp */,
@@ -46462,7 +46457,6 @@
 				2D0B4AAB18DA1CCD00434DE1 /* IOSurface.h in Headers */,
 				7B66CFD52D31387D00BD6CB5 /* IOSurfaceDrawingBuffer.h in Headers */,
 				1C21E57D183ED1FF001C289D /* IOSurfacePool.h in Headers */,
-				45E434C32E74E6E5004BD91D /* IOSurfacePoolIdentifier.h in Headers */,
 				3C8D24EE2E25CF1A00D2A929 /* IPAddressSpace.h in Headers */,
 				9BAF70C12DC1C35A0027B01E /* IsImportant.h in Headers */,
 				568AF20E2FEB4DE600AF8D54 /* IsInitiatedByWorker.h in Headers */,
@@ -48241,6 +48235,7 @@
 				BC3BE12B0E98092F00835588 /* PopupMenuStyle.h in Headers */,
 				37F567CE165358F400DDE92B /* PopupOpeningObserver.h in Headers */,
 				0A1B2C3D4E5F60718293A4B5 /* PortalAction.h in Headers */,
+				B65F48F93089162D00E24595 /* PortalInteractionGesture.h in Headers */,
 				053F6589A66D76BEEA136C23 /* PortalTransform.h in Headers */,
 				86EB71C0298C0A0F00C1DC77 /* PortIdentifier.h in Headers */,
 				93F199DE08245E59001E9ABC /* Position.h in Headers */,
@@ -48337,7 +48332,6 @@
 				32400DF4AA35A12EDCD8FB9F /* QuirksAccessors.h in Headers */,
 				7ABB0F602CE7C170009A837D /* QuirksData.h in Headers */,
 				05D4770FFFB4C18C6BA6928C /* QuirkSelectors.h in Headers */,
-				05D4770CFFB4C18C6BA6928C /* QuirkTable.h in Headers */,
 				FE7CF1A5010000000000E002 /* QuotaExceededError.h in Headers */,
 				FE7CF1A5010000000000E006 /* QuotaExceededErrorOptions.h in Headers */,
 				379E371713736A6600B9E919 /* QuotedPrintable.h in Headers */,

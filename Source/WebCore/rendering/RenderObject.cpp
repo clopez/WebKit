@@ -491,14 +491,12 @@ RenderLayer* RenderObject::enclosingLayer() const
 
 RenderBox& RenderObject::enclosingBox() const
 {
-    // FIXME: Remove suppression once rdar://189998365 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST return *lineageOfType<RenderBox>(const_cast<RenderObject&>(*this)).first();
+    return *lineageOfType<RenderBox>(const_cast<RenderObject&>(*this)).first();
 }
 
 RenderBoxModelObject& RenderObject::enclosingBoxModelObject() const
 {
-    // FIXME: Remove suppression once rdar://189998365 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST return *lineageOfType<RenderBoxModelObject>(const_cast<RenderObject&>(*this)).first();
+    return *lineageOfType<RenderBoxModelObject>(const_cast<RenderObject&>(*this)).first();
 }
 
 RenderBox* RenderObject::enclosingScrollableContainer() const
@@ -731,8 +729,7 @@ void RenderObject::setLayerNeedsFullRepaintForOutOfFlowMovementLayout()
 
 RenderBlock* RenderElement::nearestNonAnonymousContainingBlockIncludingSelf() const
 {
-    // FIXME: Remove suppression once rdar://189998365 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST auto* renderer = const_cast<RenderElement*>(this);
+    auto* renderer = const_cast<RenderElement*>(this);
     while (renderer && (!is<RenderBlock>(*renderer) || renderer->isAnonymousBlock()))
         renderer = renderer->containingBlock();
     return downcast<RenderBlock>(renderer);
@@ -865,7 +862,7 @@ void RenderObject::absoluteFocusRingQuads(Vector<FloatQuad>& quads)
     // descendants.
     FloatPoint absolutePoint = localToAbsolute();
     auto rects = OutlinePainter::collectFocusRingRects(*elementRenderer, flooredLayoutPoint(absolutePoint), nullptr);
-    float deviceScaleFactor = protect(document())->deviceScaleFactor();
+    float deviceScaleFactor = document().deviceScaleFactor();
     for (auto rect : rects) {
         rect.moveBy(LayoutPoint(-absolutePoint));
         quads.append(localToAbsoluteQuad(FloatQuad(snapRectToDevicePixels(rect, deviceScaleFactor))));
@@ -1134,7 +1131,7 @@ auto RenderObject::rectsForRepaintingAfterLayout(const RenderLayerModelObject* r
 
     auto result = computeRects(localRects, repaintContainer, visibleRectContextForRepaint());
     if (result.outlineBoundsRect)
-        result.outlineBoundsRect = LayoutRect(snapRectToDevicePixels(*result.outlineBoundsRect, protect(document())->deviceScaleFactor()));
+        result.outlineBoundsRect = LayoutRect(snapRectToDevicePixels(*result.outlineBoundsRect, document().deviceScaleFactor()));
 
     return result;
 }
@@ -1203,7 +1200,7 @@ LayoutRect RenderObject::localBoundsForIntersection() const
     if (CheckedPtr renderLineBreak = dynamicDowncast<RenderLineBreak>(*this))
         return renderLineBreak->linesBoundingBox();
 
-    if (CheckedPtr svgModelObject = dynamicDowncast<RenderSVGModelObject>(*this))
+    if (auto* svgModelObject = dynamicDowncast<RenderSVGModelObject>(*this))
         return svgModelObject->borderBoxRectEquivalent();
 
     if (CheckedPtr legacySVGModelObject = dynamicDowncast<LegacyRenderSVGModelObject>(*this))
@@ -1916,7 +1913,7 @@ bool RenderObject::setCapturedInViewTransition(bool captured)
         layerToInvalidate->setNeedsCompositingGeometryUpdate();
     }
 
-    if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*this))
+    if (auto* renderBox = dynamicDowncast<RenderBox>(*this))
         renderBox->invalidateAncestorBackgroundObscurationStatus();
 
     if (CheckedPtr layerModelRenderer = dynamicDowncast<RenderLayerModelObject>(this)) {
@@ -1963,7 +1960,7 @@ void RenderObject::willBeRemovedFromTree()
 {
     // FIXME: We should ASSERT(isRooted()) but we have some out-of-order removals which would need to be fixed first.
     // Update cached boundaries in SVG renderers, if a child is removed.
-    protect(parent())->invalidateCachedBoundaries();
+    parent()->invalidateCachedBoundaries();
 
 #if ENABLE(AX_CUSTOM_COLOR_MODE)
     AXCustomColorSVGClassifier::invalidateCharacteristics(*this);
@@ -2422,7 +2419,7 @@ Vector<IntRect> RenderObject::absoluteTextRects(const SimpleRange& range, Option
 
 static RefPtr<Node> nodeAfter(const BoundaryPoint& point)
 {
-    if (RefPtr node = point.container->traverseToChildAt(point.offset + 1))
+    if (auto* node = point.container->traverseToChildAt(point.offset + 1))
         return node;
     return point.container.ptr();
 }
@@ -2460,7 +2457,7 @@ static Vector<FloatRect> borderAndTextRects(const SimpleRange& range, Coordinate
                     auto rootClippedBounds = renderer->computeClippedRectInContentCoordinates(renderer->borderBoundingBox());
                     if (!rootClippedBounds)
                         continue;
-                    auto snappedBounds = snapRectToDevicePixels(*rootClippedBounds, protect(node->document())->deviceScaleFactor());
+                    auto snappedBounds = snapRectToDevicePixels(*rootClippedBounds, node->document().deviceScaleFactor());
                     if (space == CoordinateSpace::Client)
                         protect(node->document())->convertAbsoluteToClientRect(snappedBounds, renderer->style());
                     rects.append(snappedBounds);
@@ -2782,7 +2779,7 @@ static bool LEGACY_NODELETE shouldRenderSelectionOnSeparateLine(const RenderObje
     if (currentRenderer->isOutOfFlowPositioned())
         return true;
 
-    if (CheckedPtr blockFlow = dynamicDowncast<const RenderBlockFlow>(*currentRenderer))
+    if (auto* blockFlow = dynamicDowncast<const RenderBlockFlow>(*currentRenderer))
         return blockFlow->multiColumnFlow();
 
     return false;

@@ -511,6 +511,7 @@ void WebFrame::createProvisionalFrame(ProvisionalFrameCreationParameters&& param
     auto localFrame = parent ? LocalFrame::createProvisionalSubframe(*corePage, WTF::move(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.effectiveReferrerPolicy, parameters.scrollingMode, *parent, Ref { remoteFrame->frameTreeSyncData() }, parameters.pageZoomFactor, parameters.textZoomFactor) : LocalFrame::createMainFrame(*corePage, WTF::move(clientCreator), m_frameID, parameters.effectiveSandboxFlags, parameters.effectiveReferrerPolicy, nullptr, Ref { remoteFrame->frameTreeSyncData() }, parameters.pageZoomFactor, parameters.textZoomFactor);
     ASSERT(!m_provisionalFrame);
     m_provisionalFrame = localFrame.ptr();
+    localFrame->setFrameBeingReplaced(remoteFrame.get());
     m_frameIDBeforeProvisionalNavigation = parameters.frameIDBeforeProvisionalNavigation;
     localFrame->init();
     if (!localFrame->isMainFrame())
@@ -571,6 +572,8 @@ void WebFrame::commitProvisionalFrame()
     RefPtr localFrame = std::exchange(m_provisionalFrame, nullptr);
     if (!localFrame)
         return;
+
+    localFrame->setFrameBeingReplaced(nullptr);
 
     RefPtr remoteFrame = coreRemoteFrame();
     if (!remoteFrame) {
@@ -1418,7 +1421,7 @@ void WebFrame::updateLocalFrameRect(WebCore::LocalFrame& localFrame, WebCore::In
     // Default to covering the entire view until the parent frame process sends an
     // exposedContentRect to us at least once to minimize blanking issues (see rdar://122429810).
     if (!frameView->hasEverSetExposedContentRectFromEmbedder())
-        frameView->setExposedContentRect(FloatRect { { }, frameView->size() });
+        frameView->setExposedViewRect(inViewSpace(FloatRect { { }, frameView->size() }));
 #endif
 
     if (oldRect.size() == newRect.size())

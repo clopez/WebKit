@@ -213,10 +213,6 @@
 #import <pal/cocoa/WritingToolsUISoftLink.h>
 #import <pal/mac/DataDetectorsSoftLink.h>
 
-#if ENABLE(WRITING_TOOLS) && USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebViewImplWritingToolsAdditions.mm>)
-#import <WebKitAdditions/WebViewImplWritingToolsAdditions.mm>
-#endif
-
 #if HAVE(TOUCH_BAR) && ENABLE(WEB_PLAYBACK_CONTROLS_MANAGER)
 SOFT_LINK_FRAMEWORK(AVKit)
 SOFT_LINK_CLASS(AVKit, AVTouchBarPlaybackControlsProvider)
@@ -1569,7 +1565,7 @@ void WebViewImpl::didRelaunchProcess()
 void WebViewImpl::scrollingCoordinatorWasCreated()
 {
 #if HAVE(NSREFRESHCONTROLLER)
-    if (CheckedPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy()) {
+    if (RefPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy()) {
         scrollingCoordinator->setHasRefreshController(!!m_refreshController);
         scrollingCoordinator->setRefreshControllerSnappingThreshold(refreshControllerSnappingThreshold());
     }
@@ -1927,7 +1923,7 @@ bool WebViewImpl::isPointOnPDFHUD(WebCore::FloatPoint locationInView)
 
 bool WebViewImpl::isPointInScrollbar(CGPoint locationInView)
 {
-    CheckedPtr scrollingCoordinatorProxy = m_page->scrollingCoordinatorProxy();
+    RefPtr scrollingCoordinatorProxy = m_page->scrollingCoordinatorProxy();
     if (!scrollingCoordinatorProxy)
         return false;
 
@@ -7838,8 +7834,8 @@ bool WebViewImpl::canHandleContextMenuWritingTools() const
     if (!PAL::isWritingToolsUIFrameworkAvailable() || ![PAL::getWTWritingToolsViewControllerClassSingleton() isAvailable] || m_page->writingToolsBehavior() == WebCore::WritingTools::Behavior::None)
         return false;
 
-#if USE(APPLE_INTERNAL_SDK) && __has_include(<WebKitAdditions/WebViewImplWritingToolsAdditions.mm>)
-    if (!shouldShowWritingToolsInContextMenu())
+#if HAVE(APPKIT_SIRI_AFFORDANCE)
+    if ([PAL::getWTWritingToolsViewControllerClassSingleton() isEnhancedSiriAvailable])
         return false;
 #endif
 
@@ -8477,7 +8473,7 @@ void WebViewImpl::setRefreshController(NSRefreshController *refreshController)
 #endif
     }
 
-    if (CheckedPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy()) {
+    if (RefPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy()) {
         scrollingCoordinator->setHasRefreshController(!!m_refreshController);
         scrollingCoordinator->setRefreshControllerSnappingThreshold(refreshControllerSnappingThreshold());
     }
@@ -8494,7 +8490,7 @@ void WebViewImpl::applyRefreshControllerHeight(CGFloat height, bool animated)
     if (!height && m_cachedTopScrollStretch > 0)
         m_suppressRefreshControllerUpdates = true;
 
-    if (CheckedPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy())
+    if (RefPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy())
         scrollingCoordinator->setTopScrollStretchForRefreshController(height);
 }
 
@@ -8543,7 +8539,7 @@ void WebViewImpl::updateRefreshControllerFrame()
     if (!m_suppressRefreshControllerUpdates)
         [[m_refreshController refreshControl] update];
 
-    if (CheckedPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy())
+    if (RefPtr scrollingCoordinator = m_page->scrollingCoordinatorProxy())
         scrollingCoordinator->setRefreshControllerSnappingThreshold(refreshControllerSnappingThreshold());
 }
 

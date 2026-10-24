@@ -38,6 +38,7 @@
 #include "APIInjectedBundlePageUIClient.h"
 #include "Connection.h"
 #include "ContentAsStringIncludesChildFrames.h"
+#include "ContentInversion.h"
 #include "DragControllerAction.h"
 #include "DragEventForwardingData.h"
 #include "DrawingArea.h"
@@ -203,6 +204,7 @@
 #include <WebCore/DOMPasteAccess.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/DataTransfer.h>
+#include <WebCore/DefaultSizing.h>
 #include <WebCore/DeprecatedGlobalSettings.h>
 #include <WebCore/DisplayListRecorderImpl.h>
 #include <WebCore/Document.h>
@@ -995,6 +997,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     m_backgroundColor = parameters.backgroundColor;
     setUseColorAppearance(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
+    setContentInversion(parameters.contentInversion);
 
     // We need to set the device scale factor before creating the drawing area
     // to ensure it's created with the right size.
@@ -1571,13 +1574,13 @@ void WebPage::updateChildFrameVisibleRectsFromParent(WebCore::Frame& parentCoreF
         // FIXME (320601): this only affects tile coverage on iOS by setting exposedContentRect on
         // this child frame based on the exposedContentRect from the parent frame process. We need
         // to do something similar on macOS (see visibleRectForLayerFlushing).
-        auto fullChildViewRect = FloatRect { { }, childView->size() };
+        auto fullChildViewRect = inViewSpace(FloatRect { { }, childView->size() });
         auto exposedContentRectInChildView = layoutInfo->exposedContentRectInChildView();
-        auto projected = exposedContentRectInChildView;
+        auto projected = inViewSpace(exposedContentRectInChildView);
         projected.intersect(fullChildViewRect);
 
-        if (childView->exposedContentRect() != projected) {
-            childView->setExposedContentRect(projected);
+        if (childView->exposedViewRect() != projected) {
+            childView->setExposedViewRect(projected);
             needsRenderingUpdate = true;
         }
 
@@ -1790,6 +1793,7 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
 #endif
 
     setUseColorAppearance(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
+    setContentInversion(parameters.contentInversion);
 
     if (auto& remotePageParameters = parameters.remotePageParameters) {
         if (RefPtr page = m_page; page && is<RemoteFrame>(page->mainFrame()))
@@ -3701,7 +3705,7 @@ RefPtr<ShareableBitmap> WebPage::shareableBitmapForNodeIncludingOffscreen(Node& 
         if (imageElement) {
             if (RefPtr cachedImage = imageElement->cachedImage()) {
                 if (RefPtr image = cachedImage->image()) {
-                    if (RefPtr nativeImage = image->currentNativeImage(ConcreteObjectSize::fixed(image->size())))
+                    if (RefPtr nativeImage = image->currentNativeImage(DefaultSizing { }.resolve(image->naturalDimensions())))
                         bitmap = ShareableBitmap::createFromImageDraw(*nativeImage, ColorSpace::SRGB());
                 }
             }
@@ -5555,17 +5559,19 @@ void WebPage::adjustSettingsForLockdownMode(Settings& settings, const WebPrefere
 {
     bool originalSiteIsolationEnabled = settings.siteIsolationEnabled();
     bool originalUseUIProcessForBackForwardItemLoading = settings.useUIProcessForBackForwardItemLoading();
+    bool originalDocumentIsolationPolicyEnabled = settings.documentIsolationPolicyEnabled();
     // Disable unstable Experimental settings, even if the user enabled them for local use.
     settings.disableUnstableFeaturesForModernWebKit();
     Settings::disableGlobalUnstableFeaturesForModernWebKit();
     settings.disableFeaturesForLockdownMode();
 
-    // Though SiteIsolationEnabled is still unstable, web process must stay in sync with the UI process
-    // setting to avoid IPC state mismatch.
+    // Though these settings are still unstable, the web process must stay in sync with the UI process to avoid state mismatches.
     if (originalSiteIsolationEnabled)
         settings.setSiteIsolationEnabled(true);
     if (originalUseUIProcessForBackForwardItemLoading)
         settings.setUseUIProcessForBackForwardItemLoading(true);
+    if (originalDocumentIsolationPolicyEnabled)
+        settings.setDocumentIsolationPolicyEnabled(true);
 
 #if PLATFORM(COCOA)
     if (settings.downloadableBinaryFontTrustedTypes() != DownloadableBinaryFontTrustedTypes::None) {
@@ -6582,6 +6588,11 @@ void WebPage::findString(const String& string, OptionSet<FindOptions> options, u
     findController().findString(string, options, maxMatchCount, WTF::move(completionHandler));
 }
 
+void WebPage::countStringMatchesByFrame(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(Vector<std::pair<FrameIdentifier, uint32_t>>&&)>&& completionHandler)
+{
+    findController().countStringMatchesByFrame(string, options, maxMatchCount, WTF::move(completionHandler));
+}
+
 void WebPage::selectLastFoundRange(const String& string, OptionSet<FindOptions> options, uint32_t maxMatchCount, CompletionHandler<void(std::optional<FrameIdentifier>, Vector<IntRect>&&, int32_t, bool)>&& completionHandler)
 {
     findController().selectLastFoundRange(string, options, maxMatchCount, WTF::move(completionHandler));
@@ -7297,6 +7308,30 @@ void WebPage::setCaretBlinkingSuspended(bool suspended)
 }
 
 #endif
+
+void WebPage::setContentInversion(ContentInversion contentInversion)
+{
+    auto forcedColorsAreInverted = [&] {
+        switch (contentInversion) {
+        case ContentInversion::System:
+            // The inverted-colors media feature then uses ScreenData::screenHasInvertedColors.
+            return ForcedAccessibilityValue::System;
+        case ContentInversion::Inverted:
+            return ForcedAccessibilityValue::On;
+        case ContentInversion::NotInverted:
+            return ForcedAccessibilityValue::Off;
+        }
+        ASSERT_NOT_REACHED();
+        return ForcedAccessibilityValue::System;
+    }();
+
+    Ref page = *m_page;
+    if (page->settings().forcedColorsAreInvertedAccessibilityValue() == forcedColorsAreInverted)
+        return;
+
+    page->settings().setForcedColorsAreInvertedAccessibilityValue(forcedColorsAreInverted);
+    page->accessibilitySettingsDidChange();
+}
 
 void WebPage::setUseColorAppearance(bool useDarkAppearance, bool useElevatedUserInterfaceLevel)
 {

@@ -332,6 +332,7 @@ Modules/model-element/ModelPlayer.cpp
 Modules/model-element/ModelPlayerAnimationState.cpp
 Modules/model-element/ModelPlayerClient.cpp
 Modules/model-element/ModelPlayerProvider.cpp
+Modules/model-element/PortalInteractionGesture.cpp
 Modules/model-element/PlaceholderModelPlayer.cpp
 Modules/model-element/SpatialPortalController.cpp
 Modules/model-element/dummy/DummyModelPlayer.cpp
@@ -2350,7 +2351,6 @@ page/PointerLockController.cpp
 page/PrintContext.cpp @header:RenderStyleGetters @cost:7
 page/ProcessWarming.cpp
 page/QuirkMatchPattern.cpp
-page/QuirkTable.cpp
 page/Quirks.cpp @header:RenderStyleGetters @cost:11
 page/RemoteDOMWindow.cpp
 page/RemoteFrame.cpp
