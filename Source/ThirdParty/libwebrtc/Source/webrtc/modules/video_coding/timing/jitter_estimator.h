@@ -115,6 +115,11 @@ class JitterEstimator {
     std::optional<TimeDelta> nack_count_timeout = std::nullopt;
   };
 
+#if defined(WEBRTC_WEBKIT_BUILD) && defined(__GNUC__) && !defined(__clang__)
+  // GCC 13 crashes (internal compiler error) building with LTO when this
+  // constructor is inlined into its callers. https://bugs.webkit.org/show_bug.cgi?id=XXXXXX
+  __attribute__((noipa))
+#endif
   JitterEstimator(Clock* clock, const FieldTrialsView& field_trials);
   JitterEstimator(const JitterEstimator&) = delete;
   JitterEstimator& operator=(const JitterEstimator&) = delete;
