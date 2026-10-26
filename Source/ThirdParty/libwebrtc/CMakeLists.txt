@@ -3213,7 +3213,10 @@ else ()
             Source/third_party/libvpx/source/config/linux/arm64/vpx_config.c
             Source/third_party/libvpx/source/libvpx/vpx_ports/aarch64_cpudetect.c
         )
-    elseif (WTF_CPU_ADDRESS32 AND WTF_CPU_ARM)
+    elseif (WTF_CPU_ARM)
+        list(APPEND vpx_INCLUDE_DIRECTORIES
+            Source/third_party/libvpx/source/config/linux/arm
+        )
         list(APPEND vpx_SOURCES
             Source/third_party/libvpx/source/libvpx/vpx_ports/aarch32_cpudetect.c
         )
@@ -3228,6 +3231,8 @@ elseif (WTF_CPU_ARM64)
     add_library(vpx OBJECT ${vpx_SOURCES})
     target_compile_options(vpx PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-march=armv8.2-a+dotprod>)
     target_compile_options(vpx PRIVATE $<$<COMPILE_LANGUAGE:C>:-march=armv8.2-a+dotprod>)
+elseif (WTF_CPU_ARM)
+    add_library(vpx OBJECT ${vpx_SOURCES})
 endif ()
 
 target_include_directories(vpx PRIVATE ${vpx_INCLUDE_DIRECTORIES})
