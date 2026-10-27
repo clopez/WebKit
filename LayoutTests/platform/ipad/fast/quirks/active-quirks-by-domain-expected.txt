@@ -62,6 +62,8 @@ https://www.capitalgroup.com/
     ShouldDelayReloadWhenRegisteringServiceWorker
 https://www.cbssports.com/
     ShouldSynthesizeTouchEventsAfterNonSyntheticClickQuirk
+https://chatgpt.com/
+    ShouldUseLayoutViewportForClientRectsQuirk
 https://www.cnn.com/
     NeedsCNNCaptionQuirk
     NeedsFullscreenObjectFitQuirk
@@ -326,9 +328,10 @@ https://open.spotify.com/
     ShouldAvoidStartingSelectionOnMouseDownOverPointerCursor
     ShouldBlockAudiblePlaybackWhileAudioIsPlaying
     ShouldDeferIntersectionObserversDuringResize
+    ShouldFlipScreenDimensionsQuirk
     ShouldLimitHLSPlaybackRate
 https://www.spotify.com/
-    (none)
+    ShouldFlipScreenDimensionsQuirk
 https://ceac.state.gov/
     NeedsScriptToEvaluateBeforeRunningScriptFromURLQuirk
 https://sub.ceac.state.gov/

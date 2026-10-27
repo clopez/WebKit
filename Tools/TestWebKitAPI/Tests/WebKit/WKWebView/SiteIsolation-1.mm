@@ -46,6 +46,7 @@
 #import <WebKit/WKFrameInfoPrivate.h>
 #import <WebKit/WKHitTestResult.h>
 #import <WebKit/WKJSHandle.h>
+#import <WebKit/WKMenuItemIdentifiersPrivate.h>
 #import <WebKit/WKUIDelegatePrivate.h>
 #import <WebKit/WKWebViewConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
@@ -92,6 +93,7 @@
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/WebAVPlayerLayer.h>
 #import <WebKit/_WKHitTestResult.h>
+#import <pal/cocoa/TranslationUIServicesSoftLink.h>
 #import <pal/spi/mac/NSImmediateActionGestureRecognizerSPI.h>
 #import <pal/spi/mac/NSSpellCheckerSPI.h>
 
@@ -880,6 +882,35 @@ TEST(SiteIsolation, CopyLinkWithHighlightInCrossOriginIframe)
 }
 
 #endif // PLATFORM(IOS_FAMILY)
+
+#if PLATFORM(MAC)
+
+TEST(SiteIsolation, WindowFrameChangeUpdatesCrossOriginIframe)
+{
+    HTTPServer server({
+        { "/example"_s, { "<iframe src='https://webkit.org/iframe'></iframe>"_s } },
+        { "/iframe"_s, { "<body>iframe</body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 320, 240));
+    [[webView hostWindow] setFrame:NSMakeRect(0, 0, 500, 400) display:YES];
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/example"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+    [webView waitForNextPresentationUpdate];
+
+    RetainPtr childFrame = [webView firstChildFrame];
+    EXPECT_EQ(500, [[webView objectByEvaluatingJavaScript:@"outerWidth" inFrame:childFrame.get()] intValue]);
+
+    [[webView hostWindow] setFrame:NSMakeRect(50, 50, 600, 400) display:YES];
+    EXPECT_TRUE(Util::waitFor([&] {
+        return [[webView objectByEvaluatingJavaScript:@"outerWidth"] intValue] == 600;
+    }));
+
+    EXPECT_EQ(600, [[webView objectByEvaluatingJavaScript:@"outerWidth" inFrame:childFrame.get()] intValue]);
+    EXPECT_EQ([[webView objectByEvaluatingJavaScript:@"screenX"] intValue], [[webView objectByEvaluatingJavaScript:@"screenX" inFrame:childFrame.get()] intValue]);
+}
+
+#endif // PLATFORM(MAC)
 
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
 
@@ -3037,5 +3068,74 @@ TEST(SiteIsolation, CaptionDisplaySettingsPreviewInCrossSiteIframe)
 }
 
 #endif // PLATFORM(MAC) && ENABLE(MEDIA_CONTROLS_CONTEXT_MENUS)
+
+#if PLATFORM(MAC)
+
+TEST(SiteIsolation, TranslatePopoverInCrossOriginIframe)
+{
+    static constexpr NSRect iframeFrame { { 100, 120 }, { 400, 300 } };
+    HTTPServer server({
+        { "/mainframe"_s, { "<body style='margin: 0'><iframe style='position: absolute; left: 100px; top: 120px; width: 400px; height: 300px; border: none' src='https://webkit.org/iframe'></iframe></body>"_s } },
+        { "/iframe"_s, { "<body style='margin: 0; font-size: 32px'><span id='text'>Hello world</span></body>"_s } }
+    }, HTTPServer::Protocol::HttpsProxy);
+
+    auto [webView, navigationDelegate] = siteIsolatedViewAndDelegate(server, CGRectMake(0, 0, 800, 600));
+    [webView loadRequest:[NSURLRequest requestWithURL:[NSURL URLWithString:@"https://example.com/mainframe"]]];
+    [navigationDelegate waitForDidFinishNavigation];
+
+    // Right of the selection's center, so the popover should open on its right.
+    RetainPtr<NSArray> pointInIframe = [webView objectByEvaluatingJavaScript:@"(() => {"
+        "  getSelection().selectAllChildren(text);"
+        "  const rect = text.getBoundingClientRect();"
+        "  return [rect.x + rect.width * 3 / 4, rect.y + rect.height / 2];"
+        "})()" inFrame:[webView firstChildFrame]];
+    auto pointInWebView = NSMakePoint(iframeFrame.origin.x + [[pointInIframe firstObject] doubleValue], iframeFrame.origin.y + [[pointInIframe lastObject] doubleValue]);
+    [webView waitForNextPresentationUpdate];
+
+    ClassMethodSwizzler translationAvailabilitySwizzler {
+        PAL::getLTUITranslationViewControllerClassSingleton(),
+        @selector(isAvailable),
+        imp_implementationWithBlock(^BOOL {
+            return YES;
+        })
+    };
+
+    ClassMethodSwizzler popUpSwizzler {
+        NSMenu.class,
+        @selector(popUpContextMenu:withEvent:forView:),
+        imp_implementationWithBlock(^(Class, NSMenu *menu, NSEvent *, NSView *) {
+            NSUInteger index = [menu.itemArray indexOfObjectPassingTest:^BOOL(NSMenuItem *item, NSUInteger, BOOL *) {
+                return [item.identifier isEqualToString:_WKMenuItemIdentifierTranslate];
+            }];
+            if (index != NSNotFound)
+                [menu performActionForItemAtIndex:index];
+        })
+    };
+
+    __block bool showedPopover = false;
+    __block NSRect popoverRect = NSZeroRect;
+    __block NSRectEdge popoverEdge = NSRectEdgeMinX;
+    __block RetainPtr<NSView> popoverView;
+    InstanceMethodSwizzler popoverSwizzler {
+        NSPopover.class,
+        @selector(showRelativeToRect:ofView:preferredEdge:),
+        imp_implementationWithBlock(^(NSPopover *, NSRect rect, NSView *view, NSRectEdge edge) {
+            popoverRect = rect;
+            popoverView = view;
+            popoverEdge = edge;
+            showedPopover = true;
+        })
+    };
+
+    [webView rightClickAtPoint:[webView convertPoint:pointInWebView toView:nil]];
+    EXPECT_TRUE(Util::runFor(&showedPopover, 5_s));
+
+    EXPECT_EQ(popoverView, webView);
+    EXPECT_TRUE(NSPointInRect(pointInWebView, popoverRect));
+    EXPECT_TRUE(NSContainsRect(iframeFrame, popoverRect));
+    EXPECT_EQ(popoverEdge, NSRectEdgeMaxX);
+}
+
+#endif // PLATFORM(MAC)
 
 } // namespace TestWebKitAPI

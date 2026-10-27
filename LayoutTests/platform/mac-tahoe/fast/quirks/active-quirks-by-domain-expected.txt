@@ -57,8 +57,10 @@ https://www.capitalgroup.com/
     ShouldDelayReloadWhenRegisteringServiceWorker
 https://www.cbssports.com/
     (none)
-https://www.cnn.com/
+https://chatgpt.com/
     (none)
+https://www.cnn.com/
+    NeedsFormControlToBeMouseFocusableQuirk
 https://configurator.audi.com/
     ShouldRenderModelElementFallbackContentQuirk
 https://www.digitaltrends.com/

@@ -6195,6 +6195,9 @@ imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customiz
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-hr-listbox.html [ ImageOnlyFailure ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/select-picker-option-animation-reopens.html [ Skip ]
 
+# Relies on test_driver.click(), which is not supported on iOS.
+imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/customizable-select/selectedcontent-restore.optional.html [ Skip ]
+
 # Newly imported WPT tests that are timing out on iOS.
 imported/w3c/web-platform-tests/html/semantics/forms/the-button-element/button-activate-keyup-prevented.html [ Skip ]
 imported/w3c/web-platform-tests/html/semantics/forms/the-select-element/select-tab-navigation.tentative.html [ Skip ]
@@ -10407,8 +10410,6 @@ webkit.org/b/326715 [ Debug ] compositing/contents-format/deep-color-backing-sto
 
 # Accelerated radial gradients produce premultiplied pixels with color greater than alpha.
 webkit.org/b/327400 fast/canvas/canvas-gradient-premultiplied-color-not-exceeding-alpha.html [ Failure ]
-
-webkit.org/b/328264 [ Debug ] http/tests/ipc/createnewpage-file-body-sandbox-extension.html [ Failure ]
 
 webkit.org/b/327795 [ Debug ] fast/text-extraction/debug-text-extraction-word-limit-with-links.html [ Pass Crash ]
 

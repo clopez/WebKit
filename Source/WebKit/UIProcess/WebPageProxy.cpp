@@ -71,6 +71,7 @@
 #include "CallbackID.h"
 #include "ColorControlSupportsAlpha.h"
 #include "Connection.h"
+#include "ContentAsStringIncludesChildFrames.h"
 #include "DidFilterKnownLinkDecoration.h"
 #include "DigitalCredentialsCoordinatorMessages.h"
 #include "DownloadManager.h"
@@ -338,6 +339,7 @@
 #include <wtf/WeakListHashSet.h>
 #include <wtf/WeakPtr.h>
 #include <wtf/text/MakeString.h>
+#include <wtf/text/StringBuilder.h>
 #include <wtf/text/StringView.h>
 #include <wtf/text/TextStream.h>
 
@@ -7083,6 +7085,16 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         if (isPendingInitialHistoryItem)
             frame.setIsPendingInitialHistoryItem(true);
 
+        loadParameters.currentHistoryItemForReattach = [&] -> RefPtr<FrameState> {
+            if (loadParameters.lockBackForwardList == LockBackForwardList::No || newProcess->coreProcessIdentifier() == frame.process().coreProcessIdentifier())
+                return nullptr;
+            RefPtr currentItem = backForwardList().currentItem();
+            RefPtr frameItem = currentItem ? currentItem->mainFrameItem().childItemForFrameID(frame.frameID()) : nullptr;
+            if (!frameItem)
+                return nullptr;
+            return frameItem->copyFrameStateForReplacingDocument(currentRequestURL);
+        }();
+
         frame.prepareForProvisionalLoadInProcess(newProcess, navigation, browsingContextGroup, originator, [
             loadParameters = WTF::move(loadParameters),
             newProcess = newProcess.copyRef(),
@@ -7130,8 +7142,10 @@ void WebPageProxy::continueNavigationInNewProcess(API::Navigation& navigation, W
         RefPtr currentItem = backForwardList().currentItem();
         if (currentItem && (navigation->lockBackForwardList() == LockBackForwardList::Yes || navigation->lockHistory() == LockHistory::Yes)) {
             // If WebCore is supposed to lock the history for this load, then the new process needs to know about the current history item so it can update
-            // it instead of creating a new one.
-            provisionalPage->send(Messages::WebPage::SetCurrentHistoryItemForReattach(currentItem->copyMainFrameStateWithChildren()));
+            // it instead of creating a new one. If the load doesn't replace the entry, the new process saves state to the item and sends it back, so it
+            // needs all of it.
+            Ref frameState = navigation->lockBackForwardList() == LockBackForwardList::Yes ? protect(currentItem->mainFrameItem())->copyFrameStateForReplacingDocument(navigation->currentRequest().url()) : currentItem->copyMainFrameStateWithChildren();
+            provisionalPage->send(Messages::WebPage::SetCurrentHistoryItemForReattach(WTF::move(frameState)));
         }
 
         // FIXME: Work out timing of responding with the last policy delegate, etc
@@ -8492,7 +8506,31 @@ void WebPageProxy::getSourceForFrame(WebFrameProxy* frame, CompletionHandler<voi
 
 void WebPageProxy::getContentsAsString(ContentAsStringIncludesChildFrames includesChildFrames, CompletionHandler<void(const String&)>&& callback)
 {
-    sendWithAsyncReply(Messages::WebPage::GetContentsAsString(includesChildFrames), WTF::move(callback));
+    if (includesChildFrames == ContentAsStringIncludesChildFrames::No)
+        return sendWithAsyncReply(Messages::WebPage::GetContentsAsString(), WTF::move(callback));
+
+    auto frameContents = Box<HashMap<FrameIdentifier, String>>::create();
+    Ref aggregator = CallbackAggregator::create([weakThis = WeakPtr { *this }, frameContents, callback = WTF::move(callback)] mutable {
+        RefPtr protectedThis = weakThis;
+        if (!protectedThis)
+            return callback({ });
+
+        StringBuilder builder;
+        for (RefPtr frame = protectedThis->mainFrame(); frame; frame = frame->traverseNext().frame) {
+            if (auto it = frameContents->find(frame->frameID()); it != frameContents->end())
+                builder.append(builder.isEmpty() ? ""_s : "\n\n"_s, it->value);
+        }
+        callback(builder.toString());
+    });
+
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.sendWithAsyncReply(Messages::WebPage::GetContentsOfAllFramesAsString(), [processIdentifier = process.coreProcessIdentifier(), frameContents, aggregator](HashMap<FrameIdentifier, String>&& result) {
+            for (auto&& [frameID, contents] : WTF::move(result)) {
+                if (RefPtr frame = WebFrameProxy::webFrame(frameID); frame && frame->process().coreProcessIdentifier() == processIdentifier)
+                    frameContents->set(frameID, WTF::move(contents));
+            }
+        }, pageID);
+    });
 }
 
 #if PLATFORM(COCOA)
