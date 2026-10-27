@@ -1319,10 +1319,8 @@ void WebPage::constructFrameTree(WebFrame& parent, const FrameTreeCreationParame
 void WebPage::createRemoteSubframe(WebCore::FrameIdentifier parentID, WebCore::FrameIdentifier newChildID, const String& newChildFrameName, WebCore::ProcessIdentifier hostingProcessID, Ref<WebCore::FrameTreeSyncData>&& frameTreeSyncData)
 {
     RefPtr parentFrame = WebProcess::singleton().webFrame(parentID);
-    if (!parentFrame) {
-        ASSERT_NOT_REACHED();
+    if (!parentFrame || parentFrame->page() != this)
         return;
-    }
     WebFrame::createRemoteSubframe(*this, *parentFrame, newChildID, newChildFrameName, std::nullopt, hostingProcessID, WTF::move(frameTreeSyncData));
 }
 
@@ -7971,6 +7969,20 @@ void WebPage::cancelComposition(const String& compositionString)
         protect(targetFrame->editor())->confirmComposition(compositionString);
 }
 
+enum class SurrogatePairDirection : bool { Backward, Forward };
+
+// A boundary resolved by resolveCharacterRange() can split a surrogate pair, since input methods count UTF-16 code units.
+static BoundaryPoint moveOutOfSurrogatePair(const BoundaryPoint& point, SurrogatePairDirection direction)
+{
+    RefPtr text = dynamicDowncast<Text>(point.container);
+    if (!text || !point.offset || point.offset >= text->length())
+        return point;
+    auto& data = text->data();
+    if (!U16_IS_LEAD(data[point.offset - 1]) || !U16_IS_TRAIL(data[point.offset]))
+        return point;
+    return { point.container.copyRef(), direction == SurrogatePairDirection::Backward ? point.offset - 1 : point.offset + 1 };
+}
+
 void WebPage::deleteSurrounding(int64_t offset, unsigned characterCount)
 {
     RefPtr targetFrame = targetFrameForEditing(*this);
@@ -7993,11 +8005,25 @@ void WebPage::deleteSurrounding(int64_t offset, unsigned characterCount)
         return;
 
     auto characterRange = WebCore::CharacterRange(cursorPosition + offset, characterCount);
-    auto selectionRange = resolveCharacterRange(*surroundingRange, characterRange);
+    auto deletionRange = resolveCharacterRange(*surroundingRange, characterRange);
 
+    CheckedRef frameSelection = targetFrame->selection();
     targetFrame->editor().setIgnoreSelectionChanges(true);
-    protect(targetFrame->selection())->setSelection(VisibleSelection(selectionRange));
-    targetFrame->editor().deleteSelectionWithSmartDelete(false);
+    if (deletionRange.collapsed()) {
+        auto caret = moveOutOfSurrogatePair(deletionRange.start, SurrogatePairDirection::Forward);
+        frameSelection->setSelection(VisibleSelection(VisiblePosition(makeDeprecatedLegacyPosition(caret))));
+    } else {
+        // Delete exactly the requested range. An input method can delete a part of a grapheme cluster, like a combining
+        // mark, which a validated selection would extend to the end of the cluster.
+        VisibleSelection selectionToDelete;
+        selectionToDelete.setWithoutValidation(makeDeprecatedLegacyPosition(moveOutOfSurrogatePair(deletionRange.start, SurrogatePairDirection::Backward)),
+            makeDeprecatedLegacyPosition(moveOutOfSurrogatePair(deletionRange.end, SurrogatePairDirection::Forward)));
+        frameSelection->setSelection(selectionToDelete);
+        targetFrame->editor().deleteSelectionWithSmartDelete(false);
+        // Don't leave the range selected when nothing could be deleted.
+        if (!frameSelection->selection().isCaret())
+            frameSelection->setSelection(VisibleSelection(frameSelection->selection().visibleStart()));
+    }
     targetFrame->editor().setIgnoreSelectionChanges(false);
     sendEditorStateUpdate();
 }
@@ -9795,7 +9821,7 @@ void WebPage::updateAttachmentIcon(const String& identifier, std::optional<Share
                     return;
                 }
             } else {
-                attachment->updateIconForNarrowLayout(icon->createImage(), size);
+                attachment->updateIconForNarrowLayout(BitmapImage::create(*icon), size);
                 return;
             }
         }
@@ -11367,8 +11393,33 @@ void WebPage::takeSnapshotForTargetedElement(NodeIdentifier nodeID, ScriptExecut
     if (!context)
         return completion({ });
 
-    context->drawBitmapImage(*image, FloatPoint::zero());
+    context->drawNativeImage(*image);
     completion(bitmap->createHandle(SharedMemory::Protection::ReadOnly));
+}
+
+void WebPage::takeRemoteSnapshotForTargetedElement(NodeIdentifier nodeID, ScriptExecutionContextIdentifier documentID, RemoteSnapshotIdentifier snapshotIdentifier, CompletionHandler<void(bool)>&& completionHandler)
+{
+#if ENABLE(GPU_PROCESS)
+    ASSERT(m_page->settings().remoteSnapshottingEnabled());
+    Ref callback = MainRunLoopSuccessCallbackAggregator::create(failRemoteSnapshotIfRootFails(snapshotIdentifier, WTF::move(completionHandler)));
+
+    bool painted = protect(m_page->elementTargetingController())->paintSnapshotIgnoringVisibilityAdjustment(nodeID, documentID, [&](LocalFrame& mainFrame, Element& element, const IntRect& elementRect) {
+        float scaleFactor = m_page->deviceScaleFactor() * (m_page->delegatesScaling() ? m_page->pageScaleFactor() : 1);
+        auto elementBitmapSize = calculateImageBufferBackendSize(elementRect.size(), scaleFactor);
+        recordRemoteSnapshot(snapshotIdentifier, mainFrame.frameID(), RemoteSnapshotRole::Root, RenderingMode::DisplayList, IntRect { { }, elementBitmapSize }, elementBitmapSize, callback.copyRef(), [&](GraphicsContext& context) {
+            context.applyDeviceScaleFactor(scaleFactor);
+            context.translate(-elementRect.location());
+            protect(mainFrame.view())->paintContentsForSnapshot(context, elementRect, &element, LocalFrameView::IncludeSelection, LocalFrameView::DocumentCoordinates);
+        });
+    });
+    if (!painted)
+        callback->failed();
+#else
+    UNUSED_PARAM(nodeID);
+    UNUSED_PARAM(documentID);
+    UNUSED_PARAM(snapshotIdentifier);
+    completionHandler(false);
+#endif
 }
 
 void WebPage::numberOfVisibilityAdjustmentRects(CompletionHandler<void(uint64_t)>&& completion)

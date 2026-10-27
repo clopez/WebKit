@@ -97,6 +97,7 @@ WEBKIT_OPTION_OWNED_BY_PLATFORM_H(
     ENABLE_APPLE_PAY_DELEGATED_REQUEST
     ENABLE_APPLE_PAY_DISBURSEMENTS
     ENABLE_APPLE_PAY_INSTALLMENTS
+    ENABLE_APPLE_PAY_LATER
     ENABLE_APPLE_PAY_LATER_AVAILABILITY
     ENABLE_APPLE_PAY_MERCHANT_CATEGORY_CODE
     ENABLE_APPLE_PAY_MULTI_MERCHANT_PAYMENTS
@@ -108,11 +109,14 @@ WEBKIT_OPTION_OWNED_BY_PLATFORM_H(
     ENABLE_APPLE_PAY_SHIPPING_CONTACT_EDITING_MODE
     ENABLE_APPLE_PAY_SHIPPING_METHOD_DATE_COMPONENTS_RANGE
     ENABLE_AVF_CAPTIONS
+    ENABLE_CSS_TAP_HIGHLIGHT_COLOR
     ENABLE_CURSOR_VISIBILITY
     ENABLE_DEVICE_ORIENTATION
     ENABLE_MAC_GESTURE_EVENTS
+    ENABLE_MEDIA_CAPTURE
     ENABLE_MEDIA_SOURCE_IN_WORKERS
     ENABLE_NAVIGATOR_STANDALONE
+    ENABLE_ORIENTATION_EVENTS
     ENABLE_PDFKIT_PLUGIN
     ENABLE_PDF_HUD
     ENABLE_PDF_PLUGIN
@@ -124,6 +128,7 @@ WEBKIT_OPTION_OWNED_BY_PLATFORM_H(
     ENABLE_UIPROCESS_PERIODIC_MEMORY_MONITOR
     ENABLE_UNIFIED_PDF
     ENABLE_WEBDRIVER_BIDI
+    ENABLE_WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY
 )
 
 WEBKIT_OPTION_DEFAULT_PORT_VALUE(ENABLE_OFFSCREEN_CANVAS PRIVATE ON)
@@ -638,15 +643,58 @@ if (CMAKE_OSX_SYSROOT)
     add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:-F${CMAKE_BINARY_DIR};-F${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks>")
 endif ()
 
-# Regenerate the Xcode debug wrapper on every (re)configure so its scheme paths
-# and lldbinit source-map track this binary directory. Runs at configure time
-# (not as a build target) to keep the no-op ninja build at zero actions.
-if (EXISTS ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project)
+# Generate WebKit.xcodeproj and its lldbinit, for the macOS SDK alone because
+# its schemes launch their product on the build machine. --configure-time is
+# needed because CMakeCache.txt does not exist until configure finishes.
+if (WEBKIT_SDK_NAME STREQUAL "macosx"
+        AND EXISTS ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project)
     execute_process(
         COMMAND ${Python_EXECUTABLE}
                 ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project
+                --configure-time
                 ${CMAKE_BINARY_DIR}
         OUTPUT_QUIET)
+
+    # Deferred: the executables it depends on, so that it runs after they are
+    # linked, are not defined where this file is included.
+    function(WEBKIT_ADD_XCODE_PROJECT_TARGET)
+        set(_executables)
+        set(_directories ${CMAKE_SOURCE_DIR})
+        while (_directories)
+            list(POP_FRONT _directories _directory)
+            get_property(_subdirectories DIRECTORY ${_directory}
+                PROPERTY SUBDIRECTORIES)
+            list(APPEND _directories ${_subdirectories})
+            get_property(_targets DIRECTORY ${_directory}
+                PROPERTY BUILDSYSTEM_TARGETS)
+            foreach (_target IN LISTS _targets)
+                get_target_property(_type ${_target} TYPE)
+                # Depending on an EXCLUDE_FROM_ALL executable would add it to
+                # the default build.
+                get_target_property(_excluded ${_target} EXCLUDE_FROM_ALL)
+                if (_type STREQUAL "EXECUTABLE" AND NOT _excluded)
+                    list(APPEND _executables ${_target})
+                endif ()
+            endforeach ()
+        endwhile ()
+
+        # A target with no output is always out of date; the stamp lets a no-op
+        # build stay at zero actions.
+        set(_stamp ${CMAKE_BINARY_DIR}/CMakeFiles/generate-cmake-xcode-project.stamp)
+        add_custom_command(OUTPUT ${_stamp}
+            COMMAND ${Python_EXECUTABLE}
+                    ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project
+                    --quiet
+                    ${CMAKE_BINARY_DIR}
+            COMMAND ${CMAKE_COMMAND} -E touch ${_stamp}
+            DEPENDS ${_executables}
+                    ${TOOLS_DIR}/Scripts/generate-cmake-xcode-project
+            COMMENT "Generating ${CMAKE_BINARY_DIR}/WebKit.xcodeproj"
+            VERBATIM)
+        add_custom_target(xcode-project ALL DEPENDS ${_stamp})
+    endfunction()
+
+    cmake_language(DEFER CALL WEBKIT_ADD_XCODE_PROJECT_TARGET)
 endif ()
 
 if (WEBKIT_ADDITIONS_INCLUDE_PATH AND EXISTS "${WEBKIT_ADDITIONS_INCLUDE_PATH}/WebKitAdditions/CMake/OptionsCocoa.cmake")

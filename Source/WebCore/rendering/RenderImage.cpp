@@ -420,6 +420,11 @@ ConcreteObjectSize RenderImage::concreteObjectSizeForPositionInformation() const
     return defaultConcreteObjectSize();
 }
 
+ConcreteObjectSize RenderImage::concreteObjectSizeForElementImage() const
+{
+    return defaultConcreteObjectSize();
+}
+
 ConcreteObjectSize RenderImage::defaultConcreteObjectSize() const
 {
     return defaultConcreteObjectSize(imageResource().naturalDimensions());
@@ -521,6 +526,11 @@ RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForImageBitmapRequest(
 }
 
 RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForFullScreen() const
+{
+    return createShareableBitmap();
+}
+
+RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForImageServices() const
 {
     return createShareableBitmap();
 }
@@ -692,7 +702,7 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
             LayoutUnit centerY { (usableSize.height() - imageSize.height()) / 2 };
             imageOffset = LayoutSize(borderWidths.left() + padding.left() + centerX + missingImageBorderWidth, borderWidths.top() + padding.top() + centerY + missingImageBorderWidth);
 
-            context.drawBitmapImage(*brokenImage, snapRectToDevicePixels(LayoutRect(paintOffset + imageOffset, imageSize), deviceScaleFactor), { imageOrientation() });
+            brokenImage->draw(context, snapRectToDevicePixels(LayoutRect(paintOffset + imageOffset, imageSize), deviceScaleFactor), { imageOrientation() });
             errorPictureDrawn = true;
         }
     }
@@ -964,7 +974,7 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
     auto drawResult = ImageDrawResult::DidNothing;
 #if ENABLE(MULTI_REPRESENTATION_HEIC)
     if (RefPtr cachedImage = this->cachedImage(); cachedImage && isMultiRepresentationHEIC())
-        drawResult = paintInfo.context().drawMultiRepresentationHEIC(*protect(cachedImage->image()), style().fontCascade().primaryFont(), rect, options);
+        drawResult = protect(cachedImage->image())->adapter().drawMultiRepresentationHEIC(paintInfo.context(), style().fontCascade().primaryFont(), rect, options);
 #endif
 
     if (drawResult == ImageDrawResult::DidNothing)

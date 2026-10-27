@@ -335,21 +335,17 @@ Shared/graphics/ImageBufferSet.cpp
 Shared/WebGPU/WebGPUBindGroupDescriptor.cpp
 Shared/WebGPU/WebGPUBindGroupEntry.cpp
 Shared/WebGPU/WebGPUBindGroupLayoutDescriptor.cpp
-Shared/WebGPU/WebGPUBindGroupLayoutEntry.cpp
 Shared/WebGPU/WebGPUBufferBinding.cpp
-Shared/WebGPU/WebGPUBufferBindingLayout.cpp
 Shared/WebGPU/WebGPUCanvasConfiguration.cpp
 Shared/WebGPU/WebGPUComputePassDescriptor.cpp
 Shared/WebGPU/WebGPUComputePipelineDescriptor.cpp
 Shared/WebGPU/WebGPUDeviceDescriptor.cpp
-Shared/WebGPU/WebGPUExternalTextureBindingLayout.cpp
 Shared/WebGPU/WebGPUExternalTextureDescriptor.cpp
 Shared/WebGPU/WebGPUFragmentState.cpp
 Shared/WebGPU/WebGPUImageCopyBuffer.cpp
 Shared/WebGPU/WebGPUImageCopyExternalImage.cpp
 Shared/WebGPU/WebGPUImageCopyTexture.cpp
 Shared/WebGPU/WebGPUImageCopyTextureTagged.cpp
-Shared/WebGPU/WebGPUImageDataLayout.cpp
 Shared/WebGPU/WebGPUObjectDescriptorBase.cpp
 Shared/WebGPU/WebGPUPipelineLayoutDescriptor.cpp
 Shared/WebGPU/WebGPUPresentationContextDescriptor.cpp
@@ -360,12 +356,7 @@ Shared/WebGPU/WebGPURenderPassDepthStencilAttachment.cpp
 Shared/WebGPU/WebGPURenderPassDescriptor.cpp
 Shared/WebGPU/WebGPURenderPassTimestampWrites.cpp
 Shared/WebGPU/WebGPURenderPipelineDescriptor.cpp
-Shared/WebGPU/WebGPURequestAdapterOptions.cpp
-Shared/WebGPU/WebGPUSamplerBindingLayout.cpp
 Shared/WebGPU/WebGPUShaderModuleDescriptor.cpp
-Shared/WebGPU/WebGPUStorageTextureBindingLayout.cpp
-Shared/WebGPU/WebGPUSupportedLimits.cpp
-Shared/WebGPU/WebGPUTextureBindingLayout.cpp
 Shared/WebGPU/WebGPUTextureDescriptor.cpp
 Shared/WebGPU/WebGPUVertexBufferLayout.cpp
 Shared/WebGPU/WebGPUVertexState.cpp
@@ -699,6 +690,8 @@ WebProcess/Extensions/API/WebExtensionAPIStorage.cpp
 WebProcess/Extensions/API/WebExtensionAPIStorageArea.cpp
 WebProcess/Extensions/API/WebExtensionAPITest.cpp
 WebProcess/Extensions/API/WebExtensionAPIWebPageNamespace.cpp
+
+WebProcess/Extensions/Bindings/JSWebExtensionWrapper.cpp
 
 WebProcess/FileAPI/BlobRegistryProxy.cpp
 

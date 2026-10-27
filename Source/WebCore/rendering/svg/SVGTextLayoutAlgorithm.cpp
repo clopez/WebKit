@@ -39,7 +39,6 @@
 #include "SVGLengthContext.h"
 #include "SVGNames.h"
 #include "SVGTextFragment.h"
-#include "SVGTextLayoutAttributes.h"
 #include "SVGTextLayoutEngineBaseline.h"
 #include "SVGTextLayoutEngineSpacing.h"
 #include "SVGTextMetrics.h"
@@ -74,7 +73,7 @@ static const RenderSVGTextPath* LEGACY_NODELETE svgTextPath(const Layout::Elemen
 
 static const Vector<SVGTextMetrics>& LEGACY_NODELETE textMetrics(const Layout::InlineTextBox& inlineTextBox)
 {
-    return svgInlineText(inlineTextBox)->layoutAttributes()->textMetricsValues();
+    return svgInlineText(inlineTextBox)->textMetrics();
 }
 
 // Text boxes have a style with the non-inherited properties reset. The SVG text properties like alignment-baseline and
@@ -84,6 +83,8 @@ static const Style::ComputedStyle& LEGACY_NODELETE textStyle(const Layout::Inlin
     return inlineTextBox.parent().style();
 }
 
+static constexpr float unspecifiedValue = std::numeric_limits<float>::quiet_NaN();
+
 static bool LEGACY_NODELETE isUnspecified(float value)
 {
     return std::isnan(value);
@@ -91,7 +92,7 @@ static bool LEGACY_NODELETE isUnspecified(float value)
 
 static float LEGACY_NODELETE valueAt(std::span<const float> values, unsigned index)
 {
-    return values.empty() ? SVGTextLayoutAttributes::emptyValue() : values[index];
+    return values.empty() ? unspecifiedValue : values[index];
 }
 
 static float LEGACY_NODELETE valueOrZeroAt(std::span<const float> values, unsigned index)
@@ -135,7 +136,7 @@ static void ensureTextMetrics(RenderSVGInlineText& text)
         return;
     text.setHasValidTextMetrics(true);
 
-    auto& metrics = text.layoutAttributes()->textMetricsValues();
+    auto& metrics = text.textMetrics();
     metrics.clear();
 
     auto run = SVGTextMetrics::constructTextRun(text);
@@ -481,7 +482,7 @@ void SVGTextLayoutAlgorithm::resolveCharacterPositioning()
 
         auto ensureValues = [&](auto& values, unsigned listCount) {
             if (listCount && values.isEmpty())
-                values.fill(SVGTextLayoutAttributes::emptyValue(), m_characters.size());
+                values.fill(unspecifiedValue, m_characters.size());
         };
         ensureValues(m_resolvedX, xCount);
         ensureValues(m_resolvedY, yCount);
@@ -491,7 +492,7 @@ void SVGTextLayoutAlgorithm::resolveCharacterPositioning()
         auto inTextPath = isInTextPath(element);
         auto newChunkCount = inTextPath ? (m_isVertical ? yCount : xCount) : std::max(xCount, yCount);
 
-        // FIXME: For bidi content the lists are assigned in display order like the old engine did. The spec assigns them in logical order.
+        // FIXME: For bidi content the lists are assigned in display order. The spec assigns them in logical order.
         auto reorderedCharacterIndexes = Vector<unsigned> { };
         auto characterIndexes = [&] -> std::span<const unsigned> {
             if (!isReordered) {
@@ -788,7 +789,7 @@ void SVGTextLayoutAlgorithm::positionOnPaths()
         auto isReversed = textPathRenderer->isLayoutPathReversed();
 
         // Text-anchor and textLength use the anchored chunks of the path content as laid out on a line.
-        auto anchorShift = 0.f;
+        auto totalAnchorShift = 0.f;
         auto totalLength = 0.f;
         size_t chunkStart = 0;
         for (size_t i = 1; i <= range.size(); ++i) {
@@ -796,7 +797,7 @@ void SVGTextLayoutAlgorithm::positionOnPaths()
                 continue;
             auto chunk = range.subspan(chunkStart, i - chunkStart);
             chunkStart = i;
-            anchorShift += this->anchorShift(chunk);
+            totalAnchorShift += anchorShift(chunk);
             auto [start, end] = extent(chunk);
             totalLength += end - start;
         }
@@ -814,7 +815,7 @@ void SVGTextLayoutAlgorithm::positionOnPaths()
 
         // "Let offset be the value of the 'textPath' element's 'startOffset' attribute, adjusted due to any 'pathLength' attribute on
         // the referenced element."
-        auto startOffset = computeTextPathStartOffset(textPathRenderer, pathLength) + anchorShift;
+        auto startOffset = computeTextPathStartOffset(textPathRenderer, pathLength) + totalAnchorShift;
         auto currentOffset = startOffset;
         auto perpendicularShift = 0.f;
         auto textPositionAfterPath = std::optional<FloatPoint> { };

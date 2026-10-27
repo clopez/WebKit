@@ -31,7 +31,6 @@
 #include "WebGPUCommandEncoderDescriptor.h"
 #include "WebGPUCompilationMessage.h"
 #include "WebGPUComputePassTimestampWrites.h"
-#include "WebGPUError.h"
 #include "WebGPUExtent3D.h"
 #include "WebGPUIdentifier.h"
 #include "WebGPUOrigin2D.h"
@@ -58,14 +57,11 @@ namespace WebKit::WebGPU {
 struct BindGroupDescriptor;
 struct BindGroupEntry;
 struct BindGroupLayoutDescriptor;
-struct BindGroupLayoutEntry;
 struct BufferBinding;
-struct BufferBindingLayout;
 struct CanvasConfiguration;
 struct ComputePassDescriptor;
 struct ComputePipelineDescriptor;
 struct DeviceDescriptor;
-struct ExternalTextureBindingLayout;
 struct ExternalTextureDescriptor;
 struct FragmentState;
 struct Identifier;
@@ -76,10 +72,7 @@ struct ImageCopyExternalImageVideoSource;
 #endif
 struct ImageCopyTexture;
 struct ImageCopyTextureTagged;
-struct ImageDataLayout;
-struct InternalError;
 struct ObjectDescriptorBase;
-struct OutOfMemoryError;
 struct PipelineDescriptorBase;
 struct PipelineLayoutDescriptor;
 struct PresentationContextDescriptor;
@@ -92,16 +85,9 @@ struct RenderPassDepthStencilAttachment;
 struct RenderPassDescriptor;
 struct RenderPassLayout;
 struct RenderPipelineDescriptor;
-struct RequestAdapterOptions;
-struct SamplerBindingLayout;
 struct ShaderModuleCompilationHint;
 struct ShaderModuleDescriptor;
-struct StorageTextureBindingLayout;
-struct SupportedFeatures;
-struct SupportedLimits;
-struct TextureBindingLayout;
 struct TextureDescriptor;
-struct ValidationError;
 struct VertexBufferLayout;
 struct VertexState;
 
@@ -112,14 +98,11 @@ public:
     std::optional<BindGroupDescriptor> convertToBacking(const ::WebGPU::BindGroupDescriptor&);
     std::optional<BindGroupEntry> convertToBacking(const ::WebGPU::BindGroupEntry&);
     std::optional<BindGroupLayoutDescriptor> convertToBacking(const ::WebGPU::BindGroupLayoutDescriptor&);
-    std::optional<BindGroupLayoutEntry> convertToBacking(const ::WebGPU::BindGroupLayoutEntry&);
     std::optional<BufferBinding> convertToBacking(const ::WebGPU::BufferBinding&);
-    std::optional<BufferBindingLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::BufferBindingLayout&);
     std::optional<CanvasConfiguration> convertToBacking(const ::WebGPU::CanvasConfiguration&);
     std::optional<ComputePassDescriptor> convertToBacking(const ::WebGPU::ComputePassDescriptor&);
     std::optional<ComputePipelineDescriptor> convertToBacking(const ::WebGPU::ComputePipelineDescriptor&);
     std::optional<DeviceDescriptor> convertToBacking(const ::WebGPU::DeviceDescriptor&);
-    std::optional<ExternalTextureBindingLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::ExternalTextureBindingLayout&);
     std::optional<ExternalTextureDescriptor> convertToBacking(const WebCore::WebGPUExternalTextureDescriptor&);
     std::optional<FragmentState> convertToBacking(const ::WebGPU::FragmentState&);
     std::optional<ImageCopyBuffer> convertToBacking(const ::WebGPU::TexelCopyBufferInfo&);
@@ -129,7 +112,6 @@ public:
 #endif
     std::optional<ImageCopyTexture> convertToBacking(const ::WebGPU::TexelCopyTextureInfo&);
     std::optional<ImageCopyTextureTagged> convertToBacking(const WebCore::WebGPUImageCopyTextureTagged&);
-    std::optional<ImageDataLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::TexelCopyBufferLayout&);
     std::optional<ObjectDescriptorBase> LEGACY_NODELETE convertToBacking(const WebCore::WebGPUObjectDescriptorBase&);
     std::optional<PipelineLayoutDescriptor> convertToBacking(const ::WebGPU::PipelineLayoutDescriptor&);
     std::optional<PresentationContextDescriptor> convertToBacking(const WebCore::WebGPUPresentationContextDescriptor&);
@@ -140,11 +122,7 @@ public:
     std::optional<RenderPassDescriptor> convertToBacking(const ::WebGPU::RenderPassDescriptor&);
     std::optional<RenderPassTimestampWrites> convertToBacking(const ::WebGPU::PassTimestampWrites&);
     std::optional<RenderPipelineDescriptor> convertToBacking(const ::WebGPU::RenderPipelineDescriptor&);
-    std::optional<RequestAdapterOptions> LEGACY_NODELETE convertToBacking(const ::WebGPU::RequestAdapterOptions&);
-    std::optional<SamplerBindingLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::SamplerBindingLayout&);
     std::optional<ShaderModuleDescriptor> convertToBacking(const ::WebGPU::ShaderModuleDescriptor&);
-    std::optional<StorageTextureBindingLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::StorageTextureBindingLayout&);
-    std::optional<TextureBindingLayout> LEGACY_NODELETE convertToBacking(const ::WebGPU::TextureBindingLayout&);
     std::optional<TextureDescriptor> convertToBacking(const ::WebGPU::TextureDescriptor&);
     std::optional<VertexBufferLayout> convertToBacking(const ::WebGPU::VertexBufferLayout&);
     std::optional<VertexState> convertToBacking(const ::WebGPU::VertexState&);

@@ -334,6 +334,7 @@ http/tests/eventloop/idle-callback-not-affected-by-timers-in-cross-origin.html [
 fast/events/touch/ios/touch-event-regions-layer-tree [ Pass ]
 fast/events/touch/ios/touch-event-regions-layer-tree/input [ Skip ]
 fast/events/touch/ios/touch-event-regions-layer-tree/scrolling [ Skip ]
+fast/events/touch/ios/touch-event-regions-layer-tree/dispatch [ Skip ]
 
 #//////////////////////////////////////////////////////////////////////////////////////////
 # End platform-specific directories.
@@ -1626,8 +1627,9 @@ imported/w3c/web-platform-tests/css/css-view-transitions/old-content-inline-with
 
 # Site isolation testing infrastructure for accessibility doesn't exist on iOS.
 http/tests/site-isolation/accessibility/ [ Skip ]
-# ...except this test, which verifies the in-process rotor search returns a remote-frame placeholder for an out-of-process iframe.
+# ...except these tests, which run in-process and use the iOS remote-frame placeholder (AXRemoteElement).
 http/tests/site-isolation/accessibility/heading-search-returns-remote-frame.html [ Pass ]
+http/tests/site-isolation/accessibility/remote-frame-built-during-remote-element-lookup.html [ Pass ]
 
 ###
 # Known failures
@@ -10329,8 +10331,6 @@ webkit.org/b/325029 [ Release ] http/wpt/user-activation/bless.html [ Pass Failu
 webkit.org/b/325029 [ Release ] http/wpt/user-activation/bless-edge-cases.sub.html [ Pass Failure ]
 webkit.org/b/325029 [ Release ] http/wpt/user-activation/bless-nested.sub.html [ Pass Failure ]
 
-webkit.org/b/325036 [ Release ] http/tests/security/mixedContent/secure-page-navigates-to-basic-auth-secure-page-via-insecure-redirect.https.html [ Pass Timeout ]
-
 webkit.org/b/325037 [ Debug ] imported/w3c/web-platform-tests/editing/crashtests/inserthtml-in-li-in-option.html [ Pass Crash ]
 
 # webkit.org/b/324372 [ EWS UAT ] [ iOS 27 ] 11X fast/text-extraction/ (layout-tests) are constant timeouts
@@ -10458,3 +10458,4 @@ webkit.org/b/327767 svg/text/text-text-06-t.svg [ Failure ]
 webkit.org/b/327767 svg/text/text-text-07-t.svg [ Failure ]
 webkit.org/b/327767 svg/text/text-tspan-01-b.svg [ Failure ]
 webkit.org/b/327767 svg/text/text-vkern.svg [ Failure ]
+webkit.org/b/289121 imported/w3c/web-platform-tests/webrtc/RTCPeerConnection-mandatory-getStats.https.html [ Pass Failure ]

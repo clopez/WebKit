@@ -44,6 +44,7 @@
 #include "RenderingMode.h"
 #include "ResourceMonitorChecker.h"
 #include "SleepDisabler.h"
+#include "StyleGradientImage.h"
 #include "TextIndicator.h"
 #include "VP9Utilities.h"
 #include <JavaScriptCore/Forward.h>
@@ -202,6 +203,7 @@ class WebCodecsVideoDecoder;
 
 template<typename IDLType> class DOMPromiseDeferred;
 
+struct MockPhoneNumberPossessionConfiguration;
 struct MockWebAuthenticationConfiguration;
 
 class Internals final
@@ -289,6 +291,8 @@ public:
     unsigned imageBlankDrawCount(HTMLImageElement&);
     AtomString imageLastDecodingOptions(HTMLImageElement&);
     unsigned imageCachedSubimageCreateCount(HTMLImageElement&);
+    using BackgroundGradientCacheEntry = Style::GradientImage::CachedGradientForTesting;
+    Vector<BackgroundGradientCacheEntry> backgroundGradientCache(Element&);
     unsigned remoteImagesCountForTesting() const;
     void setAsyncDecodingEnabledForTesting(HTMLImageElement&, bool enabled);
     void LEGACY_NODELETE setForceUpdateImageDataEnabledForTesting(HTMLImageElement&, bool enabled);
@@ -298,6 +302,7 @@ public:
 #if ENABLE(WEB_CODECS)
     bool hasPendingActivity(const WebCodecsVideoDecoder&) const;
     bool is10bitsVideoFrame(const WebCodecsVideoFrame&) const;
+    RefPtr<WebCodecsVideoFrame> mirroredVideoFrame(const WebCodecsVideoFrame&) const;
 #endif
 
     void LEGACY_NODELETE setGridMaxTracksLimit(unsigned);
@@ -1550,6 +1555,10 @@ public:
     void setMockWebAuthenticationConfiguration(const MockWebAuthenticationConfiguration&);
 #endif
 
+#if ENABLE(PHONE_NUMBER_POSSESSION)
+    void setMockPhoneNumberPossessionConfiguration(const MockPhoneNumberPossessionConfiguration&);
+#endif
+
     int processIdentifier() const;
 
     Ref<InternalsSetLike> createInternalsSetLike();
@@ -1719,6 +1728,7 @@ public:
     void unlockPDFDocumentForTesting(Element&, const String&) const;
     bool sendEditingCommandToPDFForTesting(Element&, const String& commandName, const String& argument) const;
     Vector<String> pdfContextMenuItemTitlesForTesting(Element&, int x, int y) const;
+    Ref<DOMRect> pdfBoundsOnScreenForTesting(Element&) const;
     void registerPDFTest(Ref<VoidCallback>&&, Element&);
 
     String LEGACY_NODELETE defaultSpatialTrackingLabel() const;

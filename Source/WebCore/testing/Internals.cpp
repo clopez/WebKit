@@ -193,6 +193,7 @@
 #include "PageInspectorController.h"
 #include "PageOverlay.h"
 #include "PathUtilities.h"
+#include "PhoneNumberPossessionCoordinator.h"
 #include "PictureInPictureSupport.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMediaEngineConfigurationFactory.h"
@@ -259,6 +260,7 @@
 #include "StorageNamespaceProvider.h"
 #include "StreamTransferUtilities.h"
 #include "StringCallback.h"
+#include "StyleBackgroundLayers.h"
 #include "StyleDocumentScope.h"
 #include "StyleExtractor.h"
 #include "StyleGridPosition.h"
@@ -1373,6 +1375,25 @@ unsigned Internals::imageCachedSubimageCreateCount(HTMLImageElement& element)
     return 0;
 }
 
+static RefPtr<Style::GradientImage> backgroundGradientImage(Element& element)
+{
+    CheckedPtr renderer = element.renderer();
+    if (!renderer)
+        return nullptr;
+
+    for (auto& layer : renderer->style().backgroundLayers().usedValues()) {
+        if (RefPtr gradientImage = dynamicDowncast<Style::GradientImage>(layer.image().tryStyleImage()))
+            return gradientImage;
+    }
+    return nullptr;
+}
+
+auto Internals::backgroundGradientCache(Element& element) -> Vector<BackgroundGradientCacheEntry>
+{
+    RefPtr gradientImage = backgroundGradientImage(element);
+    return gradientImage ? gradientImage->cachedGradientsForTesting() : Vector<BackgroundGradientCacheEntry> { };
+}
+
 unsigned Internals::remoteImagesCountForTesting() const
 {
     RefPtr document = contextDocument();
@@ -1417,6 +1438,23 @@ bool Internals::is10bitsVideoFrame(const WebCodecsVideoFrame& frame) const
 {
     RefPtr videoFrame = frame.internalFrame();
     return videoFrame && videoFrame->is10bits();
+}
+
+RefPtr<WebCodecsVideoFrame> Internals::mirroredVideoFrame(const WebCodecsVideoFrame& frame) const
+{
+    RefPtr document = contextDocument();
+    RefPtr videoFrame = frame.internalFrame();
+    if (!document || !videoFrame)
+        return nullptr;
+
+    WebCodecsVideoFrame::BufferInit init;
+    init.format = frame.format();
+    init.codedWidth = frame.codedWidth();
+    init.codedHeight = frame.codedHeight();
+    init.timestamp = frame.timestamp();
+    init.displayWidth = frame.displayWidth();
+    init.displayHeight = frame.displayHeight();
+    return WebCodecsVideoFrame::create(*document, videoFrame->updateOrientation(videoFrame->rotation(), true, VideoFrame::ShouldClone::Yes), WTF::move(init));
 }
 #endif
 
@@ -8221,6 +8259,19 @@ void Internals::setMockWebAuthenticationConfiguration(const MockWebAuthenticatio
 }
 #endif
 
+#if ENABLE(PHONE_NUMBER_POSSESSION)
+void Internals::setMockPhoneNumberPossessionConfiguration(const MockPhoneNumberPossessionConfiguration& configuration)
+{
+    RefPtr document = contextDocument();
+    if (!document)
+        return;
+    RefPtr page = document->page();
+    if (!page)
+        return;
+    page->phoneNumberPossessionCoordinator().setMockConfigurationForTesting(configuration);
+}
+#endif
+
 void Internals::setMaxCanvasArea(unsigned size)
 {
     CanvasBase::setMaxCanvasAreaForTesting(size);
@@ -9006,6 +9057,19 @@ Vector<String> Internals::pdfContextMenuItemTitlesForTesting(Element& element, i
         return { };
 
     return pluginViewBase->pdfContextMenuItemTitlesForTesting({ x, y });
+}
+
+Ref<DOMRect> Internals::pdfBoundsOnScreenForTesting(Element& element) const
+{
+    RefPtr pluginElement = dynamicDowncast<HTMLPlugInElement>(element);
+    if (!pluginElement)
+        return DOMRect::create();
+
+    RefPtr pluginViewBase = pluginElement->pluginWidget();
+    if (!pluginViewBase)
+        return DOMRect::create();
+
+    return DOMRect::create(pluginViewBase->pdfBoundsOnScreenForTesting());
 }
 
 Vector<Internals::PDFAnnotationRect> Internals::pdfAnnotationRectsForTesting(Element& element) const

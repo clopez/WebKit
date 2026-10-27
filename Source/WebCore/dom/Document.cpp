@@ -2275,7 +2275,7 @@ String Document::defaultCharsetForLegacyBindings() const
 void Document::setCharset(const String& charset)
 {
     if (RefPtr decoder = this->decoder())
-        decoder->setEncoding(charset, TextResourceDecoder::UserChosenEncoding);
+        decoder->setEncoding(charset, TextResourceDecoder::EncodingSource::UserChosen);
 }
 
 void Document::setContentLanguage(const AtomString& language)
@@ -9738,6 +9738,11 @@ void Document::wheelOrTouchEventHandlersChanged(Node* node)
 
     if (RefPtr frame = this->frame())
         frame->invalidateContentEventRegionsIfNeeded(LocalFrame::InvalidateContentEventRegionsReason::EventHandlerChange);
+
+    // Adding or removing a handler only invalidates the target's style. That updates its event listener
+    // region types, which doesn't cause a repaint, so nothing else schedules a rendering update to rebuild
+    // the event region and send it to the UI process.
+    scheduleRenderingUpdate(RenderingUpdateStep::EventRegionUpdate);
 #else
     UNUSED_PARAM(node);
 #endif

@@ -13,7 +13,6 @@ http/tests/security/referrer-policy-header-strict-origin.html [ Crash ]
 # Tests that time out #
 #######################
 fullscreen/exit-full-screen-video-crash.html [ Pass Timeout ]
-http/tests/media/media-stream/enumerate-devices-source-id.html [ Timeout ]
 http/tests/workers/service/resultingClientId.https.html [ Timeout ]
 http/tests/navigation/cross-site-iframe-nav-with-bfcache.html [ Pass Timeout ]
 imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-video.html [ Pass Timeout ]
@@ -21,7 +20,6 @@ imported/w3c/web-platform-tests/css/compositing/mix-blend-mode/mix-blend-mode-vi
 ########################
 # Tests that Text fail #
 ########################
-webkit.org/b/328426 http/tests/navigation/forward-and-cancel.html [ Failure ]
 http/tests/inspector/network/resource-sizes-network.html [ Pass Failure Timeout ]
 http/tests/inspector/network/fetch-response-body-304.html [ Failure ]
 webkit.org/b/318430 http/tests/inspector/network/clear-non-buffered-resource-data-on-navigate.html [ Failure ]

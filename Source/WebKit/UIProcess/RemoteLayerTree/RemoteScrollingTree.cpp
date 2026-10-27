@@ -59,8 +59,8 @@ void RemoteScrollingTree::invalidate()
 {
     ASSERT(isMainRunLoop());
     Locker locker { m_treeLock };
-    removeAllNodes();
     m_scrollingCoordinatorProxy = nullptr;
+    removeAllNodes();
 }
 
 RemoteScrollingCoordinatorProxy* RemoteScrollingTree::scrollingCoordinatorProxy() const

@@ -4838,7 +4838,7 @@ class TestReRunAPITestsExcusesKnownFlakes(BuildStepMixinAdditions, unittest.Test
         self.assertEqual(step.steps_to_add, [])
 
     @defer.inlineCallbacks
-    def test_an_unparsed_run_queries_nothing_and_queues_the_ladder(self) -> Generator[Any, Any, None]:
+    def test_an_unparsed_run_queries_nothing_and_retries_the_build(self) -> Generator[Any, Any, None]:
         queried = []
         step = self.configureStep(['suite.flaky'], [], filtered=False)
         self.patch(ResultsDatabase, 'flaky_verdicts_for', TestAPITestFlakinessReadUsingResultsDB.fake_verdicts({}, queried))
@@ -4846,7 +4846,8 @@ class TestReRunAPITestsExcusesKnownFlakes(BuildStepMixinAdditions, unittest.Test
         yield step.doOnFailure()
 
         self.assertEqual(queried, [])
-        self.assertEqual(step.steps_to_add, self.LADDER)
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(step.build.results, RETRY)
 
     @defer.inlineCallbacks
     def test_the_early_read_forwards_the_change_identity(self) -> Generator[Any, Any, None]:
@@ -4941,6 +4942,140 @@ class TestReRunAPITestsExcusesKnownFlakes(BuildStepMixinAdditions, unittest.Test
 
         self.assertEqual(step.steps_to_add, self.LADDER)
         self.assertEqual(self.results_db_reports, [between_steps_report])
+
+
+class TestReRunAPITestsSkipsCleanTreeWithoutRepeatedFailures(BuildStepMixinAdditions, unittest.TestCase):
+    """A test that fails in only one of the two runs with the change is flaky, so there is no need
+    to rebuild without the change and run the clean tree."""
+
+    LADDER = TestReRunAPITestsExcusesKnownFlakes.LADDER
+
+    def setUp(self) -> defer.Deferred:
+        self.longMessage = True
+        return self.setup_test_build_step()
+
+    def tearDown(self) -> defer.Deferred:
+        return self.tear_down_test_build_step()
+
+    configureStep = TestReRunAPITestsExcusesKnownFlakes.configureStep
+
+    @defer.inlineCallbacks
+    def test_disjoint_failures_skip_the_revert_and_the_clean_tree_run(self) -> Generator[Any, Any, None]:
+        queried = []
+        step = self.configureStep(['suite.first'], ['suite.second'])
+        self.patch(ResultsDatabase, 'flaky_verdicts_for', TestAPITestFlakinessReadUsingResultsDB.fake_verdicts({}, queried))
+
+        yield step.doOnFailure()
+
+        self.assertEqual(queried, [])
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(step.build.results, SUCCESS)
+        self.assertEqual(self.getProperty('build_summary'), 'Found flaky tests: suite.first, suite.second')
+        self.assertEqual(self.getProperty('force_build_success'), True)
+        self.assertEqual(step.descriptionDone, 'Found flaky tests: suite.first, suite.second')
+
+    @defer.inlineCallbacks
+    def test_a_pull_request_against_a_branch_also_skips_the_clean_tree_run(self) -> Generator[Any, Any, None]:
+        step = self.configureStep(['suite.first'], ['suite.second'])
+        self.setProperty('github.base.ref', 'safari-7620-branch')
+
+        yield step.doOnFailure()
+
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(self.getProperty('build_summary'), 'Found flaky tests: suite.first, suite.second')
+
+    @defer.inlineCallbacks
+    def test_a_failure_excused_in_one_run_does_not_count_as_repeated(self) -> Generator[Any, Any, None]:
+        step = self.configureStep(['suite.flaky', 'suite.pre_existing'], ['suite.pre_existing', 'suite.other'], filtered=False)
+        self.setProperty('api_first_run_failures_filtered', ['suite.flaky'])
+        self.setProperty('api_second_run_failures_filtered', ['suite.other'])
+
+        yield step.doOnFailure()
+
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(self.getProperty('build_summary'), 'Found flaky tests: suite.flaky, suite.other')
+
+    @defer.inlineCallbacks
+    def test_the_summary_lists_at_most_ten_tests(self) -> Generator[Any, Any, None]:
+        first_run = [f'suite.first{index:02}' for index in range(6)]
+        second_run = [f'suite.second{index:02}' for index in range(6)]
+        step = self.configureStep(first_run, second_run)
+
+        yield step.doOnFailure()
+
+        self.assertEqual(self.getProperty('build_summary'), f"Found flaky tests: {', '.join((first_run + second_run)[:10])} ...")
+
+    @defer.inlineCallbacks
+    def test_a_run_that_exceeded_the_failure_limit_queues_the_ladder(self) -> Generator[Any, Any, None]:
+        step = self.configureStep(['suite.first'], ['suite.second'])
+        self.setProperty('api_second_run_exceeded_failure_limit', True)
+        self.patch(ResultsDatabase, 'flaky_verdicts_for', TestAPITestFlakinessReadUsingResultsDB.fake_verdicts({}))
+
+        yield step.doOnFailure()
+
+        self.assertEqual(step.steps_to_add, self.LADDER)
+        self.assertIsNone(self.getProperty('build_summary'))
+
+
+class TestReRunAPITestsRunsWithoutResults(BuildStepMixinAdditions, unittest.TestCase):
+    """A run that fails without parseable results cannot be compared with the other one, so
+    AnalyzeAPITestsResults retries the build whatever the clean-tree run finds."""
+
+    def setUp(self) -> defer.Deferred:
+        self.longMessage = True
+        return self.setup_test_build_step()
+
+    def tearDown(self) -> defer.Deferred:
+        return self.tear_down_test_build_step()
+
+    configureStep = TestReRunAPITestsExcusesKnownFlakes.configureStep
+
+    @defer.inlineCallbacks
+    def test_a_first_run_without_results_retries_the_build(self) -> Generator[Any, Any, None]:
+        step = self.configureStep([], ['suite.second'], filtered=False)
+
+        yield step.doOnFailure()
+
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(step.build.results, RETRY)
+        self.assertEqual(step.build.text, ['Unable to parse API test results'])
+
+    @defer.inlineCallbacks
+    def test_a_second_run_without_results_retries_the_build(self) -> Generator[Any, Any, None]:
+        step = self.configureStep(['suite.first'], [], filtered=False)
+
+        yield step.doOnFailure()
+
+        self.assertEqual(step.steps_to_add, [])
+        self.assertEqual(step.build.results, RETRY)
+        self.assertEqual(step.build.text, ['Unable to parse API test results'])
+        self.assertIsNone(self.getProperty('build_summary'))
+
+    def passing_re_run(self, first_run: list) -> defer.Deferred:
+        self.configureStep(first_run, [], filtered=False)
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'python3 Tools/Scripts/run-api-tests --timestamps --no-build --release --verbose --json-output=api_test_results.json --exit-after-n-failures 60 --skip-failing-tests 2>&1 | Tools/Scripts/filter-test-logs api'],
+                        logfiles={'json': 'api_test_results.json'},
+                        timeout=20 * 60,
+                        )
+            .log('json', stdout='{"Failed":[],"Timedout":[],"Crashed":[]}')
+            .log('stdio', stdout='Ran 2 tests of 2 with 2 successful')
+            .exit(0),
+        )
+
+    def test_a_re_run_passing_after_a_first_run_with_failures_reports_them_as_flaky(self):
+        self.passing_re_run(['suite.first'])
+        self.expect_outcome(result=SUCCESS, state_string='re-run-api-tests')
+        self.expect_property('build_summary', 'Found flaky test: suite.first')
+        return self.run_step()
+
+    def test_a_re_run_passing_after_a_first_run_without_results_says_so(self):
+        self.passing_re_run([])
+        self.expect_outcome(result=SUCCESS, state_string='re-run-api-tests')
+        self.expect_property('build_summary', 'Passed API tests on re-run, the first run produced no results')
+        return self.run_step()
 
 
 class TestAPITestStepsReportAsTheyRun(BuildStepMixinAdditions, unittest.TestCase):
@@ -11888,6 +12023,13 @@ class TestCanonicalize(BuildStepMixinAdditions, unittest.TestCase):
                 timeout=300,
                 log_environ=False,
                 env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'test "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 1'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
                 command=['git', 'branch', '-f', 'main', 'eng/pull-request-branch'],
             ).exit(0),
             ExpectShell(
@@ -11952,6 +12094,13 @@ class TestCanonicalize(BuildStepMixinAdditions, unittest.TestCase):
                 timeout=300,
                 log_environ=False,
                 env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'test "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 4'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
                 command=['git', 'branch', '-f', 'main', 'eng/pull-request-branch'],
             ).exit(0),
             ExpectShell(
@@ -12009,6 +12158,13 @@ class TestCanonicalize(BuildStepMixinAdditions, unittest.TestCase):
                 log_environ=False,
                 env=self.ENV,
                 command=['git', 'pull', 'security', 'safari-000-branch', '--rebase'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'test "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 1'],
             ).exit(0),
             ExpectShell(
                 workdir='wkdir',
@@ -12115,6 +12271,13 @@ class TestCanonicalize(BuildStepMixinAdditions, unittest.TestCase):
                 timeout=300,
                 log_environ=False,
                 env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'test "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 1'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
                 command=['git', 'branch', '-f', 'main', 'eng/pull-request-branch'],
             ).exit(0),
             ExpectShell(
@@ -12133,6 +12296,42 @@ class TestCanonicalize(BuildStepMixinAdditions, unittest.TestCase):
             ).exit(1),
         )
         self.expect_outcome(result=FAILURE, state_string='Failed to canonicalize commit')
+        return self.run_step()
+
+    def test_failure_changes_already_landed(self):
+        self.setup_step(Canonicalize())
+        self.setProperty('github.number', '1234')
+        self.setProperty('github.base.ref', 'main')
+        self.setProperty('github.head.ref', 'eng/pull-request-branch')
+        self.setProperty('owners', ['webkit-commit-queue'])
+        self.setProperty('remote', 'origin')
+
+        self.expectRemoteCommands(
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'rm .git/identifiers.json || true'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
+                command=['git', 'pull', 'origin', 'main', '--rebase'],
+            ).exit(0),
+            ExpectShell(
+                workdir='wkdir',
+                timeout=300,
+                log_environ=False,
+                env=self.ENV,
+                command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', 'test "$(git rev-list --count FETCH_HEAD..HEAD)" -eq 1'],
+            ).exit(1),
+        )
+        self.expect_outcome(result=FAILURE, state_string='Changes already landed on main')
+        self.expect_property('build_finish_summary', 'Changes already landed on main')
+        self.expect_property('comment_text', 'Commits in PR #1234 were dropped when rebasing onto main because their changes have already landed, blocking PR #1234. Update the pull request to contain only unlanded changes, or close it.')
         return self.run_step()
 
 
@@ -13128,6 +13327,37 @@ index 8a2d2375b8d2..f7ebc3b11b94 100644
         rc = self.run_step()
         self.expect_property('user_added_tests', ['WebCore/inspector/agents/worker/WorkerWorkerAgent.h/NoUncountedMemberChecker'])
         self.expect_property('user_removed_tests', ['WebCore/inspector/agents/worker/WorkerAuditAgent.h/NoUncountedMemberChecker'])
+        return rc
+
+    def test_expectations_file_removed(self):
+        self.configureStep()
+        self.setProperty('builddir', 'wkdir')
+        self.setProperty('buildnumber', 1234)
+
+        commit_diff = '''
+diff --git a/Source/WebCore/SaferCPPExpectations/NoUncountedMemberCheckerExpectations b/Source/WebCore/SaferCPPExpectations/NoUncountedMemberCheckerExpectations
+deleted file mode 100644
+index 8a2d2375b8d2..000000000000
+--- a/Source/WebCore/SaferCPPExpectations/NoUncountedMemberCheckerExpectations
++++ /dev/null
+@@ -1,3 +0,0 @@
+-inspector/InspectorStyleSheet.cpp
+-loader/appcache/ApplicationCacheStorage.cpp
+'''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['git', 'diff', 'HEAD~1', '--', '*Expectations'])
+            .log('stdio', stdout=commit_diff)
+            .exit(0),
+        )
+        self.expect_outcome(result=SUCCESS, state_string='Found modified expectations')
+        rc = self.run_step()
+        self.expect_property('user_added_tests', [])
+        self.expect_property('user_removed_tests', [
+            'WebCore/inspector/InspectorStyleSheet.cpp/NoUncountedMemberChecker',
+            'WebCore/loader/appcache/ApplicationCacheStorage.cpp/NoUncountedMemberChecker',
+        ])
         return rc
 
     @expectedFailure

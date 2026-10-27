@@ -1970,8 +1970,8 @@ static void WebKitInitializeGamepadProviderIfNecessary()
 - (void)_startDrag:(const WebCore::DragItem&)dragItem
 {
     auto& dragImage = dragItem.image;
-    RetainPtr image = dragImage.get();
-    RefPtr<WebCore::TextIndicator> textIndicator = dragImage.textIndicator();
+    RetainPtr image = dragImage.platformImage();
+    RefPtr textIndicator = dragItem.textIndicator;
 
     if (textIndicator)
         _private->textIndicatorData = adoptNS([[WebUITextIndicatorData alloc] initWithImage:image textIndicator:WTF::move(textIndicator) scale:_private->page->deviceScaleFactor()]);
@@ -3319,7 +3319,7 @@ IGNORE_WARNINGS_END
 + (NSString *)_decodeData:(NSData *)data
 {
     WebCore::HTMLNames::init(); // this method is used for importing bookmarks at startup, so HTMLNames are likely to be uninitialized yet
-    return WebCore::TextResourceDecoder::create("text/html"_s)->decodeAndFlush(span(data)).createNSString().autorelease(); // bookmark files are HTML
+    return WebCore::TextResourceDecoder::create(WebCore::TextResourceDecoder::ContentType::HTML)->decodeAndFlush(span(data)).createNSString().autorelease(); // bookmark files are HTML
 }
 
 - (void)_pushPerformingProgrammaticFocus
