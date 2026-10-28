@@ -371,6 +371,7 @@ public:
     MutatorState mutatorState() const { return m_mutatorState; }
     std::optional<CollectionScope> collectionScope() const { return m_collectionScope; }
     bool hasHeapAccess() const { return m_worldState.load() & hasAccessBit; }
+    bool needCollectionEpilogue() const { return m_worldState.load() & needCollectionEpilogueBit; }
     bool worldIsStopped() const { return m_worldIsStopped; }
     bool worldIsRunning() const { return !worldIsStopped(); }
 #if ASSERT_ENABLED
@@ -675,7 +676,7 @@ private:
     void resumeTheMutator();
     
     JS_EXPORT_PRIVATE void stopIfNecessarySlow();
-    bool stopIfNecessarySlow(unsigned extraStateBits);
+    void stopIfNecessarySlow(unsigned extraStateBits);
     
     template<typename Func>
     void waitForCollector(NOESCAPE const Func&);

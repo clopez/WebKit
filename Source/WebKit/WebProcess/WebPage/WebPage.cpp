@@ -69,6 +69,7 @@
 #include "NotificationPermissionRequestManager.h"
 #include "PageBanner.h"
 #include "PageInspectorTarget.h"
+#include "PageScaleFactor.h"
 #include "PlaybackSessionContextIdentifier.h"
 #include "PluginView.h"
 #include "PolicyDecision.h"
@@ -1105,6 +1106,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     if (parameters.openedByDOM)
         page->setOpenedByDOM();
+    if (!parameters.openedByScriptDomain.isEmpty())
+        page->setOpenedByScriptDomain(WTF::move(parameters.openedByScriptDomain));
 
     page->setGroupName(m_pageGroup->identifier());
     page->setUserInterfaceLayoutDirection(m_userInterfaceLayoutDirection);
@@ -3075,7 +3078,7 @@ void WebPage::didSetTextZoomFactor(double zoomFactor)
 {
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor())
-        return pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
+        return pluginView->setClampedPageScaleFactor(zoomFactor);
 #endif
 
     if (!m_page)
@@ -3105,7 +3108,7 @@ void WebPage::didSetPageZoomFactor(double zoomFactor)
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr pluginView = mainFramePlugIn(); pluginView && pluginView->pluginHandlesPageScaleFactor()) {
         // Note that this maps page *zoom* factor to page *scale* factor.
-        pluginView->setPageScaleFactor(zoomFactor, std::nullopt);
+        pluginView->setClampedPageScaleFactor(zoomFactor);
         return;
     }
 #endif
@@ -3279,6 +3282,12 @@ void WebPage::platformDidScalePage()
 
 void WebPage::scalePage(double scale, const IntPoint& origin)
 {
+    // WebPageProxy::didSetPageScaleFactor() terminates this process for an out-of-range scale factor.
+    if (!isValidScaleFactor(scale)) [[unlikely]] {
+        WEBPAGE_RELEASE_LOG_ERROR(ViewState, "scalePage: refusing to apply out-of-range scale factor %f", scale);
+        return;
+    }
+
     didScalePage(scale, origin);
     send(Messages::WebPageProxy::DidSetPageScaleFactor(scale));
 }
@@ -3323,6 +3332,12 @@ void WebPage::didScaleView(double scale)
 
 void WebPage::scaleView(double scale)
 {
+    // See scalePage(): WebPageProxy::viewScaleFactorDidChange() enforces the same range.
+    if (!isValidScaleFactor(scale)) [[unlikely]] {
+        WEBPAGE_RELEASE_LOG_ERROR(ViewState, "scaleView: refusing to apply out-of-range scale factor %f", scale);
+        return;
+    }
+
     if (scale == viewScaleFactor())
         return;
     didScaleView(scale);
@@ -4063,8 +4078,8 @@ RefPtr<WebContextMenu> WebPage::contextMenuAtPointInWindow(FrameIdentifier frame
 
     // Simulate a mouse click to generate the correct menu.
     PlatformMouseEvent mousePressEvent(point, point, MouseButton::Right, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
-    coreFrame->eventHandler().handleMousePressEvent(mousePressEvent);
-    bool handled = coreFrame->eventHandler().sendContextMenuEvent(mousePressEvent);
+    auto pressResult = coreFrame->eventHandler().handleMousePressEvent(mousePressEvent);
+    bool handled = !pressResult.wasHandledByPageOverlay() && coreFrame->eventHandler().sendContextMenuEvent(mousePressEvent);
     RefPtr menu = handled ? &contextMenu() : nullptr;
     PlatformMouseEvent mouseReleaseEvent(point, point, MouseButton::Right, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, MouseEventInputSource::UserDriven);
     coreFrame->eventHandler().handleMouseReleaseEvent(mouseReleaseEvent);
@@ -5226,7 +5241,8 @@ void WebPage::requestFrameScreenPosition(FrameIdentifier frameID)
 
 void WebPage::scheduleAccessibilityFrameGeometryUpdate()
 {
-    send(Messages::WebPageProxy::ScheduleAccessibilityFrameGeometryUpdate());
+    if (AXObjectCache::accessibilityEnabled())
+        send(Messages::WebPageProxy::ScheduleAccessibilityFrameGeometryUpdate());
 }
 #endif
 

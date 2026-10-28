@@ -789,6 +789,8 @@ foreach (_target IN ITEMS TestWTF TestWebKit TestWebKitAPILibrary)
     WEBKIT_RAISE_SWIFT_NINJA_PRIORITY(${_target} 6)
 endforeach ()
 
+webkit_target_add_swift_options(TestWebKit "-Xcc -I${CMAKE_SOURCE_DIR}/Source")
+
 list(APPEND TestWebKit_SOURCES
     "Tests/WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift"
     "Tests/WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift"
@@ -805,6 +807,7 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/SiteIsolationContentsOfAllFramesTests.swift
     Tests/WebKit/WKWebView/SiteIsolationCookieTests.swift
     Tests/WebKit/WKWebView/SiteIsolationDataDetectionTests.swift
+    Tests/WebKit/WKWebView/SiteIsolationEditableRegionTests.swift
     Tests/WebKit/WKWebView/SiteIsolationEditingTests.swift
     Tests/WebKit/WKWebView/SiteIsolationFullscreenTests.swift
     Tests/WebKit/WKWebView/SiteIsolationLinkIndicatorTests.swift
@@ -812,6 +815,7 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/SiteIsolationNavigationTests.swift
     Tests/WebKit/WKWebView/SiteIsolationServiceWorkerTests.swift
     Tests/WebKit/WKWebView/SiteIsolationSessionStateTests.swift
+    Tests/WebKit/WKWebView/SiteIsolationTextFragmentTests.swift
     Tests/WebKit/WKWebView/SiteIsolationUIDelegateTests.swift
     Tests/WebKit/WKWebView/SiteIsolationUserAgentTests.swift
     Tests/WebKit/WKWebView/TextExtractionTests.swift

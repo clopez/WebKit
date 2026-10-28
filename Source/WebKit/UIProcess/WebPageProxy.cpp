@@ -117,6 +117,7 @@
 #include "NotificationPermissionRequest.h"
 #include "NotificationPermissionRequestManager.h"
 #include "PageClient.h"
+#include "PageScaleFactor.h"
 #include "PendingPostMessages.h"
 #include "PendingSnapshotDrawing.h"
 #include "PlatformPopupMenuData.h"
@@ -980,6 +981,7 @@ WebPageProxy::WebPageProxy(PageClient& pageClient, WebProcessProxy& process, Ref
     , m_userAgent(standardUserAgent())
     , m_overrideContentSecurityPolicy { configuration->overrideContentSecurityPolicy() }
     , m_openedMainFrameName { configuration->openedMainFrameName() }
+    , m_openedByScriptDomain { configuration->openedByScriptDomain() }
 #if ENABLE(FULLSCREEN_API)
     , m_fullscreenClient(makeUnique<API::FullscreenClient>())
 #endif
@@ -2934,7 +2936,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListItem
     return goToBackForwardItem(protect(item.mainFrameItem()), FrameLoadType::IndexedBackForward, isSessionRestore);
 }
 
-RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFrameItem& frameItem, FrameLoadType frameLoadType, IsSessionRestoreNavigation isSessionRestore, CompletionHandler<void()>&& framesDidHandleTraversal)
+RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFrameItem& frameItem, FrameLoadType frameLoadType, IsSessionRestoreNavigation isSessionRestore, CompletionHandler<void()>&& framesDidHandleTraversal, WebBackForwardListItem* committedItem)
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "goToBackForwardItem:");
 
@@ -3029,7 +3031,10 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
         }
     }
 
-    Ref navigation = m_navigationState->createBackForwardNavigation(process->coreProcessIdentifier(), frameItem, backForwardList().currentItem(), frameLoadType);
+    RefPtr<WebBackForwardListItem> fromItem = committedItem;
+    if (!fromItem)
+        fromItem = backForwardList().currentItem();
+    Ref navigation = m_navigationState->createBackForwardNavigation(process->coreProcessIdentifier(), frameItem, RefPtr { fromItem }, frameLoadType);
     if (takenBackForwardCacheMainFrameProcessIdentifier)
         navigation->setBackForwardCacheMainFrameProcessIdentifier(*takenBackForwardCacheMainFrameProcessIdentifier);
     if (pendingIframeRestore)
@@ -3043,9 +3048,9 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItem(WebBackForwardListFram
     if (preferences->shouldUseUIProcessForBackForwardItemLoading()) {
         Ref framesDidHandleTraversalAggregator = CallbackAggregator::create(WTF::move(framesDidHandleTraversal));
         bool anySent = false;
-        if (RefPtr currentItem = backForwardList().currentItem())
-            anySent = dispatchPerFrameTraversals(protect(currentItem->mainFrameItem()), protect(item->mainFrameItem()), navigation->navigationID(), frameLoadType, shouldRestoreFromBackForwardCache, publicSuffix, framesDidHandleTraversalAggregator);
-        if (!anySent && (!backForwardList().currentItem() || isSessionRestore == IsSessionRestoreNavigation::Yes))
+        if (fromItem)
+            anySent = dispatchPerFrameTraversals(protect(fromItem->mainFrameItem()), protect(item->mainFrameItem()), navigation->navigationID(), frameLoadType, shouldRestoreFromBackForwardCache, publicSuffix, framesDidHandleTraversalAggregator);
+        if (!anySent && (!fromItem || isSessionRestore == IsSessionRestoreNavigation::Yes))
             anySent = sendGoToBackForwardItemForFrame(protect(item->mainFrameItem()), navigation->navigationID(), frameLoadType, shouldRestoreFromBackForwardCache, publicSuffix, framesDidHandleTraversalAggregator);
         if (!anySent)
             WEBPAGEPROXY_RELEASE_LOG_ERROR(ProcessSwapping, "goToBackForwardItem: walk dispatched no GoToBackForwardItem messages — back/forward action will be silently dropped");
@@ -3343,7 +3348,7 @@ void WebPageProxy::goToBackForwardItemAtIndex(int32_t steps)
     goToBackForwardItemAtIndexForTraversal(steps, [] { });
 }
 
-RefPtr<API::Navigation> WebPageProxy::goToBackForwardItemAtIndexForTraversal(int32_t steps, CompletionHandler<void()>&& framesDidHandleTraversal)
+RefPtr<API::Navigation> WebPageProxy::goToBackForwardItemAtIndexForTraversal(int32_t steps, CompletionHandler<void()>&& framesDidHandleTraversal, WebBackForwardListItem* committedItem)
 {
     WEBPAGEPROXY_RELEASE_LOG(Loading, "goToBackForwardItemAtIndex: steps=%d", steps);
 
@@ -3353,7 +3358,7 @@ RefPtr<API::Navigation> WebPageProxy::goToBackForwardItemAtIndexForTraversal(int
         return nullptr;
     }
 
-    return goToBackForwardItem(frameItemForLegacyTraversalRouting(*item, "goToBackForwardItemAtIndex"_s), FrameLoadType::IndexedBackForward, IsSessionRestoreNavigation::No, WTF::move(framesDidHandleTraversal));
+    return goToBackForwardItem(frameItemForLegacyTraversalRouting(*item, "goToBackForwardItemAtIndex"_s), FrameLoadType::IndexedBackForward, IsSessionRestoreNavigation::No, WTF::move(framesDidHandleTraversal), committedItem);
 }
 
 void WebPageProxy::enqueueHistoryTraversalDelta(int32_t delta)
@@ -7465,7 +7470,12 @@ bool WebPageProxy::delegatesScalingToUIProcess() const
 
 void WebPageProxy::scalePage(double scale, const IntPoint& origin, CompletionHandler<void()>&& completionHandler)
 {
-    ASSERT(scale > 0);
+    // The web process reports the scale factor back, and would be terminated for an invalid one.
+    if (!isValidScaleFactor(scale)) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(ViewState, "scalePage: ignoring out-of-range scale factor %f", scale);
+        completionHandler();
+        return;
+    }
 
     m_pageScaleFactor = scale;
     pageScaleFactorDidChange();
@@ -7486,7 +7496,10 @@ void WebPageProxy::scalePage(double scale, const IntPoint& origin, CompletionHan
 
 void WebPageProxy::scalePageInViewCoordinates(double scale, const IntPoint& centerInViewCoordinates)
 {
-    ASSERT(scale > 0);
+    if (!isValidScaleFactor(scale)) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(ViewState, "scalePageInViewCoordinates: ignoring out-of-range scale factor %f", scale);
+        return;
+    }
 
     m_pageScaleFactor = scale;
     pageScaleFactorDidChange();
@@ -7504,7 +7517,10 @@ void WebPageProxy::scalePageInViewCoordinates(double scale, const IntPoint& cent
 
 void WebPageProxy::scalePageRelativeToScrollPosition(double scale, const IntPoint& origin)
 {
-    ASSERT(scale > 0);
+    if (!isValidScaleFactor(scale)) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(ViewState, "scalePageRelativeToScrollPosition: ignoring out-of-range scale factor %f", scale);
+        return;
+    }
 
     m_pageScaleFactor = scale;
     pageScaleFactorDidChange();
@@ -7522,7 +7538,11 @@ void WebPageProxy::scalePageRelativeToScrollPosition(double scale, const IntPoin
 
 void WebPageProxy::scaleView(double scale)
 {
-    ASSERT(scale > 0);
+    // See scalePage(); viewScaleFactorDidChange() enforces the same range.
+    if (!isValidScaleFactor(scale)) {
+        WEBPAGEPROXY_RELEASE_LOG_ERROR(ViewState, "scaleView: ignoring out-of-range scale factor %f", scale);
+        return;
+    }
 
     m_viewScaleFactor = scale;
 
@@ -7989,14 +8009,9 @@ void WebPageProxy::setGapBetweenPages(double gap)
     send(Messages::WebPage::SetGapBetweenPages(gap));
 }
 
-static bool LEGACY_NODELETE scaleFactorIsValid(double scaleFactor)
-{
-    return scaleFactor > 0 && scaleFactor <= 100;
-}
-
 void WebPageProxy::didSetPageScaleFactor(IPC::Connection& connection, double scaleFactor)
 {
-    MESSAGE_CHECK_BASE(scaleFactorIsValid(scaleFactor), connection);
+    MESSAGE_CHECK_BASE(isValidScaleFactor(scaleFactor), connection);
     if (!legacyMainFrameProcess().hasConnection(connection))
         return;
     m_pageScaleFactor = scaleFactor;
@@ -8023,7 +8038,7 @@ void WebPageProxy::pageScaleFactorDidChange()
 
 void WebPageProxy::viewScaleFactorDidChange(IPC::Connection& connection, double scaleFactor)
 {
-    MESSAGE_CHECK_BASE(scaleFactorIsValid(scaleFactor), connection);
+    MESSAGE_CHECK_BASE(isValidScaleFactor(scaleFactor), connection);
     if (!legacyMainFrameProcess().hasConnection(connection))
         return;
     m_viewScaleFactor = scaleFactor;
@@ -8037,13 +8052,13 @@ void WebPageProxy::viewScaleFactorDidChange(IPC::Connection& connection, double 
 
 void WebPageProxy::pluginScaleFactorDidChange(IPC::Connection& connection, double pluginScaleFactor)
 {
-    MESSAGE_CHECK_BASE(scaleFactorIsValid(pluginScaleFactor), connection);
+    MESSAGE_CHECK_BASE(isValidScaleFactor(pluginScaleFactor), connection);
     m_pluginScaleFactor = pluginScaleFactor;
 }
 
 void WebPageProxy::pluginZoomFactorDidChange(IPC::Connection& connection, double pluginZoomFactor)
 {
-    MESSAGE_CHECK_BASE(scaleFactorIsValid(pluginZoomFactor), connection);
+    MESSAGE_CHECK_BASE(isValidScaleFactor(pluginZoomFactor), connection);
     m_pluginZoomFactor = pluginZoomFactor;
 }
 
@@ -8920,10 +8935,15 @@ void WebPageProxy::didDestroyFrame(IPC::Connection& connection, FrameIdentifier 
     if (RefPtr automationSession = m_configuration->processPool().automationSession())
         automationSession->didDestroyFrame(frameID);
 
+    // The frame's process is kept out of the WebProcess cache until it finishes removing the frame. Keep its FrameProcess
+    // registered with the BrowsingContextGroup until then too, so frames created in the meantime join the process instead
+    // of launching a new one.
+    RefPtr frameProcess = frame ? &frame->frameProcess() : nullptr;
     forEachWebContentProcess([&](auto& webProcess, auto pageID) {
         if (!webProcess.hasConnection() || &webProcess.connection() == &connection)
             return;
-        webProcess.sendWithAsyncReply(Messages::WebPage::FrameWasRemovedInAnotherProcess(frameID), [preventProcessShutdownScope = webProcess.shutdownPreventingScope()] { }, pageID);
+        RefPtr removedFrameProcess = frameProcess && &frameProcess->process() == &webProcess ? frameProcess : nullptr;
+        webProcess.sendWithAsyncReply(Messages::WebPage::FrameWasRemovedInAnotherProcess(frameID), [preventProcessShutdownScope = webProcess.shutdownPreventingScope(), removedFrameProcess = WTF::move(removedFrameProcess)] { }, pageID);
     });
 
     revokeOutstandingForcedUserActivationsForFrame(frameID);
@@ -9577,7 +9597,7 @@ void WebPageProxy::didFailProvisionalLoadForFrameShared(Ref<WebProcessProxy>&& p
 
     // A failed main-frame provisional load also ends the traversal queue's wait for the main-frame load (nothing committed).
     if (frame.isMainFrame())
-        m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish();
+        m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish(navigationID);
 
     RefPtr protectedPageClient { pageClient() };
 
@@ -9787,7 +9807,7 @@ void WebPageProxy::didCommitLoadForFrame(IPC::Connection& connection, FrameIdent
     // BackForwardGoToItem is sent on the same connection ahead of this commit, so the current index has already advanced
     // and the traversal queue can stop waiting for the main-frame load; no-op unless it is waiting.
     if (frame->isMainFrame()) {
-        m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish();
+        m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish(navigationID);
         recordFirstPartyVisit(request.url());
         m_usingOverrideHardwareConcurrency = shouldUseOverrideHardwareConcurrency(request.url());
 
@@ -11683,6 +11703,7 @@ void WebPageProxy::decidePolicyForResponseShared(Ref<WebProcessProxy>&& process,
     if (frame->isMainFrame() && coopValuesRequireBrowsingContextGroupSwitch(isShowingInitialAboutBlank ? WebCore::IsInitialAboutBlank::Yes : WebCore::IsInitialAboutBlank::No, activeDocumentCOOPValue, frameInfo.securityOrigin.securityOrigin().get(), obtainCrossOriginOpenerPolicy(response).value, SecurityOrigin::create(response.url()).get())) {
         mainFrame()->disownOpener();
         m_openedMainFrameName = { };
+        m_openedByScriptDomain = { };
     }
 
     Ref navigationResponse = API::NavigationResponse::create(API::FrameInfo::create(FrameInfoData { frameInfo }).get(), request, response, canShowMIMEType, WTF::move(downloadAttribute), navigation.get());
@@ -12028,6 +12049,7 @@ void WebPageProxy::triggerBrowsingContextGroupSwitchForNavigation(WebCore::Navig
     Ref browsingContextGroupForSwap = BrowsingContextGroup::create(crossOriginMode);
 
     m_openedMainFrameName = { };
+    m_openedByScriptDomain = { };
 
     RefPtr provisionalPage = m_provisionalPage;
     auto lockdownMode = processLoadingNavigation->lockdownMode();
@@ -12358,6 +12380,7 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
     auto originatingFrameInfo = API::FrameInfo::create(WTF::move(originatingFrameInfoData));
     auto mainFrameURL = m_mainFrame ? m_mainFrame->url() : URL();
     auto openedMainFrameName = navigationActionData.openedMainFrameName;
+    auto openedByScriptDomain = navigationActionData.openedByScriptDomain;
 
     auto effectiveSandboxFlags = navigationActionData.effectiveSandboxFlags;
     if (!effectiveSandboxFlags.contains(SandboxFlag::PropagatesToAuxiliaryBrowsingContexts))
@@ -12463,6 +12486,7 @@ void WebPageProxy::createNewPage(IPC::Connection& connection, WindowFeatures&& w
     configuration->setInitialReferrerPolicy(effectiveReferrerPolicy);
     configuration->setWindowFeatures(WTF::move(windowFeatures));
     configuration->setOpenedMainFrameName(openedMainFrameName);
+    configuration->setOpenedByScriptDomain(WTF::move(openedByScriptDomain));
 
     if (RefPtr openerFrame = originatingFrame; navigationActionData.hasOpener && openerFrame) {
         configuration->setRelatedPage(*this);
@@ -15483,9 +15507,10 @@ void WebPageProxy::resetStateAfterProcessTermination(ProcessTerminationReason re
 void WebPageProxy::provisionalProcessDidTerminate()
 {
     ASSERT(m_provisionalPage);
+    auto navigationID = m_provisionalPage->navigationID();
     m_provisionalPage = nullptr;
     // The main-frame load that the provisional page carried will neither commit nor fail.
-    m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish();
+    m_sessionHistoryTraversalQueue->mainFrameLoadDidFinish(navigationID);
 }
 
 static bool LEGACY_NODELETE shouldReloadAfterProcessTermination(ProcessTerminationReason reason)
@@ -15965,6 +15990,7 @@ WebPageCreationParameters WebPageProxy::creationParameters(WebProcessProxy& proc
         .userContentControllerParameters = m_userContentController->parametersForProcess(process),
         .mainFrameIdentifier = mainFrameIdentifier,
         .openedMainFrameName = m_openedMainFrameName,
+        .openedByScriptDomain = m_openedByScriptDomain,
         .mainFrameOpenerIdentifier = m_mainFrame && m_mainFrame->opener() ? std::optional(m_mainFrame->opener()->frameID()) : std::nullopt,
         .mainFrameOpenerURL = m_mainFrame && m_mainFrame->opener() ? m_mainFrame->opener()->url() : URL { },
         .initialSandboxFlags = m_mainFrame ? m_mainFrame->effectiveSandboxFlags() : SandboxFlags { },
@@ -16970,24 +16996,31 @@ void WebPageProxy::voiceActivityDetected()
     send(Messages::WebPage::VoiceActivityDetected { });
 }
 
-void WebPageProxy::startMonitoringCaptureDeviceRotation(const String& persistentId)
+void WebPageProxy::startMonitoringCaptureDeviceRotation(const String& persistentId, RotationMonitoringReason reason)
 {
 #if HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
     if (!m_preferences->useAVCaptureDeviceRotationCoordinatorAPI())
         return;
 
-    userMediaPermissionRequestManager().startMonitoringCaptureDeviceRotation(persistentId);
+    userMediaPermissionRequestManager().startMonitoringCaptureDeviceRotation(persistentId, reason);
 #endif // HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
 }
 
-void WebPageProxy::stopMonitoringCaptureDeviceRotation(const String& persistentId)
+void WebPageProxy::stopMonitoringCaptureDeviceRotation(const String& persistentId, RotationMonitoringReason reason)
 {
 #if HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
     if (!m_preferences->useAVCaptureDeviceRotationCoordinatorAPI())
         return;
 
-    userMediaPermissionRequestManager().stopMonitoringCaptureDeviceRotation(persistentId);
+    userMediaPermissionRequestManager().stopMonitoringCaptureDeviceRotation(persistentId, reason);
 #endif // HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
+}
+
+void WebPageProxy::stopMonitoringCaptureDeviceRotationForCapturePreview()
+{
+#if HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
+    userMediaPermissionRequestManager().stopMonitoringCaptureDeviceRotationForCapturePreview();
+#endif
 }
 
 void WebPageProxy::rotationAngleForCaptureDeviceChanged(const String& persistentId, WebCore::VideoFrameRotation rotation)
@@ -21192,6 +21225,7 @@ INSTANTIATE_SEND_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::HandleAutocorrectionC
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::StartAutoscrollAtPosition);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::AddDictationAlternative);
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::DictationAlternativesAtSelection);
+INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::CreateTextFragmentDirectiveFromSelection);
 #endif
 #if PLATFORM(IOS_FAMILY)
 INSTANTIATE_SEND_WITH_ASYNC_REPLY_TO_FOCUSED_OR_MAIN_FRAME_PROCESS(WebPage::BeginSelectionInDirection);

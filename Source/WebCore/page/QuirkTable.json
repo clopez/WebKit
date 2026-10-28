@@ -258,6 +258,10 @@
             "behaviors": [{ "id": "NeedsFormControlToBeMouseFocusableQuirk" }]
         },
         {
+            "matches": ["*://*.cnn.com/*"],
+            "behaviors": [{ "id": "RequiresUserGestureToPauseInFullscreenAfterOrientationChangeQuirk" }]
+        },
+        {
             "matches": ["*://codepen.io/*"],
             "behaviors": [{ "id": "ShouldEnableSpeakerSelectionPermissionsPolicyQuirk" }]
         },
@@ -517,6 +521,11 @@
             "bugs": ["rdar://184166392"],
             "embeddedMatches": ["*://*.google.*/maps/embed*"],
             "behaviors": [{ "id": "NeedsGoogleMapsEmbedManipulationSurfaceQuirk" }]
+        },
+        {
+            "bugs": ["rdar://190477522"],
+            "matches": ["*://gemini.google.com/*"],
+            "behaviors": [{ "id": "ShouldIgnoreViewportInteractiveWidgetQuirk" }]
         },
         {
             "matches": ["*://docs.google.com/*"],

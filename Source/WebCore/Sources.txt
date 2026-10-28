@@ -616,6 +616,9 @@ Modules/webxr/XRCylinderLayer.cpp
 Modules/webxr/XREquirectLayer.cpp
 Modules/webxr/WebXRHitTestResult.cpp
 Modules/webxr/WebXRHitTestSource.cpp
+Modules/webxr/WebXRPlane.cpp
+Modules/webxr/WebXRPlaneSet.cpp
+Modules/webxr/WebXRPlaneSpace.cpp
 Modules/webxr/XRInputSourceEvent.cpp
 Modules/webxr/XRInputSourcesChangeEvent.cpp
 Modules/webxr/XRLayerEvent.cpp
@@ -2109,7 +2112,6 @@ layout/formattingContexts/inline/text/TextBreakingPositionCache.cpp @header:Rend
 layout/formattingContexts/inline/text/TextUtil.cpp @header:RenderStyleGetters
 layout/integration/LayoutIntegrationBoxGeometryUpdater.cpp @header:RenderStyleGetters
 layout/integration/LayoutIntegrationBoxTreeUpdater.cpp @header:RenderStyleGetters
-layout/integration/LayoutIntegrationCoverage.cpp @header:RenderStyleGetters
 layout/integration/grid/LayoutIntegrationGridCoverage.cpp @header:RenderStyleGetters
 layout/integration/LayoutIntegrationFormattingContextLayout.cpp @header:RenderStyleGetters
 layout/integration/LayoutIntegrationUtils.cpp
@@ -2493,6 +2495,7 @@ platform/PasteboardCustomData.cpp
 platform/PasteboardWriterData.cpp
 platform/PlatformKeyboardEvent.cpp
 platform/PlatformMediaError.cpp
+platform/PlatformResource.cpp
 platform/PlatformScreen.cpp
 platform/PlatformSpeechSynthesisUtterance.cpp
 platform/PlatformSpeechSynthesisVoice.cpp

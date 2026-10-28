@@ -913,9 +913,8 @@ RefPtr<NativeImage> RenderImage::createNativeImageAsPainted(float deviceScaleFac
     FloatSize contentBoxSize = contentBoxRect.size();
     auto scaleFactor = deviceScaleFactor * std::min({ 1.0f, maximumSize.width() / contentBoxSize.width(), maximumSize.height() / contentBoxSize.height() });
 
-    Ref frame = this->frame();
-    auto colorSpace = screenColorSpace(protect(protect(frame->mainFrame())->virtualView()).get());
-    RefPtr imageBuffer = ImageBuffer::create(contentBoxRect.size(), RenderingMode::Unaccelerated, RenderingPurpose::Snapshot, scaleFactor, colorSpace, PixelFormat::BGRA8);
+    // FIXME: <https://webkit.org/b/329173> We should not have to hardcode the sRGB colorspace here.
+    RefPtr imageBuffer = ImageBuffer::create(contentBoxRect.size(), RenderingMode::Unaccelerated, RenderingPurpose::Snapshot, scaleFactor, ColorSpace::SRGB(), PixelFormat::BGRA8);
     if (!imageBuffer)
         return nullptr;
 
@@ -986,7 +985,7 @@ ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect
 #if USE(SYSTEM_PREVIEW)
     RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element());
     if (RefPtr cachedImage = this->cachedImage(); cachedImage && imageElement && imageElement->isSystemPreviewImage() && drawResult == ImageDrawResult::DidDraw && imageElement->document().settings().systemPreviewEnabled())
-        theme().paintSystemPreviewBadge(*protect(cachedImage->image()), paintInfo, rect);
+        theme().paintSystemPreviewBadge(protect(cachedImage->image())->nativeImage(concreteObjectSize), paintInfo, rect);
 #endif
 
     if (drawResult != ImageDrawResult::DidNothing && element() && !paintInfo.context().paintingDisabled())

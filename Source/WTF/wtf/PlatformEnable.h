@@ -69,6 +69,30 @@
 #endif
 #endif
 
+#ifndef BACKTRACE_DISABLED
+#define BACKTRACE_DISABLED !ASSERT_ENABLED
+#endif
+
+#ifndef ASSERT_MSG_DISABLED
+#define ASSERT_MSG_DISABLED !ASSERT_ENABLED
+#endif
+
+#ifndef ASSERT_ARG_DISABLED
+#define ASSERT_ARG_DISABLED !ASSERT_ENABLED
+#endif
+
+#ifndef FATAL_DISABLED
+#define FATAL_DISABLED !ASSERT_ENABLED
+#endif
+
+#ifndef ERROR_DISABLED
+#define ERROR_DISABLED !ASSERT_ENABLED
+#endif
+
+#ifndef LOG_DISABLED
+#define LOG_DISABLED !ASSERT_ENABLED
+#endif
+
 
 /* ==== Platform additions: additions to PlatformEnable.h from outside the main repository ==== */
 
@@ -653,6 +677,10 @@
 #define ENABLE_WEBXR_LAYERS PLATFORM(VISION)
 #endif
 
+#if !defined(ENABLE_WEBXR_PLANE_DETECTION)
+#define ENABLE_WEBXR_PLANE_DETECTION 0
+#endif
+
 #if !defined(ENABLE_WHEEL_EVENT_LATCHING)
 #define ENABLE_WHEEL_EVENT_LATCHING 0
 #endif
@@ -1079,6 +1107,10 @@
 
 #if ENABLE(WEBXR_LAYERS) && !ENABLE(WEBXR)
 #error "ENABLE(WEBXR_LAYERS) requires ENABLE(WEBXR)"
+#endif
+
+#if ENABLE(WEBXR_PLANE_DETECTION) && !ENABLE(WEBXR)
+#error "ENABLE(WEBXR_PLANE_DETECTION) requires ENABLE(WEBXR)"
 #endif
 
 #if !defined(ENABLE_WEBPROCESS_CACHE)

@@ -1218,7 +1218,6 @@ webkit.org/b/323612 imported/w3c/web-platform-tests/css/css-counter-styles/count
 webkit.org/b/323611 imported/w3c/web-platform-tests/css/css-anchor-position/position-area-overflow-icb-004-rtl.html [ ImageOnlyFailure Pass ]
 webkit.org/b/323611 imported/w3c/web-platform-tests/css/css-anchor-position/position-area-overflow-icb-006-rtl.html [ ImageOnlyFailure Pass ]
 webkit.org/b/323611 imported/w3c/web-platform-tests/css/css-anchor-position/position-area-overflow-icb-008-rtl.html [ ImageOnlyFailure Pass ]
-webkit.org/b/323778 [ Debug ] media/media-source/media-source-addsourcebuffer-after-canplaytype.html [ Crash Pass ]
 
 webkit.org/b/323779 imported/w3c/web-platform-tests/web-locks/held.https.any.sharedworker.html [ Failure Pass ]
 webkit.org/b/323779 imported/w3c/web-platform-tests/web-locks/idlharness.https.any.sharedworker.html [ Failure Pass ]
@@ -1272,6 +1271,9 @@ webkit.org/b/327258 fast/css-grid-layout/grid-auto-columns-rows-get-set.html [ F
 webkit.org/b/327259 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/pagereveal/order-in-new-document-navigation-iframe.html [ Failure Pass ]
 
 webkit.org/b/327677 media/video-page-visibility-restriction.html [ Pass Timeout ]
+
+webkit.org/b/329155 http/tests/IndexedDB/transaction-stop-during-request-dispatch.html [ Failure Pass ]
+webkit.org/b/329156 imported/w3c/web-platform-tests/webrtc-encoded-transform/script-transform-sendKeyFrameRequest.https.html [ Failure Pass ]
 
 # Remaining failures after unskipping directories in platform/glib.
 fast/layoutformattingcontext/table-fixed-width-colspans.html [ Failure ]

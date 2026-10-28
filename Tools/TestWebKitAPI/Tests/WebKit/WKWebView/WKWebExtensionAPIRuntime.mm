@@ -83,6 +83,31 @@ static auto *runtimeContentScriptManifest = @{
     @"permissions": @[ @"nativeMessaging" ],
 };
 
+static auto *runtimePopupContentScriptManifest = @{
+    @"manifest_version": @3,
+
+    @"name": @"Runtime Test",
+    @"description": @"Runtime Test",
+    @"version": @"1",
+
+    @"background": @{
+        @"scripts": @[ @"background.js" ],
+        @"type": @"module",
+        @"persistent": @NO,
+    },
+
+    @"action": @{
+        @"default_title": @"Test Action",
+        @"default_popup": @"popup.html",
+    },
+
+    @"content_scripts": @[ @{
+        @"js": @[ @"content.js" ],
+        @"matches": @[ @"*://localhost/*" ],
+        @"all_frames": @YES,
+    } ],
+};
+
 static auto *runtimeServiceWorkerManifest = @{
     @"manifest_version": @3,
 
@@ -112,6 +137,55 @@ static auto *externallyConnectableManifest = @{
         @"matches": @[ @"*://localhost/*" ],
     },
 };
+
+TEST(WKWebExtensionAPIRuntime, OnInstalledReason)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(typeof browser.runtime.OnInstalledReason, 'object', 'OnInstalledReason should be an object')",
+
+        @"browser.test.assertEq(browser.runtime.OnInstalledReason.INSTALL, 'install', 'INSTALL should be defined')",
+        @"browser.test.assertEq(browser.runtime.OnInstalledReason.UPDATE, 'update', 'UPDATE should be defined')",
+        @"browser.test.assertEq(browser.runtime.OnInstalledReason.BROWSER_UPDATE, 'browser_update', 'BROWSER_UPDATE should be defined')",
+
+        @"browser.test.assertDeepEq(Object.keys(browser.runtime.OnInstalledReason).sort(), [ 'BROWSER_UPDATE', 'INSTALL', 'UPDATE' ], 'OnInstalledReason should only define the supported values')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    Util::loadAndRunExtension(runtimeManifest, @{ @"background.js": backgroundScript });
+}
+
+TEST(WKWebExtensionAPIRuntime, PlatformArch)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(typeof browser.runtime.PlatformArch, 'object', 'PlatformArch should be an object')",
+
+        @"browser.test.assertEq(browser.runtime.PlatformArch.ARM, 'arm', 'ARM should be defined')",
+        @"browser.test.assertEq(browser.runtime.PlatformArch.X86_64, 'x86-64', 'X86_64 should be defined')",
+
+        @"browser.test.assertDeepEq(Object.keys(browser.runtime.PlatformArch).sort(), [ 'ARM', 'X86_64' ], 'PlatformArch should only define the supported values')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    Util::loadAndRunExtension(runtimeManifest, @{ @"background.js": backgroundScript });
+}
+
+TEST(WKWebExtensionAPIRuntime, PlatformOs)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.assertEq(typeof browser.runtime.PlatformOs, 'object', 'PlatformOs should be an object')",
+
+        @"browser.test.assertEq(browser.runtime.PlatformOs.MAC, 'mac', 'MAC should be defined')",
+        @"browser.test.assertEq(browser.runtime.PlatformOs.IOS, 'ios', 'IOS should be defined')",
+
+        @"browser.test.assertDeepEq(Object.keys(browser.runtime.PlatformOs).sort(), [ 'IOS', 'MAC' ], 'PlatformOs should only define the supported values')",
+
+        @"browser.test.notifyPass()"
+    ]);
+
+    Util::loadAndRunExtension(runtimeManifest, @{ @"background.js": backgroundScript });
+}
 
 TEST(WKWebExtensionAPIRuntime, GetURL)
 {
@@ -519,6 +593,42 @@ TEST(WKWebExtensionAPIRuntime, LastErrorClearedAfterCallback)
     ]);
 
     Util::loadAndRunExtension(runtimeManifest, @{ @"background.js": backgroundScript });
+}
+
+TEST(WKWebExtensionAPIRuntime, LastErrorFromContentScript)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    auto *urlRequest = server.requestWithLocalhost();
+
+    auto *backgroundScript = Util::constructScript(@[
+        @"browser.test.sendMessage('Load Tab')"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"browser.test.assertEq(typeof browser.runtime.lastError, 'object', 'lastError should be exposed to content scripts')",
+        @"browser.test.assertEq(browser.runtime.lastError, null, 'lastError should be null outside of a failed callback')",
+
+        @"browser.runtime.sendMessage('unknown.extension.identifier', { content: 'Hello' }, () => {",
+        @"  const error = browser.runtime.lastError",
+        @"  browser.test.assertEq(typeof error, 'object', 'lastError should be set inside the failed callback')",
+        @"  browser.test.assertTrue(!!error?.message?.includes('cross-extension messaging is not supported'), 'lastError should describe the failure')",
+
+        @"  browser.test.notifyPass()",
+        @"})"
+    ]);
+
+    auto manager = Util::loadExtension(runtimeContentScriptManifest, @{ @"background.js": backgroundScript, @"content.js": contentScript });
+
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.URL];
+
+    [manager runUntilTestMessage:@"Load Tab"];
+
+    [manager.get().defaultTab.webView loadRequest:urlRequest];
+
+    [manager run];
 }
 
 TEST(WKWebExtensionAPIRuntime, SendMessageFromContentScript)
@@ -1754,6 +1864,130 @@ TEST(WKWebExtensionAPIRuntime, ConnectFromPopup)
     };
 
     auto manager = Util::loadExtension(runtimeManifest, resources);
+
+    manager.get().internalDelegate.presentPopupForAction = ^(WKWebExtensionAction *action) {
+        // Do nothing so the popup web view will stay loaded.
+    };
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPIRuntime, SendMessageFromContentScriptInPopupSubframe)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    RetainPtr urlRequest = server.requestWithLocalhost();
+    auto *urlString = urlRequest.get().URL.absoluteString;
+
+    auto *backgroundScript = Util::constructScript(@[
+        [NSString stringWithFormat:@"const expectedURL = '%@'", urlString],
+
+        @"browser.runtime.onMessage.addListener((message, sender) => {",
+        @"  browser.test.assertEq(message?.content, 'Hello from popup subframe', 'Should receive the correct message from the content script')",
+
+        @"  browser.test.assertEq(sender?.tab, undefined, 'sender.tab should be undefined')",
+        @"  browser.test.assertEq(sender?.frameId, undefined, 'sender.frameId should be undefined')",
+        @"  browser.test.assertEq(sender?.url, expectedURL, 'sender.url should be the expected URL')",
+        @"  browser.test.assertEq(typeof sender?.documentId, 'string', 'sender.documentId should be a string')",
+
+        @"  return Promise.resolve({ content: 'Received your message' })",
+        @"})",
+
+        @"browser.action.openPopup()"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"(async () => {",
+        @"  const response = await browser.runtime.sendMessage({ content: 'Hello from popup subframe' })",
+        @"  browser.test.assertEq(response?.content, 'Received your message', 'Should get the response from the background script')",
+
+        @"  browser.test.notifyPass()",
+        @"})()"
+    ]);
+
+    auto *popupScript = Util::constructScript(@[
+        @"const frame = document.createElement('iframe')",
+        [NSString stringWithFormat:@"frame.src = '%@'", urlString],
+        @"document.body.appendChild(frame)"
+    ]);
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"content.js": contentScript,
+        @"popup.html": @"<script type='module' src='popup.js'></script>",
+        @"popup.js": popupScript
+    };
+
+    auto manager = Util::loadExtension(runtimePopupContentScriptManifest, resources);
+
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.get().URL];
+
+    manager.get().internalDelegate.presentPopupForAction = ^(WKWebExtensionAction *action) {
+        // Do nothing so the popup web view will stay loaded.
+    };
+
+    [manager run];
+}
+
+TEST(WKWebExtensionAPIRuntime, ConnectFromContentScriptInPopupSubframe)
+{
+    TestWebKitAPI::HTTPServer server({
+        { "/"_s, { { { "Content-Type"_s, "text/html"_s } }, ""_s } },
+    }, TestWebKitAPI::HTTPServer::Protocol::Http);
+
+    RetainPtr urlRequest = server.requestWithLocalhost();
+    auto *urlString = urlRequest.get().URL.absoluteString;
+
+    auto *backgroundScript = Util::constructScript(@[
+        [NSString stringWithFormat:@"const expectedURL = '%@'", urlString],
+
+        @"browser.runtime.onConnect.addListener((port) => {",
+        @"  browser.test.assertEq(port?.name, 'testPort', 'Port name should be testPort')",
+
+        @"  browser.test.assertEq(port?.sender?.tab, undefined, 'sender.tab should be undefined')",
+        @"  browser.test.assertEq(port?.sender?.frameId, undefined, 'sender.frameId should be undefined')",
+        @"  browser.test.assertEq(port?.sender?.url, expectedURL, 'sender.url should be the expected URL')",
+
+        @"  port?.onMessage.addListener((message) => {",
+        @"    browser.test.assertEq(message, 'Hello from popup subframe', 'Should receive the correct message content')",
+
+        @"    port?.postMessage('Received by background')",
+        @"  })",
+        @"})",
+
+        @"browser.action.openPopup()"
+    ]);
+
+    auto *contentScript = Util::constructScript(@[
+        @"const port = browser.runtime.connect({ name: 'testPort' })",
+
+        @"port.onMessage.addListener((response) => {",
+        @"  browser.test.assertEq(response, 'Received by background', 'Should get the response from the background script')",
+
+        @"  browser.test.notifyPass()",
+        @"})",
+
+        @"port.postMessage('Hello from popup subframe')"
+    ]);
+
+    auto *popupScript = Util::constructScript(@[
+        @"const frame = document.createElement('iframe')",
+        [NSString stringWithFormat:@"frame.src = '%@'", urlString],
+        @"document.body.appendChild(frame)"
+    ]);
+
+    auto *resources = @{
+        @"background.js": backgroundScript,
+        @"content.js": contentScript,
+        @"popup.html": @"<script type='module' src='popup.js'></script>",
+        @"popup.js": popupScript
+    };
+
+    auto manager = Util::loadExtension(runtimePopupContentScriptManifest, resources);
+
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forURL:urlRequest.get().URL];
 
     manager.get().internalDelegate.presentPopupForAction = ^(WKWebExtensionAction *action) {
         // Do nothing so the popup web view will stay loaded.

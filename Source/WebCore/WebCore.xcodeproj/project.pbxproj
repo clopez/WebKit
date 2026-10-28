@@ -2082,6 +2082,7 @@
 		5151F07E2615435A00FDB2B4 /* MediaUniqueIdentifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 5151F07B2615363F00FDB2B4 /* MediaUniqueIdentifier.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		51547FE52C9296BD00CD402D /* MediaSourceInit.h in Headers */ = {isa = PBXBuildFile; fileRef = 51547FE02C9296BD00CD402D /* MediaSourceInit.h */; };
 		5154F6EC2B01FC7000B857D9 /* PlatformMediaError.h in Headers */ = {isa = PBXBuildFile; fileRef = 5154F6EB2B01FC7000B857D9 /* PlatformMediaError.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		607598DE8C5AD55D3832EAFE /* PlatformResource.h in Headers */ = {isa = PBXBuildFile; fileRef = 5A1CBCF7AFC3206E9B4CEB78 /* PlatformResource.h */; };
 		5154F6EF2B02340900B857D9 /* MediaPromiseTypes.h in Headers */ = {isa = PBXBuildFile; fileRef = 5154F6EE2B02340900B857D9 /* MediaPromiseTypes.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		515BE1901D54F5FB00DD7C68 /* EmptyGamepadProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 515BE1891D54F5F600DD7C68 /* EmptyGamepadProvider.h */; };
 		515BE1921D54F5FB00DD7C68 /* GamepadProvider.h in Headers */ = {isa = PBXBuildFile; fileRef = 515BE18B1D54F5F600DD7C68 /* GamepadProvider.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -6871,7 +6872,6 @@
 		E401B3632A942E3F0018B557 /* ScopedName.h in Headers */ = {isa = PBXBuildFile; fileRef = E401B3622A942E3E0018B557 /* ScopedName.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E401C27517CE53EC00C41A35 /* ElementIteratorAssertions.h in Headers */ = {isa = PBXBuildFile; fileRef = E401C27417CE53EC00C41A35 /* ElementIteratorAssertions.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		E401E0A41C3C0B8300F34D10 /* StyleChange.h in Headers */ = {isa = PBXBuildFile; fileRef = E401E0A31C3C0B8300F34D10 /* StyleChange.h */; settings = {ATTRIBUTES = (Private, ); }; };
-		E403B7A2251B11930019E800 /* LayoutIntegrationCoverage.h in Headers */ = {isa = PBXBuildFile; fileRef = E403B7A1251B11930019E800 /* LayoutIntegrationCoverage.h */; };
 		E403B7A3251B11C10019E800 /* LayoutIntegrationPagination.h in Headers */ = {isa = PBXBuildFile; fileRef = E4312AB724B3265600678349 /* LayoutIntegrationPagination.h */; };
 		C814C569BBA6F36D17A949B9 /* SVGTextDisplayContentBuilder.h in Headers */ = {isa = PBXBuildFile; fileRef = 8C34B552C743CB4BA7256D9A /* SVGTextDisplayContentBuilder.h */; };
 		89ACE0522BC1BB06CFFF1775 /* SVGTextLayoutAlgorithm.h in Headers */ = {isa = PBXBuildFile; fileRef = 00580A55849484D03A89EE07 /* SVGTextLayoutAlgorithm.h */; };
@@ -12612,6 +12612,8 @@
 		51547FE62C929FF100CD402D /* JSMediaSourceInit.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = JSMediaSourceInit.h; sourceTree = "<group>"; };
 		51547FE72C929FF100CD402D /* JSMediaSourceInit.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = JSMediaSourceInit.cpp; sourceTree = "<group>"; };
 		5154F6EB2B01FC7000B857D9 /* PlatformMediaError.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformMediaError.h; sourceTree = "<group>"; };
+		5A1CBCF7AFC3206E9B4CEB78 /* PlatformResource.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformResource.h; sourceTree = "<group>"; };
+		5F145CC4FAC732077EB99F4E /* PlatformResource.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PlatformResource.cpp; sourceTree = "<group>"; };
 		5154F6EE2B02340900B857D9 /* MediaPromiseTypes.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MediaPromiseTypes.h; sourceTree = "<group>"; };
 		515BE1881D54F5F600DD7C68 /* EmptyGamepadProvider.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = EmptyGamepadProvider.cpp; sourceTree = "<group>"; };
 		515BE1891D54F5F600DD7C68 /* EmptyGamepadProvider.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EmptyGamepadProvider.h; sourceTree = "<group>"; };
@@ -22779,8 +22781,6 @@
 		E401C27417CE53EC00C41A35 /* ElementIteratorAssertions.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ElementIteratorAssertions.h; sourceTree = "<group>"; };
 		E401E0A31C3C0B8300F34D10 /* StyleChange.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = StyleChange.h; sourceTree = "<group>"; };
 		E401E0A51C3C0CF700F34D10 /* StyleChange.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = StyleChange.cpp; sourceTree = "<group>"; };
-		E403B79F251B118B0019E800 /* LayoutIntegrationCoverage.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = LayoutIntegrationCoverage.cpp; sourceTree = "<group>"; };
-		E403B7A1251B11930019E800 /* LayoutIntegrationCoverage.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LayoutIntegrationCoverage.h; sourceTree = "<group>"; };
 		E406204B2E5F2EC0009144F4 /* StyleRuleFunction.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = StyleRuleFunction.h; sourceTree = "<group>"; };
 		E406204D2E5F2ECA009144F4 /* StyleRuleFunction.cpp */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.cpp; path = StyleRuleFunction.cpp; sourceTree = "<group>"; };
 		E406F3FB1198307D009D59D6 /* ColorData.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = ColorData.cpp; sourceTree = "<group>"; };
@@ -23402,6 +23402,7 @@
 		F45EAC972A950D12009B986E /* MediaProducer.serialization.in */ = {isa = PBXFileReference; lastKnownFileType = text; path = MediaProducer.serialization.in; sourceTree = "<group>"; };
 		F46284532A7B196400A01B18 /* HTTPHeaderNames.serialization.in */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; path = HTTPHeaderNames.serialization.in; sourceTree = "<group>"; };
 		F4628A9E234D3BBF00BC884C /* PlatformPasteboardCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = PlatformPasteboardCocoa.mm; sourceTree = "<group>"; };
+		82A80BB4F6BA4B87DDBC330A /* PlatformResourceCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = PlatformResourceCocoa.mm; sourceTree = "<group>"; };
 		F462E79F242ADA3C00204DDD /* DragDataCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = DragDataCocoa.mm; sourceTree = "<group>"; };
 		F462E7A0242ADA3D00204DDD /* DragImageCocoa.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = DragImageCocoa.mm; sourceTree = "<group>"; };
 		F46729251E0DE5AB00ACC3D8 /* ScrollSnapOffsetsInfo.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ScrollSnapOffsetsInfo.h; sourceTree = "<group>"; };
@@ -34779,6 +34780,7 @@
 				B933F55A2C5873C10046BA88 /* PhotosFormatSoftLink.mm */,
 				E5C5B2082C3795EE00838733 /* PlatformNSAdaptiveImageGlyph.h */,
 				F4628A9E234D3BBF00BC884C /* PlatformPasteboardCocoa.mm */,
+				82A80BB4F6BA4B87DDBC330A /* PlatformResourceCocoa.mm */,
 				AAE3755D17429BCC006200C2 /* PlatformSpeechSynthesizerCocoa.mm */,
 				F4E90A3B2B52038E002DA469 /* PlatformTextAlternatives.h */,
 				95BA4FAB26D981AA002A0E62 /* PlatformViewController.h */,
@@ -39787,6 +39789,8 @@
 				5154F6EB2B01FC7000B857D9 /* PlatformMediaError.h */,
 				935C476709AC4D4300A6AAB4 /* PlatformMouseEvent.h */,
 				C5BAC16F14E30E4700008837 /* PlatformPasteboard.h */,
+				5F145CC4FAC732077EB99F4E /* PlatformResource.cpp */,
+				5A1CBCF7AFC3206E9B4CEB78 /* PlatformResource.h */,
 				C137846B242BEEBA00E86FA8 /* PlatformScreen.cpp */,
 				BCEC01D60C274EB4009F4EC9 /* PlatformScreen.h */,
 				F45EAC7B2A8ADE03009B986E /* PlatformScreen.serialization.in */,
@@ -41675,8 +41679,6 @@
 				DD5ACFD72B14DADE00B36C57 /* LayoutIntegrationBoxGeometryUpdater.h */,
 				E418025623D454B500FFB071 /* LayoutIntegrationBoxTreeUpdater.cpp */,
 				E418025323D4549A00FFB071 /* LayoutIntegrationBoxTreeUpdater.h */,
-				E403B79F251B118B0019E800 /* LayoutIntegrationCoverage.cpp */,
-				E403B7A1251B11930019E800 /* LayoutIntegrationCoverage.h */,
 				E43E64F52C6365E50060F493 /* LayoutIntegrationFormattingContextLayout.cpp */,
 				E43E64F62C6365EE0060F493 /* LayoutIntegrationFormattingContextLayout.h */,
 				DD76D1502C7B63B600DFDD70 /* LayoutIntegrationUtils.cpp */,
@@ -47372,7 +47374,6 @@
 				6F0B98B523F268EC00EEC2F2 /* LayoutInlineTextBox.h in Headers */,
 				DD5ACFD82B14DADE00B36C57 /* LayoutIntegrationBoxGeometryUpdater.h in Headers */,
 				E418025523D4549B00FFB071 /* LayoutIntegrationBoxTreeUpdater.h in Headers */,
-				E403B7A2251B11930019E800 /* LayoutIntegrationCoverage.h in Headers */,
 				6FAC251F281326580045683F /* LayoutIntegrationFlexLayout.h in Headers */,
 				E43E64F72C6365EE0060F493 /* LayoutIntegrationFormattingContextLayout.h in Headers */,
 				A5FA575E2E85BFE500EF058F /* LayoutIntegrationGridCoverage.h in Headers */,
@@ -48196,6 +48197,7 @@
 				9A87D9E22A82933500EE7A8A /* PlatformRawAudioData.h in Headers */,
 				5183EBD72CF73A86005FAC1F /* PlatformRawAudioDataCocoa.h in Headers */,
 				D72D8B7BFB8842FA17CD110E /* PlatformRenderTheme.h in Headers */,
+				607598DE8C5AD55D3832EAFE /* PlatformResource.h in Headers */,
 				BCEC01D70C274EB4009F4EC9 /* PlatformScreen.h in Headers */,
 				F45EAC7D2A8ADFC4009B986E /* PlatformScreen.serialization.in in Headers */,
 				297BE3D516C03C08003316BD /* PlatformSpeechSynthesisUtterance.h in Headers */,

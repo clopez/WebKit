@@ -115,7 +115,10 @@ public:
 
     SingleThreadWeakPtr<RenderMultiColumnFlow> m_multiColumnFlow;
 
+    std::optional<LayoutUnit> m_percentageBasisForDescendants;
+
     bool m_didBreakAtLineToAvoidWidow : 1;
+    bool m_hasPercentageBasisForDescendants : 1;
 };
 
 class RenderBlockFlow : public RenderBlock {
@@ -510,7 +513,6 @@ private:
     bool layoutSimpleBlockContentInInline(MarginInfo&);
     void updateRepaintTopAndBottomAfterLayout(RelayoutChildren, std::optional<LayoutRect> partialRepaintRect, std::pair<float, float> oldContentTopAndBottomIncludingInkOverflow, LayoutUnit& repaintLogicalTop, LayoutUnit& repaintLogicalBottom);
     std::optional<LayoutUnit> updateLineClampStateAndLogicalHeightAfterLayout();
-    bool tryComputeIntrinsicLogicalWidthsUsingInlinePath(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth);
     void setStaticPositionsForSimpleOutOfFlowContent();
 
     void adjustIntrinsicLogicalWidthsForColumns(LayoutUnit& minLogicalWidth, LayoutUnit& maxLogicalWidth) const;
@@ -522,6 +524,7 @@ private:
     std::pair<float, float> inlineContentTopAndBottomIncludingInkOverflow() const;
 
     void dirtyForLayoutFromPercentageHeightDescendants();
+    void dirtyForLayoutFromPercentageHeightDescendantsIfBasisChanged();
 
     int m_widthForTextAutosizing;
     unsigned m_lineCountForTextAutosizing : 2;

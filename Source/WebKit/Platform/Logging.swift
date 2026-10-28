@@ -41,8 +41,7 @@ import os
 /// `NullLogger`, so that neither the messages nor the calls remain in the binary. Use only the `privacy:`
 /// interpolation option so that code also builds against `PortableLogger` and `NullLogger`.
 extension WTFLogChannel {
-    // Swift cannot see LOG_DISABLED, so this relies on the static_assert in wtf/Logging.h that it matches ASSERT_ENABLED.
-    #if ASSERT_ENABLED
+    #if !LOG_DISABLED
     #if canImport(os)
     @inline(always)
     var debugLog: os.Logger {

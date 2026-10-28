@@ -36,6 +36,7 @@
 #include "Untrusted.h"
 #include <WebCore/FrameLoaderTypes.h>
 #include <WebCore/ProcessIdentifier.h>
+#include <WebCore/RegistrableDomain.h>
 #include <WebCore/UserGestureTokenIdentifier.h>
 #include <WebCore/SpeechRecognitionConnectionClientIdentifier.h>
 #include <wtf/ApproximateTime.h>
@@ -758,6 +759,7 @@ enum class ProcessTerminationReason : uint8_t;
 enum class ProcessThrottlerActivityType : bool;
 enum class QuickLookPreviewActivity : uint8_t;
 enum class RespectSelectionAnchor : bool;
+enum class RotationMonitoringReason : uint8_t;
 enum class SOAuthorizationLoadPolicy : bool;
 enum class SameDocumentNavigationType : uint8_t;
 enum class SelectionExtentAnchor : bool;
@@ -1085,7 +1087,7 @@ public:
     // instantiating RefPtr<API::Navigation>'s destructor in the generated receiver (which lacks the
     // complete API::Navigation type). The traversal queue uses the RefPtr-returning variant below.
     void goToBackForwardItemAtIndex(int32_t steps);
-    RefPtr<API::Navigation> goToBackForwardItemAtIndexForTraversal(int32_t steps, CompletionHandler<void()>&&);
+    RefPtr<API::Navigation> goToBackForwardItemAtIndexForTraversal(int32_t steps, CompletionHandler<void()>&&, WebBackForwardListItem* committedItem = nullptr);
     void enqueueHistoryTraversalDelta(int32_t delta);
     void enqueueHistoryTraversalToItem(WebCore::BackForwardFrameItemIdentifier, CompletionHandler<void(bool)>&&);
     int32_t inFlightTraversalDirection() const;
@@ -2560,8 +2562,9 @@ public:
 #if ENABLE(MEDIA_STREAM)
     void setMockCaptureDevicesEnabledOverride(std::optional<bool>);
     void willStartCapture(UserMediaPermissionRequestProxy&, CompletionHandler<void()>&&);
-    void LEGACY_NODELETE startMonitoringCaptureDeviceRotation(const String&);
-    void LEGACY_NODELETE stopMonitoringCaptureDeviceRotation(const String&);
+    void LEGACY_NODELETE startMonitoringCaptureDeviceRotation(const String&, RotationMonitoringReason);
+    void LEGACY_NODELETE stopMonitoringCaptureDeviceRotation(const String&, RotationMonitoringReason);
+    void stopMonitoringCaptureDeviceRotationForCapturePreview();
     void LEGACY_NODELETE rotationAngleForCaptureDeviceChanged(const String&, WebCore::VideoFrameRotation);
     void microphoneMuteStatusChanged(bool isMuting);
 #if PLATFORM(COCOA)
@@ -3260,7 +3263,7 @@ private:
     Ref<WebPageProxy> downloadOriginatingPage(const API::Navigation*);
     Ref<WebPageProxy> navigationOriginatingPage(const FrameInfoData&);
 
-    RefPtr<API::Navigation> goToBackForwardItem(WebBackForwardListFrameItem&, WebCore::FrameLoadType, IsSessionRestoreNavigation = IsSessionRestoreNavigation::No, CompletionHandler<void()>&& = [] { });
+    RefPtr<API::Navigation> goToBackForwardItem(WebBackForwardListFrameItem&, WebCore::FrameLoadType, IsSessionRestoreNavigation = IsSessionRestoreNavigation::No, CompletionHandler<void()>&& = [] { }, WebBackForwardListItem* committedItem = nullptr);
 
     bool dispatchPerFrameTraversals(WebBackForwardListFrameItem& fromFrame, WebBackForwardListFrameItem& toFrame, WebCore::NavigationIdentifier, WebCore::FrameLoadType, WebCore::ShouldRestoreFromBackForwardCache, const WebCore::PublicSuffix&, WTF::CallbackAggregator&);
     bool dispatchChildFrameTraversals(WebBackForwardListFrameItem& fromFrame, WebBackForwardListFrameItem& toFrame, WebCore::NavigationIdentifier, WebCore::FrameLoadType, WebCore::ShouldRestoreFromBackForwardCache, const WebCore::PublicSuffix&, WTF::CallbackAggregator&);
@@ -4065,6 +4068,7 @@ private:
     String m_customTextEncodingName;
     String m_overrideContentSecurityPolicy;
     String m_openedMainFrameName;
+    WebCore::RegistrableDomain m_openedByScriptDomain;
 
     const RefPtr<WebInspectorUIProxy> m_inspector;
 
