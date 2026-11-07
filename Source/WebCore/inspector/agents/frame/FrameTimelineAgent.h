@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2013 Intel Corporation. All rights reserved.
+ * Copyright (C) 2026 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -10,10 +10,10 @@
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
  *
- * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
- * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
  * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -23,16 +23,33 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "WebViewportAttributes.h"
+#pragma once
 
-namespace WebKit {
+#include "InspectorTimelineAgent.h"
+#include <wtf/CheckedPtr.h>
+#include <wtf/TZoneMalloc.h>
 
-WebViewportAttributes::WebViewportAttributes(const WebCore::ViewportAttributes& attributes)
-    : m_attributes(attributes)
-{
-}
+namespace WebCore {
 
-WebViewportAttributes::~WebViewportAttributes() = default;
+class Node;
+struct FrameAgentContext;
 
-} // namespace WebKit
+class FrameTimelineAgent final : public InspectorTimelineAgent, public CanMakeCheckedPtr<FrameTimelineAgent> {
+    WTF_MAKE_NONCOPYABLE(FrameTimelineAgent);
+    WTF_MAKE_TZONE_ALLOCATED(FrameTimelineAgent);
+    WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FrameTimelineAgent);
+public:
+    OVERRIDE_ABSTRACT_CAN_MAKE_CHECKEDPTR(CanMakeCheckedPtr);
+
+    explicit FrameTimelineAgent(FrameAgentContext&);
+    ~FrameTimelineAgent();
+
+    // TimelineBackendDispatcherHandler
+    Inspector::Protocol::ErrorStringOr<void> setAutoCaptureEnabled(bool) override;
+
+private:
+    bool shouldToggleInstrument(Inspector::Protocol::Timeline::Instrument) const override;
+    Inspector::Protocol::DOM::NodeId nodeIdForNode(Node*) override;
+};
+
+} // namespace WebCore
