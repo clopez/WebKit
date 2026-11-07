@@ -2013,6 +2013,12 @@ private:
             break;
         }
 
+        case NewProxyObject: {
+            fixEdge<ObjectUse>(node->child1());
+            fixEdge<ObjectUse>(node->child2());
+            break;
+        }
+
         case NewRegExpUntyped: {
             if (node->child1()->shouldSpeculateString() && node->child2()->shouldSpeculateString()) {
                 fixEdge<StringUse>(node->child1());
@@ -2032,7 +2038,7 @@ private:
 
         case NewArrayWithSpread: {
             watchHavingABadTime(node);
-            
+
             BitVector* bitVector = node->bitVector();
             for (unsigned i = node->numChildren(); i--;) {
                 if (bitVector->get(i))
@@ -2044,22 +2050,24 @@ private:
             break;
         }
 
-        case Spread: {
-            // Note: We care about performing the protocol on our child's global object, not necessarily ours.
-            
-            watchHavingABadTime(node->child1().node());
+        case CallVarargsWithSpread: {
+            BitVector* bitVector = node->bitVector();
+            unsigned numArgs = node->numChildren() - 2;
+            for (unsigned e = 0; e < numArgs; ++e) {
+                if (bitVector->get(e))
+                    fixEdge<KnownCellUse>(m_graph.m_varArgChildren[node->firstChild() + 2 + e]);
+                else
+                    fixEdge<UntypedUse>(m_graph.m_varArgChildren[node->firstChild() + 2 + e]);
+            }
+            break;
+        }
 
-            // When we go down the fast path, we don't consult the prototype chain, so we must prove
-            // that it doesn't contain any indexed properties, and that any holes will result in
-            // jsUndefined().
-            if (node->child1()->shouldSpeculateArray()
-                && m_graph.isWatchingArrayPrototypeChainIsSaneWatchpoint(node->child1().node())
-                && m_graph.isWatchingArrayIteratorProtocolWatchpoint(node->child1().node())
-                && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
+        case Spread: {
+            // Note: This is only speculating the operand is an Array/Set respectively. This gates
+            // optimizations that elide the iterator protocol but don't guarantee it can be.
+            if (node->child1()->shouldSpeculateArray())
                 fixEdge<ArrayUse>(node->child1());
-            else if (node->child1()->shouldSpeculateSetObject()
-                && m_graph.isWatchingSetIteratorProtocolWatchpoint(node->child1().node())
-                && m_graph.isWatchingHavingABadTimeWatchpoint(node->child1().node()))
+            else if (node->child1()->shouldSpeculateSetObject())
                 fixEdge<SetObjectUse>(node->child1());
             else
                 fixEdge<CellUse>(node->child1());
@@ -3609,7 +3617,8 @@ private:
             if (node->child1()->shouldSpeculateOther()) {
                 insertCheck<OtherUse>(node->child1().node());
                 m_graph.convertToConstant(node, jsNumber(1));
-            }
+            } else if (node->child1()->op() == Spread && !node->loadVarargsData()->offset)
+                fixEdge<KnownCellUse>(node->child1());
             break;
         }
 
@@ -3618,6 +3627,33 @@ private:
             // Actually this is common that we are passing undefined / null.
             if (node->child2()->shouldSpeculateOther())
                 fixEdge<OtherUse>(node->child2());
+            else if (node->child2()->op() == Spread && !node->loadVarargsData()->offset)
+                fixEdge<KnownCellUse>(node->child2());
+            break;
+        }
+
+        case VarargsLengthWithSpread: {
+            BitVector* bitVector = node->bitVector();
+            unsigned numArgs = node->numChildren();
+            for (unsigned e = 0; e < numArgs; ++e) {
+                if (bitVector->get(e))
+                    fixEdge<KnownCellUse>(m_graph.m_varArgChildren[node->firstChild() + e]);
+                else
+                    fixEdge<UntypedUse>(m_graph.m_varArgChildren[node->firstChild() + e]);
+            }
+            break;
+        }
+
+        case LoadVarargsWithSpread: {
+            fixEdge<KnownInt32Use>(m_graph.m_varArgChildren[node->firstChild()]);
+            BitVector* bitVector = node->bitVector();
+            unsigned numArgs = node->numChildren() - 1;
+            for (unsigned e = 0; e < numArgs; ++e) {
+                if (bitVector->get(e))
+                    fixEdge<KnownCellUse>(m_graph.m_varArgChildren[node->firstChild() + 1 + e]);
+                else
+                    fixEdge<UntypedUse>(m_graph.m_varArgChildren[node->firstChild() + 1 + e]);
+            }
             break;
         }
 
@@ -4738,7 +4774,7 @@ private:
         return std::tuple { arrayModes, flags };
     }
 
-    static std::optional<ArrayModes> LEGACY_NODELETE refineArrayModesForMultiPutByVal(Node*, ArrayModes arrayModes)
+    NODELETE static std::optional<ArrayModes> refineArrayModesForMultiPutByVal(Node*, ArrayModes arrayModes)
     {
         constexpr ArrayModes supportedArrays = 0
             | asArrayModesIgnoringTypedArrays(ArrayWithInt32)
@@ -4776,25 +4812,25 @@ private:
         return arrayModes;
     }
 
-    bool LEGACY_NODELETE alwaysUnboxSimplePrimitives()
+    NODELETE bool alwaysUnboxSimplePrimitives()
     {
         return false;
     }
 
     template<UseKind useKind>
-    void LEGACY_NODELETE observeUseKindOnNode(Node* node)
+    NODELETE void observeUseKindOnNode(Node* node)
     {
         if (useKind == UntypedUse)
             return;
         observeUseKindOnNode(node, useKind);
     }
 
-    void LEGACY_NODELETE observeUseKindOnEdge(Edge edge)
+    NODELETE void observeUseKindOnEdge(Edge edge)
     {
         observeUseKindOnNode(edge.node(), edge.useKind());
     }
 
-    void LEGACY_NODELETE observeUseKindOnNode(Node* node, UseKind useKind)
+    NODELETE void observeUseKindOnNode(Node* node, UseKind useKind)
     {
         if (node->op() != GetLocal)
             return;
@@ -4847,13 +4883,13 @@ private:
     }
     
     template<UseKind useKind>
-    void LEGACY_NODELETE fixEdge(Edge& edge)
+    NODELETE void fixEdge(Edge& edge)
     {
         observeUseKindOnNode<useKind>(edge.node());
         edge.setUseKind(useKind);
     }
     
-    unsigned LEGACY_NODELETE indexForChecks()
+    NODELETE unsigned indexForChecks()
     {
         unsigned index = m_indexInBlock;
         while (!m_block->at(index)->origin.exitOK)
@@ -5239,7 +5275,7 @@ private:
         return false;
     }
 
-    void LEGACY_NODELETE fixupCheckJSCast(Node* node)
+    NODELETE void fixupCheckJSCast(Node* node)
     {
         fixEdge<CellUse>(node->child1());
     }

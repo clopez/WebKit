@@ -449,6 +449,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediasource/TextTrack+MediaSource.idl \
     $(WebCore)/Modules/mediasource/VideoPlaybackQuality.idl \
     $(WebCore)/Modules/mediasource/VideoTrack+MediaSource.idl \
+    $(WebCore)/Modules/mediasession/CallToActionLabel.idl \
     $(WebCore)/Modules/mediasession/MediaImage.idl \
     $(WebCore)/Modules/mediasession/MediaMetadata.idl \
     $(WebCore)/Modules/mediasession/MediaMetadataInit.idl \
@@ -458,6 +459,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/mediasession/MediaSessionAction.idl \
     $(WebCore)/Modules/mediasession/MediaSessionActionDetails.idl \
     $(WebCore)/Modules/mediasession/MediaSessionActionHandler.idl \
+    $(WebCore)/Modules/mediasession/MediaSessionActionHandlerOptions.idl \
     $(WebCore)/Modules/mediasession/MediaSessionCaptionTrack.idl \
     $(WebCore)/Modules/mediasession/MediaSessionCoordinator.idl \
     $(WebCore)/Modules/mediasession/MediaSessionCoordinatorMixin.idl \
@@ -703,6 +705,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/webaudio/AudioProcessingEvent.idl \
     $(WebCore)/Modules/webaudio/AudioProcessingEventInit.idl \
     $(WebCore)/Modules/webaudio/AudioScheduledSourceNode.idl \
+    $(WebCore)/Modules/webaudio/AudioSinkInfo.idl \
+    $(WebCore)/Modules/webaudio/AudioSinkOptions.idl \
+    $(WebCore)/Modules/webaudio/AudioSinkType.idl \
     $(WebCore)/Modules/webaudio/AudioTimestamp.idl \
     $(WebCore)/Modules/webaudio/AudioWorklet.idl \
     $(WebCore)/Modules/webaudio/AudioWorkletGlobalScope.idl \

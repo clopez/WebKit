@@ -144,16 +144,8 @@ class Runner(object):
     def command_for_port(port, args, worker_number=None):
         if (port.get_option('force')):
             args.append('--force')
-        if (port.get_option('remote_layer_tree')):
-            args.append('--remote-layer-tree')
         if (port.get_option('site_isolation_enabled_by_default')):
             args.append('--site-isolation-enabled-by-default')
-        if (port.get_option('no_remote_layer_tree')):
-            args.append('--no-remote-layer-tree')
-        if (port.get_option('use_gpu_process')):
-            args.append('--use-gpu-process')
-        if (port.get_option('no_use_gpu_process')):
-            args.append('--no-use-gpu-process')
         if getattr(port, 'DEVICE_MANAGER', None):
             assert port.DEVICE_MANAGER.INITIALIZED_DEVICES
             device = port.target_host(worker_number) if worker_number is not None else port.DEVICE_MANAGER.INITIALIZED_DEVICES[0]

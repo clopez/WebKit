@@ -544,6 +544,7 @@ void ComputePassEncoder::setBindGroup(uint32_t groupIndex, const BindGroup* grou
         ASSERT(resource.mtlResources.size() == resource.resourceUsages.size());
         for (size_t i = 0, sz = resource.mtlResources.size(); i < sz; ++i) {
             auto& resourceUsage = resource.resourceUsages[i];
+            m_parentEncoder->addResidentResource(resource.mtlResources[i]);
             setCommandEncoder(resourceUsage.resource, m_parentEncoder);
         }
     }
@@ -589,7 +590,7 @@ id<MTLComputeCommandEncoder> ComputePassEncoder::computeCommandEncoder() const
 
 #pragma mark WGPU Stubs
 
-void LEGACY_NODELETE wgpuComputePassEncoderAddRef(WGPUComputePassEncoder computePassEncoder)
+NODELETE void wgpuComputePassEncoderAddRef(WGPUComputePassEncoder computePassEncoder)
 {
     WebGPU::Metal::fromAPI(computePassEncoder).ref();
 }

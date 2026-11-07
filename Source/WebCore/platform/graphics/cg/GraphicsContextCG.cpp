@@ -104,7 +104,7 @@ static InterpolationQuality coreInterpolationQuality(CGContextRef context)
     return InterpolationQuality::Default;
 }
 
-static CGTextDrawingMode LEGACY_NODELETE cgTextDrawingMode(TextDrawingModeFlags mode)
+NODELETE static CGTextDrawingMode cgTextDrawingMode(TextDrawingModeFlags mode)
 {
     bool fill = mode.contains(TextDrawingMode::Fill);
     bool stroke = mode.contains(TextDrawingMode::Stroke);
@@ -115,7 +115,7 @@ static CGTextDrawingMode LEGACY_NODELETE cgTextDrawingMode(TextDrawingModeFlags 
     return kCGTextStroke;
 }
 
-static CGBlendMode LEGACY_NODELETE selectCGBlendMode(CompositeOperator compositeOperator, BlendMode blendMode)
+NODELETE static CGBlendMode selectCGBlendMode(CompositeOperator compositeOperator, BlendMode blendMode)
 {
     switch (blendMode) {
     case BlendMode::Normal:
@@ -357,16 +357,21 @@ void GraphicsContextCG::restore(GraphicsContextState::Purpose purpose)
     m_userToDeviceTransformKnownToBeIdentity = false;
 }
 
-void GraphicsContextCG::drawNativeImage(const NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& srcRect, ImageDrawingOptions options)
+void GraphicsContextCG::drawNativeImage(const NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& srcRect, RasterDrawingOptions options)
 {
     auto image = nativeImage.platformImage();
     if (!image)
         return;
 
 #if ENABLE(AX_CUSTOM_COLOR_MODE) && HAVE(CGSTYLE_COLORMATRIX_BLUR)
-    if (options.invertContent() == InvertContent::Yes) {
-        auto sourceRect = options.orientation() == ImageOrientation::Orientation::None ? std::optional { normalizeRect(srcRect) } : std::nullopt;
-        if (auto colorMatrix = AXCustomColorModeController::colorMatrixForImageInversion(nativeImage.paintTimeTransformation(sourceRect))) {
+    if (auto invertContent = options.invertContent(); invertContent == InvertContent::Yes || invertContent == InvertContent::Forced) {
+        auto colorMatrix = [&] -> std::optional<GraphicsColorMatrix> {
+            if (invertContent == InvertContent::Forced)
+                return AXCustomColorModeController::colorPreservingInvertMatrix();
+            auto sourceRect = options.orientation() == ImageOrientation::Orientation::None ? std::optional { normalizeRect(srcRect) } : std::nullopt;
+            return AXCustomColorModeController::colorMatrixForImageInversion(nativeImage.paintTimeTransformation(sourceRect));
+        }();
+        if (colorMatrix) {
             GraphicsContextStateSaver stateSaver(*this);
             clip(normalizeRect(destRect));
             setStyle(*colorMatrix);
@@ -401,7 +406,7 @@ void GraphicsContextCG::drawNativeImage(const NativeImage& nativeImage, const Fl
         return !WTF::areEssentiallyEqual(xScale, yScale) || xScale > 1;
     };
 
-    auto getSubimage = [](CGImageRef image, const FloatSize& imageSize, const FloatRect& subimageRect, ImageDrawingOptions options) -> RetainPtr<CGImageRef> {
+    auto getSubimage = [](CGImageRef image, const FloatSize& imageSize, const FloatRect& subimageRect, RasterDrawingOptions options) -> RetainPtr<CGImageRef> {
         auto physicalSubimageRect = subimageRect;
 
         if (options.orientation() != ImageOrientation::Orientation::None) {
@@ -560,10 +565,24 @@ static void drawPatternReleaseCallback(void* info)
     SUPPRESS_RETAINPTR_CTOR_ADOPT callOnMainThread([image = adoptCF(static_cast<CGImageRef>(info))] { });
 }
 
-void GraphicsContextCG::drawPattern(const NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, ImageDrawingOptions options)
+void GraphicsContextCG::drawPattern(const NativeImage& nativeImage, const FloatRect& destRect, const FloatRect& tileRect, const AffineTransform& patternTransform, const FloatPoint& phase, const FloatSize& spacing, RasterDrawingOptions options)
 {
     if (!patternTransform.isInvertible())
         return;
+
+#if ENABLE(AX_CUSTOM_COLOR_MODE) && HAVE(CGSTYLE_COLORMATRIX_BLUR)
+    // Tiles are never classified, so only an unconditional inversion applies to them.
+    if (options.invertContent() == InvertContent::Forced) {
+        GraphicsContextStateSaver stateSaver(*this);
+        clip(destRect);
+        setStyle(AXCustomColorModeController::colorPreservingInvertMatrix());
+        setCompositeOperation(options.compositeOperator(), options.blendMode());
+        beginTransparencyLayer(options.compositeOperator(), options.blendMode());
+        drawPattern(nativeImage, destRect, tileRect, patternTransform, phase, spacing, { options, InvertContent::No, CompositeOperator::SourceOver, BlendMode::Normal });
+        endTransparencyLayer();
+        return;
+    }
+#endif
 
     auto image = nativeImage.platformImage();
     auto imageSize = nativeImage.size();
@@ -785,7 +804,7 @@ void GraphicsContextCG::applyFillPattern()
     CGContextSetFillPattern(cgContext, platformPattern.get(), &patternAlpha);
 }
 
-static inline bool LEGACY_NODELETE calculateDrawingMode(const GraphicsContext& context, CGPathDrawingMode& mode)
+NODELETE static inline bool calculateDrawingMode(const GraphicsContext& context, CGPathDrawingMode& mode)
 {
     bool shouldFill = context.fillBrush().isVisible();
     bool shouldStroke = context.strokeBrush().isVisible() || (context.strokeStyle() != StrokeStyle::NoStroke);
@@ -1089,6 +1108,24 @@ void GraphicsContextCG::clipPath(const Path& path, WindRule clipRule)
         else
             CGContextClip(context);
     }
+}
+
+void GraphicsContextCG::clipTransformedPath(const AffineTransform& pathTransform, const Path& path, WindRule clipRule)
+{
+    const RetainPtr<CGContextRef>& context = contextForDraw();
+    if (path.isEmpty()) {
+        CGContextClipToRect(context, CGRectZero);
+        return;
+    }
+    // The clip is stored in device space, so the CTM can be restored afterwards without affecting it.
+    auto ctm = CGContextGetCTM(context);
+    CGContextConcatCTM(context, pathTransform);
+    setCGContextPath(context, path);
+    if (clipRule == WindRule::EvenOdd)
+        CGContextEOClip(context);
+    else
+        CGContextClip(context);
+    CGContextSetCTM(context, ctm);
 }
 
 void GraphicsContextCG::clipToImageBuffer(ImageBuffer& imageBuffer, const FloatRect& destRect)

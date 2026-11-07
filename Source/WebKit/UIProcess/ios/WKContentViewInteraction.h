@@ -600,6 +600,7 @@ struct ImageAnalysisContextMenuActionData {
     BOOL _isUnsuppressingSoftwareKeyboardUsingLastAutocorrectionContext;
     BOOL _waitingForKeyboardAppearanceAnimationToStart;
     BOOL _isHidingKeyboard;
+    BOOL _isResettingTextInteractionGestureRecognizers;
     BOOL _isInterpretingKeyEvent;
     BOOL _isPresentingEditMenu;
     BOOL _isHandlingActiveKeyEvent;
@@ -785,6 +786,7 @@ struct ImageAnalysisContextMenuActionData {
 @property (nonatomic, readonly, getter=_isSuppressingSelectionAssistant) BOOL _suppressingSelectionAssistant;
 
 - (BOOL)_hasFocusedElement;
+- (BOOL)_focusedElementUsesSoftwareKeyboard;
 - (BOOL)_isSameAsFocusedElement:(const WebCore::ElementContext&)context;
 - (void)_zoomToRevealFocusedElement;
 @property (nonatomic, readonly) WebCore::FloatRect rectToRevealWhenZoomingToFocusedElement;

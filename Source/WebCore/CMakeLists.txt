@@ -168,6 +168,10 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/loader/archive/mhtml"
     "${WEBCORE_DIR}/loader/cache"
     "${WEBCORE_DIR}/loader/icon"
+    "${WEBCORE_DIR}/loader/images"
+    "${WEBCORE_DIR}/loader/images/bitmap"
+    "${WEBCORE_DIR}/loader/images/sizing"
+    "${WEBCORE_DIR}/loader/images/svg"
     "${WEBCORE_DIR}/mathml"
     "${WEBCORE_DIR}/page"
     "${WEBCORE_DIR}/page/csp"
@@ -203,7 +207,6 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/platform/xr"
     "${WEBCORE_DIR}/plugins"
     "${WEBCORE_DIR}/rendering"
-    "${WEBCORE_DIR}/rendering/line"
     "${WEBCORE_DIR}/rendering/mathml"
     "${WEBCORE_DIR}/rendering/shapes"
     "${WEBCORE_DIR}/rendering/style"
@@ -510,6 +513,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediarecorder/MediaRecorder.idl
     Modules/mediarecorder/MediaRecorderErrorEvent.idl
 
+    Modules/mediasession/CallToActionLabel.idl
     Modules/mediasession/MediaImage.idl
     Modules/mediasession/MediaMetadata.idl
     Modules/mediasession/MediaMetadataInit.idl
@@ -518,6 +522,7 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/mediasession/MediaSessionAction.idl
     Modules/mediasession/MediaSessionActionDetails.idl
     Modules/mediasession/MediaSessionActionHandler.idl
+    Modules/mediasession/MediaSessionActionHandlerOptions.idl
     Modules/mediasession/MediaSessionCaptionTrack.idl
     Modules/mediasession/MediaSessionCoordinator.idl
     Modules/mediasession/MediaSessionCoordinatorState.idl
@@ -768,6 +773,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webaudio/AudioProcessingEvent.idl
     Modules/webaudio/AudioProcessingEventInit.idl
     Modules/webaudio/AudioScheduledSourceNode.idl
+    Modules/webaudio/AudioSinkInfo.idl
+    Modules/webaudio/AudioSinkOptions.idl
+    Modules/webaudio/AudioSinkType.idl
     Modules/webaudio/AudioTimestamp.idl
     Modules/webaudio/AudioWorklet.idl
     Modules/webaudio/AudioWorkletGlobalScope.idl

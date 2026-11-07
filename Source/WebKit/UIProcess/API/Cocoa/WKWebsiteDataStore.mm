@@ -1126,6 +1126,11 @@ struct WKWebsiteData {
     });
 }
 
+- (void)_setLinkDecorationFilteringDataForTesting:(NSArray<NSString *> *)queryParameters completionHandler:(void (^)(void))completionHandler
+{
+    protect(*_websiteDataStore)->setLinkDecorationFilteringDataForTesting(makeVector<String>(queryParameters), makeBlockPtr(completionHandler));
+}
+
 - (void)_setPrivateTokenIPCForTesting:(bool)enabled
 {
     protect(*_websiteDataStore)->setPrivateTokenIPCForTesting(enabled);
@@ -1530,13 +1535,33 @@ struct WKWebsiteData {
 #endif // ENGINEERING_BUILD
 }
 
++ (void)_requestDisabledSecurityFlagsForTesting
+{
+#if defined(ENGINEERING_BUILD) && ENGINEERING_BUILD
+    WebKit::SecurityFlagsController::singleton().requestRemoteListForTesting();
+#endif // ENGINEERING_BUILD
+}
+
 - (void)_isSecurityFlagEnabledInNetworkProcessForTesting:(NSString *)flagName completionHandler:(void(^)(NSNumber *))completionHandler
 {
 #if defined(ENGINEERING_BUILD) && ENGINEERING_BUILD
     protect(protect(*_websiteDataStore)->networkProcess())->isSecurityFlagEnabledForTesting(flagName, [completionHandlerCopy = makeBlockPtr(completionHandler)] (std::optional<bool> enabled) {
         completionHandlerCopy(enabled ? [NSNumber numberWithBool:*enabled] : nil);
     });
+#else
+    UNUSED_PARAM(flagName);
+    completionHandler(nil);
 #endif // ENGINEERING_BUILD
+}
+
++ (NSNumber *)_isSecurityFlagEnabledInUIProcessForTesting:(NSString *)flagName
+{
+#if defined(ENGINEERING_BUILD) && ENGINEERING_BUILD
+    auto name = String { flagName };
+    if (auto enabled = WebKit::securityFlags().isFlagEnabledNamedForTesting(name))
+        return [NSNumber numberWithBool:*enabled];
+#endif // ENGINEERING_BUILD
+    return nil;
 }
 
 + (void)_setWebPushActionHandler:(WKWebsiteDataStore *(^)(_WKWebPushAction *))handler
@@ -1614,6 +1639,14 @@ struct WKWebsiteData {
 {
     auto completionHandlerCopy = makeBlockPtr(completionHandler);
     protect(*_websiteDataStore)->runningOrTerminatingServiceWorkerCountForTesting([completionHandlerCopy = WTF::move(completionHandlerCopy)](auto result) {
+        completionHandlerCopy(result);
+    });
+}
+
+- (void)_loadersAwaitingWebProcessTransferCountForTesting:(void(^)(NSUInteger))completionHandler
+{
+    auto completionHandlerCopy = makeBlockPtr(completionHandler);
+    protect(*_websiteDataStore)->loadersAwaitingWebProcessTransferCountForTesting([completionHandlerCopy = WTF::move(completionHandlerCopy)](auto result) {
         completionHandlerCopy(result);
     });
 }
@@ -1728,8 +1761,8 @@ struct WKWebsiteData {
 {
     RetainPtr unhandled = adoptNS([[NSMutableSet alloc] init]);
 
-    for (BSAction *action in applicationActions) {
-        NSDictionary *object = [action.info objectForSetting:WebKit::WebPushD::pushActionSetting];
+    for (RetainPtr action : makeVector<RetainPtr<BSAction>>(applicationActions.allObjects)) {
+        NSDictionary *object = [action.get().info objectForSetting:WebKit::WebPushD::pushActionSetting];
         _WKWebPushAction *pushAction = [_WKWebPushAction webPushActionWithDictionary:object];
         if (!pushAction) {
             [unhandled addObject:action];
@@ -1739,11 +1772,11 @@ struct WKWebsiteData {
         RetainPtr dataStoreForPushAction = _webPushActionHandler.get()(pushAction);
         if (dataStoreForPushAction) {
             [dataStoreForPushAction _handleWebPushAction:pushAction];
-            if (action.canSendResponse)
+            if (action.get().canSendResponse)
                 [action sendResponse:BSActionResponse.response];
         } else {
             RELEASE_LOG_ERROR(Push, "Unable to handle a _WKWebPushAction: Client did not return a valid WKWebsiteDataStore");
-            if (action.canSendResponse)
+            if (action.get().canSendResponse)
                 [action sendResponse:[BSActionResponse responseForError:adoptNS([[NSError alloc] initWithDomain:WKErrorDomain code:WKErrorUnknown userInfo:nil]).get()]];
         }
     }

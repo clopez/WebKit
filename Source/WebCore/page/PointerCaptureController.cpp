@@ -185,6 +185,9 @@ void PointerCaptureController::reset()
 {
     m_activePointerIdsToCapturingData.clear();
     m_haveAnyCapturingElement = false;
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+    m_preventsCompatibilityMouseEventsForPrimaryTouch = false;
+#endif
 
     m_activePointerIdsToCapturingData.add(mousePointerID, CapturingData::create(mousePointerEventType()));
 }
@@ -430,7 +433,16 @@ bool PointerCaptureController::dispatchEventForTrackedPointer(Element& target, c
 void PointerCaptureController::cancelTrackedPointer(PointerID pointerId)
 {
     RefPtr capturingData = m_activePointerIdsToCapturingData.get(pointerId);
-    if (!capturingData || capturingData->trackingState != CapturingData::TrackingState::Pressed)
+    if (!capturingData)
+        return;
+
+    // Cancelling a released pointer only forgets it, so a later press that is not tracked derives its pointer events.
+    if (capturingData->trackingState == CapturingData::TrackingState::Released) {
+        capturingData->trackingState = CapturingData::TrackingState::NotTracked;
+        return;
+    }
+
+    if (capturingData->trackingState != CapturingData::TrackingState::Pressed)
         return;
 
     RefPtr target = capturingData->targetOverride;
@@ -660,8 +672,13 @@ void PointerCaptureController::pointerEventWasDispatched(const PointerEvent& eve
 
     // If the pointer event dispatched was pointerdown and the event was canceled, then set the PREVENT MOUSE EVENT flag for this pointerType.
     // https://www.w3.org/TR/pointerevents/#mapping-for-devices-that-support-hover
-    if (event.type() == eventNames().pointerdownEvent)
+    if (event.type() == eventNames().pointerdownEvent) {
         capturingData->preventsCompatibilityMouseEvents = event.defaultPrevented();
+#if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
+        if (event.isPrimary() && event.pointerType() == touchPointerEventType())
+            m_preventsCompatibilityMouseEventsForPrimaryTouch = event.defaultPrevented();
+#endif
+    }
 }
 
 void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint& documentPoint, PointerEvent* existingCancelEvent)

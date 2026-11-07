@@ -59,6 +59,7 @@ static NSString * const NonFastScrollableRegionOverlayVisiblePreferenceKey = @"N
 static NSString * const WheelEventHandlerRegionOverlayVisiblePreferenceKey = @"WheelEventHandlerRegionOverlayVisible";
 static NSString * const InteractionRegionOverlayVisiblePreferenceKey = @"InteractionRegionOverlayVisible";
 static NSString * const EnhancedSecurityOverlayVisiblePreferenceKey = @"EnhancedSecurityOverlayVisible";
+static NSString * const TouchActionRegionOverlayVisiblePreferenceKey = @"TouchActionRegionOverlayVisible";
 
 static NSString * const UseTransparentWindowsPreferenceKey = @"UseTransparentWindows";
 static NSString * const UsePaginatedModePreferenceKey = @"UsePaginatedMode";
@@ -80,9 +81,6 @@ static NSString * const AcceptAllTLSCertificatesPreferenceKey = @"AcceptAllTLSCe
 static NSString * const AXCustomColorModeEnabledPreferenceKey = @"AXCustomColorModeEnabled";
 static NSString * const ShowAXCustomColorModeControlsPreferenceKey = @"ShowAXCustomColorModeControls";
 
-// This default name intentionally overlaps with the key that WebKit2 checks when creating a view.
-static NSString * const UseRemoteLayerTreeDrawingAreaPreferenceKey = @"WebKit2UseRemoteLayerTreeDrawingArea";
-
 static NSString * const PerWindowWebProcessesDisabledKey = @"PerWindowWebProcessesDisabled";
 static NSString * const NetworkCacheSpeculativeRevalidationDisabledKey = @"NetworkCacheSpeculativeRevalidationDisabled";
 static NSString * const UseFindDelegatePreferenceKey = @"UseFindDelegate";
@@ -92,6 +90,7 @@ typedef NS_ENUM(NSInteger, DebugOverylayMenuItemTag) {
     WheelEventHandlerRegionOverlayTag,
     InteractionRegionOverlayTag,
     EnhancedSecurityOverlayTag,
+    TouchActionRegionOverlayTag,
     ExperimentalFeatureTag,
     InternalDebugFeatureTag,
 };
@@ -222,7 +221,6 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
     indent = YES;
     addItem(@"Reserve Space For Banners", @selector(toggleReserveSpaceForBanners:));
     addItem(@"Show Tiled Scrolling Indicator", @selector(toggleShowTiledScrollingIndicator:));
-    addItem(@"Use UI-Side Compositing", @selector(toggleUseUISideCompositing:));
     addItem(@"Disable Per-Window Web Processes", @selector(togglePerWindowWebProcessesDisabled:));
     addItem(@"Load All Site Icons Per-Page", @selector(toggleLoadsAllSiteIcons:));
     addItem(@"Use GameController.framework on macOS (Restart required)", @selector(toggleUsesGameControllerFramework:));
@@ -241,6 +239,7 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
     addItemToMenu(debugOverlaysMenu, @"Wheel Event Handler Region", @selector(toggleDebugOverlay:), NO, WheelEventHandlerRegionOverlayTag);
     addItemToMenu(debugOverlaysMenu, @"Interaction Region", @selector(toggleDebugOverlay:), NO, InteractionRegionOverlayTag);
     addItemToMenu(debugOverlaysMenu, @"Enhanced Security", @selector(toggleDebugOverlay:), NO, EnhancedSecurityOverlayTag);
+    addItemToMenu(debugOverlaysMenu, @"CSS touch-action Region", @selector(toggleDebugOverlay:), NO, TouchActionRegionOverlayTag);
     addItemToMenu(debugOverlaysMenu, @"Resource Usage", @selector(toggleShowResourceUsageOverlay:), NO, 0);
     addItemToMenu(debugOverlaysMenu, @"Show Web Process ID in Window Title", @selector(toggleShowWebProcessIdentifierInTitle:), NO, 0);
 
@@ -453,8 +452,6 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
         [menuItem setState:[self usesGameControllerFramework] ? NSControlStateValueOn : NSControlStateValueOff];
     else if (action == @selector(toggleNetworkCacheSpeculativeRevalidationDisabled:))
         [menuItem setState:[self networkCacheSpeculativeRevalidationDisabled] ? NSControlStateValueOn : NSControlStateValueOff];
-    else if (action == @selector(toggleUseUISideCompositing:))
-        [menuItem setState:[self useUISideCompositing] ? NSControlStateValueOn : NSControlStateValueOff];
     else if (action == @selector(togglePerWindowWebProcessesDisabled:))
         [menuItem setState:[self perWindowWebProcessesDisabled] ? NSControlStateValueOn : NSControlStateValueOff];
     else if (action == @selector(toggleDebugOverlay:))
@@ -490,11 +487,7 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
 
 - (void)_toggleBooleanDefault:(NSString *)defaultName
 {
-    [self _toggleBooleanDefault:defaultName inUserDefaults:MiniBrowserUserDefaults()];
-}
-
-- (void)_toggleBooleanDefault:(NSString *)defaultName inUserDefaults:(NSUserDefaults *)defaults
-{
+    NSUserDefaults *defaults = MiniBrowserUserDefaults();
     [defaults setBool:![defaults boolForKey:defaultName] forKey:defaultName];
 
     [[[NSApplication sharedApplication] browserAppDelegate] didChangeSettings];
@@ -538,26 +531,6 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
 - (BOOL)usePaginatedMode
 {
     return [MiniBrowserUserDefaults() boolForKey:UsePaginatedModePreferenceKey];
-}
-
-// WebKit reads WebKit2UseRemoteLayerTreeDrawingArea from the standard user defaults itself, so it isn't
-// one of MiniBrowser's own settings.
-- (void)toggleUseUISideCompositing:(id)sender
-{
-    [self _toggleBooleanDefault:UseRemoteLayerTreeDrawingAreaPreferenceKey inUserDefaults:[NSUserDefaults standardUserDefaults]];
-}
-
-- (BOOL)useUISideCompositing
-{
-#if __MAC_OS_X_VERSION_MIN_REQUIRED >= 140000
-    bool useRemoteLayerTree = true;
-#else
-    bool useRemoteLayerTree = false;
-#endif
-    id useRemoteLayerTreeBoolean = [[NSUserDefaults standardUserDefaults] objectForKey:UseRemoteLayerTreeDrawingAreaPreferenceKey];
-    if (useRemoteLayerTreeBoolean)
-        useRemoteLayerTree = [useRemoteLayerTreeBoolean boolValue];
-    return useRemoteLayerTree;
 }
 
 - (void)togglePerWindowWebProcessesDisabled:(id)sender
@@ -907,6 +880,11 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
     return [MiniBrowserUserDefaults() boolForKey:EnhancedSecurityOverlayVisiblePreferenceKey];
 }
 
+- (BOOL)touchActionRegionOverlayVisible
+{
+    return [MiniBrowserUserDefaults() boolForKey:TouchActionRegionOverlayVisiblePreferenceKey];
+}
+
 - (NSString *)preferenceKeyForRegionOverlayTag:(NSUInteger)tag
 {
     switch (tag) {
@@ -921,6 +899,9 @@ static NSMenu *addSubmenuToMenu(NSMenu *menu, NSString *title)
 
     case EnhancedSecurityOverlayTag:
         return EnhancedSecurityOverlayVisiblePreferenceKey;
+
+    case TouchActionRegionOverlayTag:
+        return TouchActionRegionOverlayVisiblePreferenceKey;
     }
     return nil;
 }

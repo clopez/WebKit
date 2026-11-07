@@ -210,6 +210,7 @@ set(WTF_PUBLIC_HEADERS
     NoLock.h
     NoTailCalls.h
     NoVirtualDestructorBase.h
+    NonEscapableBorrow.h
     Nonallocatable.h
     Noncopyable.h
     Nonmovable.h
@@ -307,6 +308,7 @@ set(WTF_PUBLIC_HEADERS
     SchedulePair.h
     Scope.h
     ScopedLambda.h
+    ScopedLeakSanitizerDisabler.h
     ScopedPrintStream.h
     Seconds.h
     SegmentedVector.h

@@ -28,7 +28,6 @@
 #include "config.h"
 #include "HTMLCanvasElement.h"
 
-#include "BitmapImage.h"
 #include "Blob.h"
 #include "BlobCallback.h"
 #include "CanvasGradient.h"
@@ -720,9 +719,9 @@ void HTMLCanvasElement::paint(GraphicsContext& context, const LayoutRect& r)
                 RefPtr buffer = renderingContext->surfaceBufferToImageBuffer(CanvasRenderingContext::SurfaceBuffer::DisplayBuffer);
                 if (buffer) {
 #if ENABLE(PIXEL_FORMAT_RGBA16F)
-                    ImageDrawingOptions options { renderingContext->drawingOptionsForDisplay(), context.compositeOperation() };
+                    RasterDrawingOptions options { renderingContext->drawingOptionsForDisplay(), context.compositeOperation() };
 #else
-                    ImageDrawingOptions options { context.compositeOperation() };
+                    RasterDrawingOptions options { context.compositeOperation() };
 #endif
                     context.drawImageBuffer(*buffer, snappedIntRect(r), options);
                 }
@@ -742,7 +741,7 @@ static String toEncodingMimeType(const String& mimeType)
 }
 
 // https://html.spec.whatwg.org/multipage/canvas.html#a-serialisation-of-the-bitmap-as-a-file
-static std::optional<double> LEGACY_NODELETE qualityFromJSValue(JSC::JSValue qualityValue)
+NODELETE static std::optional<double> qualityFromJSValue(JSC::JSValue qualityValue)
 {
     if (!qualityValue.isNumber())
         return std::nullopt;
@@ -922,12 +921,10 @@ SecurityOrigin* HTMLCanvasElement::securityOrigin() const
     return &protect(document())->securityOrigin();
 }
 
-BitmapImage* HTMLCanvasElement::copiedImage() const
+NativeImage* HTMLCanvasElement::copiedImage() const
 {
-    if (m_copiedImage)
-        return m_copiedImage.get();
-    if (RefPtr image = copyNativeImage())
-        m_copiedImage = BitmapImage::create(WTF::move(image));
+    if (!m_copiedImage)
+        m_copiedImage = copyNativeImage();
     return m_copiedImage.get();
 }
 

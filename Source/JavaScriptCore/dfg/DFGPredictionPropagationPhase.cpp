@@ -108,7 +108,7 @@ private:
         dataLogLnIf(verboseFixPointLoops, "Iterated ", counter, " times in propagateToFixpoint.");
     }
     
-    bool LEGACY_NODELETE setPrediction(SpeculatedType prediction)
+    NODELETE bool setPrediction(SpeculatedType prediction)
     {
         ASSERT(m_currentNode->hasResult());
         
@@ -121,14 +121,14 @@ private:
         return m_currentNode->predict(prediction);
     }
     
-    bool LEGACY_NODELETE mergePrediction(SpeculatedType prediction)
+    NODELETE bool mergePrediction(SpeculatedType prediction)
     {
         ASSERT(m_currentNode->hasResult());
         
         return m_currentNode->predict(prediction);
     }
 
-    bool LEGACY_NODELETE setTuplePrediction(SpeculatedType prediction, unsigned index)
+    NODELETE bool setTuplePrediction(SpeculatedType prediction, unsigned index)
     {
         ASSERT(index < m_currentNode->tupleSize());
 
@@ -141,7 +141,7 @@ private:
         return mergeSpeculation(speculation, prediction);
     }
 
-    bool LEGACY_NODELETE mergeTuplePrediction(SpeculatedType prediction, unsigned index)
+    NODELETE bool mergeTuplePrediction(SpeculatedType prediction, unsigned index)
     {
         ASSERT(index < m_currentNode->tupleSize());
 
@@ -159,7 +159,7 @@ private:
         return updatedPrediction;
     }
     
-    SpeculatedType LEGACY_NODELETE speculatedDoubleTypeForPrediction(SpeculatedType value)
+    NODELETE SpeculatedType speculatedDoubleTypeForPrediction(SpeculatedType value)
     {
         SpeculatedType result = SpecDoubleReal;
         if (value & SpecDoubleImpureNaN)
@@ -171,7 +171,7 @@ private:
         return result;
     }
 
-    SpeculatedType LEGACY_NODELETE speculatedDoubleTypeForPredictions(SpeculatedType left, SpeculatedType right)
+    NODELETE SpeculatedType speculatedDoubleTypeForPredictions(SpeculatedType left, SpeculatedType right)
     {
         return speculatedDoubleTypeForPrediction(mergeSpeculations(left, right));
     }
@@ -1035,6 +1035,7 @@ private:
         case Construct:
         case DirectConstruct:
         case CallVarargs:
+        case CallVarargsWithSpread:
         case CallDirectEval:
         case TailCallVarargsInlinedCaller:
         case ConstructVarargs:
@@ -1448,6 +1449,11 @@ private:
             break;
         }
 
+        case NewProxyObject: {
+            setPrediction(SpecProxyObject);
+            break;
+        }
+
         case PushWithScope:
         case CreateActivation: {
             setPrediction(SpecObjectOther);
@@ -1803,6 +1809,8 @@ private:
         case ExitOK:
         case VarargsLength:
         case LoadVarargs:
+        case VarargsLengthWithSpread:
+        case LoadVarargsWithSpread:
         case ForwardVarargs:
         case PutDynamicVar:
         case NukeStructureAndSetButterfly:

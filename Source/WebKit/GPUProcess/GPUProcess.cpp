@@ -156,9 +156,9 @@ void GPUProcess::sharedPreferencesForWebProcessDidChange(WebCore::ProcessIdentif
     completionHandler();
 }
 
-void GPUProcess::securityFlagsDidChange(SecurityFlags&& securityFlags)
+void GPUProcess::securityFlagsDidChange(SecurityFlags::Storage&& securityFlags)
 {
-    m_securityFlags.replaceWith(securityFlags);
+    SecurityFlags::Storage::update(WTF::move(securityFlags));
 }
 
 void GPUProcess::removeGPUConnectionToWebProcess(GPUConnectionToWebProcess& connection)
@@ -255,7 +255,7 @@ void GPUProcess::initializeGPUProcess(GPUProcessCreationParameters&& parameters,
     CompletionHandlerCallingScope callCompletionHandler(WTF::move(completionHandler));
 
     applyProcessCreationParameters(WTF::move(parameters.auxiliaryProcessParameters));
-    m_securityFlags.replaceWith(parameters.securityFlags);
+    SecurityFlags::Storage::update(WTF::move(parameters.securityFlags));
     RELEASE_LOG(Process, "%p - GPUProcess::initializeGPUProcess:", this);
     WTF::Thread::setCurrentThreadIsUserInitiated();
     WebCore::initializeCommonAtomStrings();
@@ -524,10 +524,15 @@ void GPUProcess::recomputeNowPlayingOwner()
     m_activeNowPlayingOwner = eligibleOwner;
     m_remoteCommandTarget = commandTarget;
 
+#if ENABLE(VIDEO) || ENABLE(WEB_AUDIO)
     // The UI process owns the per-page "is the NowPlaying session" state, so it hears the election result
     // directly rather than through the content processes, none of which can see the whole picture.
     if (ownerPage != previousOwnerPage)
         protect(parentProcessConnection())->send(Messages::GPUProcessProxy::NowPlayingOwnerDidChange(ownerPage), 0);
+#else
+    UNUSED_VARIABLE(ownerPage);
+    UNUSED_VARIABLE(previousOwnerPage);
+#endif
 }
 
 void GPUProcess::setNowPlayingFallbackSession(std::optional<WebCore::QualifiedMediaSessionIdentifier> session)
@@ -1218,9 +1223,9 @@ void GPUProcess::webProcessConnectionCountForTesting(CompletionHandler<void(uint
     completionHandler(GPUConnectionToWebProcess::objectCountForTesting());
 }
 
-void GPUProcess::runDisplayListDataTestsForTesting(CompletionHandler<void(Vector<String>&&)>&& completionHandler)
+void GPUProcess::runDisplayListDataTestsForTesting(Vector<Ref<WebCore::SharedBuffer>>&& webFonts, CompletionHandler<void(std::optional<Vector<String>>&&)>&& completionHandler)
 {
-    completionHandler(testDisplayListData());
+    completionHandler(testDisplayListData(webFonts));
 }
 
 void GPUProcess::terminateWebProcess(WebCore::ProcessIdentifier identifier, IPC::MessageName invalidMessageName)

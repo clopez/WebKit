@@ -179,6 +179,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, NOESCAPE const Cust
     CLONE_STATUS(CallCustomAccessorGetter, Common) \
     CLONE_STATUS(CallDirectEval, Common) \
     CLONE_STATUS(CallVarargs, Special) \
+    CLONE_STATUS(CallVarargsWithSpread, Special) \
     CLONE_STATUS(Check, Common) \
     CLONE_STATUS(CheckArray, Common) \
     CLONE_STATUS(CheckBadValue, Common) \
@@ -277,6 +278,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, NOESCAPE const Cust
     CLONE_STATUS(Jump, Common) \
     CLONE_STATUS(LoadMapValue, Common) \
     CLONE_STATUS(LoadVarargs, Special) \
+    CLONE_STATUS(LoadVarargsWithSpread, Special) \
     CLONE_STATUS(LogicalNot, Common) \
     CLONE_STATUS(LoopHint, Common) \
     CLONE_STATUS(MakeAtomString, Common) \
@@ -301,6 +303,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, NOESCAPE const Cust
     CLONE_STATUS(NewPromise, Common) \
     CLONE_STATUS(NewMap, Common) \
     CLONE_STATUS(NewObject, Common) \
+    CLONE_STATUS(NewProxyObject, Common) \
     CLONE_STATUS(NewRegExp, Common) \
     CLONE_STATUS(NewRegExpUntyped, Common) \
     CLONE_STATUS(NewSet, Common) \
@@ -391,6 +394,7 @@ BasicBlock* CloneHelper::cloneBlock(BasicBlock* const block, NOESCAPE const Cust
     CLONE_STATUS(ValueSub, Common) \
     CLONE_STATUS(ValueToInt32, Common) \
     CLONE_STATUS(VarargsLength, Special) \
+    CLONE_STATUS(VarargsLengthWithSpread, Special) \
     CLONE_STATUS(ZombieHint, Common)
 
 } } // namespace JSC::DFG

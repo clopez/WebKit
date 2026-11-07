@@ -1677,7 +1677,7 @@ bool UnifiedPDFPlugin::updateOverflowControlsLayers(bool needsHorizontalScrollba
             layer->setAllowsBackingStoreDetaching(false);
             layer->setAllowsTiling(false);
             layer->setDrawsContent(true);
-            layer->setAcceleratesDrawing(!shouldUseInProcessBackingStore());
+            layer->setAcceleratesDrawing(true);
 
 #if ENABLE(SCROLLING_THREAD)
             layer->setScrollingNodeID(m_scrollingNodeID);
@@ -1731,7 +1731,7 @@ void UnifiedPDFPlugin::positionOverflowControlsLayers()
         layer->setPosition(cornerRect.location());
         layer->setSize(cornerRect.size());
         layer->setDrawsContent(!cornerRect.isEmpty());
-        layer->setAcceleratesDrawing(!shouldUseInProcessBackingStore());
+        layer->setAcceleratesDrawing(true);
     }
 }
 
@@ -2129,7 +2129,7 @@ auto UnifiedPDFPlugin::pdfElementTypesForPagePoint(const IntPoint& pointInPDFPag
 
 #pragma mark Events
 
-static bool LEGACY_NODELETE isContextMenuEvent(const auto& event)
+NODELETE static bool isContextMenuEvent(const auto& event)
 {
 #if PLATFORM(MAC)
     return event.menuTypeForEvent();
@@ -2249,7 +2249,7 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
                     if (!frame || !frame->coreLocalFrame())
                         return true;
 #if USE(UICONTEXTMENU)
-                    if (RefPtr webPage = frame->page(); webPage && webPage->hasActiveContextMenuInteraction())
+                    if (RefPtr webPage = protect(frame)->page(); webPage && webPage->hasActiveContextMenuInteraction())
                         return false;
 #endif
                     auto immediateActionStage = frame->coreLocalFrame()->eventHandler().immediateActionStage();
@@ -3566,7 +3566,7 @@ void UnifiedPDFPlugin::scrollWithDelta(const IntSize& scrollDelta)
 
 #pragma mark -
 
-static NSStringCompareOptions LEGACY_NODELETE compareOptionsForFindOptions(WebCore::FindOptions options)
+NODELETE static NSStringCompareOptions compareOptionsForFindOptions(WebCore::FindOptions options)
 {
     bool searchForward = !options.contains(FindOption::Backwards);
     bool isCaseSensitive = !options.contains(FindOption::CaseInsensitive);
@@ -4903,6 +4903,28 @@ CursorContext UnifiedPDFPlugin::cursorContext(FloatPoint pointInRootView) const
     return context;
 }
 
+bool UnifiedPDFPlugin::hasSelectableTextAtPoint(FloatPoint pointInRootView) const
+{
+#if HAVE(PDFDOCUMENT_SELECTION_WITH_GRANULARITY)
+    auto [page, pointInPage] = rootViewToPage(pointInRootView);
+    if (!page)
+        return false;
+
+    if (RetainPtr annotation = [page annotationAtPoint:pointInPage]) {
+        if (annotationIsLinkWithDestination(annotation)
+            || annotationIsOfType(annotation, AnnotationType::Text)
+            || (![annotation isReadOnly] && annotationIsWidgetOfType(annotation, WidgetType::Button)))
+            return false;
+    }
+
+    RetainPtr word = selectionAtPoint(pointInPage, page, TextGranularity::WordGranularity);
+    return FloatRect { [word boundsForPage:page] }.contains(pointInPage);
+#else
+    UNUSED_PARAM(pointInRootView);
+    return false;
+#endif
+}
+
 #if PLATFORM(IOS_FAMILY)
 
 DocumentEditingContext UnifiedPDFPlugin::documentEditingContext(DocumentEditingContextRequest&& request) const
@@ -5253,16 +5275,6 @@ FloatRect UnifiedPDFPlugin::absoluteBoundingRectForSmartMagnificationAtPoint(Flo
     FloatRect pageColumnFrame = [page columnFrameAtPoint:pagePoint];
 
     return pageToRootView(pageColumnFrame, pageIndex);
-}
-
-bool UnifiedPDFPlugin::shouldUseInProcessBackingStore() const
-{
-    return false;
-}
-
-bool UnifiedPDFPlugin::layerNeedsPlatformContext(const GraphicsLayer& layer) const
-{
-    return shouldUseInProcessBackingStore() && (&layer == layerForHorizontalScrollbar() || &layer == layerForVerticalScrollbar() || &layer == layerForScrollCorner());
 }
 
 bool UnifiedPDFPlugin::delegatesScrollingToMainFrame() const

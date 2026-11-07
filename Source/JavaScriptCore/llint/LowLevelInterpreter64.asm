@@ -367,6 +367,8 @@ macro makeHostFunctionCall(entry, protoCallFrame, temp1, temp2)
         storep lr, ReturnPC[sp]
         cloopCallNative temp1
     else
+        # Clear the ReturnPC slot because it's not initialized or used by the host call path.
+        storep 0, ReturnPC[sp]
         call temp1, HostFunctionPtrTag
     end
 end
@@ -3365,7 +3367,7 @@ end
 llintOpWithMetadata(op_iterator_open, OpIteratorOpen, macro (size, get, dispatch, metadata, return)
     macro updateArrayProfile(get, metadata)
         metadata(t5, t0)
-        get(m_iterable, t0)
+        loadVariable(get, m_iterable, t0)
         btqnz t0, notCellMask, .iteratorOpenArrayProfileDone
         loadi JSCell::m_structureID[t0], t3
         storei t3, OpIteratorOpen::Metadata::m_arrayProfile.m_lastSeenStructureID[t5]

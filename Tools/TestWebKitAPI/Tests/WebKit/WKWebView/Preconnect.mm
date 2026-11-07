@@ -38,21 +38,17 @@
 #import <wtf/RetainPtr.h>
 #import <wtf/text/ParsingUtilities.h>
 
-#if HAVE(PRECONNECT_PING)
-@interface SessionDelegate : NSObject <NSURLSessionDataDelegate>
+@interface PreconnectSessionDelegate : NSObject <NSURLSessionDataDelegate>
 @end
 
-@implementation SessionDelegate
+@implementation PreconnectSessionDelegate
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveChallenge:(NSURLAuthenticationChallenge *)challenge completionHandler:(void (^)(NSURLSessionAuthChallengeDisposition disposition, NSURLCredential *credential))completionHandler
 {
     completionHandler(NSURLSessionAuthChallengeUseCredential, [NSURLCredential credentialForTrust:challenge.protectionSpace.serverTrust]);
 }
 @end
-#endif
 
 namespace TestWebKitAPI {
-
-#if HAVE(PRECONNECT_PING)
 
 // Hand-rolled HTTP/2 framing. Protocol::Http2Raw only negotiates the "h2" ALPN; the framing
 // is this test's business, so it lives here rather than in HTTPServer.
@@ -184,8 +180,6 @@ void Connection::receive(CompletionHandler<void(Frame&&)>&& completionHandler) c
 
 } // namespace H2
 
-#endif
-
 TEST(Preconnect, HTTP)
 {
     size_t connectionCount = 0;
@@ -232,7 +226,11 @@ TEST(Preconnect, ConnectionCount)
     [webView loadRequest:server.request()];
     Util::run(&requested);
 
-    EXPECT_EQ(connectionCount, 1u);
+    // The preconnect to the server will use the default setting of "use the credential store",
+    // and therefore use the credential-store-blessed NSURLSession. Then the loadRequest
+    // will *not* use the credential store, therefore using a different NSURLSession that
+    // doesn't know about the above preconnect, triggering a second connection to the server.
+    EXPECT_EQ(connectionCount, 2u);
 }
 
 TEST(Preconnect, HTTPS)
@@ -263,8 +261,6 @@ TEST(Preconnect, HTTPS)
     Util::run(&requested);
     EXPECT_TRUE(receivedChallenge);
 }
-
-#if HAVE(PRECONNECT_PING)
 
 static void pingPong(Ref<H2::Connection>&& connection, size_t* headersCount)
 {
@@ -300,7 +296,7 @@ TEST(Preconnect, H2Ping)
         pingPong(H2::Connection::create(tlsConnection), headersCount);
     }, HTTPServer::Protocol::Http2Raw);
     
-    RetainPtr delegate = adoptNS([SessionDelegate new]);
+    RetainPtr delegate = adoptNS([PreconnectSessionDelegate new]);
     NSURLSession *session = [NSURLSession sessionWithConfiguration:[NSURLSessionConfiguration ephemeralSessionConfiguration] delegate:delegate.get() delegateQueue:[NSOperationQueue mainQueue]];
     NSURLSessionDataTask *task = [session dataTaskWithRequest:server.request()];
     task._preconnect = YES;
@@ -356,8 +352,6 @@ TEST(Preconnect, H2PingFromWebCoreNSURLSession)
     EXPECT_FALSE(headersCount);
     EXPECT_TRUE(receivedChallenge);
 }
-
-#endif // HAVE(PRECONNECT_PING)
 
 static void verifyPreconnectDisabled(void(*disabler)(WKWebViewConfiguration *))
 {

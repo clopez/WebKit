@@ -134,7 +134,7 @@ static JSValue encode(JSGlobalObject* globalObject, const WTF::BitSet<256>& doNo
 
     if (builder.hasOverflowed()) [[unlikely]]
         return throwOutOfMemoryError(globalObject, scope);
-    return jsString(vm, builder.toString());
+    return jsString(vm, WTF::move(builder).toString());
 }
 
 static JSValue encode(JSGlobalObject* globalObject, JSValue argument, const WTF::BitSet<256>& doNotEscape)
@@ -218,7 +218,7 @@ static JSValue decode(JSGlobalObject* globalObject, std::span<const CharType> ch
     }
     if (builder.hasOverflowed()) [[unlikely]]
         return throwOutOfMemoryError(globalObject, scope);
-    RELEASE_AND_RETURN(scope, jsString(vm, builder.toString()));
+    RELEASE_AND_RETURN(scope, jsString(vm, WTF::move(builder).toString()));
 }
 
 static JSValue decode(JSGlobalObject* globalObject, JSValue argument, const WTF::BitSet<256>& doNotUnescape, bool strict)
@@ -233,7 +233,7 @@ static JSValue decode(JSGlobalObject* globalObject, JSValue argument, const WTF:
 static const int SizeOfInfinity = 8;
 
 template <typename CharType>
-static bool LEGACY_NODELETE isInfinity(std::span<const CharType> data)
+NODELETE static bool isInfinity(std::span<const CharType> data)
 {
     return data.size() >= SizeOfInfinity
         && data[0] == 'I'
@@ -248,7 +248,7 @@ static bool LEGACY_NODELETE isInfinity(std::span<const CharType> data)
 
 // See ecma-262 6th 11.8.3
 template <typename CharType>
-static double LEGACY_NODELETE jsBinaryIntegerLiteral(std::span<const CharType>& data)
+NODELETE static double jsBinaryIntegerLiteral(std::span<const CharType>& data)
 {
     // Binary number.
     skip(data, 2);
@@ -269,7 +269,7 @@ static double LEGACY_NODELETE jsBinaryIntegerLiteral(std::span<const CharType>& 
 
 // See ecma-262 6th 11.8.3
 template <typename CharType>
-static double LEGACY_NODELETE jsOctalIntegerLiteral(std::span<const CharType>& data)
+NODELETE static double jsOctalIntegerLiteral(std::span<const CharType>& data)
 {
     // Octal number.
     skip(data, 2);
@@ -290,7 +290,7 @@ static double LEGACY_NODELETE jsOctalIntegerLiteral(std::span<const CharType>& d
 
 // See ecma-262 6th 11.8.3
 template <typename CharType>
-static double LEGACY_NODELETE jsHexIntegerLiteral(std::span<const CharType>& data)
+NODELETE static double jsHexIntegerLiteral(std::span<const CharType>& data)
 {
     // Hex number.
     skip(data, 2);
@@ -648,7 +648,7 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncEscape, (JSGlobalObject* globalObject, CallFr
             throwOutOfMemoryError(globalObject, scope);
             return { };
         }
-        return jsString(vm, builder.toString());
+        return jsString(vm, WTF::move(builder).toString());
     }));
 }
 
@@ -711,7 +711,7 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncUnescape, (JSGlobalObject* globalObject, Call
             throwOutOfMemoryError(globalObject, scope);
             return { };
         }
-        return jsString(vm, builder.toString());
+        return jsString(vm, WTF::move(builder).toString());
     }));
 }
 
@@ -836,7 +836,7 @@ JSC_DEFINE_HOST_FUNCTION(globalFuncImportModule, (JSGlobalObject* globalObject, 
     return JSValue::encode(importPromise);
 }
 
-static bool LEGACY_NODELETE canPerformFastPropertyEnumerationForCopyDataProperties(VM& vm, JSObject* source)
+NODELETE static bool canPerformFastPropertyEnumerationForCopyDataProperties(VM& vm, JSObject* source)
 {
     Structure* structure = source->structure();
     if (auto* function = dynamicDowncast<JSFunction>(source)) {

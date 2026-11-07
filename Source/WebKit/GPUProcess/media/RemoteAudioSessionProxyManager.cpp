@@ -48,7 +48,7 @@ namespace WebKit {
 
 using namespace WebCore;
 
-static bool LEGACY_NODELETE categoryCanMixWithOthers(AudioSession::CategoryType category)
+NODELETE static bool categoryCanMixWithOthers(AudioSession::CategoryType category)
 {
     return category == AudioSession::CategoryType::AmbientSound;
 }
@@ -179,7 +179,7 @@ bool RemoteAudioSessionProxyManager::hasOtherActiveProxyThan(RemoteAudioSessionP
     return false;
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) || ENABLE(ROUTING_ARBITRATION)
 bool RemoteAudioSessionProxyManager::hasActiveProxy()
 {
     for (auto& proxy : m_proxies) {
@@ -284,7 +284,7 @@ Ref<AudioSession::SetActivePromise> RemoteAudioSessionProxyManager::tryToSetActi
     return AudioSession::SetActivePromise::createAndResolve();
 }
 
-#if PLATFORM(IOS_FAMILY)
+#if PLATFORM(IOS_FAMILY) || ENABLE(ROUTING_ARBITRATION)
 void RemoteAudioSessionProxyManager::beginCapturePreview(CompletionHandler<void()>&& completionHandler)
 {
     if (m_capturePreviewActive) {

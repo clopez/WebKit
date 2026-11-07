@@ -769,6 +769,8 @@ void run(const TestConfig* config)
     RUN(testPhiFoldInBlockReachedOnlyByRetreatingEdge(true));
     RUN(testPhiFoldConstantInBlockReachedOnlyByRetreatingEdge(false));
     RUN(testPhiFoldConstantInBlockReachedOnlyByRetreatingEdge(true));
+    RUN(testPhiFoldInputFromMergedBlock(false));
+    RUN(testPhiFoldInputFromMergedBlock(true));
     RUN(testPhiFoldDeadLoopHeaderEnteredFromRoot());
     RUN(testPhiFoldLoopPhiTrivialAfterLatch());
     RUN(testBranchNotEqualFoldPtr(42));
@@ -1555,6 +1557,7 @@ void run(const TestConfig* config)
         RUN(testVectorRelaxedDotI8x16I7x16Add());
         RUN(testVectorDotProductSplatOne());
         RUN(testVectorReplaceLaneOfZeroWithLoad());
+        RUN(testVectorDotProductSum());
         RUN(testVectorShrZipToExtend());
         RUN(testVectorShrZipToExtendI32());
         RUN(testVectorShrZipToExtendI64());

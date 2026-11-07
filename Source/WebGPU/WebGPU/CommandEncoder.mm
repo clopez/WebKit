@@ -72,7 +72,7 @@ void CommandEncoder::generateInvalidEncoderStateError()
     GENERATE_INVALID_ENCODER_STATE_ERROR();
 }
 
-static MTLLoadAction LEGACY_NODELETE loadAction(std::optional<WebGPU::LoadOp> loadOp, bool readOnly = false)
+NODELETE static MTLLoadAction loadAction(std::optional<WebGPU::LoadOp> loadOp, bool readOnly = false)
 {
     if (!loadOp)
         return readOnly ? MTLLoadActionLoad : MTLLoadActionDontCare;
@@ -84,7 +84,7 @@ static MTLLoadAction LEGACY_NODELETE loadAction(std::optional<WebGPU::LoadOp> lo
     }
 }
 
-static MTLStoreAction LEGACY_NODELETE storeAction(std::optional<WebGPU::StoreOp> storeOp, bool hasResolveTarget = false)
+NODELETE static MTLStoreAction storeAction(std::optional<WebGPU::StoreOp> storeOp, bool hasResolveTarget = false)
 {
     if (!storeOp)
         return hasResolveTarget ? MTLStoreActionMultisampleResolve : MTLStoreActionDontCare;
@@ -111,7 +111,7 @@ RefPtr<WebGPU::CommandEncoder> Device::createCommandEncoder(const WebGPU::Comman
 
     commandBuffer.label = descriptor.label.createNSString().get();
 
-    auto commandEncoder = CommandEncoder::create(commandBuffer, *this, m_commandEncoderId++);
+    auto commandEncoder = CommandEncoder::create(commandBuffer, *this, generateCommandEncoderId());
     m_commandEncoderMap.set(commandEncoder->uniqueId(), commandEncoder.ptr());
     return commandEncoder;
 }
@@ -152,6 +152,16 @@ CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer, Device& devic
                 }
             }
         }
+        for (auto& [bufferIdentifier, reusedIndirectIndexedDraws] : commandEncoder.m_reusedIndirectIndexedDraws) {
+            RefPtr apiBuffer = commandBuffer.device().lookupBuffer(bufferIdentifier);
+            if (!apiBuffer)
+                continue;
+            for (auto& draw : reusedIndirectIndexedDraws) {
+                if (draw.indexGeneration == apiBuffer->indexContentsGeneration())
+                    continue;
+                apiBuffer->takeSlowBundleIndirectDrawValidationPath(commandBuffer, draw);
+            }
+        }
         for (Ref group : commandEncoder.m_bindGroups)
             group->rebindSamplersIfNeeded();
 
@@ -161,6 +171,9 @@ CommandEncoder::CommandEncoder(id<MTLCommandBuffer> commandBuffer, Device& devic
 
 CommandEncoder::CommandEncoder(Device& device)
     : m_device(device)
+    // Invalid encoders take an id from the same counter as valid ones, so ~CommandEncoder() never
+    // reads an uninitialized m_uniqueId nor evicts a live encoder. rdar://178679545
+    , m_uniqueId(device.generateCommandEncoderId())
 {
 }
 
@@ -178,6 +191,7 @@ CommandEncoder::~CommandEncoder()
     retainTimestampsForOneUpdateLoop();
     m_commandBuffer = nil; // Do not remove, this is needed to workaround rdar://143905417
     clearTracking();
+    m_device->getQueue()->discardProvisionalTextureClears(m_uniqueId);
     m_device->removeCommandEncoder(m_uniqueId);
 }
 
@@ -302,12 +316,12 @@ void CommandEncoder::finalizeBlitCommandEncoder()
     setExistingEncoder(nil);
 }
 
-static uint32_t LEGACY_NODELETE timestampWriteIndex(std::optional<uint32_t> writeIndex)
+NODELETE static uint32_t timestampWriteIndex(std::optional<uint32_t> writeIndex)
 {
     return writeIndex.value_or(0);
 }
 
-static NSUInteger LEGACY_NODELETE timestampWriteIndex(std::optional<uint32_t> writeIndex, NSUInteger defaultValue, uint32_t offset)
+NODELETE static NSUInteger timestampWriteIndex(std::optional<uint32_t> writeIndex, NSUInteger defaultValue, uint32_t offset)
 {
     return writeIndex ? (static_cast<NSUInteger>(*writeIndex) + offset) : defaultValue;
 }
@@ -426,6 +440,7 @@ void CommandEncoder::setExistingEncoder(id<MTLCommandEncoder> encoder)
 void CommandEncoder::discardCommandBuffer()
 {
     releasePriorCommandBuffers();
+    m_device->getQueue()->discardProvisionalTextureClears(m_uniqueId);
 
     if (!m_commandBuffer || m_commandBuffer.status >= MTLCommandBufferStatusCommitted) {
         retainTimestampsForOneUpdateLoop();
@@ -818,9 +833,9 @@ RefPtr<WebGPU::RenderPassEncoder> CommandEncoder::beginRenderPass(const WebGPU::
         if (textureToClear) {
             TextureAndClearColor *textureWithResolve = [[TextureAndClearColor alloc] initWithTexture:textureToClear];
             [attachmentsToClear setObject:textureWithResolve forKey:@(i)];
-            texture.setPreviouslyCleared();
+            texture.setProvisionallyCleared(*this);
             if (auto resolveTarget = attachment.resolveTarget)
-                resolveTarget->setPreviouslyCleared();
+                resolveTarget->setProvisionallyCleared(*this);
         }
     }
 
@@ -942,7 +957,7 @@ RefPtr<WebGPU::RenderPassEncoder> CommandEncoder::beginRenderPass(const WebGPU::
     if (attachmentsToClear.count || depthStencilAttachmentToClear) {
         if (const auto* attachment = depthStencilAttachment; depthStencilAttachmentToClear) {
             auto textureView = attachment->view;
-            textureView.setPreviouslyCleared();
+            textureView.setProvisionallyCleared(*this);
         }
 
         runClearEncoder(attachmentsToClear, depthStencilAttachmentToClear, depthAttachmentToClear, stencilAttachmentToClear);
@@ -1080,7 +1095,7 @@ NSString* CommandEncoder::errorValidatingImageCopyBuffer(const WebGPU::TexelCopy
     return nil;
 }
 
-static bool LEGACY_NODELETE refersToAllAspects(WebGPU::TextureFormat format, WebGPU::TextureAspect aspect)
+NODELETE static bool refersToAllAspects(WebGPU::TextureFormat format, WebGPU::TextureAspect aspect)
 {
     switch (aspect) {
     case WebGPU::TextureAspect::All:
@@ -1247,7 +1262,7 @@ void CommandEncoder::copyBufferToTexture(const WebGPU::TexelCopyBufferInfo& sour
         NSUInteger destinationSlice = destinationTexture->dimension() == WebGPU::TextureDimension::_3d ? 0 : originPlusLayer.value();
         RELEASE_ASSERT(mtlDestinationTexture.parentTexture == nil);
         if (Queue::writeWillCompletelyClear(textureDimension, widthForMetal, logicalSize.width, heightForMetal, logicalSize.height, depthForMetal, logicalSize.depthOrArrayLayers))
-            destinationTexture->setPreviouslyCleared(destination.mipLevel, destinationSlice);
+            destinationTexture->setProvisionallyCleared(destination.mipLevel, destinationSlice, *this);
         else
             clearTextureIfNeeded(destination, destinationSlice);
     }
@@ -1468,19 +1483,19 @@ void CommandEncoder::clearTextureIfNeeded(const WebGPU::TexelCopyTextureInfo& de
     }
 #endif
 
-    clearTextureIfNeeded(destination, slice, m_device, m_blitCommandEncoder);
+    clearTextureIfNeeded(destination, slice, m_device, m_blitCommandEncoder, this);
 }
 
 
-void CommandEncoder::clearTextureIfNeeded(const WebGPU::TexelCopyTextureInfo& destination, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder)
+void CommandEncoder::clearTextureIfNeeded(const WebGPU::TexelCopyTextureInfo& destination, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder, const CommandEncoder* owningCommandEncoder)
 {
     Ref texture = metal(destination.texture);
     NSUInteger mipLevel = destination.mipLevel;
-    CommandEncoder::clearTextureIfNeeded(texture, mipLevel, slice, device, blitCommandEncoder);
+    CommandEncoder::clearTextureIfNeeded(texture, mipLevel, slice, device, blitCommandEncoder, owningCommandEncoder);
 }
 
 
-void CommandEncoder::clearTextureIfNeeded(Texture& texture, NSUInteger mipLevel, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder)
+void CommandEncoder::clearTextureIfNeeded(Texture& texture, NSUInteger mipLevel, NSUInteger slice, const Device& device, id<MTLBlitCommandEncoder> blitCommandEncoder, const CommandEncoder* owningCommandEncoder)
 {
     if (!blitCommandEncoder || texture.previouslyCleared(mipLevel, slice))
         return;
@@ -1491,7 +1506,6 @@ void CommandEncoder::clearTextureIfNeeded(Texture& texture, NSUInteger mipLevel,
     if (texture.usage().contains(WebGPU::TextureUsage::Transient))
         return;
 
-    texture.setPreviouslyCleared(mipLevel, slice);
     auto logicalExtent = texture.logicalMiplevelSpecificTextureExtent(mipLevel);
     if (!logicalExtent.width)
         return;
@@ -1547,6 +1561,10 @@ void CommandEncoder::clearTextureIfNeeded(Texture& texture, NSUInteger mipLevel,
     if (slice >= mtlTexture.arrayLength)
         return;
 
+    if (owningCommandEncoder)
+        texture.setProvisionallyCleared(mipLevel, slice, *owningCommandEncoder);
+    else
+        texture.setPreviouslyCleared(mipLevel, slice);
     [blitCommandEncoder
         copyFromBuffer:temporaryBuffer
         sourceOffset:0
@@ -1611,6 +1629,7 @@ void CommandEncoder::makeInvalid(NSString* errorString)
     m_existingCommandEncoder = nil;
     releasePriorCommandBuffers();
     m_device->getQueue()->removeMTLCommandBuffer(m_commandBuffer);
+    m_device->getQueue()->discardProvisionalTextureClears(m_uniqueId);
 
     m_commandBuffer = nil;
     m_lastErrorString = errorString;
@@ -1659,6 +1678,17 @@ void CommandEncoder::addTexture(id<MTLTexture> texture)
         [m_retainedTextures addObject:texture];
 }
 
+void CommandEncoder::addResidentResource(id<MTLResource> resource)
+{
+    if (!m_retainedTextures && !m_retainedBuffers)
+        return;
+
+    if ([resource conformsToProtocol:@protocol(MTLTexture)])
+        addTexture((id<MTLTexture>)resource);
+    else if ([resource conformsToProtocol:@protocol(MTLBuffer)])
+        addBuffer((id<MTLBuffer>)resource);
+}
+
 void CommandEncoder::addTexture(const Texture& baseTexture)
 {
     addTexture(baseTexture.texture());
@@ -1681,7 +1711,7 @@ void CommandEncoder::makeSubmitInvalid(NSString* errorString)
         commandBuffer->makeInvalid(errorString ?: m_lastErrorString);
 }
 
-static bool LEGACY_NODELETE hasValidDimensions(WebGPU::TextureDimension dimension, NSUInteger width, NSUInteger height, NSUInteger depth)
+NODELETE static bool hasValidDimensions(WebGPU::TextureDimension dimension, NSUInteger width, NSUInteger height, NSUInteger depth)
 {
     switch (dimension) {
     case WebGPU::TextureDimension::_1d:
@@ -1924,7 +1954,7 @@ void CommandEncoder::copyTextureToBuffer(const WebGPU::TexelCopyTextureInfo& sou
     }
 }
 
-static bool LEGACY_NODELETE areCopyCompatible(WebGPU::TextureFormat format1, WebGPU::TextureFormat format2)
+NODELETE static bool areCopyCompatible(WebGPU::TextureFormat format1, WebGPU::TextureFormat format2)
 {
     // https://gpuweb.github.io/gpuweb/#copy-compatible
 
@@ -2055,7 +2085,7 @@ void CommandEncoder::copyTextureToTexture(const WebGPU::TexelCopyTextureInfo& so
             return;
         NSUInteger destinationSlice = destinationTexture->dimension() == WebGPU::TextureDimension::_3d ? 0 : destinationOriginPlusLayer.value();
         if (Queue::writeWillCompletelyClear(destinationTextureDimension, copySize.width, destinationLogicalSize.width, copySize.height, destinationLogicalSize.height, copySize.depthOrArrayLayers, destinationLogicalSize.depthOrArrayLayers))
-            destinationTexture->setPreviouslyCleared(destination.mipLevel, destinationSlice);
+            destinationTexture->setProvisionallyCleared(destination.mipLevel, destinationSlice, *this);
         else
             clearTextureIfNeeded(destination, destinationSlice);
     }
@@ -2374,7 +2404,7 @@ void CommandEncoder::pushDebugGroup(String&& groupLabel)
     [m_commandBuffer pushDebugGroup:groupLabel.createNSString().get()];
 }
 
-static bool LEGACY_NODELETE validateResolveQuerySet(const QuerySet& querySet, uint32_t firstQuery, uint32_t queryCount, const Buffer& destination, uint64_t destinationOffset)
+NODELETE static bool validateResolveQuerySet(const QuerySet& querySet, uint32_t firstQuery, uint32_t queryCount, const Buffer& destination, uint64_t destinationOffset)
 {
     if (!querySet.isDestroyed() && !querySet.isValid())
         return false;
@@ -2578,6 +2608,13 @@ void CommandEncoder::skippedDrawIndexedValidation(uint64_t bufferIdentifier, Dra
     m_skippedDrawIndexedValidationKeys.add(bufferIdentifier, Vector<std::pair<DrawIndexCacheContainerValue, uint32_t>> { }).iterator->value.append(std::make_pair(DrawIndexCacheContainerValue(it->key.key()), it->value.vertexCount));
 }
 
+void CommandEncoder::skippedBundleIndirectDrawValidation(uint64_t bufferIdentifier, ReusedIndirectIndexedDraw&& draw)
+{
+    auto& reusedDraws = m_reusedIndirectIndexedDraws.add(bufferIdentifier, Vector<ReusedIndirectIndexedDraw> { }).iterator->value;
+    if (!reusedDraws.contains(draw))
+        reusedDraws.append(WTF::move(draw));
+}
+
 void CommandEncoder::rebindSamplersPreCommit(const BindGroup& group)
 {
     m_bindGroups.append(group);
@@ -2587,7 +2624,7 @@ void CommandEncoder::rebindSamplersPreCommit(const BindGroup& group)
 
 #pragma mark WGPU Stubs
 
-void LEGACY_NODELETE wgpuCommandEncoderAddRef(WGPUCommandEncoder commandEncoder)
+NODELETE void wgpuCommandEncoderAddRef(WGPUCommandEncoder commandEncoder)
 {
     WebGPU::Metal::fromAPI(commandEncoder).ref();
 }

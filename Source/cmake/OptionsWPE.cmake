@@ -124,12 +124,11 @@ WEBKIT_OPTION_DEFINE(USE_VULKAN "Whether to build support to use Vulkan." PUBLIC
 # Private options specific to the WPE port.
 WEBKIT_OPTION_DEFINE(ENABLE_FUTURE_GLIB_API "Whether to build public API changes intended for a future API version." PRIVATE OFF)
 WEBKIT_OPTION_DEFINE(USE_EXTERNAL_HOLEPUNCH "Whether to enable external holepunch" PRIVATE OFF)
-WEBKIT_OPTION_DEFINE(USE_OPENSSL "Whether to use OpenSSL instead of libgcrypt as the crypto backend." PRIVATE OFF)
+WEBKIT_OPTION_DEFINE(USE_OPENSSL "Whether to use OpenSSL instead of libgcrypt as the crypto backend." PRIVATE ON)
 WEBKIT_OPTION_DEFINE(USE_SPIEL "Whether to enable usage of LibSpiel for speech synthesis." PRIVATE OFF)
 WEBKIT_OPTION_DEFINE(USE_SYSPROF_CAPTURE "Whether to use libsysprof-capture for tracing." PRIVATE ON)
 WEBKIT_OPTION_DEFINE(USE_SYSTEM_SYSPROF_CAPTURE "Whether to use a system-provided libsysprof-capture" PRIVATE ON)
 WEBKIT_OPTION_DEFINE(USE_SYSTEM_UNIFDEF "Whether to use a system-provided unifdef" PRIVATE ON)
-WEBKIT_OPTION_DEFINE(USE_TEXTURE_MAPPER "Whether to use TextureMapper for compositing instead of Skia" PRIVATE OFF)
 
 WEBKIT_OPTION_DEPEND(ENABLE_DOCUMENTATION ENABLE_INTROSPECTION)
 WEBKIT_OPTION_DEPEND(USE_SYSTEM_SYSPROF_CAPTURE USE_SYSPROF_CAPTURE)

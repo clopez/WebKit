@@ -98,7 +98,7 @@ std::optional<WebCore::ScrollbarOverlayStyle> toCoreScrollbarStyle(_WKOverlayScr
     return std::nullopt;
 }
 
-static WebCore::FloatBoxExtent LEGACY_NODELETE coreBoxExtentsFromEdgeInsets(NSEdgeInsets insets)
+NODELETE static WebCore::FloatBoxExtent coreBoxExtentsFromEdgeInsets(NSEdgeInsets insets)
 {
     return {
         static_cast<float>(insets.top),
@@ -1174,16 +1174,6 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     return _impl->candidateListTouchBarItem();
 }
 
-- (void)_web_didAddMediaControlsManager:(id)controlsManager
-{
-    [self _addMediaPlaybackControlsView:controlsManager];
-}
-
-- (void)_web_didRemoveMediaControlsManager
-{
-    [self _removeMediaPlaybackControlsView];
-}
-
 - (void)_interactWithMediaControlsForTesting
 {
     [self _setWantsMediaPlaybackControlsView:YES];
@@ -1206,6 +1196,11 @@ ALLOW_DEPRECATED_IMPLEMENTATIONS_END
     if (!_impl)
         return NO;
     return _impl->hasScrolledContentsUnderTitlebar();
+}
+
+- (void)_scrollToTopForTitlebarTap
+{
+    [self _scrollToEdge:_WKRectEdgeTop animated:YES];
 }
 
 - (BOOL)respondsToSelector:(SEL)selector
@@ -1467,6 +1462,20 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 {
     _lastContentSize = newSize;
 }
+
+#if HAVE(TOUCH_BAR)
+
+- (void)_web_didAddMediaControlsManager:(id)controlsManager
+{
+    [self _addMediaPlaybackControlsView:controlsManager];
+}
+
+- (void)_web_didRemoveMediaControlsManager
+{
+    [self _removeMediaPlaybackControlsView];
+}
+
+#endif // HAVE(TOUCH_BAR)
 
 - (BOOL)_web_hasActiveIntelligenceTextEffects
 {
@@ -1954,7 +1963,7 @@ ALLOW_DEPRECATED_DECLARATIONS_END
 
 - (CGSize)_sizeToContentAutoSizeMaximumSize
 {
-    return _page->minimumSizeForAutoLayout();
+    return _page->sizeToContentAutoSizeMaximumSize();
 }
 
 - (void)_setSizeToContentAutoSizeMaximumSize:(CGSize)size
@@ -1962,7 +1971,6 @@ ALLOW_DEPRECATED_DECLARATIONS_END
     BOOL expandsToFit = size.width > 0 && size.height > 0;
 
     _page->setSizeToContentAutoSizeMaximumSize(WebCore::IntSize(size.width, size.height));
-    _page->setMainFrameIsScrollable(!expandsToFit);
 
     _impl->setClipsToVisibleRect(expandsToFit);
 }

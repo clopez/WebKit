@@ -255,12 +255,12 @@ public:
     }
 
     template<typename T>
-    static IntRange LEGACY_NODELETE top()
+    NODELETE static IntRange top()
     {
         return IntRange(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
     }
 
-    static IntRange LEGACY_NODELETE top(Type type)
+    NODELETE static IntRange top(Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -274,7 +274,7 @@ public:
     }
 
     template<typename T>
-    static IntRange LEGACY_NODELETE rangeForMask(T mask)
+    NODELETE static IntRange rangeForMask(T mask)
     {
         if (mask == static_cast<T>(-1))
             return top<T>();
@@ -285,7 +285,7 @@ public:
         return IntRange(0, mask);
     }
 
-    static IntRange LEGACY_NODELETE rangeForMask(int64_t mask, Type type)
+    NODELETE static IntRange rangeForMask(int64_t mask, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -299,7 +299,7 @@ public:
     }
 
     template<typename T>
-    static IntRange LEGACY_NODELETE rangeForZShr(int32_t shiftAmount)
+    NODELETE static IntRange rangeForZShr(int32_t shiftAmount)
     {
         std::make_unsigned_t<T> mask = 0;
         mask--;
@@ -307,7 +307,7 @@ public:
         return rangeForMask<T>(static_cast<T>(mask));
     }
 
-    static IntRange LEGACY_NODELETE rangeForZShr(int32_t shiftAmount, Type type)
+    NODELETE static IntRange rangeForZShr(int32_t shiftAmount, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -320,8 +320,8 @@ public:
         }
     }
 
-    int64_t LEGACY_NODELETE min() const { return m_min; }
-    int64_t LEGACY_NODELETE max() const { return m_max; }
+    NODELETE int64_t min() const { return m_min; }
+    NODELETE int64_t max() const { return m_max; }
 
     void dump(PrintStream& out) const
     {
@@ -329,7 +329,7 @@ public:
     }
 
     template<typename T>
-    bool LEGACY_NODELETE couldOverflowAdd(const IntRange& other)
+    NODELETE bool couldOverflowAdd(const IntRange& other)
     {
         return sumOverflows<T>(m_min, other.m_min)
             || sumOverflows<T>(m_min, other.m_max)
@@ -337,7 +337,7 @@ public:
             || sumOverflows<T>(m_max, other.m_max);
     }
 
-    bool LEGACY_NODELETE couldOverflowAdd(const IntRange& other, Type type)
+    NODELETE bool couldOverflowAdd(const IntRange& other, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -350,7 +350,7 @@ public:
     }
 
     template<typename T>
-    bool LEGACY_NODELETE couldOverflowSub(const IntRange& other)
+    NODELETE bool couldOverflowSub(const IntRange& other)
     {
         return differenceOverflows<T>(m_min, other.m_min)
             || differenceOverflows<T>(m_min, other.m_max)
@@ -358,7 +358,7 @@ public:
             || differenceOverflows<T>(m_max, other.m_max);
     }
 
-    bool LEGACY_NODELETE couldOverflowSub(const IntRange& other, Type type)
+    NODELETE bool couldOverflowSub(const IntRange& other, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -371,7 +371,7 @@ public:
     }
 
     template<typename T>
-    bool LEGACY_NODELETE couldOverflowMul(const IntRange& other)
+    NODELETE bool couldOverflowMul(const IntRange& other)
     {
         return productOverflows<T>(m_min, other.m_min)
             || productOverflows<T>(m_min, other.m_max)
@@ -379,7 +379,7 @@ public:
             || productOverflows<T>(m_max, other.m_max);
     }
 
-    bool LEGACY_NODELETE couldOverflowMul(const IntRange& other, Type type)
+    NODELETE bool couldOverflowMul(const IntRange& other, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -392,7 +392,7 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE shl(int32_t shiftAmount)
+    NODELETE IntRange shl(int32_t shiftAmount)
     {
         shiftAmount &= static_cast<int32_t>(sizeof(T) * 8 - 1);
         T newMin = static_cast<T>(m_min) << static_cast<T>(shiftAmount);
@@ -407,7 +407,7 @@ public:
         return IntRange(newMin, newMax);
     }
 
-    IntRange LEGACY_NODELETE shl(int32_t shiftAmount, Type type)
+    NODELETE IntRange shl(int32_t shiftAmount, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -421,7 +421,7 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE sShr(int32_t shiftAmount)
+    NODELETE IntRange sShr(int32_t shiftAmount)
     {
         shiftAmount &= static_cast<int32_t>(sizeof(T) * 8 - 1);
         T newMin = static_cast<T>(m_min) >> static_cast<T>(shiftAmount);
@@ -430,7 +430,7 @@ public:
         return IntRange(newMin, newMax);
     }
 
-    IntRange LEGACY_NODELETE sShr(int32_t shiftAmount, Type type)
+    NODELETE IntRange sShr(int32_t shiftAmount, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -444,7 +444,7 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE zShr(int32_t shiftAmount)
+    NODELETE IntRange zShr(int32_t shiftAmount)
     {
         shiftAmount &= static_cast<int32_t>(sizeof(T) * 8 - 1);
 
@@ -465,7 +465,7 @@ public:
         return IntRange(newMin, newMax);
     }
 
-    IntRange LEGACY_NODELETE zShr(int32_t shiftAmount, Type type)
+    NODELETE IntRange zShr(int32_t shiftAmount, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -479,14 +479,14 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE add(const IntRange& other)
+    NODELETE IntRange add(const IntRange& other)
     {
         if (couldOverflowAdd<T>(other))
             return top<T>();
         return IntRange(m_min + other.m_min, m_max + other.m_max);
     }
 
-    IntRange LEGACY_NODELETE add(const IntRange& other, Type type)
+    NODELETE IntRange add(const IntRange& other, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -500,14 +500,14 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE sub(const IntRange& other)
+    NODELETE IntRange sub(const IntRange& other)
     {
         if (couldOverflowSub<T>(other))
             return top<T>();
         return IntRange(m_min - other.m_max, m_max - other.m_min);
     }
 
-    IntRange LEGACY_NODELETE sub(const IntRange& other, Type type)
+    NODELETE IntRange sub(const IntRange& other, Type type)
     {
         switch (type.kind()) {
         case Int32:
@@ -548,7 +548,7 @@ public:
     }
 
     template<typename T>
-    IntRange LEGACY_NODELETE sExt()
+    NODELETE IntRange sExt()
     {
         ASSERT(m_min >= INT32_MIN);
         ASSERT(m_max <= INT32_MAX);
@@ -602,7 +602,7 @@ public:
         return top<T>();
     }
 
-    IntRange LEGACY_NODELETE zExt32()
+    NODELETE IntRange zExt32()
     {
         ASSERT(m_min >= INT32_MIN);
         ASSERT(m_max <= INT32_MAX);
@@ -692,6 +692,7 @@ public:
             m_enteredFromReachableBlock.clearAll();
             m_enteredFromReachableBlock.ensureSize(m_proc.size());
             m_valueForConstant.clear();
+            m_proc.resetValueOwners(); // Used by Phi folding.
 
             m_dominators = &m_proc.dominators(); // Recompute if necessary.
             m_layeredCSE.clear();
@@ -1754,11 +1755,10 @@ private:
 
             // Turn this: BitAnd(SExt32(value), mask) where (mask & 0xffffffff00000000) == 0
             // Into this: BitAnd(ZExt32(value), mask)
-            if (m_value->child(0)->opcode() == SExt32 && m_value->child(1)->hasInt32()
-                && !(m_value->child(1)->asInt32() & 0xffffffff00000000llu)) {
+            if (m_value->child(0)->opcode() == SExt32 && m_value->child(1)->hasInt64()
+                && !(m_value->child(1)->asInt64() & 0xffffffff00000000llu)) {
                 m_value->child(0) = m_insertionSet.insert<Value>(
-                    m_index, ZExt32, m_value->origin(),
-                    m_value->child(0)->child(0), m_value->child(0)->child(1));
+                    m_index, ZExt32, m_value->origin(), m_value->child(0)->child(0));
                 m_changed = true;
                 break;
             }
@@ -3780,28 +3780,10 @@ private:
                     }
                 }
 
-                // DupElement: i64x2 and i32x4 on all platforms
-                if (auto lane = SIMDShuffle::isI64x2DupElement(pattern)) {
-                    replaceWithNew<SIMDValue>(m_value->origin(), VectorDupElement, B3::V128, SIMDLane::i64x2, SIMDSignMode::None, lane.value(), inner);
+                if (auto dup = SIMDShuffle::isDupElement(pattern)) {
+                    auto [lane, index] = *dup;
+                    replaceWithNew<SIMDValue>(m_value->origin(), VectorDupElement, B3::V128, lane, SIMDSignMode::None, index, inner);
                     break;
-                }
-
-                if (auto lane = SIMDShuffle::isI32x4DupElement(pattern)) {
-                    replaceWithNew<SIMDValue>(m_value->origin(), VectorDupElement, B3::V128, SIMDLane::i32x4, SIMDSignMode::None, lane.value(), inner);
-                    break;
-                }
-
-                // DupElement: i16x8 and i8x16 — ARM64 only
-                if constexpr (isARM64()) {
-                    if (auto lane = SIMDShuffle::isI16x8DupElement(pattern)) {
-                        replaceWithNew<SIMDValue>(m_value->origin(), VectorDupElement, B3::V128, SIMDLane::i16x8, SIMDSignMode::None, lane.value(), inner);
-                        break;
-                    }
-
-                    if (auto lane = SIMDShuffle::isI8x16DupElement(pattern)) {
-                        replaceWithNew<SIMDValue>(m_value->origin(), VectorDupElement, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, lane.value(), inner);
-                        break;
-                    }
                 }
 
                 if (m_pass == ReduceStrengthPass::Final) {
@@ -3908,20 +3890,19 @@ private:
                 if (auto result = SIMDShuffle::isOnlyOneSideMask(pattern)) {
                     auto [child, newPattern] = result.value();
                     switch (child) {
-                    case 0: {
+                    case SIMDShuffleSide::Left: {
                         Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, newPattern);
                         m_insertionSet.insertValue(m_index, newPatternValue);
                         replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, m_value->child(0), newPatternValue);
                         break;
                     }
-                    case 1: {
+                    case SIMDShuffleSide::Right: {
                         Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, newPattern);
                         m_insertionSet.insertValue(m_index, newPatternValue);
                         replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, m_value->child(1), newPatternValue);
                         break;
                     }
-                    case 2: {
-                        // All OOB.
+                    case SIMDShuffleSide::AllOutOfBounds: {
                         replaceWithNewValue(m_proc.addConstant(m_value->origin(), B3::V128, vectorAllZeros()));
                         break;
                     }
@@ -3971,20 +3952,19 @@ private:
                     if (auto result = SIMDShuffle::isOnlyOneSideMask(newPattern)) {
                         auto [child, unaryPattern] = result.value();
                         switch (child) {
-                        case 0: {
+                        case SIMDShuffleSide::Left: {
                             Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, unaryPattern);
                             m_insertionSet.insertValue(m_index, newPatternValue);
                             replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, newChild0, newPatternValue);
                             break;
                         }
-                        case 1: {
+                        case SIMDShuffleSide::Right: {
                             Value* newPatternValue = m_proc.addConstant(m_value->origin(), B3::V128, unaryPattern);
                             m_insertionSet.insertValue(m_index, newPatternValue);
                             replaceWithNew<SIMDValue>(m_value->origin(), VectorSwizzle, B3::V128, SIMDLane::i8x16, SIMDSignMode::None, newChild1, newPatternValue);
                             break;
                         }
-                        case 2: {
-                            // All OOB.
+                        case SIMDShuffleSide::AllOutOfBounds: {
                             replaceWithNewValue(m_proc.addConstant(m_value->origin(), B3::V128, vectorAllZeros()));
                             break;
                         }

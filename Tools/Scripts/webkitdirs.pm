@@ -1298,7 +1298,8 @@ sub usesPerConfigurationBuildDirectory
 }
 
 # The CMake tree of the platform being built, matching the binaryDir of the
-# presets in CMakePresets.json: cmake-mac, cmake-iphoneos, cmake-iphonesimulator.
+# presets in CMakePresets.json: cmake-mac, cmake-maccatalyst, cmake-iphoneos,
+# cmake-iphonesimulator.
 sub cmakeCocoaTreeName
 {
     determineXcodeSDKPlatformName();
@@ -1600,10 +1601,6 @@ sub XcodeOptions
     if (!checkForArgumentAndRemoveFromARGV("--no-use-workspace")) {
         push @options, ("-workspace", $configuredXcodeWorkspace) if $configuredXcodeWorkspace;
     }
-    # WebKit-only builds in Safari.xcworkspace use the SDK's AuthenticationServices frameworks instead of building
-    # SafariShared for WebKitSwift's product dependencies (see WebKitSwift.xcconfig). --build-safari-shared keeps them.
-    my $buildSafariShared = checkForArgumentAndRemoveFromARGV("--build-safari-shared");
-    push @options, "WK_BUILD_SAFARI_SHARED=NO" if !$buildSafariShared && $configuredXcodeWorkspace && $configuredXcodeWorkspace =~ /Safari\.xcworkspace\/?$/;
     push @options, ("-configuration", $configuration);
     push @options, ("-destination", $destination) if $destination;
     # Be mindful of adding build settings here. Any settings which don't
@@ -1838,7 +1835,7 @@ sub builtDylibPathForName
 
         return "";
     }
-    if (isIOSWebKit()) {
+    if (isEmbeddedWebKit()) {
         return "$configurationProductDir/$libraryName.framework/$libraryName";
     }
     if (isAppleCocoaWebKit()) {
@@ -2225,6 +2222,12 @@ sub isVisionOSWebKit()
 sub isEmbeddedWebKit()
 {
     return isIOSWebKit() || isTVOSWebKit() || isWatchOSWebKit() || isVisionOSWebKit();
+}
+
+# The embedded platforms whose apps runIOSWebKitApp() can launch in the simulator.
+sub canRunWebKitAppInSimulator()
+{
+    return isIOSWebKit() || isVisionOSWebKit();
 }
 
 sub isAppleWebKit()
@@ -3129,6 +3132,9 @@ sub generateBuildSystemFromCMakeProject
     my @args;
     push @args, "-DPORT=\"$port\"";
     push @args, "-DCMAKE_OSX_SYSROOT=\"" . xcodeSDK() . "\"" if isAppleCocoaWebKit();
+    push @args, "-DWEBKIT_SDK_VARIANT=iosmac" if isMacCatalystWebKit();
+    # Multi-arch builds are handed in buildUniversalCMakeProject() below.
+    push @args, "-DCMAKE_OSX_ARCHITECTURES=" . architecture() if isAppleCocoaWebKit() && $didUserSpecifyArchitecture && !universalArchitectures();
     push @args, "-DCMAKE_INSTALL_PREFIX=\"$prefixPath\"" if $prefixPath;
     if ($config =~ /release/i) {
         push @args, "-DCMAKE_BUILD_TYPE=Release";
@@ -3206,7 +3212,7 @@ sub generateBuildSystemFromCMakeProject
         } else {
             push @args, "Ninja";
         }
-        push @args, "-DCMAKE_MAKE_PROGRAM=\"" . File::Spec->catfile(sourceDir(), "Source", "cmake", "ninja-wrapper") . "\"" if isAppleCocoaWebKit();
+        push @args, "-DCMAKE_MAKE_PROGRAM=\"" . File::Spec->catfile(sourceDir(), "Source", "cmake", "ninja-wrapper") . "\"" if isAppleCocoaWebKit() || isGtk() || isWPE();
         push @args, "-DUSE_THIN_ARCHIVES=OFF" if isPlayStation();
     } else {
         if (isAnyWindows()) {
@@ -3715,6 +3721,9 @@ Options specific to macOS:
 Options specific to iOS:
   --iphone-simulator                Run the app in an iPhone Simulator
   --ipad-simulator                  Run the app in an iPad Simulator
+
+Options specific to visionOS:
+  --visionos-simulator              Run the app in an Apple Vision Pro Simulator
 EOF
 
     exit(1);
@@ -3788,13 +3797,8 @@ sub setupIOSWebKitEnvironment($)
 
 sub iosSimulatorApplicationsPath()
 {
-    my $output = `xcrun simctl list runtimes iOS --json`;
-    my $runtimes = decode_json($output)->{runtimes};
-    if (!$runtimes) {
-        die "No iOS simulator runtimes found";
-    }
-    my $runtimePath = @$runtimes[0]->{runtimeRoot};
-    return File::Spec->catdir($runtimePath, "Applications");
+    # Use the runtime the simulator device is created on, so system apps come from the runtime that boots.
+    return File::Spec->catdir(simulatorRuntimeRecord()->{runtimeRoot}, "Applications");
 }
 
 sub installedMobileSafariBundle()
@@ -3812,7 +3816,7 @@ sub mobileSafariBundle()
     determineConfigurationProductDir();
 
     # Use MobileSafari.app in product directory if present.
-    if (isIOSWebKit() && -d "$configurationProductDir/MobileSafari.app") {
+    if (-d "$configurationProductDir/MobileSafari.app") {
         return "$configurationProductDir/MobileSafari.app";
     }
     return installedMobileSafariBundle();
@@ -3822,7 +3826,7 @@ sub mobileMiniBrowserBundle()
 {
     determineConfigurationProductDir();
 
-    if (isIOSWebKit() && -d "$configurationProductDir/MobileMiniBrowser.app") {
+    if (-d "$configurationProductDir/MobileMiniBrowser.app") {
         return "$configurationProductDir/MobileMiniBrowser.app";
     }
     return installedMobileMiniBrowserBundle();
@@ -3837,7 +3841,7 @@ sub swiftBrowserBundle()
 {
     determineConfigurationProductDir();
 
-    if (isIOSWebKit() && -d "$configurationProductDir/SwiftBrowser.app") {
+    if (-d "$configurationProductDir/SwiftBrowser.app") {
         return "$configurationProductDir/SwiftBrowser.app";
     }
     return installedSwiftBrowserBundle();
@@ -3866,6 +3870,14 @@ sub appDisplayNameFromBundle($)
     my $plistPath = File::Spec->rel2abs(plistPathFromBundle($appBundle)); # defaults(1) will complain if the specified path is not absolute.
     chomp(my $bundleDisplayName = `defaults read '$plistPath' CFBundleDisplayName 2> /dev/null`);
     return $bundleDisplayName;
+}
+
+sub appExecutablePathFromBundle($)
+{
+    my ($appBundle) = @_;
+    my $plistPath = File::Spec->rel2abs(plistPathFromBundle($appBundle)); # defaults(1) will complain if the specified path is not absolute.
+    chomp(my $executableName = `defaults read '$plistPath' CFBundleExecutable 2> /dev/null`);
+    return File::Spec->catfile($appBundle, "Contents", "MacOS", $executableName);
 }
 
 sub waitUntilIOSSimulatorDeviceIsInState($$)
@@ -3952,7 +3964,7 @@ sub iosSimulatorDeviceByUDID($)
     return undef;
 }
 
-sub simulatorRuntime()
+sub simulatorRuntimeRecord()
 {
     die "Can't find a simulator runtime because the selected SDK isn't a simulator SDK" if !willUseSimulatorSDK();
     my $platformName = sdkPlatformOSName();
@@ -3962,17 +3974,33 @@ sub simulatorRuntime()
     my $output = `xcrun --sdk $sdk simctl list runtimes $platformName --json` or die "Failed to run find simulator runtime";
     for my $runtime (@{decode_json($output)->{runtimes}}) {
         if ($runtime->{version} eq $xcodeSDKVersion) {
-            return $runtime->{identifier};
+            return $runtime;
         }
         if ($runtime->{version} =~ /^$xcodeSDKVersion/) {
             my $runtime_version = $runtime->{version};
             my $runtime_id = $runtime->{identifier};
             warn "WARNING: Fuzzy-matched $platformName SDK version $xcodeSDKVersion to runtime $runtime_id with version $runtime_version.";
-            return $runtime_id;
+            return $runtime;
         }
     }
 
     die "No $platformName simulator runtime matches SDK version $xcodeSDKVersion";
+}
+
+sub simulatorRuntime()
+{
+    return simulatorRuntimeRecord()->{identifier};
+}
+
+sub simulatorDeviceTypeForName($$)
+{
+    my ($deviceTypeName, $runtime) = @_;
+
+    for my $deviceType (@{$runtime->{supportedDeviceTypes}}) {
+        return $deviceType->{identifier} if $deviceType->{name} eq $deviceTypeName;
+    }
+
+    die "Simulator runtime $runtime->{identifier} doesn't support a device type named \"$deviceTypeName\"";
 }
 
 sub findOrCreateSimulatorForIOSDevice($)
@@ -3981,8 +4009,10 @@ sub findOrCreateSimulatorForIOSDevice($)
     my $simulatorName;
     my $simulatorDeviceType;
 
-    # These should match the DEFAULT_DEVICE_TYPES in webkitpy/port/ios_simulator.py.
-    if (simulatorIdiom() eq "iPad") {
+    # These should match the DEFAULT_DEVICE_TYPES in webkitpy/port/ios_simulator.py and webkitpy/port/visionos_simulator.py.
+    if (willUseVisionSimulatorSDK()) {
+        $simulatorName = "Apple Vision Pro " . $simulatorNameSuffix;
+    } elsif (simulatorIdiom() eq "iPad") {
         $simulatorName = "iPad (9th generation) " . $simulatorNameSuffix;
         $simulatorDeviceType = "com.apple.CoreSimulator.SimDeviceType.iPad-9th-generation";
     } else {
@@ -3992,7 +4022,10 @@ sub findOrCreateSimulatorForIOSDevice($)
 
     my $simulatedDevice = iosSimulatorDeviceByName($simulatorName);
     return $simulatedDevice if $simulatedDevice;
-    return createiOSSimulatorDevice($simulatorName, $simulatorDeviceType, simulatorRuntime());
+    my $runtime = simulatorRuntimeRecord();
+    # The identifier behind this name differs between visionOS runtimes (e.g. Apple-Vision-Pro, Apple-Vision-Pro-4K).
+    $simulatorDeviceType //= simulatorDeviceTypeForName("Apple Vision Pro", $runtime);
+    return createiOSSimulatorDevice($simulatorName, $simulatorDeviceType, $runtime->{identifier});
 }
 
 sub isIOSSimulatorSystemInstalledApp($)
@@ -4054,7 +4087,7 @@ sub runIOSWebKitAppInSimulator($;$)
             # Restore the system-installed app in the simulator device corresponding to $appBundle as it
             # was previously overwritten with a custom built version of the app.
             # FIXME: Only restore the system-installed version of the app instead of erasing all contents and settings.
-            print "Quitting iOS Simulator...\n";
+            print "Quitting Simulator...\n";
             shutDownIOSSimulatorDevice($simulatedDevice);
             print "Erasing contents and settings for simulator device \"$simulatedDevice->{name}\".\n";
             exitStatus(system("xcrun", "--sdk", "iphonesimulator", "simctl", "erase", $simulatedDeviceUDID)) == 0 or die;
@@ -4063,14 +4096,14 @@ sub runIOSWebKitAppInSimulator($;$)
         #        $simulatedDeviceUDID may have been booted using the simctl command line tool. If $simulatedDeviceUDID
         #        was booted using simctl then we should shutdown the device and launch iOS Simulator to boot it again.
         if (!isSimulatorDeviceBooted($simulatedDeviceUDID)) {
-            print "Launching iOS Simulator...\n";
+            print "Launching Simulator...\n";
             relaunchIOSSimulator($simulatedDevice);
         }
     } else {
         # FIXME: We should killall(1) any running instances of $appBundle before installing it to ensure
         #        that simctl launch opens the latest installed version of the app. For now we quit and
         #        launch the iOS Simulator again to ensure there are no running instances of $appBundle.
-        print "Quitting and launching iOS Simulator...\n";
+        print "Quitting and launching Simulator...\n";
         relaunchIOSSimulator($simulatedDevice);
 
         print "Installing $appBundle.\n";
@@ -4103,13 +4136,9 @@ sub runIOSWebKitAppInSimulator($;$)
 sub runIOSWebKitApp($)
 {
     my ($appBundle) = @_;
-    if (willUseIOSDeviceSDK()) {
-        die "Only running Safari in iOS Simulator is supported now.";
-    }
-    if (willUseIOSSimulatorSDK()) {
-        return runIOSWebKitAppInSimulator($appBundle);
-    }
-    die "Not using an iOS SDK."
+    die "Not using an iOS or visionOS SDK." if !canRunWebKitAppInSimulator();
+    die "Only running apps in the simulator is supported now." if !willUseSimulatorSDK();
+    return runIOSWebKitAppInSimulator($appBundle);
 }
 
 sub commandLineArgumentsForRestrictedEnvironmentVariables($)
@@ -4139,6 +4168,11 @@ sub dyldFrameworkPathsForMacWebKitApp($)
 sub runMacWebKitApp($;$$)
 {
     my ($appPath, $useOpenCommand, $openDocumentPath) = @_;
+    # A Mac Catalyst system app that open(1) launches doesn't take the DYLD_* overrides.
+    if (isMacCatalystWebKit() && defined($useOpenCommand) && $useOpenCommand == USE_OPEN_COMMAND && !defined($openDocumentPath) && -d $appPath) {
+        $appPath = appExecutablePathFromBundle($appPath);
+        $useOpenCommand = DO_NOT_USE_OPEN_COMMAND;
+    }
     my @frameworkPaths = dyldFrameworkPathsForMacWebKitApp($appPath);
     print "Starting @{[basename($appPath)]} with DYLD_FRAMEWORK_PATH set to point to built WebKit in @{[join(', ', @frameworkPaths)]}.\n";
 
@@ -4222,7 +4256,7 @@ sub debugSafari
 
 sub runSafari
 {
-    if (isIOSWebKit()) {
+    if (canRunWebKitAppInSimulator()) {
         return runIOSWebKitApp(mobileSafariBundle());
     }
 
@@ -4239,10 +4273,10 @@ sub runSafari
 
 sub runMiniBrowser
 {
-    if (isAppleMacWebKit()) {
+    if (isAppleMacWebKit() || isMacCatalystWebKit()) {
         return runMacWebKitApp(File::Spec->catfile(productDir(), "MiniBrowser.app", "Contents", "MacOS", "MiniBrowser"));
     }
-    if (isIOSWebKit()) {
+    if (canRunWebKitAppInSimulator()) {
         return runIOSWebKitApp(mobileMiniBrowserBundle());
     }
     return 1;
@@ -4250,7 +4284,7 @@ sub runMiniBrowser
 
 sub debugMiniBrowser
 {
-    if (isAppleMacWebKit()) {
+    if (isAppleMacWebKit() || isMacCatalystWebKit()) {
         execMacWebKitAppForDebugging(File::Spec->catfile(productDir(), "MiniBrowser.app", "Contents", "MacOS", "MiniBrowser"));
     }
 
@@ -4262,7 +4296,7 @@ sub runSwiftBrowser
     if (isAppleMacWebKit()) {
         return runMacWebKitApp(File::Spec->catfile(productDir(), "SwiftBrowser.app", "Contents", "MacOS", "SwiftBrowser"));
     }
-    if (isIOSWebKit()) {
+    if (canRunWebKitAppInSimulator()) {
         return runIOSWebKitApp(swiftBrowserBundle());
     }
     return 1;

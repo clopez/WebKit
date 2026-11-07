@@ -59,6 +59,7 @@ public:
     bool allowTestOnlyMockContentFilterIPC() const { return boolTestRunnerFeatureValue("allowTestOnlyMockContentFilterIPC"); }
     bool allowTestOnlyOriginAccessAllowListIPC() const { return boolTestRunnerFeatureValue("allowTestOnlyOriginAccessAllowListIPC"); }
     bool blockThirdPartyStorage() const { return boolTestRunnerFeatureValue("blockThirdPartyStorage"); }
+    bool dumpCSSPageBoxes() const { return boolTestRunnerFeatureValue("dumpCSSPageBoxes"); }
     bool dumpJSConsoleLogInStdErr() const { return boolTestRunnerFeatureValue("dumpJSConsoleLogInStdErr"); }
     bool editable() const { return boolTestRunnerFeatureValue("editable"); }
     bool enableInAppBrowserPrivacy() const { return boolTestRunnerFeatureValue("enableInAppBrowserPrivacy"); }
@@ -85,8 +86,6 @@ public:
     bool useDataDetection() const { return boolTestRunnerFeatureValue("useDataDetection"); }
     bool useEphemeralSession() const { return boolTestRunnerFeatureValue("useEphemeralSession"); }
     bool useFlexibleViewport() const { return boolTestRunnerFeatureValue("useFlexibleViewport"); }
-    bool useRemoteLayerTree() const { return boolTestRunnerFeatureValue("useRemoteLayerTree"); }
-    bool noUseRemoteLayerTree() const { return boolTestRunnerFeatureValue("noUseRemoteLayerTree"); }
     bool useThreadedScrolling() const { return boolTestRunnerFeatureValue("useThreadedScrolling"); }
     bool suppressInputAccessoryView() const { return boolTestRunnerFeatureValue("suppressInputAccessoryView"); }
     bool allowsInlinePredictions() const { return boolTestRunnerFeatureValue("allowsInlinePredictions"); }
