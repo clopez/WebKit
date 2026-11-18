@@ -69,8 +69,8 @@ RefPtr<WebGPU::PresentationContext> WebGPUIntegrationImpl::createPresentationCon
     Ref compositorIntegration = downcast<WebGPUCompositorIntegrationImpl>(presentationContextDescriptor.compositorIntegration);
 
     RefPtr result = m_backing->createPresentationContext({
-        .registerCompositorIntegration = [&](auto&& renderBuffersWereRecreated, auto&& onSubmittedWorkScheduled) {
-            compositorIntegration->registerCallbacks(WTF::move(renderBuffersWereRecreated), WTF::move(onSubmittedWorkScheduled));
+        .registerCompositorIntegration = [&](auto&& renderBuffersWereRecreated, auto&& onSubmittedWorkScheduled, auto&& renderBufferWasReplaced) {
+            compositorIntegration->registerCallbacks(WTF::move(renderBuffersWereRecreated), WTF::move(onSubmittedWorkScheduled), WTF::move(renderBufferWasReplaced));
         },
     });
     if (result)
@@ -159,15 +159,19 @@ void WebGPUIntegrationImpl::copyExternalImageToTexture(WebGPU::Queue& queue, con
 
 #if ENABLE(VIDEO)
     if (source.videoSource) {
-        // The decoded frame the GPU process resolved for us. Its extent, its crop and its primaries
-        // all travel with the frame, so the backing queue reads them off it rather than being told
-        // here; and a decoded frame is opaque, so its alpha is replaced with 1 the way an external
+        // The decoded frame the GPU process resolved for us. Its crop and its primaries travel
+        // with the frame, so the backing queue reads them off it rather than being told here;
+        // and a decoded frame is opaque, so its alpha is replaced with 1 the way an external
         // texture's is.
         auto* pixelBuffer = std::get_if<RetainPtr<CVPixelBufferRef>>(&*source.videoSource);
         if (!pixelBuffer || !*pixelBuffer)
             return;
 
         backingSource.pixelBuffer = *pixelBuffer;
+        backingSource.sourceSize = {
+            .width = static_cast<uint32_t>(std::max(0, source.videoSourceSize.width())),
+            .height = static_cast<uint32_t>(std::max(0, source.videoSourceSize.height())),
+        };
         // The display transform is the one thing about the frame its pixel buffer does not carry.
         backingSource.pixelBufferRotation = convertToAPI(source.videoSourceRotation);
         backingSource.pixelBufferIsMirrored = source.videoSourceIsMirrored;

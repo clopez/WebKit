@@ -30,6 +30,7 @@
 
 #include "AudioMediaStreamTrackRendererInternalUnitManager.h"
 #include "AudioVideoRendererRemoteMessageReceiverMessages.h"
+#include "DisplayListData.h"
 #include "GPUConnectionToWebProcessMessages.h"
 #include "GPUProcessConnectionInfo.h"
 #include "GPUProcessConnectionMessages.h"
@@ -65,6 +66,10 @@
 #if USE(AUDIO_SESSION)
 #include "RemoteAudioSession.h"
 #include "RemoteAudioSessionMessages.h"
+#endif
+
+#if PLATFORM(COCOA)
+#include <WebCore/PDFDocumentBuffer.h>
 #endif
 
 #if PLATFORM(IOS_FAMILY)
@@ -170,13 +175,20 @@ void GPUProcessConnection::invalidate()
     m_hasInitialized = true;
 }
 
+void GPUProcessConnection::close()
+{
+    didClose(m_connection);
+}
+
 void GPUProcessConnection::didClose(IPC::Connection&)
 {
     RELEASE_LOG_ERROR(Process, "%p - GPUProcessConnection::didClose", this);
     auto protector = Ref { *this };
     Ref webProcess = WebProcess::singleton();
     assertIsMainRunLoop();
-    ASSERT(webProcess->existingGPUProcessConnection() == this);
+    if (webProcess->existingGPUProcessConnection() != this)
+        return;
+    invalidate();
     webProcess->gpuProcessConnectionClosed();
 
 #if ENABLE(ROUTING_ARBITRATION)
@@ -364,6 +376,33 @@ void GPUProcessConnection::endRoutingArbitration()
     }
 
     ASSERT_NOT_REACHED();
+}
+#endif
+
+#if PLATFORM(COCOA)
+void GPUProcessConnection::drawDisplayListToPDF(DisplayListData&& displayListData, const FloatSize& size, CompletionHandler<void(RefPtr<SharedBuffer>&&)>&& completionHandler)
+{
+    Ref webProcess = WebProcess::singleton();
+    if (!webProcess->isPrintProcess()) {
+        ASSERT_NOT_REACHED();
+        completionHandler(nullptr);
+        return;
+    }
+
+    RefPtr displayList = WTF::move(displayListData).createDisplayList(webProcess->isLockdownModeEnabled());
+    if (!displayList) {
+        completionHandler(nullptr);
+        return;
+    }
+
+    auto buffer = PDFDocumentBuffer::create(size);
+    if (!buffer) {
+        completionHandler(nullptr);
+        return;
+    }
+
+    buffer->context().drawDisplayList(*displayList);
+    completionHandler(buffer->takeData());
 }
 #endif
 

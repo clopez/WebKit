@@ -121,7 +121,7 @@ struct SameSizeAsNode : EventTarget, CanMakeCheckedPtr<SameSizeAsNode> {
     WTF_MAKE_TZONE_ALLOCATED(SameSizeAsNode);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(SameSizeAsNode);
 public:
-#if ASSERT_ENABLED
+#if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
     bool inRemovedLastRefFunction;
     bool deletionHasBegun;
 #endif
@@ -382,7 +382,7 @@ Node::Node(Document& document, NodeType type, OptionSet<TypeFlag> flags)
     , m_shadowIncludingRoot(this)
 {
     ASSERT(nodeType() == type);
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
 
     if (!isDocumentNode())
         document.incrementReferencingNodeCount();
@@ -405,7 +405,7 @@ NODELETE static HashMap<WeakPtr<Node, WeakPtrImplWithEventTargetData>, NodeIdent
 
 Node::~Node()
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     ASSERT(deletionHasBegun());
 
     InspectorInstrumentation::willDestroyDOMNode(*this);
@@ -445,7 +445,7 @@ Node::~Node()
     }
 #endif
 
-#if ASSERT_ENABLED
+#if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
     if (m_refCountAndParentBit != s_refCountIncrement)
         WTF::RefCountDebuggerBase::printRefDuringDestructionLogAndCrash(this);
 #endif
@@ -483,7 +483,7 @@ void Node::materializeRareData()
 void Node::clearRareData()
 {
     ASSERT(hasRareData());
-    ASSERT(!transientMutationObserverRegistry() || transientMutationObserverRegistry()->isEmptyIgnoringNullReferences());
+    ASSERT(!transientMutationObserverRegistry() || transientMutationObserverRegistry()->computeIsEmpty());
 
     m_rareDataWithBitfields.setPointer(nullptr);
 }
@@ -1068,7 +1068,7 @@ void Document::invalidateNodeListAndCollectionCaches(InvalidationFunction invali
     for (RefPtr list : copyToVectorSpecialization<Vector<LiveNodeList*, 8>>(m_listsInvalidatedAtDocument))
         invalidate(*list);
 
-    for (RefPtr collection : copyToVectorSpecialization<Vector<HTMLCollection*, 8>>(m_collectionsInvalidatedAtDocument))
+    for (RefPtr collection : copyToVectorSpecialization<Vector<HTMLCollection*, 8>>(m_collectionsInvalidatedAtDocument.values()))
         invalidate(*collection);
 }
 
@@ -1379,7 +1379,7 @@ void Node::setHasEverPaintedImages(bool hasEverPaintedImages)
 
 ContainerNode* Node::parentInComposedTree() const
 {
-    ASSERT(isMainThreadOrGCThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThreadOrGCThread());
     if (auto* slot = assignedSlot())
         return slot;
     if (auto* shadowRoot = dynamicDowncast<ShadowRoot>(*this))
@@ -2196,24 +2196,33 @@ NODELETE static ALWAYS_INLINE bool isDocumentEligibleForFastAdoption(Document& o
         && oldDocument.inQuirksMode() == newDocument.inQuirksMode();
 }
 
-static ALWAYS_INLINE void adoptCustomElementRegistryIfNotExplicitlySet(ShadowRoot& shadowRoot, Document& newDocument)
+static ALWAYS_INLINE void adoptCustomElementRegistryIfNotKeptNull(ShadowRoot& shadowRoot, Document& newDocument)
 {
-    if (shadowRoot.hasScopedCustomElementRegistry() || !shadowRoot.usesNullCustomElementRegistry() || newDocument.usesNullCustomElementRegistry()) [[likely]]
+    if (shadowRoot.keepsCustomElementRegistryNull() || !shadowRoot.usesNullCustomElementRegistry() || !newDocument.effectiveGlobalCustomElementRegistry()) [[likely]]
         return;
-    shadowRoot.clearUsesNullCustomElementRegistry();
-    shadowRoot.setCustomElementRegistry(newDocument.customElementRegistry());
+    shadowRoot.resetCustomElementRegistryType();
+    shadowRoot.setCustomElementRegistry(newDocument.effectiveGlobalCustomElementRegistry());
+}
+
+static ALWAYS_INLINE RefPtr<CustomElementRegistry> scopedCustomElementRegistry(TreeScope& treeScope)
+{
+    RefPtr registry = treeScope.customElementRegistry();
+    if (!registry || !registry->isScoped())
+        return nullptr;
+    return registry;
 }
 
 inline unsigned Node::moveShadowTreeToNewDocumentFastCase(ShadowRoot& shadowRoot, Document& oldDocument, Document& newDocument)
 {
-    ASSERT(isDocumentEligibleForFastAdoption(oldDocument, newDocument));
-    adoptCustomElementRegistryIfNotExplicitlySet(shadowRoot, newDocument);
+    ASSERT_WITH_SECURITY_IMPLICATION(isDocumentEligibleForFastAdoption(oldDocument, newDocument));
+    adoptCustomElementRegistryIfNotKeptNull(shadowRoot, newDocument);
+    RefPtr scopedRegistry = scopedCustomElementRegistry(shadowRoot);
     return traverseSubtreeToUpdateTreeScope(shadowRoot, [&](Node& node) -> unsigned {
         if (&node.treeScope() != static_cast<TreeScope*>(&shadowRoot)) {
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.document() == &newDocument);
             return 0;
         }
-        node.moveNodeToNewDocumentFastCase(oldDocument, newDocument);
+        node.moveNodeToNewDocumentFastCase(oldDocument, newDocument, scopedRegistry.get());
         return 1;
     }, [&oldDocument, &newDocument](ShadowRoot& innerShadowRoot) {
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&innerShadowRoot.document() == &oldDocument);
@@ -2224,13 +2233,14 @@ inline unsigned Node::moveShadowTreeToNewDocumentFastCase(ShadowRoot& shadowRoot
 
 inline void Node::moveShadowTreeToNewDocumentSlowCase(ShadowRoot& shadowRoot, Document& oldDocument, Document& newDocument)
 {
-    adoptCustomElementRegistryIfNotExplicitlySet(shadowRoot, newDocument);
+    adoptCustomElementRegistryIfNotKeptNull(shadowRoot, newDocument);
+    RefPtr scopedRegistry = scopedCustomElementRegistry(shadowRoot);
     traverseSubtreeToUpdateTreeScope(shadowRoot, [&](Node& node) -> unsigned {
         if (&node.treeScope() != static_cast<TreeScope*>(&shadowRoot)) {
             RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.document() == &newDocument);
             return 0;
         }
-        node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument);
+        node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument, scopedRegistry.get());
         return 1;
     }, [&oldDocument, &newDocument](ShadowRoot& innerShadowRoot) {
         RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&innerShadowRoot.document() == &oldDocument);
@@ -2249,13 +2259,14 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
     bool newScopeIsUAShadowTree = newScope.rootNode().hasBeenInUserAgentShadowTree();
     if (&oldDocument.get() != &newDocument.get()) {
         oldDocument->incrementReferencingNodeCount();
+        RefPtr oldScopeScopedRegistry = scopedCustomElementRegistry(oldScope);
         bool isFastCase = isDocumentEligibleForFastAdoption(oldDocument, newDocument) && !newScopeIsUAShadowTree;
         if (isFastCase) {
             unsigned nodeCount = traverseSubtreeToUpdateTreeScope(root, [&](Node& node) -> unsigned {
                 ASSERT(!node.isTreeScope());
                 RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(&node.treeScope() == &oldScope);
                 node.setTreeScope(newScope);
-                node.moveNodeToNewDocumentFastCase(oldDocument, newDocument);
+                node.moveNodeToNewDocumentFastCase(oldDocument, newDocument, oldScopeScopedRegistry.get());
                 return 1;
             }, [&](ShadowRoot& shadowRoot) {
                 ASSERT_WITH_SECURITY_IMPLICATION(&shadowRoot.document() == oldDocument.ptr());
@@ -2271,7 +2282,7 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
                 if (newScopeIsUAShadowTree)
                     node.setEventTargetFlag(EventTargetFlag::HasBeenInUserAgentShadowTree);
                 node.setTreeScope(newScope);
-                node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument);
+                node.moveNodeToNewDocumentSlowCase(oldDocument, newDocument, oldScopeScopedRegistry.get());
                 return 1;
             }, [&](ShadowRoot& shadowRoot) {
                 ASSERT_WITH_SECURITY_IMPLICATION(&shadowRoot.document() == oldDocument.ptr());
@@ -2301,19 +2312,64 @@ void Node::moveTreeToNewScope(Node& root, TreeScope& oldScope, TreeScope& newSco
     }
 }
 
-inline void Node::adoptCustomElementRegistryIntoScopedRegistryDocument()
+NODELETE static inline void adoptCustomElementRegistryIntoScopedRegistryDocument(Node& node)
 {
     // Called during adoption only when the destination document's custom element registry is scoped.
     // An element that inherits the global custom element registry (neither uses the null registry
     // nor an explicit scoped registry) has no global registry to inherit in such a document, so it
     // ends up with a null custom element registry.
-    if (is<Element>(*this) && !usesNullCustomElementRegistry() && !usesScopedCustomElementRegistryMap())
-        setUsesNullCustomElementRegistry();
+    if (is<Element>(node) && !node.usesNullCustomElementRegistry() && !node.usesScopedCustomElementRegistryMap()) {
+        node.resetCustomElementRegistryType();
+        node.setUsesNullCustomElementRegistry();
+    }
 }
 
-void Node::moveNodeToNewDocumentFastCase(Document& oldDocument, Document& newDocument)
+// https://dom.spec.whatwg.org/#concept-node-adopt
+static bool shouldClearNullCustomElementRegistryOnAdoption(const Node& node, Document& newDocument)
 {
-    ASSERT(!oldDocument.shouldInvalidateNodeListAndCollectionCaches());
+    if (newDocument.usesNullCustomElementRegistry() || node.isShadowRoot())
+        return false;
+    if (!is<Element>(node))
+        return true;
+    RefPtr parent = node.parentNode();
+    if (!parent || (parent->isDocumentFragment() && !parent->isShadowRoot()))
+        return true;
+    RefPtr registry = CustomElementRegistry::registryForNodeOrTreeScope(*parent, protect(parent->isInShadowTree() ? parent->treeScope() : newDocument));
+    return registry && !registry->isScoped();
+}
+
+static void clearNullCustomElementRegistryOnAdoption(Node& node, Document& newDocument)
+{
+    node.resetCustomElementRegistryType();
+    if (is<Element>(node) && node.isInShadowTree() && node.treeScope().customElementRegistry() != newDocument.effectiveGlobalCustomElementRegistry())
+        node.setUsesGlobalCustomElementRegistry();
+}
+
+static ALWAYS_INLINE void adoptCustomElementRegistry(Node& node, CustomElementRegistry* scopedRegistryOfOldTreeScope, Document& newDocument)
+{
+    // An element keeps a scoped registry it got from its old tree scope.
+    if (scopedRegistryOfOldTreeScope && is<Element>(node) && !node.usesNullCustomElementRegistry()
+        && !node.usesScopedCustomElementRegistryMap() && !node.usesGlobalCustomElementRegistry()) [[unlikely]] {
+        if (node.treeScope().customElementRegistry() != scopedRegistryOfOldTreeScope)
+            CustomElementRegistry::addToScopedCustomElementRegistryMap(downcast<Element>(node), *scopedRegistryOfOldTreeScope);
+        return;
+    }
+
+    if (node.usesNullCustomElementRegistry() && shouldClearNullCustomElementRegistryOnAdoption(node, newDocument)) [[unlikely]]
+        clearNullCustomElementRegistryOnAdoption(node, newDocument);
+
+    if (auto* newRegistry = newDocument.customElementRegistry()) {
+        if (newRegistry->isScoped()) [[unlikely]]
+            adoptCustomElementRegistryIntoScopedRegistryDocument(node);
+    } else if (node.usesGlobalCustomElementRegistry()) [[unlikely]] {
+        node.resetCustomElementRegistryType();
+        node.setUsesNullCustomElementRegistry();
+    }
+}
+
+void Node::moveNodeToNewDocumentFastCase(Document& oldDocument, Document& newDocument, CustomElementRegistry* scopedRegistryOfOldTreeScope)
+{
+    ASSERT_WITH_SECURITY_IMPLICATION(!oldDocument.shouldInvalidateNodeListAndCollectionCaches());
     ASSERT(!oldDocument.hasNodeIterators());
     ASSERT(!oldDocument.hasRanges());
     ASSERT(!AXObjectCache::accessibilityEnabled() || !oldDocument.existingAXObjectCache());
@@ -2324,13 +2380,12 @@ void Node::moveNodeToNewDocumentFastCase(Document& oldDocument, Document& newDoc
     ASSERT(!transientMutationObserverRegistry());
     ASSERT(!oldDocument.numberOfIntersectionObservers());
 
+    if (hasValidQuerySelectorResults()) [[unlikely]]
+        oldDocument.removeQuerySelectorResults(*this);
+
     ensureWrapperForAdoptedNodeWithForeignGlobalObjectIfNeeded(*this, oldDocument, newDocument);
 
-    if (usesNullCustomElementRegistry() && !newDocument.usesNullCustomElementRegistry()) [[unlikely]]
-        clearUsesNullCustomElementRegistry();
-
-    if (auto* newRegistry = newDocument.customElementRegistry(); newRegistry && newRegistry->isScoped()) [[unlikely]]
-        adoptCustomElementRegistryIntoScopedRegistryDocument();
+    adoptCustomElementRegistry(*this, scopedRegistryOfOldTreeScope, newDocument);
 
     if (!hasTypeFlag(TypeFlag::HasDidMoveToNewDocument) && !hasEventTargetFlag(EventTargetFlag::HasLangAttr) && !hasEventTargetFlag(EventTargetFlag::HasXMLLangAttr)
         && !isDefinedCustomElement() && !isCustomElementUpgradeCandidate())
@@ -2340,18 +2395,17 @@ void Node::moveNodeToNewDocumentFastCase(Document& oldDocument, Document& newDoc
         element->didMoveToNewDocument(oldDocument, newDocument);
 }
 
-void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDocument)
+void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDocument, CustomElementRegistry* scopedRegistryOfOldTreeScope)
 {
+    if (hasValidQuerySelectorResults()) [[unlikely]]
+        oldDocument.removeQuerySelectorResults(*this);
+
     ensureWrapperForAdoptedNodeWithForeignGlobalObjectIfNeeded(*this, oldDocument, newDocument);
 
     newDocument.incrementReferencingNodeCount();
     oldDocument.decrementReferencingNodeCount();
 
-    if (usesNullCustomElementRegistry() && !newDocument.usesNullCustomElementRegistry()) [[unlikely]]
-        clearUsesNullCustomElementRegistry();
-
-    if (auto* newRegistry = newDocument.customElementRegistry(); newRegistry && newRegistry->isScoped()) [[unlikely]]
-        adoptCustomElementRegistryIntoScopedRegistryDocument();
+    adoptCustomElementRegistry(*this, scopedRegistryOfOldTreeScope, newDocument);
 
     if (hasRareData()) {
         if (auto* nodeLists = rareData()->nodeLists())
@@ -2513,7 +2567,7 @@ static inline bool tryAddEventListener(Node* targetNode, const AtomString& event
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
     if (typeInfo.isInCategory(EventCategory::MouseMoveRelated)) {
-        if (WeakPtr observer = document->contentChangeObserverIfExists())
+        if (RefPtr observer = document->contentChangeObserverIfExists())
             observer->didAddMouseMoveRelatedEventListener(eventType, *targetNode);
     }
 #endif
@@ -2964,7 +3018,7 @@ void Node::removedLastRef()
     if (auto* svgElement = dynamicDowncast<SVGElement>(*this))
         svgElement->detachAllProperties();
 
-#if ASSERT_ENABLED
+#if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
     m_deletionHasBegun = true;
 #endif
     delete this;
@@ -2972,7 +3026,7 @@ void Node::removedLastRef()
 
 void Node::incrementConnectedSubframeCount(unsigned amount)
 {
-    static_assert(RareDataBitFields { Page::maxNumberOfFrames, 0, 0, 0, 0 }.connectedSubframeCount == Page::maxNumberOfFrames, "connectedSubframeCount must fit Page::maxNumberOfFrames");
+    static_assert(RareDataBitFields { Page::maxNumberOfFrames, 0, 0, 0 }.connectedSubframeCount == Page::maxNumberOfFrames, "connectedSubframeCount must fit Page::maxNumberOfFrames");
 
     ASSERT(isContainerNode());
     auto bitfields = rareDataBitfields();
@@ -3014,23 +3068,9 @@ void Node::updateAncestorConnectedSubframeCountForInsertion() const
 
 TextDirection Node::effectiveTextDirection() const
 {
-    if (rareDataBitfields().usesEffectiveTextDirection)
-        return static_cast<TextDirection>(rareDataBitfields().effectiveTextDirection);
+    if (usesEffectiveTextDirection())
+        return hasStateFlag(StateFlag::EffectiveTextDirectionIsRTL) ? TextDirection::RTL : TextDirection::LTR;
     return document().documentElementTextDirection();
-}
-
-void Node::setEffectiveTextDirection(TextDirection direction)
-{
-    auto bitfields = rareDataBitfields();
-    bitfields.effectiveTextDirection = std::to_underlying(direction);
-    setRareDataBitfields(bitfields);
-}
-
-void Node::setUsesEffectiveTextDirection(bool value)
-{
-    auto bitfields = rareDataBitfields();
-    bitfields.usesEffectiveTextDirection = value;
-    setRareDataBitfields(bitfields);
 }
 
 bool Node::inRenderedDocument() const

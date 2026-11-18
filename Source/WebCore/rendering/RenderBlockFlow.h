@@ -125,8 +125,8 @@ class RenderBlockFlow : public RenderBlock {
     WTF_MAKE_TZONE_ALLOCATED(RenderBlockFlow);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBlockFlow);
 public:
-    RenderBlockFlow(Type, Element&, Style::ComputedStyle&&, OptionSet<BlockFlowFlag> = { });
-    RenderBlockFlow(Type, Document&, Style::ComputedStyle&&, OptionSet<BlockFlowFlag> = { });
+    RenderBlockFlow(Type, Element&, UniqueRef<Style::ComputedStyle>&&, OptionSet<BlockFlowFlag> = { });
+    RenderBlockFlow(Type, Document&, UniqueRef<Style::ComputedStyle>&&, OptionSet<BlockFlowFlag> = { });
     virtual ~RenderBlockFlow();
         
     void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) override;
@@ -328,7 +328,7 @@ public:
     inline void setLogicalWidthForFloat(FloatingObject&, LayoutUnit logicalWidth); // Defined in RenderBlockFlowInlines.h
     inline void setLogicalMarginsForFloat(FloatingObject&, LayoutUnit logicalLeftMargin, LayoutUnit logicalBeforeMargin); // Defined in RenderBlockFlowInlines.h
 
-    NODELETE LayoutPoint flipFloatForWritingModeForChild(const FloatingObject&, const LayoutPoint&) const;
+    NODELETE LayoutPoint blockStartRelativeToPhysicalForFloat(const FloatingObject&, const LayoutPoint&) const;
 
     void setChildrenInline(bool) final;
 
@@ -375,7 +375,7 @@ public:
     LayoutUnit pageLogicalHeightForOffset(LayoutUnit offset) const;
     LayoutUnit pageRemainingLogicalHeightForOffset(LayoutUnit offset, PageBoundaryRule = IncludePageBoundary) const;
     NODELETE LayoutUnit logicalHeightForChildForFragmentation(const RenderBox& child) const;
-    bool hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule = ExcludePageBoundary) const;
+    bool hasNextPage(LayoutUnit logicalOffset) const;
 
     void updateColumnProgressionFromStyle(const Style::ComputedStyle&);
     void updateStylesForColumnChildren(const Style::ComputedStyle* oldStyle);

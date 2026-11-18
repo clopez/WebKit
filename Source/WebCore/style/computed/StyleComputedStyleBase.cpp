@@ -110,9 +110,7 @@ Style::ComputedStyle* ComputedStyleBase::addPseudoElementStyle(std::unique_ptr<S
 
     ASSERT(pseudo->pseudoElementType());
 
-    auto* result = pseudo.get();
-    m_pseudoElementStyles.add(*result->pseudoElementIdentifier(), WTF::move(pseudo));
-    return result;
+    return m_pseudoElementStyles.add(*pseudo->pseudoElementIdentifier(), WTF::move(pseudo)).iterator->value.get();
 }
 
 // MARK: - Custom properties
@@ -246,7 +244,7 @@ const FontMetrics& ComputedStyleBase::metricsOfPrimaryFont() const
     return m_inheritedData->fontData->fontCascade.metricsOfPrimaryFont();
 }
 
-std::pair<FontOrientation, NonCJKGlyphOrientation> ComputedStyleBase::fontAndGlyphOrientation()
+std::pair<FontOrientation, NonCJKGlyphOrientation> ComputedStyleBase::fontAndGlyphOrientation() const
 {
     if (!writingMode().isVerticalTypographic())
         return { FontOrientation::Horizontal, NonCJKGlyphOrientation::Mixed };

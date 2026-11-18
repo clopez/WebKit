@@ -123,6 +123,8 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'checkout-pull-request',
             'validate-change-content',
             'kill-old-processes',
+            'install-cmake',
+            'install-ninja',
             'validate-change',
             'compile-webkit'
         ],
@@ -223,6 +225,7 @@ class TestExpectedBuildSteps(unittest.TestCase):
         ],
         'macOS-Golden-Gate-Debug-WebDriver-Tests-EWS': [
             'configure-build',
+            'check-change-relevance',
             'validate-change',
             'configuration',
             'clean-up-git-repo',
@@ -882,6 +885,8 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'kill-old-processes',
             'download-built-product',
             'extract-built-product',
+            'find-changed-api-tests',
+            'run-api-tests-in-stress-mode',
             'run-api-tests',
             'set-build-summary'
         ],
@@ -903,6 +908,8 @@ class TestExpectedBuildSteps(unittest.TestCase):
             'kill-old-processes',
             'download-built-product',
             'extract-built-product',
+            'find-changed-api-tests',
+            'run-api-tests-in-stress-mode',
             'run-api-tests',
             'set-build-summary'
         ],

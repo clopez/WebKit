@@ -145,7 +145,7 @@ void EventRegionContext::uniteInteractionRegions(const RenderObject& renderer, c
         return;
 
     if (auto renderedRegion = interactionRegionForRenderedRegion(renderer, layerBounds, clipOffset, transform)) {
-        auto& [interactionRegion, shapeIsInset, hasNoVisualBorders] = *renderedRegion;
+        auto& [interactionRegion, shapeIsInset, hasNoVisualBorders, guardsCompositedContent] = *renderedRegion;
         auto rectForTracking = enclosingIntRect(interactionRegion.rectInLayerCoordinates);
 
         if (interactionRegion.type == InteractionRegion::Type::Occlusion) {
@@ -158,6 +158,9 @@ void EventRegionContext::uniteInteractionRegions(const RenderObject& renderer, c
         }
 
         if (interactionRegion.type == InteractionRegion::Type::Guard) {
+            if (guardsCompositedContent)
+                m_guardContainersWithCompositedContent.add(interactionRegion.nodeIdentifier);
+
             auto result = m_guardRects.add(rectForTracking, Inflated::No);
             if (!result.isNewEntry)
                 return;
@@ -308,6 +311,10 @@ void EventRegionContext::resolveGuardContainers(float minimumCornerRadius)
         if (m_consolidatedElements.contains(region.nodeIdentifier))
             return true;
 
+        // The guarded child's region is in its own composited layer, which this context can't see.
+        if (m_guardContainersWithCompositedContent.contains(region.nodeIdentifier))
+            return false;
+
         auto rectForTracking = enclosingIntRect(region.rectInLayerCoordinates);
         auto result = m_interactionRectsAndContentHints.add(rectForTracking, region.contentHint);
         if (result.isNewEntry) {
@@ -340,11 +347,8 @@ void EventRegionContext::shrinkWrapInteractionRegions()
         FloatRect layerBounds;
         Region coveredRegion;
         Vector<InteractionRegion> toAddAfterMerge;
-        Vector<FloatRect> discoveredRects;
-        Vector<Path> discoveredClipPaths;
-
-        discoveredRects.reserveInitialCapacity(discoveredRegions.size());
-        discoveredClipPaths.reserveInitialCapacity(discoveredRegions.size());
+        Vector<FloatRect> discoveredRects(ReserveCapacityTag { }, discoveredRegions.size());
+        Vector<Path> discoveredClipPaths(ReserveCapacityTag { }, discoveredRegions.size());
 
         // Small gaps don't prevent the regions from filling a single rect.
         constexpr float looseCoverageMargin = 3;
@@ -555,7 +559,13 @@ void EventRegion::unite(const Region& region, const RenderObject& renderer, cons
         subtractAutoFromTouchActions(region);
 #endif
 
-    uniteEventListeners(region, style.eventListenerRegionTypes());
+    auto eventListenerRegionTypes = style.eventListenerRegionTypes();
+#if ENABLE(WHEEL_EVENT_REGIONS)
+    // A listbox scrolls on the main thread, so wheel events over it need to be handled synchronously, like those over a non-passive wheel event listener.
+    if (renderer.isRenderListBox())
+        eventListenerRegionTypes.add(EventListenerRegionType::NonPassiveWheel);
+#endif
+    uniteEventListeners(region, eventListenerRegionTypes);
 
 #if ENABLE(EDITABLE_REGION)
     if (m_editableRegion && (overrideUserModifyIsEditable || style.usedUserModify() != UserModify::ReadOnly)) {

@@ -38,6 +38,7 @@
 #include <WebCore/WebGPUCppAPI.h>
 #include <WebCore/WebGPUImageCopyExternalImage.h>
 #include <WebCore/WebGPUImageCopyTextureTagged.h>
+#include <wtf/Borrow.h>
 #include <wtf/TZoneMallocInlines.h>
 
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
@@ -144,7 +145,7 @@ void RemoteQueue::writeBufferWithCopy(
         return;
 
     MESSAGE_CHECK(data.size() <= WebGPU::maxCrossProcessResourceCopySize);
-    protect(m_backing)->writeBuffer(protect(*convertedBuffer), bufferOffset, data.span());
+    protect(m_backing)->writeBuffer(protect(*convertedBuffer), bufferOffset, borrow(data)->span());
 }
 
 void RemoteQueue::writeTexture(
@@ -182,7 +183,7 @@ void RemoteQueue::writeTextureWithCopy(
         return;
 
     MESSAGE_CHECK(data.size() <= WebGPU::maxCrossProcessResourceCopySize);
-    protect(m_backing)->writeTexture(*convertedDestination, data.span(), dataLayout, size);
+    protect(m_backing)->writeTexture(*convertedDestination, borrow(data)->span(), dataLayout, size);
 }
 
 void RemoteQueue::copyExternalImageToTexture(
@@ -235,6 +236,8 @@ void RemoteQueue::copyExternalImageFromVideoFrameToTexture(
     const WebGPU::ImageCopyTextureTagged& destination,
     const WebGPU::Extent3D& copySize)
 {
+    MESSAGE_CHECK(source.sourceSize.width() >= 0 && source.sourceSize.height() >= 0);
+
     // Resolved the same way RemoteDevice resolves an external texture's frame: a shared frame is read
     // out of the shared video frame memory, and a media player identifier is asked for the frame it is
     // showing right now.
@@ -257,6 +260,8 @@ void RemoteQueue::copyExternalImageFromVideoFrameToTexture(
             connection->performWithMediaPlayerOnMainThread(*source.mediaIdentifier, [&](auto& player) mutable {
                 if (auto videoFrame = player.videoFrameForCurrentTime())
                     takeFrame(*videoFrame);
+                auto naturalSize = player.naturalSize();
+                source.sourceSize = { clampTo<int>(clampToUnsigned(naturalSize.width())), clampTo<int>(clampToUnsigned(naturalSize.height())) };
             });
         }
     }

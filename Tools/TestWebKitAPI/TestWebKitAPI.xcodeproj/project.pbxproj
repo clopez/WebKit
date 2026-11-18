@@ -69,6 +69,10 @@
 		143DDE9820C9018B007F76FA /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 574F55D0204D471C002948C6 /* Security.framework */; };
 		1AEDE22613E5E7E700E62FE8 /* InjectedBundleControllerMac.mm in Sources */ = {isa = PBXBuildFile; fileRef = 1AEDE22413E5E7A000E62FE8 /* InjectedBundleControllerMac.mm */; };
 		2B7E14D63A5F60718293C1A3 /* SyntheticNSEvent.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2B7E14D63A5F60718293C1A2 /* SyntheticNSEvent.mm */; };
+		2C4F7A1E2FB1C0D000A1B202 /* JSBasics.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C4F7A1E2FB1C0D000A1B201 /* JSBasics.cpp */; };
+		2C4F7A1E2FB1C0D000A1B204 /* TestCommand.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C4F7A1E2FB1C0D000A1B203 /* TestCommand.cpp */; };
+		2C4F7A1E2FB1C0D000A1B206 /* TestFeatures.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C4F7A1E2FB1C0D000A1B205 /* TestFeatures.cpp */; };
+		2C4F7A1E2FB1C0D000A1B208 /* WPTFunctions.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2C4F7A1E2FB1C0D000A1B207 /* WPTFunctions.cpp */; };
 		3A5DDAF528D1638A004DA950 /* libicucore.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 3A5DDAF428D1638A004DA950 /* libicucore.tbd */; };
 		3A5DDB0C28D53325004DA950 /* WebKit.framework in Product Dependencies */ = {isa = PBXBuildFile; fileRef = C081224813FC1B0300DC39AE /* WebKit.framework */; };
 		3A5DDB2C28D5525E004DA950 /* libWTF.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7C83E0291D0A5CDF00FEBCF3 /* libWTF.a */; };
@@ -430,6 +434,10 @@
 		2B648DBA28C1C1F700791F2B /* WebKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = WebKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B7E14D63A5F60718293C1A1 /* SyntheticNSEvent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SyntheticNSEvent.h; path = ../TestRunnerShared/mac/SyntheticNSEvent.h; sourceTree = "<group>"; };
 		2B7E14D63A5F60718293C1A2 /* SyntheticNSEvent.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = SyntheticNSEvent.mm; path = ../TestRunnerShared/mac/SyntheticNSEvent.mm; sourceTree = "<group>"; };
+		2C4F7A1E2FB1C0D000A1B201 /* JSBasics.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = JSBasics.cpp; path = ../TestRunnerShared/Bindings/JSBasics.cpp; sourceTree = "<group>"; };
+		2C4F7A1E2FB1C0D000A1B203 /* TestCommand.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = TestCommand.cpp; path = ../TestRunnerShared/TestCommand.cpp; sourceTree = "<group>"; };
+		2C4F7A1E2FB1C0D000A1B205 /* TestFeatures.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = TestFeatures.cpp; path = ../TestRunnerShared/TestFeatures.cpp; sourceTree = "<group>"; };
+		2C4F7A1E2FB1C0D000A1B207 /* WPTFunctions.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = WPTFunctions.cpp; path = ../TestRunnerShared/WPTFunctions.cpp; sourceTree = "<group>"; };
 		3A15785328D1505B00142DB1 /* TestWGSL */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = TestWGSL; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A5DDAF228D1637A004DA950 /* libicu.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = libicu.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		3A5DDAF428D1638A004DA950 /* libicucore.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libicucore.tbd; path = usr/lib/libicucore.tbd; sourceTree = SDKROOT; };
@@ -570,21 +578,22 @@
 		07AA27602F83C3A900FE10FC /* Exceptions for "Tests" folder in "TestWebKitAPI" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Testing+Extras.swift",
 				WebCore/cocoa/WebAVPlayerLayerTests.mm,
-				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/DoubleClickGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/InactiveWindowAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/QuirksAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/RefreshControlGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/SiteIsolationAppKitGesturesTests.swift",
 				WebKit/WebPage/ControlledByExternalAgent.swift,
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/EnhancedSecurityTests.swift,
 				WebKit/WebPage/JavaScriptEvaluationTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
 				WebKit/WebPage/JSHandleTests.swift,
+				"WebKit/WebPage/Mac Touch Support Tests/BasicMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/DoubleTapMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/EmbeddedMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/InactiveWindowMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/MacTouchSupportTestUtilities.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/QuirksMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/RefreshControlMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/SiteIsolationMacTouchSupportTests.swift",
 				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
 				WebKit/WebPage/SimulateClickOverTextTests.swift,
@@ -597,11 +606,18 @@
 				WebKit/WebPage/WebPageTransferableTests.swift,
 				WebKit/WebPage/WebViewInspectorAttachmentTests.swift,
 				WebKit/WebPage/WebViewTests.swift,
+				WebKit/WKWebView/Challenge.swift,
 				WebKit/WKWebView/CodingTests.swift,
 				WebKit/WKWebView/ContentAutoSizing.swift,
+				WebKit/WKWebView/CrossOriginOpenerPolicyAboutBlankTests.swift,
+				WebKit/WKWebView/DigitalCredentialsNetworkProcess.swift,
 				WebKit/WKWebView/HTTP2Server.swift,
 				WebKit/WKWebView/HTTP3Server.swift,
+				WebKit/WKWebView/NavigationResponseProcessSwapTests.swift,
 				WebKit/WKWebView/PDFLookUpTests.swift,
+				WebKit/WKWebView/ProcessSwapBackForwardTests.swift,
+				WebKit/WKWebView/ProcessSwapCOOPProcessReuseTests.swift,
+				WebKit/WKWebView/ProcessSwapStaleNavigationTests.swift,
 				WebKit/WKWebView/SiteIsolationAnimationControlTests.swift,
 				WebKit/WKWebView/SiteIsolationAutocorrectionTests.swift,
 				WebKit/WKWebView/SiteIsolationBackForwardTests.swift,
@@ -609,13 +625,19 @@
 				WebKit/WKWebView/SiteIsolationContentsOfAllFramesTests.swift,
 				WebKit/WKWebView/SiteIsolationCookieTests.swift,
 				WebKit/WKWebView/SiteIsolationDataDetectionTests.swift,
+				WebKit/WKWebView/SiteIsolationDragAndDropTests.swift,
+				WebKit/WKWebView/SiteIsolationDragPreviewTests.swift,
 				WebKit/WKWebView/SiteIsolationEditableRegionTests.swift,
 				WebKit/WKWebView/SiteIsolationEditingTests.swift,
+				WebKit/WKWebView/SiteIsolationElementsFindTests.swift,
 				WebKit/WKWebView/SiteIsolationFullscreenTests.swift,
 				WebKit/WKWebView/SiteIsolationLinkIndicatorTests.swift,
 				WebKit/WKWebView/SiteIsolationLookUpTests.swift,
 				WebKit/WKWebView/SiteIsolationNavigationTests.swift,
+				WebKit/WKWebView/SiteIsolationPolicyDecisionTests.swift,
+				WebKit/WKWebView/SiteIsolationPositionInformationTests.swift,
 				WebKit/WKWebView/SiteIsolationProvisionalPageTests.swift,
+				WebKit/WKWebView/SiteIsolationSafeAreaInsetsTests.swift,
 				WebKit/WKWebView/SiteIsolationServiceWorkerTests.swift,
 				WebKit/WKWebView/SiteIsolationSessionStateTests.swift,
 				WebKit/WKWebView/SiteIsolationSnapshotTests.swift,
@@ -632,19 +654,30 @@
 				WebKit/WKWebView/TextSize.swift,
 				WebKit/WKWebView/TextWidth.swift,
 				WebKit/WKWebView/TimeZoneOverride.swift,
+				WebKit/WKWebView/ViewportFitEdges.swift,
+				WebKit/WKWebView/WebAutomationWebExtensionPages.swift,
 				WebKit/WKWebView/WKBackForwardListTests.swift,
 				WebKit/WKWebView/WKWebExtensionAPIAction.swift,
 				WebKit/WKWebView/WKWebExtensionAPIAlarms.swift,
 				WebKit/WKWebView/WKWebExtensionAPICommands.swift,
 				WebKit/WKWebView/WKWebExtensionAPICookies.swift,
 				WebKit/WKWebView/WKWebExtensionAPIDeclarativeNetRequest.swift,
+				WebKit/WKWebView/WKWebExtensionAPIDevTools.swift,
 				WebKit/WKWebView/WKWebExtensionAPIDOM.swift,
 				WebKit/WKWebView/WKWebExtensionAPIEvent.swift,
 				WebKit/WKWebView/WKWebExtensionAPIExtension.swift,
+				WebKit/WKWebView/WKWebExtensionAPIExtensionTypes.swift,
 				WebKit/WKWebView/WKWebExtensionAPINamespace.swift,
+				WebKit/WKWebView/WKWebExtensionAPINotifications.swift,
 				WebKit/WKWebView/WKWebExtensionAPIOffscreen.swift,
 				WebKit/WKWebView/WKWebExtensionAPIPermissions.swift,
+				WebKit/WKWebView/WKWebExtensionAPIStorage.swift,
+				WebKit/WKWebView/WKWebExtensionAPITest.swift,
+				WebKit/WKWebView/WKWebExtensionAPIWebNavigation.swift,
+				WebKit/WKWebView/WKWebExtensionAPIWebRequest.swift,
 				WebKit/WKWebView/WKWebExtensionAPIWindows.swift,
+				WebKit/WKWebView/WKWebExtensionContext.swift,
+				WebKit/WKWebView/WKWebExtensionController.swift,
 				WebKit/WKWebView/WKWebExtensionControllerConfiguration.swift,
 				WebKit/WKWebView/WKWebExtensionDataRecord.swift,
 				WebKit/WKWebView/WKWebExtensionMatchPattern.swift,
@@ -672,6 +705,8 @@
 				"cocoa/AppKit+Extras.swift",
 				"cocoa/Bundle+Extras.swift",
 				cocoa/CocoaTypes.swift,
+				cocoa/DragLiftPreview.swift,
+				cocoa/ExternalDrag.swift,
 				"cocoa/Foundation+Extras.swift",
 				cocoa/HTTPServer.mm,
 				cocoa/HTTPServer/HTTPServer.swift,
@@ -680,6 +715,7 @@
 				cocoa/HTTPServer/HTTPServerCore.swift,
 				cocoa/HTTPServer/HTTPServerRouting.swift,
 				cocoa/HTTPServer/HTTPSProxyFramer.swift,
+				cocoa/HTTPServer/TestCertificates.mm,
 				cocoa/HTTPServer/TestCertificates.swift,
 				cocoa/ImageAnalysisTestingUtilities.swift,
 				cocoa/JavaScriptMessages.swift,
@@ -687,6 +723,7 @@
 				cocoa/MiniTURNServer.mm,
 				cocoa/PDFTestHelpers.swift,
 				cocoa/ProcessSwapTestUtilities.swift,
+				"cocoa/Recap+Extras.swift",
 				cocoa/SafeBrowsingTestUtilities.swift,
 				cocoa/SiteIsolationTestUtilities.swift,
 				cocoa/StdLibExtras.swift,
@@ -790,9 +827,11 @@
 				JavaScriptCore/JSRunLoopTimer.mm,
 				JavaScriptCore/MarkedVector.cpp,
 				JavaScriptCore/PropertySlot.cpp,
+				JavaScriptCore/RegularExpression.cpp,
 				JavaScriptCore/StrongBlock.cpp,
 				JavaScriptCore/WeakSet.cpp,
 				Misc/TestRunnerTests.cpp,
+				TestRunnerShared/TestFeaturesTests.cpp,
 				TestWebKitAPIAdditionsHook.mm,
 				WebCore/AffineTransform.cpp,
 				WebCore/AnimationFrameRate.cpp,
@@ -827,6 +866,7 @@
 				WebCore/cocoa/MediaRecorderPrivateWriterTests.cpp,
 				WebCore/cocoa/MediaSamplesDecoderTests.mm,
 				WebCore/cocoa/PaymentSummaryItemsCocoa.mm,
+				WebCore/cocoa/PlanarImageConverterCVTests.mm,
 				WebCore/cocoa/PlatformScreenTests.mm,
 				WebCore/cocoa/PrivateClickMeasurementCocoa.mm,
 				WebCore/cocoa/ResourceMonitor.mm,
@@ -874,6 +914,7 @@
 				WebCore/FlowModeTests.cpp,
 				WebCore/FontCascade.cpp,
 				WebCore/FontShadowTests.cpp,
+				WebCore/GradientColorStopsTests.cpp,
 				WebCore/GridPosition.cpp,
 				WebCore/H264UtilitiesTests.cpp,
 				WebCore/HEVCUtilitiesTests.cpp,
@@ -914,6 +955,7 @@
 				WebCore/ParsedContentType.cpp,
 				WebCore/PathTests.cpp,
 				WebCore/PixelBufferConversionTests.cpp,
+				WebCore/PlanarImageConverterTests.cpp,
 				WebCore/PlatformCAAnimationKeyPath.cpp,
 				WebCore/PlatformDynamicRangeLimitTests.cpp,
 				WebCore/PlatformMediaSessionManagerTests.cpp,
@@ -928,6 +970,7 @@
 				WebCore/RegionTests.cpp,
 				WebCore/RegistrableDomain.cpp,
 				WebCore/RenderStyleChange.cpp,
+				WebCore/ResourceResponsePersistence.cpp,
 				WebCore/SampleMap.cpp,
 				WebCore/SecurityOrigin.cpp,
 				WebCore/SerializedScriptValue.cpp,
@@ -1289,10 +1332,12 @@
 			membershipExceptions = (
 				WTF/ASCIILiteral.cpp,
 				WTF/AtomString.cpp,
+				WTF/AutomaticThread.cpp,
 				WTF/Base64.cpp,
 				WTF/BitSet.cpp,
 				WTF/BitVector.cpp,
 				WTF/BloomFilter.cpp,
+				WTF/bmalloc/MAR.cpp,
 				WTF/Borrow.cpp,
 				WTF/BoxPtr.cpp,
 				WTF/BumpPointerAllocator.cpp,
@@ -1376,6 +1421,7 @@
 				WTF/LEBEncoder.cpp,
 				WTF/LifecycleLogger.cpp,
 				WTF/LineEnding.cpp,
+				WTF/ListFormatter.cpp,
 				WTF/ListHashSet.cpp,
 				WTF/Lock.cpp,
 				WTF/Logger.cpp,
@@ -1496,20 +1542,20 @@
 		07C913DE2F820CCA003A09D8 /* Exceptions for "Tests" folder in "TestWebKitAPIBundle" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				"WebKit/WebPage/AppKit Gesture Tests/AppKitGesturesTestsSupport.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/BasicAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/DoubleClickGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/EmbeddedAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/InactiveWindowAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/QuirksAppKitGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/RefreshControlGesturesTests.swift",
-				"WebKit/WebPage/AppKit Gesture Tests/SiteIsolationAppKitGesturesTests.swift",
 				WebKit/WebPage/ControlledByExternalAgent.swift,
 				WebKit/WebPage/EditingFontSizeTests.swift,
 				WebKit/WebPage/EnhancedSecurityTests.swift,
 				WebKit/WebPage/JavaScriptEvaluationTests.swift,
 				WebKit/WebPage/JavaScriptExpressionTests.swift,
 				WebKit/WebPage/JSHandleTests.swift,
+				"WebKit/WebPage/Mac Touch Support Tests/BasicMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/DoubleTapMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/EmbeddedMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/InactiveWindowMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/MacTouchSupportTestUtilities.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/QuirksMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/RefreshControlMacTouchSupportTests.swift",
+				"WebKit/WebPage/Mac Touch Support Tests/SiteIsolationMacTouchSupportTests.swift",
 				WebKit/WebPage/NavigatorWebDriverOverride.swift,
 				WebKit/WebPage/SendInspectorMessage.swift,
 				WebKit/WebPage/SimulateClickOverTextTests.swift,
@@ -1531,6 +1577,7 @@
 		07C913DF2F820CCA003A09D8 /* Exceptions for "Tests" folder in "TestWGSL" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				WebGPU/UncapturedErrorCallbackTests.cpp,
 				WGSL/ASTStringDumperTests.cpp,
 				WGSL/ConstLiteralTests.cpp,
 				WGSL/LexerTests.cpp,
@@ -1539,7 +1586,6 @@
 				WGSL/ParserTests.cpp,
 				WGSL/TestWGSLAPI.cpp,
 				WGSL/TypeCheckingTests.mm,
-				WebGPU/UncapturedErrorCallbackTests.cpp,
 			);
 			target = 3A15783C28D1505B00142DB1 /* TestWGSL */;
 		};
@@ -2113,10 +2159,14 @@
 		DD7024AE302CE42A009B6CC0 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
+				2C4F7A1E2FB1C0D000A1B201 /* JSBasics.cpp */,
 				7A1C4E2F2E8B9D0100A1B2D0 /* QuirkTable.json */,
 				2B7E14D63A5F60718293C1A1 /* SyntheticNSEvent.h */,
 				2B7E14D63A5F60718293C1A2 /* SyntheticNSEvent.mm */,
+				2C4F7A1E2FB1C0D000A1B203 /* TestCommand.cpp */,
+				2C4F7A1E2FB1C0D000A1B205 /* TestFeatures.cpp */,
 				CC1FEED000000000000FF001 /* WebFoundTextRange.cpp */,
+				2C4F7A1E2FB1C0D000A1B207 /* WPTFunctions.cpp */,
 			);
 			name = Shared;
 			sourceTree = SOURCE_ROOT;
@@ -2634,7 +2684,10 @@
 		7CCE7E881A41144E00447C4C /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			files = (
+				2C4F7A1E2FB1C0D000A1B202 /* JSBasics.cpp in Sources */,
 				2B7E14D63A5F60718293C1A3 /* SyntheticNSEvent.mm in Sources */,
+				2C4F7A1E2FB1C0D000A1B204 /* TestCommand.cpp in Sources */,
+				2C4F7A1E2FB1C0D000A1B206 /* TestFeatures.cpp in Sources */,
 				5C9D922C22D7DE12008E9266 /* UnifiedSource1-nonARC.mm in Sources */,
 				5C9D922E22D7DE1C008E9266 /* UnifiedSource1.cpp in Sources */,
 				5C9D922D22D7DE19008E9266 /* UnifiedSource2-nonARC.mm in Sources */,
@@ -2695,6 +2748,7 @@
 				F5971BD071D50EA78EF87EE5 /* UnifiedSource53-nonARC.mm in Sources */,
 				07AA54552F8200000000A055 /* UnifiedSource54-nonARC.mm in Sources */,
 				07792FA62F9D9AE9009EF126 /* WebProcessPlugInWithInternals.mm in Sources */,
+				2C4F7A1E2FB1C0D000A1B208 /* WPTFunctions.cpp in Sources */,
 			);
 		};
 		8DD76F990486AA7600D96B5E /* Sources */ = {

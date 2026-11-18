@@ -48,6 +48,7 @@
 #include "HTMLPictureElement.h"
 #include "HTMLSourceElement.h"
 #include "HTMLSrcsetParser.h"
+#include "ImageAnimationTimeline.h"
 #include "ImageOrientation.h"
 #include "ImageRequestState.h"
 #include "ImageTypes.h"
@@ -128,10 +129,8 @@ HTMLImageElement::~HTMLImageElement()
     Ref document = this->document();
     document->removeDynamicMediaQueryDependentImage(*this);
     setForm(nullptr);
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     if (RefPtr page = document->page())
         page->removeIndividuallyPlayingAnimationElement(*this);
-#endif
 }
 
 void HTMLImageElement::resetFormOwner()
@@ -557,9 +556,9 @@ const AtomString& HTMLImageElement::altText() const
     return attributeWithoutSynchronization(titleAttr);
 }
 
-RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(Style::ComputedStyle&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> HTMLImageElement::createElementRenderer(UniqueRef<Style::ComputedStyle>&& style, const RenderTreePosition&)
 {
-    if (style.content().isData())
+    if (style->content().isData())
         return RenderElement::createFor(*this, WTF::move(style));
 
     return createRenderer<RenderImage>(RenderObject::Type::Image, *this, WTF::move(style), nullptr, m_currentPixelDensity);
@@ -991,11 +990,42 @@ bool HTMLImageElement::allowsAnimation() const
     RELEASE_ASSERT_NOT_REACHED();
 }
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+Ref<ImageAnimationTimeline> HTMLImageElement::imageAnimationTimeline() const
+{
+    if (m_imageAnimationTimeline)
+        return *m_imageAnimationTimeline;
+    RefPtr page = document().page();
+    return page ? page->imageAnimationTimeline() : ImageAnimationTimeline::normal();
+}
+
+void HTMLImageElement::clearImageAnimationTimeline()
+{
+    RefPtr timeline = std::exchange(m_imageAnimationTimeline, nullptr);
+    if (!timeline)
+        return;
+
+    if (timeline->state() == ImageAnimationTimeline::State::Running) {
+        if (RefPtr page = document().page())
+            page->removeIndividuallyPlayingAnimationElement(*this);
+    }
+}
+
 void HTMLImageElement::setAnimationOverride(ImageAnimationOverride animationOverride)
 {
     if (RefPtr image = this->image()) {
         image->setAnimationOverride(animationOverride);
+        // A new timeline for each change, so that a pause holds the image where it is when next drawn.
+        switch (animationOverride) {
+        case ImageAnimationOverride::None:
+            m_imageAnimationTimeline = nullptr;
+            break;
+        case ImageAnimationOverride::Play:
+            m_imageAnimationTimeline = ImageAnimationTimeline::createRunning();
+            break;
+        case ImageAnimationOverride::Pause:
+            m_imageAnimationTimeline = ImageAnimationTimeline::createPaused();
+            break;
+        }
         if (CheckedPtr renderer = this->renderer())
             renderer->repaint();
 
@@ -1007,7 +1037,6 @@ void HTMLImageElement::setAnimationOverride(ImageAnimationOverride animationOver
         }
     }
 }
-#endif
 
 #if ENABLE(ATTACHMENT_ELEMENT)
 
@@ -1247,11 +1276,6 @@ void HTMLImageElement::prepareImmersivePresentation(CompletionHandler<void(Excep
     if (auto error = immersiveImageError())
         return completion(WTF::move(*error));
     completion({ });
-}
-
-void HTMLImageElement::presentImmersivePresentation(ChromeClient& client, CompletionHandler<void(bool)>&& completion)
-{
-    client.presentImmersiveImageElement(*this, WTF::move(completion));
 }
 
 std::optional<Exception> HTMLImageElement::immersiveImageError() const

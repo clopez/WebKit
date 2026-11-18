@@ -70,6 +70,9 @@
 #import "WKAlternatePDFHUDView.h"
 #import "WKAppKitGestureController.h"
 #import "WKDefaultPDFHUDView.h"
+#if ENABLE(DOCUMENT_PIP)
+#import "WKDocumentPictureInPictureWindowController.h"
+#endif
 #import "WKEditCommand.h"
 #import "WKErrorInternal.h"
 #import "WKFullScreenWindowController.h"
@@ -129,6 +132,7 @@
 #import <WebCore/LegacyNSPasteboardTypes.h>
 #import <WebCore/LoaderNSURLExtras.h>
 #import <WebCore/LocalizedStrings.h>
+#import <WebCore/NodeHTMLConverter.h>
 #import <WebCore/NowPlayingInfo.h>
 #import <WebCore/Pasteboard.h>
 #import <WebCore/PlatformDynamicRangeLimitCocoa.h>
@@ -1363,8 +1367,7 @@ WebViewImpl::WebViewImpl(WKWebView *view, WebProcessPool& processPool, Ref<API::
     [view addTrackingArea:m_primaryTrackingArea.get()];
     [view addTrackingArea:m_flagsChangedEventMonitorTrackingArea.get()];
 
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL NSView *subview in view.subviews) {
+    for (NSView *subview in view.subviews) {
         if (RetainPtr layerHostingView = dynamic_objc_cast<WKFlippedView>(subview)) {
             // A layer hosting view may have already been created and added to the view hierarchy
             // in the process of initializing the WKWebView from an NSCoder.
@@ -1465,6 +1468,10 @@ WebViewImpl::~WebViewImpl()
     [m_windowVisibilityObserver stopObserving];
     m_targetWindowForMovePreparation = nil;
 
+#if ENABLE(DOCUMENT_PIP)
+    closeDocumentPictureInPictureWindowController();
+#endif
+
     m_page->close();
 
     WebProcessPool::statistics().wkViewCount--;
@@ -1526,6 +1533,11 @@ void WebViewImpl::processDidExit()
 void WebViewImpl::pageClosed()
 {
     updateRemoteAccessibilityRegistration(false);
+
+#if ENABLE(DOCUMENT_PIP)
+    // https://wicg.github.io/document-picture-in-picture/#close-on-destroy
+    closeDocumentPictureInPictureWindowController();
+#endif
 }
 
 void WebViewImpl::didRelaunchProcess()
@@ -2448,7 +2460,7 @@ bool WebViewImpl::acceptsFirstMouse(NSEvent *event)
         return false;
 
     auto previousEvent = setLastMouseDownEvent(event);
-    Ref mouseEvent = WebMouseEvent::create(WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::UserDriven));
+    Ref mouseEvent = WebMouseEvent::create(WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::Default));
     bool result = m_page->acceptsFirstMouse(event.eventNumber, WTF::move(mouseEvent));
     setLastMouseDownEvent(previousEvent.get());
     return result;
@@ -2477,7 +2489,7 @@ bool WebViewImpl::shouldDelayWindowOrderingForEvent(NSEvent *event)
     }
 
     auto previousEvent = setLastMouseDownEvent(event);
-    Ref mouseEvent = WebMouseEvent::create(WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::UserDriven));
+    Ref mouseEvent = WebMouseEvent::create(WebEventFactory::createWebMouseEvent(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::Default));
     bool result = m_page->shouldDelayWindowOrderingForEvent(WTF::move(mouseEvent));
     setLastMouseDownEvent(previousEvent.get());
     return result;
@@ -2765,7 +2777,7 @@ void WebViewImpl::scheduleMouseDidMoveOverElementForModifierFlagsChange(NSEvent 
     RetainPtr fakeEvent = [NSEvent mouseEventWithType:NSEventTypeMouseMoved location:flagsChangedEvent.window.mouseLocationOutsideOfEventStream
         modifierFlags:flagsChangedEvent.modifierFlags timestamp:flagsChangedEvent.timestamp windowNumber:flagsChangedEvent.windowNumber
         context:nullptr eventNumber:0 clickCount:0 pressure:0];
-    Ref webEvent = NativeWebMouseEvent::create(fakeEvent.get(), m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::UserDriven);
+    Ref webEvent = NativeWebMouseEvent::create(fakeEvent.get(), m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::Default);
     m_page->dispatchMouseDidMoveOverElementForModifierFlagsChange(WTF::move(webEvent));
 }
 
@@ -2969,7 +2981,7 @@ void WebViewImpl::pressureChangeWithEvent(NSEvent *event)
     if (event.phase != NSEventPhaseChanged && event.phase != NSEventPhaseBegan && event.phase != NSEventPhaseEnded)
         return;
 
-    Ref webEvent = NativeWebMouseEvent::create(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::UserDriven);
+    Ref webEvent = NativeWebMouseEvent::create(event, m_lastPressureEvent.get(), m_view.get().get(), WebEventInputSource::Default);
     m_page->handleMouseEvent(WTF::move(webEvent));
 
     m_lastPressureEvent = event;
@@ -2996,6 +3008,38 @@ void WebViewImpl::closeFullScreenWindowController()
 
     [m_fullScreenWindowController close];
     m_fullScreenWindowController = nullptr;
+}
+#endif
+
+#if ENABLE(DOCUMENT_PIP)
+void WebViewImpl::createDocumentPictureInPicturePage(Ref<API::PageConfiguration>&& configuration, CompletionHandler<void(RefPtr<WebPageProxy>&&)>&& completionHandler)
+{
+    // https://wicg.github.io/document-picture-in-picture/#one-pip-window
+    closeDocumentPictureInPictureWindowController();
+
+    RetainPtr view = m_view.get();
+    if (!view)
+        return completionHandler(nullptr);
+
+    RetainPtr controller = adoptNS([[WKDocumentPictureInPictureWindowController alloc] initWithOpenerWebView:view.get() configuration:configuration.get()]);
+    RefPtr page = [controller page];
+    if (!page)
+        return completionHandler(nullptr);
+
+    m_documentPictureInPictureWindowController = WTF::move(controller);
+    completionHandler(WTF::move(page));
+}
+
+void WebViewImpl::closeDocumentPictureInPictureWindowController()
+{
+    if (RetainPtr controller = std::exchange(m_documentPictureInPictureWindowController, nil))
+        [controller close];
+}
+
+void WebViewImpl::documentPictureInPictureWindowControllerDidClose(WKDocumentPictureInPictureWindowController *controller)
+{
+    if (m_documentPictureInPictureWindowController == controller)
+        m_documentPictureInPictureWindowController = nil;
 }
 #endif
 
@@ -3346,6 +3390,17 @@ void WebViewImpl::changeFontAttributesFromSender(id sender)
     auto& editorState = m_page->editorState();
     if (!editorState.isContentEditable || editorState.selectionType == WebCore::SelectionType::None)
         return;
+
+    // A formatting style can carry a block intent, as in -[NSTextView changeAttributes:]. Its other attributes then
+    // describe how the block looks, which the page's style sheet decides, so they are not applied inline.
+    if (WebCore::presentationIntentHTMLInterchangeEnabled() && [sender respondsToSelector:@selector(convertAttributes:)]) {
+        RetainPtr<NSDictionary> convertedAttributes = [sender convertAttributes:@{ }];
+        RetainPtr intent = dynamic_objc_cast<NSPresentationIntent>([convertedAttributes objectForKey:NSPresentationIntentAttributeName]);
+        if (auto blockIntent = WebCore::BlockPresentationIntent::fromPresentationIntent(intent.get())) {
+            m_page->applyBlockPresentationIntent(*blockIntent);
+            return;
+        }
+    }
 
     m_page->changeFontAttributes(WebCore::computedFontAttributeChanges(NSFontManager.sharedFontManager, sender));
 }
@@ -4402,8 +4457,7 @@ RetainPtr<id> WebViewImpl::toolTipOwnerForSendingMouseEvents() const
     if (RetainPtr<id> owner = m_trackingRectOwner.get())
         return owner;
 
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL NSTrackingArea *trackingArea in protect(view()).get().trackingAreas) {
+    for (NSTrackingArea *trackingArea in protect(view()).get().trackingAreas) {
         static Class managerClass = NSClassFromString(@"NSToolTipManager");
         RetainPtr<id> owner = trackingArea.owner;
         if ([owner class] == managerClass)
@@ -4772,8 +4826,7 @@ static bool handleLegacyFilesPasteboard(id<NSDraggingInfo> draggingInfo, Box<Web
     String pasteboardName = draggingInfo.draggingPasteboard.name;
 
     RetainPtr originalFileURLs = adoptNS([[NSMutableArray alloc] initWithCapacity:[files count]]);
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL NSString *file in files.get())
+    for (NSString *file in files.get())
         [originalFileURLs addObject:adoptNS([[NSURL alloc] initFileURLWithPath:file]).get()];
 
     auto task = makeBlockPtr([protectedPage = protect(page), originalFileURLs, dragData, pasteboardName = pasteboardName.isolatedCopy()] mutable {
@@ -4785,8 +4838,7 @@ static bool handleLegacyFilesPasteboard(id<NSDraggingInfo> draggingInfo, Box<Web
         [coordinator prepareForReadingItemsAtURLs:originalFileURLs.get() options:0 writingItemsAtURLs:@[] options:0 error:&prepareError byAccessor:[coordinator, originalFileURLs, protectedPage = WTF::move(protectedPage), dragData, pasteboardName](void (^completionHandler)(void)) mutable {
             auto fileNames = Box<Vector<String>>::create();
 
-            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-            for (SUPPRESS_UNRETAINED_LOCAL NSURL *originalFileURL in originalFileURLs.get()) {
+            for (NSURL *originalFileURL in originalFileURLs.get()) {
                 NSError *error = nil;
                 [coordinator coordinateReadingItemAtURL:originalFileURL options:NSFileCoordinatorReadingWithoutChanges error:&error byAccessor:[fileNames](NSURL *newURL) {
                     fileNames->append(newURL.path);
@@ -5057,8 +5109,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
             // The real data lives in the saved legacy state and is restored once the drag session starts.
             savedLegacyPasteboardTypes = adoptNS([[pasteboard types] copy]);
             savedLegacyPasteboardData = adoptNS([[NSMutableDictionary alloc] init]);
-            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-            for (SUPPRESS_UNRETAINED_LOCAL NSString *type in [pasteboard types]) {
+            for (NSString *type in [pasteboard types]) {
                 if (RetainPtr data = [pasteboard dataForType:type])
                     [savedLegacyPasteboardData setObject:data.get() forKey:type];
             }
@@ -5103,8 +5154,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
             if (savedLegacyPasteboardTypes && [savedLegacyPasteboardTypes count]) {
                 [pasteboard clearContents];
                 [pasteboard addTypes:savedLegacyPasteboardTypes.get() owner:nil];
-                // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-                for (SUPPRESS_UNRETAINED_LOCAL NSString *type in savedLegacyPasteboardTypes.get()) {
+                for (NSString *type in savedLegacyPasteboardTypes.get()) {
                     if (RetainPtr data = [savedLegacyPasteboardData objectForKey:type])
                         [pasteboard setData:data.get() forType:type];
                 }
@@ -5124,7 +5174,7 @@ void WebViewImpl::startDrag(const WebCore::DragItem& item, ShareableBitmap::Hand
         [placeholderWriter setData:[NSData data] forType:UTTypeData.identifier];
         RetainPtr contextDraggingItem = adoptNS([[NSDraggingItem alloc] initWithPasteboardWriter:placeholderWriter]);
         [contextDraggingItem setDraggingFrame:draggingFrame contents:dragNSImage];
-        [view _web_draggingItemsForDraggingItem:contextDraggingItem atLocation:item.eventPositionInRootViewCoordinates completionHandler:startDraggingSessionWithItems.get()];
+        [view _web_draggingItemsForDraggingItem:contextDraggingItem atLocation:item.eventPositionInMainFrameViewCoordinates completionHandler:startDraggingSessionWithItems.get()];
     } else
 #endif
         startDraggingSessionWithItems(nil);
@@ -5612,8 +5662,7 @@ void WebViewImpl::setCustomSwipeViews(NSArray *customSwipeViews)
         return;
 
     Vector<RetainPtr<NSView>> views(ReserveCapacityTag { }, customSwipeViews.count);
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL NSView *view in customSwipeViews)
+    for (NSView *view in customSwipeViews)
         views.append(view);
 
     protect(ensureGestureController())->setCustomSwipeViews(views);
@@ -5804,7 +5853,7 @@ void WebViewImpl::gestureEventWasNotHandledByWebCoreFromViewOnly(NSEvent *event)
 
 void WebViewImpl::magnificationGestureEventWasNotHandledByWebCoreFromViewOnly(NSEventPhase phase, CGFloat magnification, NSPoint locationInWindow)
 {
-    applyNativeMagnification(magnification, WebEventFactory::phaseForNativeEventPhase(phase), [m_view.get() convertPoint:locationInWindow fromView:nil], WebEventInputSource::Automation);
+    applyNativeMagnification(magnification, WebEventFactory::phaseForNativeEventPhase(phase), [m_view.get() convertPoint:locationInWindow fromView:nil], WebEventInputSource::Touch);
 }
 
 void WebViewImpl::applyNativeMagnification(float magnification, WebEventPhase phase, FloatPoint originInViewCoordinates, WebEventInputSource inputSource)
@@ -6972,7 +7021,7 @@ void WebViewImpl::mouseEntered(NSEvent *event)
         return;
     }
 
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::mouseExited(NSEvent *event)
@@ -6985,37 +7034,37 @@ void WebViewImpl::mouseExited(NSEvent *event)
         return;
     }
 
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::otherMouseDown(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::otherMouseDragged(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::otherMouseUp(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::rightMouseDown(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::rightMouseDragged(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::rightMouseUp(NSEvent *event)
 {
-    nativeMouseEventHandler(event, WebEventInputSource::UserDriven);
+    nativeMouseEventHandler(event, WebEventInputSource::Default);
 }
 
 void WebViewImpl::mouseMovedInternal(NSEvent *event, WebEventInputSource inputSource)
@@ -7327,16 +7376,14 @@ bool WebViewImpl::useMediaPlaybackControlsView() const
 void WebViewImpl::dismissTextTouchBarPopoverItemWithIdentifier(NSString *identifier)
 {
     NSTouchBarItem *foundItem = nil;
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL NSTouchBarItem *item in RetainPtr { textTouchBar() }.get().items) {
+    for (NSTouchBarItem *item in RetainPtr { textTouchBar() }.get().items) {
         if ([item.identifier isEqualToString:identifier]) {
             foundItem = item;
             break;
         }
 
         if ([item.identifier isEqualToString:NSTouchBarItemIdentifierTextFormat]) {
-            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-            for (SUPPRESS_UNRETAINED_LOCAL NSTouchBarItem *childItem in checked_objc_cast<NSGroupTouchBarItem>(item).groupTouchBar.items) {
+            for (NSTouchBarItem *childItem in checked_objc_cast<NSGroupTouchBarItem>(item).groupTouchBar.items) {
                 if ([childItem.identifier isEqualToString:identifier]) {
                     foundItem = childItem;
                     break;
@@ -8261,8 +8308,7 @@ void WebViewImpl::updateScrollPocket()
         [m_layerHostingView addSubview:captureView.get() positioned:NSWindowBelow relativeTo:nil];
         [captureView layer].zPosition = std::numeric_limits<float>::lowest();
         [view addSubview:m_topScrollPocket.get()];
-        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-        for (SUPPRESS_UNRETAINED_LOCAL NSView *pocketContainer in m_viewsAboveScrollPocket.get())
+        for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())
             [m_topScrollPocket addElementContainer:pocketContainer];
         updateScrollPocketVisibilityWhenScrolledToTopAndNonEditable();
         updatePrefersSolidColorHardPocket();
@@ -8288,8 +8334,7 @@ void WebViewImpl::updateScrollPocket()
 #endif
 
     if ([protect(m_view) _usesAutomaticContentInsetBackgroundFill]) {
-        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-        for (SUPPRESS_UNRETAINED_LOCAL NSView *pocketContainer in m_viewsAboveScrollPocket.get())
+        for (NSView *pocketContainer in m_viewsAboveScrollPocket.get())
             topInsetFrame = NSUnionRect(topInsetFrame, [view convertRect:pocketContainer.bounds fromView:pocketContainer]);
     }
 

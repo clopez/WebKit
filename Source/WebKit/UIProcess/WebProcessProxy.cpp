@@ -108,6 +108,7 @@
 #include <WebCore/SerializedCryptoKeyWrap.h>
 #include <WebCore/SerializedScriptValue.h>
 #include <WebCore/SharedMemory.h>
+#include <WebCore/StorageUtilities.h>
 #include <WebCore/SuddenTermination.h>
 #include <WebCore/WrappedCryptoKey.h>
 #include <algorithm>
@@ -270,7 +271,7 @@ static bool isMainThreadOrCheckDisabled()
 
 WebProcessProxy::WebProcessProxyMap& WebProcessProxy::allProcessMap()
 {
-    ASSERT(isMainThreadOrCheckDisabled());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThreadOrCheckDisabled());
     static NeverDestroyed<WebProcessProxy::WebProcessProxyMap> map;
     return map;
 }
@@ -305,7 +306,7 @@ Ref<WebProcessProxy> WebProcessProxy::fromConnection(const IPC::Connection& conn
 
 auto WebProcessProxy::globalPageMap() -> WebPageProxyMap&
 {
-    ASSERT(isMainThreadOrCheckDisabled());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThreadOrCheckDisabled());
     static NeverDestroyed<WebPageProxyMap> pageMap;
     return pageMap;
 }
@@ -424,9 +425,9 @@ void WebProcessProxy::forWebPagesWithOrigin(PAL::SessionID sessionID, const Secu
     }
 }
 
-void WebProcessProxy::addAllowedFirstPartyForCookies(const WebCore::RegistrableDomain& domain, LoadedWebArchive loadedWebArchive)
+void WebProcessProxy::addAllowedFirstPartyForCookies(const WebCore::Site& site, LoadedWebArchive loadedWebArchive)
 {
-    m_allowedFirstPartiesForCookies.second.add(domain);
+    m_allowedFirstPartiesForCookies.second.add(site);
     if (loadedWebArchive == LoadedWebArchive::Yes)
         m_allowedFirstPartiesForCookies.first = LoadedWebArchive::Yes;
 }
@@ -672,8 +673,8 @@ void WebProcessProxy::setIsInProcessCache(bool value, WillShutDown willShutDown)
     WEBPROCESSPROXY_RELEASE_LOG(Process, "setIsInProcessCache(%d)", value);
     if (value) {
         RELEASE_ASSERT(m_pageMap.isEmpty());
-        RELEASE_ASSERT(m_suspendedPages.isEmptyIgnoringNullReferences());
-        RELEASE_ASSERT(m_provisionalPages.isEmptyIgnoringNullReferences());
+        RELEASE_ASSERT(m_suspendedPages.computeIsEmpty());
+        RELEASE_ASSERT(m_provisionalPages.computeIsEmpty());
         m_previouslyApprovedFilePaths.clear();
         m_isCOOPCacheOriginUnconfirmed = false;
     }
@@ -806,7 +807,7 @@ void WebProcessProxy::removeProvisionalPageProxy(ProvisionalPageProxy& provision
     ASSERT(m_provisionalPages.contains(provisionalPage));
     m_provisionalPages.remove(provisionalPage);
     updateRegistrationWithDataStore();
-    if (m_provisionalPages.isEmptyIgnoringNullReferences()) {
+    if (m_provisionalPages.computeIsEmpty()) {
         m_isCOOPCacheOriginUnconfirmed = false;
         if (RefPtr page = provisionalPage.page())
             reportProcessDisassociatedWithPageIfNecessary(page->identifier());
@@ -832,7 +833,7 @@ void WebProcessProxy::removeRemotePageProxy(RemotePageProxy& remotePage)
     WEBPROCESSPROXY_RELEASE_LOG(Loading, "removeRemotePageProxy: remotePage=%p", &remotePage);
     m_remotePages.remove(remotePage);
     updateRegistrationWithDataStore();
-    if (m_remotePages.isEmptyIgnoringNullReferences())
+    if (m_remotePages.computeIsEmpty())
         maybeShutDown();
 }
 
@@ -1093,7 +1094,8 @@ WebPageProxy* WebProcessProxy::webPageWithActiveXRSession()
 {
     for (WeakRef weakPage : globalPageMap().values()) {
         Ref page = weakPage.get();
-        if (page->xrSystem() && page->xrSystem()->hasActiveSession())
+        RefPtr xrSystem = page->xrSystem();
+        if (xrSystem && xrSystem->hasActiveSession())
             return weakPage.ptr();
     }
     return nullptr;
@@ -1598,7 +1600,7 @@ void WebProcessProxy::gpuProcessConnectionDidBecomeUnresponsive(GPUProcessConnec
 // A frame hosted in another process was painted into a snapshot here. Received by the process rather
 // than a page, because the frame may be going away along with the last of this process's frames in
 // the page, and a request that reached nothing would leave the snapshot waiting for it.
-void WebProcessProxy::drawFrameToSnapshot(WebCore::FrameIdentifier frameID, const WebCore::IntRect& rectRelativeToVisibleContent, RemoteSnapshotIdentifier snapshotIdentifier, WebCore::RenderingMode renderingMode)
+void WebProcessProxy::drawFrameToSnapshot(WebCore::FrameIdentifier frameID, const WebCore::IntRect& rectRelativeToVisibleContent, RemoteSnapshotIdentifier snapshotIdentifier, WebCore::RenderingMode renderingMode, const WebCore::FloatSize& scale)
 {
     MESSAGE_CHECK(renderingMode == WebCore::RenderingMode::DisplayList || renderingMode == WebCore::RenderingMode::PDFDocument);
 
@@ -1635,7 +1637,7 @@ void WebProcessProxy::drawFrameToSnapshot(WebCore::FrameIdentifier frameID, cons
     gpuProcess->snapshotFrameWillBeDrawnByProcess(snapshotIdentifier, frameID, frameProcess->coreProcessIdentifier());
     // Also while the frame's process is waiting on this one, as it does for alert(), since this
     // process may itself be blocked waiting for the snapshot.
-    frameProcess->send(Messages::WebProcess::DrawFrameToSnapshot(frameID, rectRelativeToVisibleContent, snapshotIdentifier, renderingMode), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply);
+    frameProcess->send(Messages::WebProcess::DrawFrameToSnapshot(frameID, rectRelativeToVisibleContent, snapshotIdentifier, renderingMode, scale), 0, IPC::SendOption::DispatchMessageEvenWhenWaitingForUnboundedSyncReply);
 }
 
 #if HAVE(IOSURFACE)
@@ -1866,6 +1868,53 @@ void WebProcessProxy::didClose(IPC::Connection& connection)
     processDidTerminateOrFailedToLaunch(terminationReason());
 }
 
+struct PageProcessTermination {
+    Ref<WebPageProxy> page;
+    ProcessTerminationScope scope;
+    Vector<Ref<RemotePageProxy>> remotePages;
+};
+
+// Must run before shutDown(), which disconnects the frames and remote pages that this inspects.
+// Pages whose main frame was in this process come first, so their clients are notified first.
+Vector<PageProcessTermination> WebProcessProxy::classifyAffectedPagesUponTermination() const
+{
+    auto affectedPages = WTF::map(mainPages(), [](auto&& page) {
+        return PageProcessTermination { WTF::move(page), ProcessTerminationScope::MainFrame, { } };
+    });
+
+    auto ensurePage = [&](Ref<WebPageProxy>&& page) -> PageProcessTermination& {
+        auto index = affectedPages.findIf([&](auto& termination) {
+            return termination.page.ptr() == page.ptr();
+        });
+        if (index != notFound)
+            return affectedPages[index];
+        affectedPages.append(PageProcessTermination { WTF::move(page), ProcessTerminationScope::NoFrames, { } });
+        return affectedPages.last();
+    };
+
+    for (Ref remotePage : m_remotePages) {
+        RefPtr page = remotePage->page();
+        if (!page || page->isClosed())
+            continue;
+        if (auto& termination = ensurePage(page.releaseNonNull()); termination.scope != ProcessTerminationScope::MainFrame)
+            termination.remotePages.append(WTF::move(remotePage));
+    }
+
+    // A provisional main frame load that took over the page's RemotePageProxy in this process
+    // removed it from m_remotePages, so look for the page's committed frames here too.
+    for (Ref provisionalPage : m_provisionalPages) {
+        if (RefPtr page = provisionalPage->page(); page && !page->isClosed() && page->hasCommittedFrameInProcess(*this))
+            ensurePage(page.releaseNonNull());
+    }
+
+    for (auto& termination : borrow(affectedPages)) {
+        if (termination.scope != ProcessTerminationScope::MainFrame && protect(termination.page)->hasCommittedFrameInProcess(*this))
+            termination.scope = ProcessTerminationScope::Subframes;
+    }
+
+    return affectedPages;
+}
+
 void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReason reason)
 {
     WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "processDidTerminateOrFailedToLaunch: reason=%" PUBLIC_LOG_STRING, processTerminationReasonToString(reason).characters());
@@ -1873,6 +1922,8 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
     // Protect ourselves, as the call to shutDown() below may otherwise cause us
     // to be deleted before we can finish our work.
     Ref protectedThis { *this };
+
+    auto pid = processID();
 
     const Vector pages = mainPages();
 
@@ -1884,12 +1935,17 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         return provisionalPages;
     }();
 
+    auto affectedPages = classifyAffectedPagesUponTermination();
+
     auto isResponsiveCallbacks = std::exchange(m_isResponsiveCallbacks, { });
     for (auto& callback : borrow(isResponsiveCallbacks))
         callback(false);
 
     if (isStandaloneServiceWorkerProcess())
         protect(processPool())->serviceWorkerProcessCrashed(*this, reason);
+
+    for (auto& page : pages)
+        page->markProcessesIneligibleForWebProcessCache();
 
     shutDown();
 
@@ -1906,7 +1962,7 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
         routingArbitrator->processDidTerminate();
 #endif
 
-    // There is a nested transaction in WebPageProxy::resetStateAfterProcessExited() that we don't want to commit before the client call below (dispatchProcessDidTerminate).
+    // There is a nested transaction in WebPageProxy::resetStateAfterProcessExited() that we don't want to commit before the client calls below.
     auto pageLoadStateTransactions = WTF::map(pages, [&](auto& page) {
         auto transaction = protect(page->pageLoadState())->transaction();
         page->resetStateAfterProcessTermination(reason);
@@ -1916,11 +1972,33 @@ void WebProcessProxy::processDidTerminateOrFailedToLaunch(ProcessTerminationReas
     for (auto& provisionalPage : provisionalPages)
         provisionalPage->processDidTerminate();
 
-    for (auto& page : pages)
-        page->dispatchProcessDidTerminate(*this, reason);
+    for (const auto& termination : borrow(affectedPages)) {
+        Ref page = termination.page;
+        if (termination.scope == ProcessTerminationScope::MainFrame) {
+            page->mainFrameProcessDidTerminate(*this);
+            continue;
+        }
+        for (Ref remotePage : termination.remotePages) {
+            if (!remotePage->isDisconnected())
+                remotePage->processDidTerminate();
+        }
+        page->nonMainFrameProcessDidTerminate(*this);
+    }
 
-    for (Ref remotePage : m_remotePages)
-        remotePage->processDidTerminate(*this, reason);
+    // Notify clients only after updating every affected page, because a callback can reload or
+    // close other pages.
+    for (const auto& termination : borrow(affectedPages))
+        protect(termination.page)->dispatchProcessDidTerminate(pid, termination.scope, reason);
+}
+
+bool WebProcessProxy::detectAndHandleTermination()
+{
+    if (state() != State::Running || !wasTerminated())
+        return false;
+
+    WEBPROCESSPROXY_RELEASE_LOG_ERROR(Process, "detectAndHandleTermination: process exited before its connection was closed");
+    processDidTerminateOrFailedToLaunch(terminationReason());
+    return true;
 }
 
 void WebProcessProxy::didReceiveInvalidMessage(IPC::Connection& connection, IPC::MessageName messageName, const Vector<uint32_t>& indexOfObjectFailingDecoding)
@@ -2108,7 +2186,7 @@ bool WebProcessProxy::hasGrantedSandboxExtensionForFile(const URL& url) const
 
 void WebProcessProxy::recordUserGestureAuthorizationToken(PageIdentifier pageID, WTF::UUID authorizationToken)
 {
-    if (!UserInitiatedActionByAuthorizationTokenMap::isValidKey(authorizationToken) || !authorizationToken)
+    if (!authorizationToken)
         return;
 
     m_userInitiatedActionByAuthorizationTokenMap.ensure(pageID, [] {
@@ -2239,9 +2317,9 @@ void WebProcessProxy::maybeShutDown()
 bool WebProcessProxy::canTerminateAuxiliaryProcess()
 {
     if (!m_pageMap.isEmpty()
-        || !m_remotePages.isEmptyIgnoringNullReferences()
-        || !m_suspendedPages.isEmptyIgnoringNullReferences()
-        || !m_provisionalPages.isEmptyIgnoringNullReferences()
+        || !m_remotePages.computeIsEmpty()
+        || !m_suspendedPages.computeIsEmpty()
+        || !m_provisionalPages.computeIsEmpty()
         || m_frameProcessCount
         || m_isInProcessCache
         || m_shutdownPreventingScopeCounter.value()) {
@@ -2573,7 +2651,7 @@ void WebProcessProxy::didDropLastAssertion()
 void WebProcessProxy::prepareToDropLastAssertion(CompletionHandler<void()>&& completionHandler)
 {
 #if !ENABLE(NON_VISIBLE_WEBPROCESS_MEMORY_CLEANUP_TIMER) && ENABLE(WEBPROCESS_CACHE)
-    if (isInProcessCache() || !m_suspendedPages.isEmptyIgnoringNullReferences() || (canTerminateAuxiliaryProcess() && canBeAddedToWebProcessCache())) {
+    if (isInProcessCache() || !m_suspendedPages.computeIsEmpty() || (canTerminateAuxiliaryProcess() && canBeAddedToWebProcessCache())) {
         // We avoid freeing caches if:
         //
         //  1. The process is already in the WebProcess cache.
@@ -4054,7 +4132,7 @@ static void releasePendingFrames(const Vector<UniqueRef<OffscreenCanvasPlacehold
 // any process the canvas was transferred to.
 static HashMap<WebCore::PlaceholderRenderingContextIdentifier, UniqueRef<OffscreenCanvasPlaceholder>>& offscreenCanvasPlaceholders()
 {
-    ASSERT(isMainThreadOrCheckDisabled());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThreadOrCheckDisabled());
     static NeverDestroyed<HashMap<WebCore::PlaceholderRenderingContextIdentifier, UniqueRef<OffscreenCanvasPlaceholder>>> placeholders;
     return placeholders;
 }
@@ -4172,7 +4250,7 @@ WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(CommittedOffscreenCanvasPlaceholderFrame);
 
 static HashMap<WebCore::PlaceholderRenderingContextIdentifier, UniqueRef<CommittedOffscreenCanvasPlaceholderFrame>>& offscreenCanvasPlaceholderFramesAwaitingOwner()
 {
-    ASSERT(isMainThreadOrCheckDisabled());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThreadOrCheckDisabled());
     static NeverDestroyed<HashMap<WebCore::PlaceholderRenderingContextIdentifier, UniqueRef<CommittedOffscreenCanvasPlaceholderFrame>>> frames;
     return frames;
 }
@@ -4246,6 +4324,51 @@ void WebProcessProxy::commitOffscreenCanvasPlaceholderFrame(WebCore::RemotePlace
     }
 }
 #endif
+
+void WebProcessProxy::ensureMediaKeysStorageDirectory(WebCore::FrameIdentifier frameID)
+{
+    WEBPROCESSPROXY_RELEASE_LOG(Media, "ensureMediaKeysStorageDirectory: frameID = %" PRIu64, frameID.toUInt64());
+
+    RefPtr frame = WebFrameProxy::webFrame(frameID);
+    if (!frame) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Media, "ensureMediaKeysStorageDirectory: frame not found");
+        return;
+    }
+    MESSAGE_CHECK(frame->process() == *this);
+    RefPtr page = frame->page();
+    if (!page) {
+        WEBPROCESSPROXY_RELEASE_LOG_ERROR(Media, "ensureMediaKeysStorageDirectory: page not found");
+        return;
+    }
+    if (page->sessionID().isEphemeral())
+        return;
+
+    Ref dataStore = page->websiteDataStore();
+    auto mediaKeysStorageSalt = dataStore->mediaKeysStorageSalt();
+    auto& resolvedDirectories = dataStore->resolvedDirectories();
+    String mediaKeysStorageDirectory = resolvedDirectories.mediaKeysStorageDirectory;
+    if (mediaKeysStorageDirectory.isEmpty())
+        return;
+    auto origin = frame->documentSecurityOriginData();
+
+    auto originDirectoryName = WebCore::StorageUtilities::encodeSecurityOriginForFileName(mediaKeysStorageSalt, origin);
+    auto originDirectory = FileSystem::pathByAppendingComponent(mediaKeysStorageDirectory, originDirectoryName);
+    WebCore::StorageUtilities::writeOriginToFile(FileSystem::pathByAppendingComponent(originDirectory, "origin"_s), WebCore::ClientOrigin { origin, origin });
+}
+
+WebCore::CertificateInfo WebProcessProxy::certificateInfoForHostAndPort(const String& hostAndPort) const
+{
+    return m_hostAndPortToCertificateInfo.get(hostAndPort);
+}
+
+void WebProcessProxy::setCertificateInfoForHostAndPort(String&& hostAndPort, WebCore::CertificateInfo&& certificateInfo)
+{
+    if (hostAndPort.isNull())
+        return;
+
+    // FIXME: This has no corresponding remove call. It is bounded by the number of distinct hosts and ports loaded in this process.
+    m_hostAndPortToCertificateInfo.set(WTF::move(hostAndPort), WTF::move(certificateInfo));
+}
 
 } // namespace WebKit
 

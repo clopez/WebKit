@@ -27,6 +27,7 @@
 #include "BuiltinNames.h"
 #include "DebuggerParseData.h"
 #include "JSCJSValueInlines.h"
+#include "RegExpCache.h"
 #include "VM.h"
 #include "VariableEnvironmentInlines.h"
 #include <utility>
@@ -3761,7 +3762,7 @@ template <class TreeBuilder> typename TreeBuilder::ImportSpecifier Parser<LexerT
 template <typename LexerType>
 template <class TreeBuilder> typename TreeBuilder::ImportAttributesList Parser<LexerType>::parseImportAttributes(TreeBuilder& context)
 {
-    UncheckedKeyHashSet<UniquedStringImpl*> keys;
+    HashSet<UniquedStringImpl*> keys;
     auto attributesList = context.createImportAttributesList();
     consumeOrFail(OPENBRACE, "Expected opening '{' at the start of import attribute");
     while (!match(CLOSEBRACE)) {
@@ -3796,12 +3797,12 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseImportDeclara
 
     if (match(STRING)) {
         // import ModuleSpecifier ;
-        // import ModuleSpecifier [no LineTerminator here] WithClause ;
+        // import ModuleSpecifier WithClause ;
         auto moduleName = parseModuleName(context);
         failIfFalse(moduleName, "Cannot parse the module name");
 
         typename TreeBuilder::ImportAttributesList attributesList = 0;
-        if (!m_lexer->hasLineTerminatorBeforeToken() && match(WITH)) {
+        if (match(WITH)) {
             next();
             attributesList = parseImportAttributes(context);
             failIfFalse(attributesList, "Unable to parse import attributes");
@@ -3870,9 +3871,9 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseImportDeclara
     auto moduleName = parseModuleName(context);
     failIfFalse(moduleName, "Cannot parse the module name");
 
-    // [no LineTerminator here] WithClause ;
+    // WithClause ;
     typename TreeBuilder::ImportAttributesList attributesList = 0;
-    if (!m_lexer->hasLineTerminatorBeforeToken() && match(WITH)) {
+    if (match(WITH)) {
         next();
         attributesList = parseImportAttributes(context);
         failIfFalse(attributesList, "Unable to parse import attributes");
@@ -3955,9 +3956,9 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExportDeclara
         auto moduleName = parseModuleName(context);
         failIfFalse(moduleName, "Cannot parse the 'from' clause");
 
-        // [no LineTerminator here] WithClause ;
+        // WithClause ;
         typename TreeBuilder::ImportAttributesList attributesList = 0;
-        if (!m_lexer->hasLineTerminatorBeforeToken() && match(WITH)) {
+        if (match(WITH)) {
             next();
             attributesList = parseImportAttributes(context);
             failIfFalse(attributesList, "Unable to parse import attributes");
@@ -4097,8 +4098,8 @@ template <class TreeBuilder> TreeStatement Parser<LexerType>::parseExportDeclara
             moduleName = parseModuleName(context);
             failIfFalse(moduleName, "Cannot parse the 'from' clause");
 
-            // [no LineTerminator here] WithClause ;
-            if (!m_lexer->hasLineTerminatorBeforeToken() && match(WITH)) {
+            // WithClause ;
+            if (match(WITH)) {
                 next();
                 attributesList = parseImportAttributes(context);
                 failIfFalse(attributesList, "Unable to parse import attributes");
@@ -4975,7 +4976,20 @@ template <class TreeBuilder> void Parser<LexerType>::parseSimpleArrayElementsAft
         type = elementType;
         location.startOffset = start;
         location.endOffset = m_lexer->currentOffset() - 1;
-        tail = context.createElementList(tail, 0, type == INTEGER ? context.createIntegerExpr(location, value) : context.createNull(location));
+        TreeExpression element;
+        switch (type) {
+        case INTEGER:
+            element = context.createIntegerExpr(location, value);
+            break;
+        case DOUBLE:
+            element = context.createDoubleExpr(location, value);
+            break;
+        default:
+            ASSERT(type == NULLTOKEN);
+            element = context.createNull(location);
+            break;
+        }
+        tail = context.createElementList(tail, 0, element);
     }
     if (type == ERRORTOK)
         return;
@@ -5340,7 +5354,13 @@ template <class TreeBuilder> TreeExpression Parser<LexerType>::parsePrimaryExpre
         JSTextPosition start = tokenStartPosition();
         JSTokenLocation location(tokenLocation());
         next();
-        TreeExpression re = context.createRegExp(location, *pattern, *flags, start, m_lexer->isReparsingFunction());
+        bool skipSyntaxCheck = m_lexer->isReparsingFunction();
+        if (!skipSyntaxCheck) {
+            // RegExpCache only holds patterns that compiled successfully.
+            if (auto parsedFlags = Yarr::parseFlags(flags->string()))
+                skipSyntaxCheck = m_vm.regExpCache()->lookup(m_vm, pattern->string(), *parsedFlags);
+        }
+        TreeExpression re = context.createRegExp(location, *pattern, *flags, start, skipSyntaxCheck);
         if (!re) [[unlikely]] {
             Yarr::ErrorCode errorCode = Yarr::checkSyntax(pattern->string(), flags->string());
             regexFail(String::fromLatin1(Yarr::errorMessage(errorCode)));

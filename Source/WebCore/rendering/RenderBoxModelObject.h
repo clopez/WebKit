@@ -38,6 +38,8 @@ enum class BleedAvoidance : uint8_t {
     BackgroundOverBorder
 };
 
+enum class StretchingMode { Normal, Explicit };
+
 class BorderEdge;
 class BorderShape;
 class GraphicsContext;
@@ -74,8 +76,8 @@ class RenderBoxModelObject : public RenderLayerModelObject {
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderBoxModelObject);
 public:
     // An inline box is a RenderBoxModelObject of its own. Boxes and line breaks use the protected constructors.
-    RenderBoxModelObject(Type, Element&, Style::ComputedStyle&&);
-    RenderBoxModelObject(Type, Document&, Style::ComputedStyle&&);
+    RenderBoxModelObject(Type, Element&, UniqueRef<Style::ComputedStyle>&&);
+    RenderBoxModelObject(Type, Document&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderBoxModelObject();
 
     ASCIILiteral renderName() const override;
@@ -90,6 +92,9 @@ public:
     LayoutSize stickyPositionOffset() const;
 
     LayoutSize offsetForInFlowPosition() const;
+
+    // Only flex and grid containers stretch the boxes they contain.
+    virtual bool willStretchItem(const RenderBox&, LogicalBoxAxis, StretchingMode = StretchingMode::Normal) const { return false; }
 
     // IE extensions. Used to calculate offsetWidth/Height. Overridden by inlines (RenderFlow)
     // to return the remaining width on a given line (and the height of a single line).
@@ -108,6 +113,8 @@ public:
     LayoutRect borderBoundingBox() const { return { { }, borderBoxRectInContainer().size() }; }
     virtual LayoutRect visualOverflowRect() const;
     virtual LayoutRect firstFragmentBorderBoxRect() const;
+    LayoutRect blockStartRelativeFirstFragmentBorderBoxRect() const;
+    virtual LayoutPoint blockStartRelativeToPhysicalForChild(const RenderBox& child, const LayoutPoint&) const;
     virtual LayoutUnit paddingBoxLogicalWidth() const;
     virtual LayoutUnit paddingBoxLogicalHeight() const;
     virtual LayoutUnit paddingBoxWidth() const;
@@ -203,6 +210,8 @@ public:
     inline LayoutUnit marginLogicalWidth() const;
 
     BorderShape borderShapeForContentClipping(const LayoutRect& borderBoxRect, RectEdges<bool> closedEdges = { true }) const;
+    bool borderObscuresBackgroundEdge(const FloatSize& contextScale) const;
+    bool borderObscuresBackground() const;
 
     inline bool hasInlineDirectionBordersPaddingOrMargin() const;
     inline bool hasInlineDirectionBordersOrPadding() const;
@@ -247,16 +256,16 @@ public:
     NODELETE TrackedRendererListHashSet* outOfFlowBoxes() const LIFETIME_BOUND;
     bool hasOutOfFlowBoxes() const
     {
-        auto* renderers = outOfFlowBoxes();
-        return renderers && !renderers->isEmptyIgnoringNullReferences();
+        const auto* renderers = outOfFlowBoxes();
+        return renderers && !renderers->computeIsEmpty();
     }
     void markOutOfFlowBoxesForLayout(MarkingBehavior = MarkingBehavior::ContainingBlockChain);
     void removeOutOfFlowBoxesIfNeededOnStyleChange(const Style::ComputedStyle& oldStyle, const Style::ComputedStyle& newStyle);
 
 
 protected:
-    RenderBoxModelObject(Type, Element&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
-    RenderBoxModelObject(Type, Document&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
+    RenderBoxModelObject(Type, Element&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags);
+    RenderBoxModelObject(Type, Document&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags);
 
     void willBeDestroyed() override;
 
@@ -266,8 +275,6 @@ protected:
     LayoutPoint adjustedPositionRelativeToOffsetParent(const LayoutPoint&) const;
 
     bool hasVisibleBoxDecorationStyle() const;
-    bool borderObscuresBackgroundEdge(const FloatSize& contextScale) const;
-    bool borderObscuresBackground() const;
 
 protected:
     const RenderElement* pushMappingToContainer(const RenderLayerModelObject* ancestorToStopAt, RenderGeometryMap&) const override;

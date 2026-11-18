@@ -687,6 +687,7 @@ WebProcess/Extensions/WebExtensionControllerProxy.cpp
 
 WebProcess/Extensions/API/WebExtensionAPIAlarms.cpp
 WebProcess/Extensions/API/WebExtensionAPIEvent.cpp
+WebProcess/Extensions/API/WebExtensionAPIExtensionTypes.cpp
 WebProcess/Extensions/API/WebExtensionAPIRuntime.cpp
 WebProcess/Extensions/API/WebExtensionAPINamespace.cpp
 WebProcess/Extensions/API/WebExtensionAPIStorage.cpp
@@ -800,7 +801,6 @@ WebProcess/GPU/graphics/WebGPU/RemoteXRProjectionLayerProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteXRSubImageProxy.cpp
 WebProcess/GPU/graphics/WebGPU/RemoteXRViewProxy.cpp
 WebProcess/GPU/graphics/WebGPU/WebGPUDowncastConvertToBackingContext.cpp
-WebProcess/GPU/graphics/ImageBufferRemoteDisplayListBackend.cpp
 WebProcess/GPU/graphics/ImageBufferShareableBitmapBackend.cpp
 WebProcess/GPU/graphics/PrepareBackingStoreBuffersData.cpp
 WebProcess/GPU/graphics/RemoteDisplayListRecorderProxy.cpp

@@ -663,6 +663,10 @@ static constexpr SortedArraySet gltfMIMETypeSet { WTF::toArray<ComparableLetters
     "model/gltf-binary"_s, // The official glTF binary (.glb) format: https://www.iana.org/assignments/media-types/model/gltf-binary
 }) };
 
+static constexpr SortedArraySet stlMIMETypeSet { WTF::toArray<ComparableLettersLiteral>({
+    "model/stl"_s, // The official type: https://www.iana.org/assignments/media-types/model/stl
+}) };
+
 FixedVector<ASCIILiteral> MIMETypeRegistry::usdMIMETypes()
 {
     return makeFixedVector(usdMIMETypeSet.array());
@@ -683,9 +687,14 @@ bool MIMETypeRegistry::isGLTFMIMEType(const String& mimeType)
     return gltfMIMETypeSet.contains(mimeType);
 }
 
+bool MIMETypeRegistry::isSTLMIMEType(const String& mimeType)
+{
+    return stlMIMETypeSet.contains(mimeType);
+}
+
 bool MIMETypeRegistry::isSupportedModelMIMEType(const String& mimeType)
 {
-    return MIMETypeRegistry::isUSDMIMEType(mimeType) || MIMETypeRegistry::isGLTFMIMEType(mimeType);
+    return MIMETypeRegistry::isUSDMIMEType(mimeType) || MIMETypeRegistry::isGLTFMIMEType(mimeType) || MIMETypeRegistry::isSTLMIMEType(mimeType);
 }
 
 // FIXME: Not great that CURL needs this concept; other platforms do not.
@@ -906,6 +915,6 @@ bool MIMETypeRegistry::isWebArchiveMIMEType(const String& mimeType)
         }
     };
 
-    return webArchiveMIMETypes.get().isValidValue(mimeType) ? webArchiveMIMETypes.get().contains(mimeType) : false;
+    return !mimeType.isNull() && webArchiveMIMETypes.get().contains(mimeType);
 }
 } // namespace WebCore

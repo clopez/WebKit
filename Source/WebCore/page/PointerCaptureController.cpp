@@ -418,7 +418,7 @@ bool PointerCaptureController::dispatchEventForTrackedPointer(Element& target, c
         if (previousTarget && (!previousTarget->isConnected() || !previousTarget->document().frame()))
             previousTarget = nullptr;
         dispatchBoundaryEvents(previousTarget.get(), &target, [&](const AtomString& eventType) {
-            return PointerEvent::create(eventType, MouseButton::PointerHasNotChanged, mouseEvent, pointerId, pointerType);
+            return PointerEvent::create(eventType, std::unexpected { MouseButtonState::PointerHasNotChanged }, mouseEvent, pointerId, pointerType);
         });
     }
 
@@ -471,11 +471,12 @@ void PointerCaptureController::cancelTrackedPointer(PointerID pointerId)
 
 bool PointerCaptureController::mouseEventCanBelongToTrackedPointer(const PlatformMouseEvent& event) const
 {
-    if (event.inputSource() != MouseEventInputSource::Automation)
-        return false;
-
-    RefPtr page = m_page.get();
-    return page && page->settings().useAppKitGesturesForPointerEvents();
+#if HAVE(APPKIT_GESTURES_SUPPORT)
+    return event.inputSource() == MouseEventInputSource::Touch;
+#else
+    UNUSED_PARAM(event);
+    return false;
+#endif
 }
 
 bool PointerCaptureController::mouseEventBelongsToTrackedPointer(const PlatformMouseEvent& event) const
@@ -544,13 +545,13 @@ RefPtr<PointerEvent> PointerCaptureController::pointerEventForMouseEvent(const M
     RefPtr capturingData = m_activePointerIdsToCapturingData.get(pointerId);
     bool pointerIsPressed = capturingData ? capturingData->pointerIsPressed : false;
 
-    MouseButton newButton = mouseEvent.button();
-    MouseButton previousMouseButton = capturingData ? capturingData->previousMouseButton : MouseButton::PointerHasNotChanged;
-    MouseButton button = [&] {
+    auto newButton = mouseEvent.button();
+    std::expected<MouseButton, MouseButtonState> previousMouseButton = capturingData ? capturingData->previousMouseButton : std::unexpected { MouseButtonState::PointerHasNotChanged };
+    auto button = [&] -> std::expected<MouseButton, MouseButtonState> {
         auto pointerEventType = PointerEvent::typeFromMouseEventType(type);
         if (!PointerEvent::typeRequiresResolvedButton(pointerEventType)) {
             if (newButton == previousMouseButton || !pointerIsPressed)
-                return MouseButton::PointerHasNotChanged;
+                return std::unexpected { MouseButtonState::PointerHasNotChanged };
         }
         return newButton;
     }();
@@ -714,15 +715,20 @@ void PointerCaptureController::cancelPointer(PointerID pointerId, const IntPoint
     capturingData->pendingTargetOverride = nullptr;
     capturingData->state = CapturingData::State::Cancelled;
 
-    capturingData->previousTarget = nullptr;
+    RefPtr previousTarget = std::exchange(capturingData->previousTarget, nullptr);
 
     auto target = [&]() -> RefPtr<Element> {
         if (capturingData->targetOverride)
             return capturingData->targetOverride;
-        constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
         RefPtr localMainFrame = page->localMainFrame();
-        if (!localMainFrame)
+        if (!localMainFrame) {
+            // The main frame is in another process, so documentPoint isn't in this process's coordinate space.
+            // Target the element that last received an event for this pointer instead.
+            if (previousTarget && previousTarget->isConnected() && previousTarget->document().frame())
+                return previousTarget;
             return nullptr;
+        }
+        constexpr OptionSet<HitTestRequest::Type> hitType { HitTestRequest::Type::ReadOnly, HitTestRequest::Type::Active, HitTestRequest::Type::DisallowUserAgentShadowContent, HitTestRequest::Type::AllowChildFrameContent };
         return localMainFrame->eventHandler().hitTestResultAtPoint(documentPoint, hitType).innerNonSharedElement();
     }();
 

@@ -39,6 +39,7 @@
 #include "CSSCursorImageValue.h"
 #include "CSSFilterImageValue.h"
 #include "CSSFontSelector.h"
+#include "CSSFreeformGradientValue.h"
 #include "CSSFunctionValue.h"
 #include "CSSGradientValue.h"
 #include "CSSImageSetValue.h"
@@ -153,6 +154,8 @@ RefPtr<Image> BuilderState::createStyleImage(const CSSValue& value) const
         return gradientValue->createStyleImage(*this);
     if (auto* meshGradientValue = dynamicDowncast<CSSMeshGradientValue>(value))
         return meshGradientValue->createStyleImage(*this);
+    if (auto* freeformGradientValue = dynamicDowncast<CSSFreeformGradientValue>(value))
+        return freeformGradientValue->createStyleImage(*this);
     if (auto* colorImageValue = dynamicDowncast<CSSColorImageValue>(value))
         return colorImageValue->createStyleImage(*this);
     if (auto* lightDarkImageValue = dynamicDowncast<CSSLightDarkImageValue>(value))
@@ -188,8 +191,8 @@ void BuilderState::updateFont()
     if (!needsUpdate())
         return;
 
-    updateFontForTextSizeAdjust();
     updateFontForGenericFamilyChange();
+    updateFontForTextSizeAdjust();
     updateFontForZoomChange();
     updateFontForOrientationChange();
     updateFontForSizeChange();
@@ -201,22 +204,20 @@ void BuilderState::updateFont()
 
 void BuilderState::updateFontForTextSizeAdjust()
 {
-    if (m_style->textSizeAdjust().isAuto()
-        || !document().textAutosizingEnabled()
-        || (document().settings().textAutosizingUsesIdempotentMode()
-            && !m_style->textSizeAdjust().isNone()
-            && !document().settings().idempotentModeAutosizingOnlyHonorsPercentages()))
+    if (!document().textAutosizingEnabled())
+        return;
+
+    auto textSizeAdjust = m_style->textSizeAdjust();
+    auto multiplier = textSizeAdjust.usedFontSizeMultiplier(document());
+    if (!multiplier && !textSizeAdjust.isNone())
         return;
 
     auto newFontDescription = m_style->fontDescription();
-    auto baseSize = newFontDescription.computedSize();
-    if (!m_style->textSizeAdjust().isNone())
-        baseSize *= m_style->textSizeAdjust().multiplier();
+    auto baseSize = newFontDescription.computedSize() * multiplier.value_or(1.0f);
 
     float zoomFactor = m_style->usedZoom();
     if (auto* frame = document().frame(); frame && m_style->textZoom() != TextZoom::Reset)
         zoomFactor *= frame->textZoomFactor();
-    newFontDescription.setComputedSize(baseSize);
     newFontDescription.setUsedSize(baseSize * zoomFactor, zoomFactor);
 
     m_style->setFontDescriptionWithoutUpdate(WTF::move(newFontDescription));
@@ -231,11 +232,7 @@ void BuilderState::updateFontForZoomChange()
     // computed the correct size (incorporating both the multiplier and the current zoom factor).
     // Skip recalculation here to avoid overwriting that result, which would lose the
     // text-size-adjust multiplier.
-    if (document().textAutosizingEnabled()
-        && !m_style->textSizeAdjust().isAuto()
-        && !m_style->textSizeAdjust().isNone()
-        && (!document().settings().textAutosizingUsesIdempotentMode()
-            || document().settings().idempotentModeAutosizingOnlyHonorsPercentages()))
+    if (m_style->textSizeAdjust().usedFontSizeMultiplier(document()))
         return;
 
     setFontDescriptionFontSize(m_style->fontDescription().computedSize());

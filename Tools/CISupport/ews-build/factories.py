@@ -190,6 +190,9 @@ class TestFactory(Factory):
             self.addStep(RunWebKitTestsInStressMode(num_iterations=10, layout_test_class=self.LayoutTestClass))
             self.addStep(self.LayoutTestClass())
         if self.APITestClass:
+            if platform in ['gtk', 'wpe']:
+                self.addStep(FindChangedAPITests())
+                self.addStep(RunAPITestsInStressMode())
             self.addStep(self.APITestClass())
         if self.willTriggerCrashLogSubmission:
             self.addStep(TriggerCrashLogSubmission())
@@ -258,7 +261,7 @@ class APITestsFactory(TestFactory):
 
 class WebDriverTestsFactory(TestFactory):
     def __init__(self, platform, configuration=None, architectures=None, triggered_by=None, additionalArguments=None, **kwargs):
-        Factory.__init__(self, platform=platform, configuration=configuration, architectures=architectures, buildOnly=False, triggered_by=triggered_by, additionalArguments=additionalArguments)
+        Factory.__init__(self, platform=platform, configuration=configuration, architectures=architectures, buildOnly=False, triggered_by=triggered_by, additionalArguments=additionalArguments, checkRelevance=True)
         self.addStep(KillOldProcesses())
         self.getProduct()
         self.addStep(RunWebDriverTests())
@@ -380,7 +383,7 @@ class WPETestsFactory(TestFactory):
 class ServicesFactory(Factory):
     def __init__(self, platform, configuration=None, architectures=None, additionalArguments=None, **kwargs):
         Factory.__init__(self, platform=platform, configuration=configuration, architectures=architectures, buildOnly=False, additionalArguments=additionalArguments, checkRelevance=True)
-        self.addStep(ValidateChange(verifyBugClosed=False, addURLs=False))
+        self.addStep(ValidateChange(verifyPRClosed=False, addURLs=False))
         self.addStep(RunBuildWebKitOrgUnitTests())
         self.addStep(RunBuildbotCheckConfigForBuildWebKit())
         self.addStep(RunEWSUnitTests())

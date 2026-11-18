@@ -26,8 +26,11 @@
 #pragma once
 
 #include "MessageSender.h"
+#include "NavigationResponseProcessSwap.h"
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/PageIdentifier.h>
+#include <wtf/CompletionHandler.h>
+#include <wtf/Function.h>
 #include <wtf/TZoneMalloc.h>
 #include <wtf/WeakPtr.h>
 
@@ -46,6 +49,7 @@ public:
     static Ref<WebPageProxyTesting> create(WebPageProxy& page) { return adoptRef(*new WebPageProxyTesting(page)); }
 
     void isLayerTreeFrozen(CompletionHandler<void(bool)>&&);
+    void isLayerTreeFrozen(WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
     void numberOfLiveDocuments(CompletionHandler<void(uint64_t)>&&);
 
     void setDisplayForTesting(uint32_t displayID, unsigned nominalFramesPerSecond);
@@ -56,6 +60,10 @@ public:
     void setPermissionLevel(const String& origin, bool allowed);
     bool isEditingCommandEnabled(const String& commandName);
     void resetStateBetweenTests();
+
+    using NavigationResponseProcessSwapReplyHandler = Function<void(NavigationResponseProcessSwapResult, CompletionHandler<void()>&& sendReply)>;
+    void setNavigationResponseProcessSwapReplyHandler(NavigationResponseProcessSwapReplyHandler&& handler) { m_navigationResponseProcessSwapReplyHandler = WTF::move(handler); }
+    CompletionHandler<void(NavigationResponseProcessSwapResult&&)> holdNavigationResponseProcessSwapReply(CompletionHandler<void(NavigationResponseProcessSwapResult&&)>&&);
 
 #if PLATFORM(IOS_FAMILY)
     void screenIsBeingCaptured(WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
@@ -87,6 +95,10 @@ public:
     NODELETE void setSystemCanPromptForGetDisplayMediaForTesting(bool);
 #endif
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+    bool isDisplayCaptureCapabilityActive() const;
+#endif
+
     void setObscuredContentInsets(float top, float right, float bottom, float left, CompletionHandler<void()>&&);
 
     void clearBackForwardList(CompletionHandler<void()>&&);
@@ -109,6 +121,7 @@ private:
 
     WeakRef<WebPageProxy> m_page;
     std::optional<unsigned> m_displayNominalFramesPerSecondOverride;
+    NavigationResponseProcessSwapReplyHandler m_navigationResponseProcessSwapReplyHandler;
 };
 
 } // namespace WebKit

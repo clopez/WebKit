@@ -361,7 +361,7 @@ bool mayHaveScrollSnappedBoxes(const RenderBox& scrollingElementBox)
         return false;
 
     auto& boxesWithScrollSnapPositions = scrollingElementBox.view().boxesWithScrollSnapPositions();
-    if (boxesWithScrollSnapPositions.isEmptyIgnoringNullReferences())
+    if (boxesWithScrollSnapPositions.computeIsEmpty())
         return false;
 
     return true;
@@ -371,7 +371,7 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
 {
     auto scrollSnapTypeContainer = scrollingElementStyle.scrollSnapType().tryContainer();
     const auto& boxesWithScrollSnapPositions = scrollingElementBox.view().boxesWithScrollSnapPositions();
-    if (!scrollSnapTypeContainer || boxesWithScrollSnapPositions.isEmptyIgnoringNullReferences()) {
+    if (!scrollSnapTypeContainer || boxesWithScrollSnapPositions.computeIsEmpty()) {
         scrollableArea.clearSnapOffsets();
         return;
     }
@@ -388,9 +388,6 @@ void updateSnapOffsetsForScrollableArea(ScrollableArea& scrollableArea, const Re
     // indices already tied at this exact offset (almost always zero or one of them).
     auto addOrUpdateStopForSnapOffset = [](HashMap<LayoutUnit, SnapOffset<LayoutUnit>>& offsets, LayoutUnit newOffset, ScrollSnapStop stop, bool hasSnapAreaLargerThanViewport, bool isFocused, bool isTarget, NodeIdentifier snapTargetID, size_t snapAreaIndex, const Vector<CheckedRef<const RenderBox>>& snapBoxesByAreaIndex)
     {
-        if (!offsets.isValidKey(newOffset))
-            return;
-
         auto& offset = offsets.ensure(newOffset, [&] {
             return SnapOffset<LayoutUnit> { newOffset, stop, hasSnapAreaLargerThanViewport, isFocused, isTarget, snapTargetID, { } };
         }).iterator->value;

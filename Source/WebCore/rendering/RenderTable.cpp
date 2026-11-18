@@ -31,6 +31,7 @@
 #include "BackgroundPainter.h"
 #include "BorderPainter.h"
 #include "BorderShape.h"
+#include "BoxDecorationPainter.h"
 #include "CollapsedBorderValue.h"
 #include "Document.h"
 #include "FixedTableLayout.h"
@@ -40,6 +41,7 @@
 #include "InlineIteratorInlineBox.h"
 #include "LayoutRepainter.h"
 #include "LocalFrameView.h"
+#include "MaskPainter.h"
 #include "PaintInfoInlines.h"
 #include "RenderBlockFlow.h"
 #include "RenderBlockInlines.h"
@@ -75,7 +77,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTable);
 
-RenderTable::RenderTable(Type type, Element& element, Style::ComputedStyle&& style)
+RenderTable::RenderTable(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(type, element, WTF::move(style), { })
     , m_columnPos(FillWith { }, 1, 0)
 {
@@ -83,7 +85,7 @@ RenderTable::RenderTable(Type type, Element& element, Style::ComputedStyle&& sty
     ASSERT(isRenderTable());
 }
 
-RenderTable::RenderTable(Type type, Document& document, Style::ComputedStyle&& style)
+RenderTable::RenderTable(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(type, document, WTF::move(style), { })
     , m_columnPos(FillWith { }, 1, 0)
 {
@@ -269,10 +271,10 @@ void RenderTable::updateLogicalWidth()
         setMarginEnd(computedValues.margins.end);
     }
 
-    auto& containingBlock = *this->containingBlock();
+    CheckedRef<RenderBoxModelObject> containingBlock = *this->containingBlock();
 
     LayoutUnit availableLogicalWidth = containingBlockLogicalWidthForContent();
-    bool hasPerpendicularContainingBlock = writingMode().isOrthogonal(containingBlock.writingMode());
+    bool hasPerpendicularContainingBlock = writingMode().isOrthogonal(containingBlock->writingMode());
     LayoutUnit containerWidthInInlineDirection = hasPerpendicularContainingBlock ? perpendicularContainingBlockLogicalHeight() : availableLogicalWidth;
 
     auto& styleLogicalWidth = style().logicalWidth();
@@ -288,10 +290,8 @@ void RenderTable::updateLogicalWidth()
 
         // Subtract out our margins to get the available content width.
         LayoutUnit availableContentLogicalWidth = std::max<LayoutUnit>(0, containerWidthInInlineDirection - marginTotal);
-        if (shrinkToAvoidFloats() && containingBlock.containsFloats() && !hasPerpendicularContainingBlock) {
-            // FIXME: Work with regions someday.
-            availableContentLogicalWidth = shrinkLogicalWidthToAvoidFloats(marginStart, marginEnd, containingBlock);
-        }
+        if (CheckedPtr block = dynamicDowncast<RenderBlock>(containingBlock); block && shrinkToAvoidFloats() && block->containsFloats() && !hasPerpendicularContainingBlock)
+            availableContentLogicalWidth = shrinkLogicalWidthToAvoidFloats(marginStart, marginEnd, *block);
 
         // Ensure we aren't bigger than our available width.
         LayoutUnit maxWidth = maxContentLogicalWidthContribution();
@@ -325,10 +325,10 @@ void RenderTable::updateLogicalWidth()
     setMarginEnd(0);
     if (!hasPerpendicularContainingBlock) {
         LayoutUnit containerLogicalWidthForAutoMargins = availableLogicalWidth;
-        if (avoidsFloats() && containingBlock.containsFloats())
+        if (CheckedPtr block = dynamicDowncast<RenderBlock>(containingBlock); block && avoidsFloats() && block->containsFloats())
             containerLogicalWidthForAutoMargins = containingBlockAvailableLineWidth();
         ComputedMarginValues marginValues;
-        bool hasSameDirection = !containingBlock.writingMode().isInlineOpposing(writingMode());
+        bool hasSameDirection = !containingBlock->writingMode().isInlineOpposing(writingMode());
         computeInlineDirectionMargins(containingBlock, availableLogicalWidth, containerLogicalWidthForAutoMargins, logicalWidth(),
             hasSameDirection ? marginValues.start : marginValues.end,
             hasSameDirection ? marginValues.end : marginValues.start);
@@ -347,6 +347,10 @@ template<typename SizeType> LayoutUnit RenderTable::convertStyleLogicalWidthToCo
     if (styleLogicalWidth.isIntrinsicOrStretch())
         return computeSizingKeywordLogicalWidthUsing(styleLogicalWidth, availableWidth, bordersPaddingAndSpacingInRowDirection());
 
+    // A stretch() argument is the size of the margin box, whatever kind of table this is.
+    if (styleLogicalWidth.isStretchFunction())
+        return adjustBorderBoxLogicalWidthForBoxSizing(styleLogicalWidth, Style::evaluateMinimum<LayoutUnit>(styleLogicalWidth, availableWidth, style().usedZoomForLength()), containingBlockLogicalWidthForBoxSizing(styleLogicalWidth));
+
     // HTML tables' width styles already include borders and padding, but CSS tables' width styles do not.
     LayoutUnit borders;
     bool isCSSTable = !is<HTMLTableElement>(element());
@@ -362,6 +366,16 @@ template<typename SizeType> LayoutUnit RenderTable::convertStyleLogicalHeightToC
     LayoutUnit borderAndPaddingBefore = borderBefore() + (collapseBorders() ? 0_lu : paddingBefore());
     LayoutUnit borderAndPaddingAfter = borderAfter() + (collapseBorders() ? 0_lu : paddingAfter());
     LayoutUnit borderAndPadding = borderAndPaddingBefore + borderAndPaddingAfter;
+
+    if (styleLogicalHeight.isStretchFunction()) {
+        auto marginBoxLogicalHeight = [&] {
+            if (auto fixedStyleLogicalHeight = styleLogicalHeight.tryFixed())
+                return Style::evaluate<LayoutUnit>(*fixedStyleLogicalHeight, style().usedZoomForLength());
+            return computePercentageLogicalHeight(styleLogicalHeight).value_or(0_lu);
+        }();
+        return std::max(0_lu, adjustBorderBoxLogicalHeightForBoxSizing(styleLogicalHeight, marginBoxLogicalHeight, containingBlockLogicalWidthForBoxSizing(styleLogicalHeight)) - borderAndPadding);
+    }
+
     return WTF::switchOn(styleLogicalHeight,
         [&](const typename SizeType::Fixed& fixedStyleLogicalHeight) {
             // HTML tables size as though CSS height includes border/padding, CSS tables do not.
@@ -683,7 +697,7 @@ void RenderTable::layout()
         // The location or height of one or more sections may have changed.
         invalidateCachedColumnOffsets();
 
-        computeInFlowOverflow(flippedContentBoxRect());
+        computeInFlowOverflow(blockStartRelativeContentBoxRect());
 
         // table can be containing block of positioned elements.
         bool dimensionChanged = oldLogicalWidth != logicalWidth() || oldLogicalHeight != logicalHeight();
@@ -782,11 +796,18 @@ void RenderTable::recalcCollapsedBorders()
     if (m_collapsedBordersValid)
         return;
     m_collapsedBorders.clear();
+    m_maxCollapsedInnerBorderHalfFirstColumn = 0;
+    m_maxCollapsedInnerBorderHalfLastColumn = 0;
+    unsigned lastEffectiveColumn = numEffCols() - 1;
     for (auto& section : childrenOfType<RenderTableSection>(*this)) {
         for (RenderTableRow* row = section.firstRow(); row; row = row->nextRow()) {
             for (RenderTableCell* cell = row->firstCell(); cell; cell = cell->nextCell()) {
                 ASSERT(cell->table() == this);
                 cell->collectBorderValues(m_collapsedBorders);
+                if (!colToEffCol(cell->col()))
+                    m_maxCollapsedInnerBorderHalfFirstColumn = std::max(m_maxCollapsedInnerBorderHalfFirstColumn, cell->borderLeft());
+                if (colToEffCol(cell->col() + cell->colSpan() - 1) == lastEffectiveColumn)
+                    m_maxCollapsedInnerBorderHalfLastColumn = std::max(m_maxCollapsedInnerBorderHalfLastColumn, cell->borderRight());
             }
         }
     }
@@ -846,7 +867,7 @@ void RenderTable::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
     if (!isDocumentElementRenderer()) {
         LayoutRect overflowBox = visualOverflowRect();
-        flipForWritingMode(overflowBox);
+        blockStartRelativeToPhysical(overflowBox);
         overflowBox.moveBy(adjustedPaintOffset);
         if (!overflowBox.intersects(paintInfo.rect))
             return;
@@ -862,10 +883,10 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 {
     PaintPhase paintPhase = paintInfo.phase;
     if ((paintPhase == PaintPhase::BlockBackground || paintPhase == PaintPhase::ChildBlockBackground) && hasVisibleBoxDecorations() && usedStyle().visibility() == UsedVisibility::Visible)
-        paintBoxDecorations(paintInfo, paintOffset);
+        Paint::BoxDecorationPainter { *this, paintInfo, paintOffset }.paintBoxDecorations();
 
     if (paintPhase == PaintPhase::Mask) {
-        paintMask(paintInfo, paintOffset);
+        Paint::MaskPainter { *this, paintInfo, paintOffset }.paintMask();
         return;
     }
 
@@ -894,7 +915,7 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
 
     for (auto& box : childrenOfType<RenderBox>(*this)) {
         if (!box.hasSelfPaintingLayer() && (box.isRenderTableSection() || box.isRenderTableCaption())) {
-            LayoutPoint childPoint = flipForWritingModeForChild(box, paintOffset);
+            LayoutPoint childPoint = blockStartRelativeToPhysicalForChild(box, paintOffset);
             box.paint(info, childPoint);
         }
     }
@@ -902,7 +923,7 @@ void RenderTable::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffs
     if (collapseBorders() && paintPhase == PaintPhase::ChildBlockBackground && usedStyle().visibility() == UsedVisibility::Visible) {
         paintCollapsedBorderPasses(info, [&](PaintInfo& borderPaintInfo) {
             for (RenderTableSection* section = bottomSection(); section; section = sectionAbove(section)) {
-                LayoutPoint childPoint = flipForWritingModeForChild(*section, paintOffset);
+                LayoutPoint childPoint = blockStartRelativeToPhysicalForChild(*section, paintOffset);
                 section->paint(borderPaintInfo, childPoint);
             }
         });
@@ -934,7 +955,7 @@ void RenderTable::paintCollapsedBordersForRow(PaintInfo& paintInfo, RenderTableR
     paintCollapsedBorderPasses(paintInfo, [&](PaintInfo& borderPaintInfo) {
         for (CheckedPtr cell = row.firstCell(); cell; cell = cell->nextCell()) {
             if (!cell->hasSelfPaintingLayer()) {
-                auto cellPoint = row.flipForWritingModeForChild(*cell, paintOffset);
+                auto cellPoint = row.blockStartRelativeToPhysicalForChild(*cell, paintOffset);
                 cell->paintCollapsedBorders(borderPaintInfo, cellPoint);
             }
         }
@@ -958,52 +979,6 @@ void RenderTable::adjustBorderBoxRectForPainting(LayoutRect& rect)
     }
     
     RenderBlock::adjustBorderBoxRectForPainting(rect);
-}
-
-void RenderTable::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
-{
-    if (!paintInfo.shouldPaintWithinRoot(*this))
-        return;
-
-    LayoutRect rect(paintOffset, borderBoxSize());
-    adjustBorderBoxRectForPainting(rect);
-
-    BackgroundPainter backgroundPainter { *this, paintInfo };
-
-    auto bleedAvoidance = determineBleedAvoidance(paintInfo.context());
-    if (!BackgroundPainter::boxShadowShouldBeAppliedToBackground(*this, rect.location(), bleedAvoidance, { }))
-        backgroundPainter.paintBoxShadow(rect, usedStyle(), Style::ShadowStyle::Normal);
-
-    GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
-    if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer) {
-        // To avoid the background color bleeding out behind the border, we'll render background and border
-        // into a transparency layer, and then clip that in one go (which requires setting up the clip before
-        // beginning the layer).
-        stateSaver.save();
-        auto borderShape = BorderShape::shapeForBorderRect(usedStyle(), rect);
-        borderShape.clipToOuterShape(paintInfo.context(), style().deviceScaleFactor());
-        paintInfo.context().beginTransparencyLayer(1);
-    }
-
-    backgroundPainter.paintBackground(rect, bleedAvoidance);
-    backgroundPainter.paintBoxShadow(rect, usedStyle(), Style::ShadowStyle::Inset);
-
-    if (style().border().hasVisibleBorderDecoration() && !collapseBorders())
-        BorderPainter { *this, paintInfo }.paintBorder(rect, usedStyle());
-
-    if (bleedAvoidance == BleedAvoidance::UseTransparencyLayer)
-        paintInfo.context().endTransparencyLayer();
-}
-
-void RenderTable::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
-{
-    if (usedStyle().visibility() != UsedVisibility::Visible || paintInfo.phase != PaintPhase::Mask)
-        return;
-
-    LayoutRect rect(paintOffset, borderBoxSize());
-    adjustBorderBoxRectForPainting(rect);
-
-    paintMaskImages(paintInfo, rect);
 }
 
 std::pair<LayoutUnit, LayoutUnit> RenderTable::computeIntrinsicLogicalWidths(TableIntrinsics intrinsics) const
@@ -1800,7 +1775,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             CheckedPtr box = dynamicDowncast<RenderBox>(*child);
             if (box && !box->hasSelfPaintingLayer() && (box->isRenderTableSection() || box->isRenderTableCaption())) {
-                LayoutPoint childPoint = flipForWritingModeForChild(*box, adjustedLocation);
+                LayoutPoint childPoint = blockStartRelativeToPhysicalForChild(*box, adjustedLocation);
                 if (box->nodeAtPoint(request, result, locationInContainer, childPoint, action)) {
                     updateHitTestResult(result, toLayoutPoint(locationInContainer.point() - childPoint));
                     return true;
@@ -1812,7 +1787,7 @@ bool RenderTable::nodeAtPoint(const HitTestRequest& request, HitTestResult& resu
     // Check our bounds next.
     LayoutRect boundsRect(adjustedLocation, borderBoxSize());
     if (visibleToHitTesting(request) && (action == HitTestAction::BlockBackground || action == HitTestAction::ChildBlockBackground) && locationInContainer.intersects(boundsRect)) {
-        updateHitTestResult(result, flipForWritingMode(locationInContainer.point() - toLayoutSize(adjustedLocation)));
+        updateHitTestResult(result, physicalToBlockStartRelative(locationInContainer.point() - toLayoutSize(adjustedLocation)));
         if (result.addNodeToListBasedTestResult(protect(nodeForHitTest()).get(), request, locationInContainer, boundsRect) == HitTestProgress::Stop)
             return true;
     }

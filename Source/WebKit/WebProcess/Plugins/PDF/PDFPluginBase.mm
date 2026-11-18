@@ -1389,7 +1389,7 @@ bool PDFPluginBase::showContextMenuAtPoint(const IntPoint& point)
         .globalPosition = contentsPoint,
         .clickCount = 1,
         .force = WebCore::ForceAtClick,
-        .inputSource = WebEventInputSource::UserDriven,
+        .inputSource = WebEventInputSource::Default,
     });
     return handleContextMenuEvent(event);
 }
@@ -1409,7 +1409,7 @@ bool PDFPluginBase::performImmediateActionHitTestAtLocation(const WebCore::Float
 
 WebCore::AXObjectCache* PDFPluginBase::axObjectCache() const
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
     RefPtr frame = m_frame.get();
     if (!frame)
         return nullptr;

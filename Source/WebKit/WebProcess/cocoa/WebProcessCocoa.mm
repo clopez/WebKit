@@ -1371,10 +1371,6 @@ void WebProcess::setMediaAccessibilityPreferredCaptionDisplayMode(WebCore::Capti
 
 void WebProcess::updatePageAccessibilitySettings()
 {
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
-    Image::setSystemAllowsAnimationControls(!imageAnimationEnabled());
-#endif
-
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL) || ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL) || ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
     for (auto& page : m_pageMap.values()) {
 #if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
@@ -1522,6 +1518,9 @@ void WebProcess::switchFromStaticFontRegistryToUserFontRegistry(Vector<WebKit::S
 void WebProcess::setScreenProperties(WebCore::ScreenProperties&& properties)
 {
 #if HAVE(SUPPORT_HDR_DISPLAY)
+    // Contents formats for testing are only ever set in this process, so the UI process's properties never include them.
+    properties.screenContentsFormatsForTesting = WebCore::PlatformScreen::singleton()->screenContentsFormatsForTesting();
+
     auto propertiesWithStyleAffectingOnly = [](auto properties) {
         for (auto& value : properties.screenDataMap.values()) {
             value.suppressEDR = false;

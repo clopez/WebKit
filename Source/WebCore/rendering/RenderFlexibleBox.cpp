@@ -64,14 +64,14 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderFlexibleBox);
 
-RenderFlexibleBox::RenderFlexibleBox(Type type, Element& element, Style::ComputedStyle&& style)
+RenderFlexibleBox::RenderFlexibleBox(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(type, element, WTF::move(style), TypeFlag::IsFlexibleBox)
 {
     ASSERT(isRenderFlexibleBox());
     setChildrenInline(false); // All of our children must be block-level.
 }
 
-RenderFlexibleBox::RenderFlexibleBox(Type type, Document& document, Style::ComputedStyle&& style)
+RenderFlexibleBox::RenderFlexibleBox(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(type, document, WTF::move(style), TypeFlag::IsFlexibleBox)
 {
     ASSERT(isRenderFlexibleBox());
@@ -141,7 +141,7 @@ void RenderFlexibleBox::layoutBlock(RelayoutChildren relayoutChildren, LayoutUni
         repaintFlexItemsDuringLayoutIfMoved(oldFlexItemRects);
         // FIXME: css3/flexbox/repaint-rtl-column.html seems to repaint more overflow than it needs to.
         updateInFlowDescendantTransformsAfterLayout();
-        computeInFlowOverflow(flippedContentBoxRect(),  { ComputeOverflowOptions::MarginsExtendContentAreaX, ComputeOverflowOptions::MarginsExtendContentAreaY });
+        computeInFlowOverflow(blockStartRelativeContentBoxRect(),  { ComputeOverflowOptions::MarginsExtendContentAreaX, ComputeOverflowOptions::MarginsExtendContentAreaY });
         // FIXME: Only the items at the edges should contribute to the content area. But this distinction only matters in some weird cases with extreme negative margins.
 
         if (isDocumentElementRenderer() || logicalHeight() != previousHeight)

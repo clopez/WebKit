@@ -193,6 +193,7 @@
 #import <WebCore/WebEvent.h>
 #import <WebCore/WritingSuggestionData.h>
 #import <pal/system/ios/UserInterfaceIdiom.h>
+#import <wtf/Borrow.h>
 #import <wtf/CoroutineUtilities.h>
 #import <wtf/MathExtras.h>
 #import <wtf/RuntimeApplicationChecks.h>
@@ -336,13 +337,13 @@ bool WebPage::requiresPostLayoutDataForEditorState(const LocalFrame& frame) cons
 
 static void convertContentToRootView(const LocalFrameView& view, Vector<SelectionGeometry>& geometries)
 {
-    for (auto& geometry : geometries)
+    for (auto& geometry : borrow(geometries))
         geometry.setQuad(view.contentsToRootView(geometry.quad()));
 }
 
 static void convertContentToMainFrameView(const LocalFrameView& view, Vector<SelectionGeometry>& geometries)
 {
-    for (auto& geometry : geometries)
+    for (auto& geometry : borrow(geometries))
         geometry.setQuad(view.contentsToMainFrameView(geometry.quad()));
 }
 
@@ -358,12 +359,15 @@ static std::optional<IntRect> overflowClipRectForSelection(const VisibleSelectio
 
     CheckedRef renderer = enclosingLayer->renderer();
     std::optional<IntRect> clipRect;
-    CheckedPtr block = dynamicDowncast<RenderBlock>(renderer.get());
-    if (!block)
-        block = renderer->containingBlock();
-    for (; block && !is<RenderView>(*block); block = block->containingBlock()) {
-        if (!block->hasNonVisibleOverflow())
+    CheckedPtr<RenderBoxModelObject> containingBlock = dynamicDowncast<RenderBlock>(renderer);
+    if (!containingBlock)
+        containingBlock = renderer->containingBlock();
+    for (; containingBlock && !is<RenderView>(*containingBlock); containingBlock = containingBlock->containingBlock()) {
+        if (!containingBlock->hasNonVisibleOverflow())
             continue;
+
+        // Inline boxes don't clip their overflow, so this is a block.
+        CheckedRef block = downcast<RenderBlock>(*containingBlock);
 
         auto blockClipRect = enclosingIntRect(block->localToAbsoluteQuad(FloatQuad { block->overflowClipRect({ }) }).boundingBox());
         if (clipRect)
@@ -513,7 +517,7 @@ void WebPage::getPlatformEditorState(LocalFrame& frame, EditorState& result) con
             rect = roundedIntRect(localRootView->convertToRootViewAcrossIsolatedFrames(FloatRect { rect }));
         };
         auto convertGeometries = [&](Vector<SelectionGeometry>& geometries) {
-            for (auto& geometry : geometries)
+            for (auto& geometry : borrow(geometries))
                 geometry.setQuad(localRootView->convertToRootViewAcrossIsolatedFrames(geometry.quad()));
         };
         convertRect(visualData.selectionClipRect);
@@ -558,10 +562,10 @@ FloatSize WebPage::overrideAvailableScreenSize() const
     return m_overrideAvailableScreenSize;
 }
 
-void WebPage::didReceiveMobileDocType(bool isMobileDoctype)
+void WebPage::updateViewportDefaultConfiguration(bool hasMobileDoctype)
 {
-    m_isMobileDoctype = isMobileDoctype;
-    resetViewportDefaultConfiguration(m_mainFrame.ptr(), isMobileDoctype);
+    m_isMobileDoctype = hasMobileDoctype;
+    resetViewportDefaultConfiguration(m_mainFrame.ptr());
 }
 
 void WebPage::savePageState(HistoryItem& historyItem)
@@ -947,26 +951,35 @@ void WebPage::generateSyntheticEditingCommand(SyntheticEditingCommandType comman
     frame->eventHandler().keyEvent(keyEvent);
 }
 
-void WebPage::attemptSyntheticClick(const IntPoint& point, OptionSet<WebEventModifier> modifiers, TransactionID lastLayerTreeTransactionId)
+void WebPage::attemptSyntheticClick(std::optional<FrameIdentifier> frameID, const IntPoint& point, OptionSet<WebEventModifier> modifiers, TransactionID lastLayerTreeTransactionId, CompletionHandler<void(std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
+    if (frameID && !WebProcess::singleton().webFrame(*frameID))
+        return completionHandler(std::nullopt);
+
     FloatPoint adjustedPoint;
-    RefPtr localMainFrame = protect(*m_page)->localMainFrame();
-    RefPtr nodeRespondingToClick = localMainFrame ? localMainFrame->nodeRespondingToClickEvents(point, adjustedPoint) : nullptr;
+    RefPtr localRootFrame = this->localRootFrame(frameID);
+    RefPtr nodeRespondingToClick = localRootFrame ? localRootFrame->nodeRespondingToClickEvents(point, adjustedPoint) : nullptr;
+    if (auto remoteUserInputEventData = remoteUserInputEventDataForTapTarget(localRootFrame.get(), nodeRespondingToClick.get(), adjustedPoint))
+        return completionHandler(WTF::move(remoteUserInputEventData));
+    completionHandler(std::nullopt);
+
     RefPtr frameRespondingToClick = nodeRespondingToClick ? nodeRespondingToClick->document().frame() : nullptr;
-    IntPoint adjustedIntPoint = roundedIntPoint(adjustedPoint);
 
     bool didNotHandleTapAsClick = !frameRespondingToClick;
     if (frameRespondingToClick) {
         auto firstTransactionID = WebFrame::fromCoreFrame(*frameRespondingToClick)->firstLayerTreeTransactionIDAfterDidCommitLoad();
-        didNotHandleTapAsClick = !firstTransactionID || lastLayerTreeTransactionId.lessThanSameProcess(*firstTransactionID);
+        // The transaction ID comes from the main frame's process, so it can't be compared with another process's.
+        bool transactionIDsAreFromSameProcess = firstTransactionID && lastLayerTreeTransactionId.processIdentifier() == firstTransactionID->processIdentifier();
+        bool tapPrecedesLoad = transactionIDsAreFromSameProcess && lastLayerTreeTransactionId.lessThanSameProcess(*firstTransactionID);
+        didNotHandleTapAsClick = !firstTransactionID || tapPrecedesLoad;
     }
 
     if (didNotHandleTapAsClick)
-        send(Messages::WebPageProxy::DidNotHandleTapAsClick(adjustedIntPoint));
+        sendDidNotHandleTapAsClick(localRootFrame.get(), adjustedPoint);
     else if (m_interactionNode == nodeRespondingToClick)
-        completeSyntheticClick(std::nullopt, *nodeRespondingToClick, adjustedPoint, modifiers, WebCore::SyntheticClickType::OneFingerTap);
+        completeSyntheticClick(frameID, *nodeRespondingToClick, adjustedPoint, modifiers, WebCore::SyntheticClickType::OneFingerTap);
     else
-        handleSyntheticClick(std::nullopt, *nodeRespondingToClick, adjustedPoint, modifiers);
+        handleSyntheticClick(frameID, *nodeRespondingToClick, adjustedPoint, modifiers);
 }
 
 void WebPage::requestFocusedElementInformation(CompletionHandler<void(const std::optional<FocusedElementInformation>&)>&& completionHandler)
@@ -1021,7 +1034,7 @@ Awaitable<DragInitiationResult> WebPage::requestAdditionalItemsForDragSession(st
     // To augment the platform drag session with additional items, end the current drag session and begin a new drag session with the new drag item.
     // This process is opaque to the UI process, which still maintains the old drag item in its drag session. Similarly, this persistent drag session
     // is opaque to the web process, which only sees that the current drag has ended, and that a new one is beginning.
-    PlatformMouseEvent event(clientPosition, globalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), 0, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::UserDriven);
+    PlatformMouseEvent event(clientPosition, globalPosition, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), 0, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::Default);
     m_page->dragController().dragEnded(MayExtendDragSession::Yes);
     RefPtr localRootFrame = this->localRootFrame(rootFrameID);
     if (!localRootFrame)
@@ -1138,17 +1151,24 @@ void WebPage::computeAndSendEditDragSnapshot()
 
 #endif
 
-void WebPage::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, OptionSet<WebKit::WebEventModifier> modifiers, WebKit::TapIdentifier requestID)
+void WebPage::handleTwoFingerTapAtPoint(std::optional<WebCore::FrameIdentifier> frameID, const WebCore::IntPoint& point, OptionSet<WebKit::WebEventModifier> modifiers, WebKit::TapIdentifier requestID, CompletionHandler<void(std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
+    if (frameID && !WebProcess::singleton().webFrame(*frameID))
+        return completionHandler(std::nullopt);
+
     FloatPoint adjustedPoint;
-    RefPtr localMainFrame = protect(*m_page)->localMainFrame();
-    RefPtr nodeRespondingToClick = localMainFrame ? localMainFrame->nodeRespondingToClickEvents(point, adjustedPoint) : nullptr;
+    RefPtr localRootFrame = this->localRootFrame(frameID);
+    RefPtr nodeRespondingToClick = localRootFrame ? localRootFrame->nodeRespondingToClickEvents(point, adjustedPoint) : nullptr;
+    if (auto remoteUserInputEventData = remoteUserInputEventDataForTapTarget(localRootFrame.get(), nodeRespondingToClick.get(), adjustedPoint))
+        return completionHandler(WTF::move(remoteUserInputEventData));
+    completionHandler(std::nullopt);
+
     if (!nodeRespondingToClick || !nodeRespondingToClick->renderer()) {
-        send(Messages::WebPageProxy::DidNotHandleTapAsClick(roundedIntPoint(adjustedPoint)));
+        sendDidNotHandleTapAsClick(localRootFrame.get(), adjustedPoint);
         return;
     }
     sendTapHighlightForNodeIfNecessary(requestID, nodeRespondingToClick, point);
-    completeSyntheticClick(std::nullopt, *nodeRespondingToClick, adjustedPoint, modifiers, WebCore::SyntheticClickType::TwoFingerTap);
+    completeSyntheticClick(frameID, *nodeRespondingToClick, adjustedPoint, modifiers, WebCore::SyntheticClickType::TwoFingerTap);
 }
 
 void WebPage::clearSelectionAfterTapIfNeeded()
@@ -1176,13 +1196,22 @@ void WebPage::didRecognizeLongPress()
         ContentChangeObserver::didRecognizeLongPress(*localMainFrame);
 }
 
-void WebPage::tapHighlightAtPosition(WebKit::TapIdentifier requestID, const FloatPoint& position)
+void WebPage::tapHighlightAtPosition(std::optional<WebCore::FrameIdentifier> frameID, WebKit::TapIdentifier requestID, const FloatPoint& position, CompletionHandler<void(std::optional<RemoteUserInputEventData>)>&& completionHandler)
 {
-    RefPtr localMainFrame = protect(*m_page)->localMainFrame();
-    if (!localMainFrame)
-        return;
+    if (frameID && !WebProcess::singleton().webFrame(*frameID))
+        return completionHandler(std::nullopt);
+
+    RefPtr localRootFrame = this->localRootFrame(frameID);
+    if (!localRootFrame)
+        return completionHandler(std::nullopt);
+
     FloatPoint adjustedPoint;
-    sendTapHighlightForNodeIfNecessary(requestID, localMainFrame->nodeRespondingToClickEvents(position, adjustedPoint), position);
+    RefPtr nodeRespondingToClick = localRootFrame->nodeRespondingToClickEvents(position, adjustedPoint);
+    if (auto remoteUserInputEventData = remoteUserInputEventDataForTapTarget(localRootFrame.get(), nodeRespondingToClick.get(), adjustedPoint))
+        return completionHandler(WTF::move(remoteUserInputEventData));
+    completionHandler(std::nullopt);
+
+    sendTapHighlightForNodeIfNecessary(requestID, nodeRespondingToClick.get(), position);
 }
 
 void WebPage::inspectorNodeSearchMovedToPosition(const FloatPoint& position)
@@ -1192,7 +1221,7 @@ void WebPage::inspectorNodeSearchMovedToPosition(const FloatPoint& position)
         return;
     IntPoint adjustedPoint = roundedIntPoint(position);
 
-    localMainFrame->eventHandler().mouseMoved(PlatformMouseEvent(adjustedPoint, adjustedPoint, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, { }, { }, 0, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::UserDriven));
+    localMainFrame->eventHandler().mouseMoved(PlatformMouseEvent(adjustedPoint, adjustedPoint, std::unexpected { MouseButtonState::None }, PlatformEvent::Type::MouseMoved, 0, { }, { }, 0, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::Default));
     protect(localMainFrame->document())->updateStyleIfNeeded();
 }
 
@@ -1544,27 +1573,33 @@ void WebPage::dispatchSyntheticMouseEventsForSelectionGesture(SelectionTouch tou
     auto& eventHandler = localMainFrame->eventHandler();
     switch (touch) {
     case SelectionTouch::Started:
-        eventHandler.handleMousePressEvent({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::UserDriven });
+        eventHandler.handleMousePressEvent({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::Default });
         break;
     case SelectionTouch::Moved:
-        eventHandler.dispatchSyntheticMouseMove({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::UserDriven });
+        eventHandler.dispatchSyntheticMouseMove({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::Default });
         break;
     case SelectionTouch::Ended:
     case SelectionTouch::EndedMovingForward:
     case SelectionTouch::EndedMovingBackward:
     case SelectionTouch::EndedNotMoving:
-        eventHandler.handleMouseReleaseEvent({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::UserDriven });
+        eventHandler.handleMouseReleaseEvent({ adjustedPoint, adjustedPoint, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), WebCore::ForceAtClick, WebCore::SyntheticClickType::NoTap, WebCore::MouseEventInputSource::Default });
         break;
     }
 }
 
 void WebPage::clearSelectionAfterTappingSelectionHighlightIfNeeded(WebCore::FloatPoint location)
 {
-    RefPtr localMainFrame = protect(m_page)->localMainFrame();
-    if (!localMainFrame)
+    RefPtr focusedOrMainFrame = protect(m_page)->focusController().focusedOrMainFrame();
+    if (!focusedOrMainFrame)
         return;
 
-    auto result = localMainFrame->eventHandler().hitTestResultAtPoint(LayoutPoint { location }, {
+    Ref localRootFrame = focusedOrMainFrame->rootFrame();
+    RefPtr localRootView = localRootFrame->view();
+    if (!localRootView)
+        return;
+
+    auto pointInLocalRootView = localRootView->convertFromRootViewAcrossIsolatedFrames(location);
+    auto result = localRootFrame->eventHandler().hitTestResultAtPoint(LayoutPoint { localRootView->rootViewToContents(pointInLocalRootView) }, {
         HitTestRequest::Type::ReadOnly,
         HitTestRequest::Type::AllowVisibleChildFrameContentOnly,
         HitTestRequest::Type::IncludeAllElementsUnderPoint,
@@ -1774,7 +1809,7 @@ void WebPage::extendSelectionForReplacement(CompletionHandler<void()>&& completi
     });
 
     std::optional<SimpleRange> rangeToSelect;
-    for (auto& markerRange : markerRanges) {
+    for (auto& markerRange : borrow(markerRanges)) {
         if (contains(makeVisiblePositionRange(markerRange), position)) {
             // In practice, dictation markers should only span a single text node, so it's sufficient to
             // grab the first matching range (instead of taking the union of all intersecting ranges).
@@ -1920,67 +1955,49 @@ void WebPage::moveSelectionByOffset(int32_t offset, CompletionHandler<void()>&& 
     completionHandler();
 }
 
-void WebPage::requestEvasionRectsAboveSelection(CompletionHandler<void(const Vector<FloatRect>&)>&& reply)
+void WebPage::requestEvasionRectsAboveSelection(std::optional<FloatRect> selectionBoundsInMainFrameView, double scaleFactor, double contextMenuAreaLimit, CompletionHandler<void(const Vector<FloatRect>&)>&& reply)
 {
     RefPtr frame = m_page->focusController().focusedOrMainFrame();
     if (!frame)
         return reply({ });
 
-    RefPtr frameView = frame->view();
-    if (!frameView) {
-        reply({ });
-        return;
-    }
-
-    auto selection = frame->selection().selection();
-    if (selection.isNone()) {
-        reply({ });
-        return;
-    }
-
-    auto selectedRange = selection.toNormalizedRange();
-    if (!selectedRange) {
-        reply({ });
-        return;
-    }
-
-    if (!m_focusedElement || !m_focusedElement->renderer() || isTransparentOrFullyClipped(*protect(m_focusedElement))) {
-        reply({ });
-        return;
-    }
-
-    float scaleFactor = pageScaleFactor();
-    const double factorOfContentArea = 0.5;
-    RefPtr localMainFrame = protect(m_page)->localMainFrame();
-    if (!localMainFrame) {
-        reply({ });
-        return;
-    }
-
-    auto unobscuredContentArea = RefPtr(localMainFrame->view())->unobscuredContentRect().area<RecordOverflow>();
-    if (unobscuredContentArea.hasOverflowed()) {
-        reply({ });
-        return;
-    }
-
-    double contextMenuAreaLimit = factorOfContentArea * scaleFactor * unobscuredContentArea.value();
+    Ref localRootFrame = frame->rootFrame();
+    RefPtr localRootView = localRootFrame->view();
+    if (!localRootView)
+        return reply({ });
 
     FloatRect selectionBoundsInRootViewCoordinates;
-    if (selection.isRange())
-        selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(unionRect(RenderObject::absoluteTextRects(*selectedRange)));
-    else
-        selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(protect(frame->selection())->absoluteCaretBounds());
+    if (selectionBoundsInMainFrameView) {
+        // The selection is in another frame's process. Look for what to evade in this process's frames around it.
+        selectionBoundsInRootViewCoordinates = localRootView->convertFromRootViewAcrossIsolatedFrames(*selectionBoundsInMainFrameView);
+    } else {
+        RefPtr frameView = frame->view();
+        if (!frameView)
+            return reply({ });
+
+        auto selection = frame->selection().selection();
+        if (selection.isNone())
+            return reply({ });
+
+        auto selectedRange = selection.toNormalizedRange();
+        if (!selectedRange)
+            return reply({ });
+
+        if (!m_focusedElement || !m_focusedElement->renderer() || isTransparentOrFullyClipped(*protect(m_focusedElement)))
+            return reply({ });
+
+        if (selection.isRange())
+            selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(unionRect(RenderObject::absoluteTextRects(*selectedRange)));
+        else
+            selectionBoundsInRootViewCoordinates = frameView->contentsToRootView(protect(frame->selection())->absoluteCaretBounds());
+    }
 
     auto centerOfTargetBounds = selectionBoundsInRootViewCoordinates.center();
     FloatPoint centerTopInRootViewCoordinates { centerOfTargetBounds.x(), selectionBoundsInRootViewCoordinates.y() };
 
     auto clickableNonEditableNode = [&](const FloatPoint& locationInRootViewCoordinates) -> RefPtr<Node> {
-        RefPtr localMainFrame = protect(m_page)->localMainFrame();
-        if (!localMainFrame)
-            return nullptr;
-
         FloatPoint adjustedPoint;
-        RefPtr hitNode = Ref(*localMainFrame)->nodeRespondingToClickEvents(locationInRootViewCoordinates, adjustedPoint);
+        RefPtr hitNode = localRootFrame->nodeRespondingToClickEvents(locationInRootViewCoordinates, adjustedPoint);
         if (!hitNode || is<HTMLBodyElement>(hitNode) || is<Document>(hitNode) || hitNode->hasEditableStyle())
             return nullptr;
 
@@ -1994,7 +2011,7 @@ void WebPage::requestEvasionRectsAboveSelection(CompletionHandler<void(const Vec
     // Additionally, exclude any hit-tested nodes that are either very large relative to the size of the root view, or completely
     // encompass the selection bounds. The resulting rects are the bounds of these hit-tested nodes in root view coordinates.
     HashSet<Ref<Node>> hitTestedNodes;
-    Vector<FloatRect> rectsToAvoidInRootViewCoordinates;
+    Vector<FloatRect> rectsToAvoidInMainFrameView;
     const Vector<FloatPoint, 5> offsetsForHitTesting { { -30, -50 }, { 30, -50 }, { -60, -35 }, { 60, -35 }, { 0, -20 } };
     for (auto offset : offsetsForHitTesting) {
         offset.scale(1 / scaleFactor);
@@ -2009,7 +2026,7 @@ void WebPage::requestEvasionRectsAboveSelection(CompletionHandler<void(const Vec
         { selectionBoundsInRootViewCoordinates.maxX() + marginForHitTestingSurroundingNodes, centerOfTargetBounds.y() }
     };
 
-    for (auto& location : exclusionHitTestLocations) {
+    for (auto& location : borrow(exclusionHitTestLocations)) {
         if (RefPtr nodeToExclude = clickableNonEditableNode(location))
             hitTestedNodes.remove(*nodeToExclude);
     }
@@ -2021,17 +2038,18 @@ void WebPage::requestEvasionRectsAboveSelection(CompletionHandler<void(const Vec
             continue;
 
         auto bounds = frameView->contentsToRootView(renderer->absoluteBoundingBoxRect());
-        auto area = bounds.area();
+        auto boundsInMainFrameView = localRootView->convertToRootViewAcrossIsolatedFrames(bounds);
+        auto area = boundsInMainFrameView.area();
         if (area.hasOverflowed() || area > contextMenuAreaLimit)
             continue;
 
         if (bounds.contains(enclosingIntRect(selectionBoundsInRootViewCoordinates)))
             continue;
 
-        rectsToAvoidInRootViewCoordinates.append(WTF::move(bounds));
+        rectsToAvoidInMainFrameView.append(WTF::move(boundsInMainFrameView));
     }
 
-    reply(WTF::move(rectsToAvoidInRootViewCoordinates));
+    reply(WTF::move(rectsToAvoidInMainFrameView));
 }
 
 void WebPage::getRectsForGranularityWithSelectionOffset(WebCore::TextGranularity granularity, int32_t offset, CompletionHandler<void(const Vector<WebCore::SelectionGeometry>&)>&& completionHandler)
@@ -2655,7 +2673,7 @@ void WebPage::performActionOnElement(uint32_t action, const String& authorizatio
 
 void WebPage::performActionOnElements(uint32_t action, const Vector<WebCore::ElementContext>& elements)
 {
-    for (const auto& elementContext : elements) {
+    for (const auto& elementContext : borrow(elements)) {
         if (RefPtr element = elementForContext(elementContext))
             handleAnimationActions(*element, action);
     }
@@ -2783,7 +2801,7 @@ std::optional<FocusedElementInformation> WebPage::focusedElementInformationWitho
                 if (RefPtr label = dynamicDowncast<Element>(labels->item(index)); label && label->renderer())
                     associatedLabels.append(*label);
             }
-            for (auto& labelElement : associatedLabels) {
+            for (auto& labelElement : borrow(associatedLabels)) {
                 auto text = labelElement->innerText();
                 if (!text.isEmpty()) {
                     information.label = WTF::move(text);
@@ -2997,6 +3015,11 @@ void WebPage::setDeviceOrientation(IntDegrees deviceOrientation)
 #endif
 }
 
+void WebPage::setUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
+{
+    protect(m_page)->setUnobscuredSafeAreaInsets(insets);
+}
+
 void WebPage::setOverrideViewportArguments(const std::optional<WebCore::ViewportArguments>& arguments)
 {
     protect(m_page)->setOverrideViewportArguments(arguments);
@@ -3206,7 +3229,7 @@ void WebPage::dynamicViewportSizeUpdate(const DynamicViewportSizeUpdate& target)
     m_pendingDynamicViewportSizeUpdateID = target.identifier;
 }
 
-void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileDocType)
+void WebPage::resetViewportDefaultConfiguration(WebFrame* frame)
 {
     LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier << " resetViewportDefaultConfiguration");
     if (m_useTestingViewportConfiguration) {
@@ -3233,7 +3256,7 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
 
     RefPtr document = localFrame->document();
 
-    auto updateViewportConfigurationForMobileDocType = [this, protectedThis = Ref { *this }, document] {
+    auto updateViewportConfigurationForMobileDoctype = [this, protectedThis = Ref { *this }, document] {
         m_viewportConfiguration.setDefaultConfiguration(ViewportConfiguration::xhtmlMobileParameters());
 
         // Do not update the viewport arguments if they are already configured by the website.
@@ -3254,8 +3277,8 @@ void WebPage::resetViewportDefaultConfiguration(WebFrame* frame, bool hasMobileD
         viewportPropertiesDidChange(viewportArguments);
     };
 
-    if (hasMobileDocType) {
-        return updateViewportConfigurationForMobileDocType();
+    if (m_isMobileDoctype) {
+        return updateViewportConfigurationForMobileDoctype();
     }
 
     bool configureWithParametersForStandardFrame = !document;
@@ -3695,7 +3718,7 @@ void WebPage::updateLayoutViewportHeightExpansionTimerFired()
 
                 ancestorsForHitTestedNode.append(*parent);
             }
-            for (auto& ancestor : ancestorsForHitTestedNode)
+            for (auto& ancestor : borrow(ancestorsForHitTestedNode))
                 elementsOutsideOfAnyLargeViewportConstrainedContainers.add(ancestor);
         }
         return false;
@@ -3916,7 +3939,7 @@ void WebPage::drawPrintingToSnapshotiOS(RemoteSnapshotIdentifier snapshotIdentif
 
     auto mediaBox = IntRect { 0, 0, pageWidth, imageHeight };
 
-    recordRemoteSnapshot(snapshotIdentifier, frameID, RemoteSnapshotRole::Root, RenderingMode::DisplayList, mediaBox, mediaBox.size(), MainRunLoopSuccessCallbackAggregator::create(WTF::move(completionHandler)), [&](GraphicsContext& context) {
+    recordRemoteSnapshot(snapshotIdentifier, frameID, RemoteSnapshotRole::Root, RenderingMode::DisplayList, mediaBox, { 1, 1 }, mediaBox.size(), MainRunLoopSuccessCallbackAggregator::create(WTF::move(completionHandler)), [&](GraphicsContext& context) {
         for (size_t pageIndex = 0; pageIndex < pageCount; ++pageIndex) {
             if (pageIndex >= m_printContext->pageCount())
                 break;
@@ -3993,7 +4016,7 @@ void WebPage::drawPrintingPagesToSnapshotiOS(RemoteSnapshotIdentifier snapshotId
     if (!printInfo.snapshotFirstPage)
         mediaBox = printedPageMediaBox(printInfo);
 
-    recordRemoteSnapshot(snapshotIdentifier, frameID, RemoteSnapshotRole::Root, RenderingMode::PDFDocument, mediaBox, mediaBox.size(), MainRunLoopSuccessCallbackAggregator::create(WTF::move(completionHandler)), [&](GraphicsContext& context) {
+    recordRemoteSnapshot(snapshotIdentifier, frameID, RemoteSnapshotRole::Root, RenderingMode::PDFDocument, mediaBox, { 1, 1 }, mediaBox.size(), MainRunLoopSuccessCallbackAggregator::create(WTF::move(completionHandler)), [&](GraphicsContext& context) {
         if (printInfo.snapshotFirstPage) {
             Ref frameView = *coreFrame->view();
             auto originalLayoutViewportOverrideRect = frameView->layoutViewportOverrideRect();
@@ -4407,7 +4430,7 @@ void WebPage::requestDocumentEditingContext(DocumentEditingContextRequest&& requ
                     absoluteRects.append({ });
             }
 
-            for (auto& absoluteRect : absoluteRects)
+            for (auto& absoluteRect : borrow(absoluteRects))
                 rects.append({ protect(iterator.range().start.document().view())->contentsToMainFrameView(absoluteRect), { offsetSoFar++, 1 } });
 
             lastTextRange = iterator.range();

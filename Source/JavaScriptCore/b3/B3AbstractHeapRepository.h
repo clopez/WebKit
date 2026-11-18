@@ -43,6 +43,7 @@ namespace JSC::B3 {
 // macro(name, offset, mutability)
 #define FOR_EACH_ABSTRACT_FIELD(macro) \
     macro(ArrayBuffer_data, ArrayBuffer::offsetOfData(), Mutability::Mutable) \
+    macro(ArrayBuffer_wrapper, ArrayBuffer::offsetOfWrapper(), Mutability::Mutable) \
     macro(ArrayStorage_numValuesInVector, ArrayStorage::numValuesInVectorOffset(), Mutability::Mutable) \
     macro(Butterfly_arrayBuffer, Butterfly::offsetOfArrayBuffer(), Mutability::Mutable) \
     macro(Butterfly_publicLength, Butterfly::offsetOfPublicLength(), Mutability::Mutable) \
@@ -108,7 +109,8 @@ namespace JSC::B3 {
     macro(JSObject_butterfly, JSObject::butterflyOffset(), Mutability::Mutable) \
     macro(JSPropertyNameEnumerator_cachedInlineCapacity, JSPropertyNameEnumerator::cachedInlineCapacityOffset(), Mutability::Mutable) \
     macro(JSPropertyNameEnumerator_cachedPropertyNamesVector, JSPropertyNameEnumerator::cachedPropertyNamesVectorOffset(), Mutability::Mutable) \
-    macro(JSPropertyNameEnumerator_cachedStructureID, JSPropertyNameEnumerator::cachedStructureIDOffset(), Mutability::Mutable) \
+    macro(JSPropertyNameEnumerator_cachedStructureIDForNames, JSPropertyNameEnumerator::cachedStructureIDForNamesOffset(), Mutability::Mutable) \
+    macro(JSPropertyNameEnumerator_cachedStructureIDForNamesAndOffsets, JSPropertyNameEnumerator::cachedStructureIDForNamesAndOffsetsOffset(), Mutability::Mutable) \
     macro(JSPropertyNameEnumerator_endGenericPropertyIndex, JSPropertyNameEnumerator::endGenericPropertyIndexOffset(), Mutability::Mutable) \
     macro(JSPropertyNameEnumerator_endStructurePropertyIndex, JSPropertyNameEnumerator::endStructurePropertyIndexOffset(), Mutability::Mutable) \
     macro(JSPropertyNameEnumerator_indexLength, JSPropertyNameEnumerator::indexedLengthOffset(), Mutability::Mutable) \
@@ -191,6 +193,8 @@ namespace JSC::B3 {
     macro(WasmRTT_kind, Wasm::RTT::offsetOfKind(), Mutability::Immutable) \
     macro(WasmTable_length, Wasm::Table::offsetOfLength(), Mutability::Mutable) \
     macro(WasmExternOrAnyRefTable_jsValues, Wasm::ExternOrAnyRefTable::offsetOfJSValues(), Mutability::Mutable) \
+    macro(WeakImpl_jsValue, WeakImpl::offsetOfJSValue(), Mutability::Mutable) \
+    macro(WeakImpl_weakHandleOwner, WeakImpl::offsetOfWeakHandleOwner(), Mutability::Mutable) \
     macro(WeakMapImpl_capacity, WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfCapacity(), Mutability::Mutable) \
     macro(WeakMapImpl_buffer,  WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfBuffer(), Mutability::Mutable) \
     macro(WeakMapImpl_keyCount, WeakMapImpl<WeakMapBucket<WeakMapBucketDataKey>>::offsetOfKeyCount(), Mutability::Mutable) \

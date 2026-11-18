@@ -45,7 +45,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderLineBreak);
 
-RenderLineBreak::RenderLineBreak(HTMLElement& element, Style::ComputedStyle&& style)
+RenderLineBreak::RenderLineBreak(HTMLElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBoxModelObject(Type::LineBreak, element, WTF::move(style), { }, is<HTMLWBRElement>(element) ? OptionSet<LineBreakFlag> { LineBreakFlag::IsWBR } : OptionSet<LineBreakFlag> { })
 {
     ASSERT(isRenderLineBreak());
@@ -79,7 +79,7 @@ IntRect RenderLineBreak::linesBoundingBox() const
     if (!run)
         return { };
 
-    return enclosingIntRect(run->visualRectIgnoringBlockDirection());
+    return enclosingIntRect(run->blockStartRelativePhysicalRect());
 }
 
 Vector<FloatRect> RenderLineBreak::localBorderBoxRects() const
@@ -87,7 +87,7 @@ Vector<FloatRect> RenderLineBreak::localBorderBoxRects() const
     auto box = InlineIterator::boxFor(*this);
     if (!box)
         return { };
-    return { box->visualRectIgnoringBlockDirection() };
+    return { box->blockStartRelativePhysicalRect() };
 }
 
 void RenderLineBreak::updateFromStyle()
@@ -129,16 +129,14 @@ void RenderLineBreak::collectSelectionGeometries(Vector<SelectionGeometry>& rect
         extentsRect.setY(leftOffset);
         extentsRect.setHeight(rightOffset - leftOffset);
     }
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST extentsRect = localToAbsoluteQuad(FloatRect(extentsRect)).enclosingBoundingBox();
+    extentsRect = localToAbsoluteQuad(FloatRect(extentsRect)).enclosingBoundingBox();
     if (!run->isHorizontal())
         extentsRect = extentsRect.transposedRect();
     bool isFirstOnLine = !run->nextLineLeftwardOnLine();
     bool isLastOnLine = !run->nextLineRightwardOnLine();
 
     bool isFixed = false;
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST auto absoluteQuad = localToAbsoluteQuad(FloatRect(rect), MapCoordinatesMode::UseTransforms, &isFixed);
+    auto absoluteQuad = localToAbsoluteQuad(FloatRect(rect), MapCoordinatesMode::UseTransforms, &isFixed);
     bool boxIsHorizontal = !run->isSVGText() ? run->isHorizontal() : !writingMode().isVertical();
 
     rects.append(SelectionGeometry(absoluteQuad, HTMLElement::selectionRenderingBehavior(WTF::protect(element())), run->direction(), extentsRect.x(), extentsRect.maxX(), extentsRect.maxY(), 0, run->isLineBreak(), isFirstOnLine, isLastOnLine, false, false, boxIsHorizontal, isFixed, view().pageNumberForBlockProgressionOffset(absoluteQuad.enclosingBoundingBox().x())));

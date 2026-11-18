@@ -40,6 +40,7 @@
 #include <wtf/OptionSet.h>
 #include <wtf/Ref.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/UniqueRef.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
@@ -91,6 +92,7 @@ private:
     HashSet<NodeIdentifier> m_containersToRemove;
     HashMap<NodeIdentifier, Vector<InteractionRegion>> m_discoveredRegionsByElement;
     HashSet<NodeIdentifier> m_consolidatedElements;
+    HashSet<NodeIdentifier> m_guardContainersWithCompositedContent;
     bool m_hasRegionSharingRectWithContainer { false };
 #endif
 };
@@ -132,7 +134,7 @@ public:
 #endif
     );
 
-    EventRegionContext makeContext() { return EventRegionContext(*this); }
+    UniqueRef<EventRegionContext> makeContext() { return makeUniqueRef<EventRegionContext>(*this); }
 
     bool isEmpty() const { return m_region.isEmpty(); }
 

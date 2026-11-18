@@ -40,13 +40,13 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderSVGInline);
     
-RenderSVGInline::RenderSVGInline(Type type, SVGGraphicsElement& element, Style::ComputedStyle&& style)
+RenderSVGInline::RenderSVGInline(Type type, SVGGraphicsElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBoxModelObject(type, element, WTF::move(style))
 {
     ASSERT(isRenderSVGInline());
 }
 
-RenderSVGInline::RenderSVGInline(Type type, Document& document, Style::ComputedStyle&& style)
+RenderSVGInline::RenderSVGInline(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBoxModelObject(type, document, WTF::move(style))
 {
     ASSERT(isRenderSVGInline());
@@ -156,7 +156,7 @@ void RenderSVGInline::absoluteQuads(Vector<FloatQuad>& quads, bool* wasFixed) co
 
     FloatRect textBoundingBox = textAncestor->strokeBoundingBox();
     for (auto& box : InlineIterator::inlineBoxesFor(*this)) {
-        auto boxRect = box.visualRectIgnoringBlockDirection();
+        auto boxRect = box.blockStartRelativePhysicalRect();
         boxRect.moveBy(textBoundingBox.location());
         quads.append(localToAbsoluteQuad(boxRect, MapCoordinatesMode::UseTransforms, wasFixed));
     }

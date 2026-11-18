@@ -52,6 +52,16 @@ void Restore::apply(GraphicsContext& context) const
     context.restore();
 }
 
+void SaveTransform::apply(GraphicsContext& context) const
+{
+    context.saveTransform();
+}
+
+void RestoreTransform::apply(GraphicsContext& context) const
+{
+    context.restoreTransform();
+}
+
 void Translate::apply(GraphicsContext& context) const
 {
     context.translate(m_x, m_y);
@@ -225,15 +235,15 @@ void ClipOutRoundedRect::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("rect"_s, rect());
 }
 
-void ClipToImageBuffer::apply(GraphicsContext& context) const
+void ClipToNativeImage::apply(GraphicsContext& context) const
 {
-    context.clipToImageBuffer(m_imageBuffer, m_destinationRect);
+    context.clipToNativeImage(m_image, m_destinationRect);
 }
 
-void ClipToImageBuffer::dump(TextStream& ts, OptionSet<AsTextFlag> flags) const
+void ClipToNativeImage::dump(TextStream& ts, OptionSet<AsTextFlag> flags) const
 {
     if (flags.contains(AsTextFlag::IncludeResourceIdentifiers))
-        ts.dumpProperty("image-buffer-identifier"_s, m_imageBuffer->renderingResourceIdentifier());
+        ts.dumpProperty("image-identifier"_s, m_image->renderingResourceIdentifier());
     ts.dumpProperty("dest-rect"_s, destinationRect());
 }
 
@@ -582,13 +592,13 @@ void FillRectWithColor::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("color"_s, color());
 }
 
-FillRectWithGradient::FillRectWithGradient(const FloatRect& rect, Gradient& gradient)
+FillRectWithGradient::FillRectWithGradient(const FloatRect& rect, const Gradient& gradient)
     : m_rect(rect)
     , m_gradient(gradient)
 {
 }
 
-FillRectWithGradient::FillRectWithGradient(FloatRect&& rect, Ref<Gradient>&& gradient)
+FillRectWithGradient::FillRectWithGradient(FloatRect&& rect, Ref<const Gradient>&& gradient)
     : m_rect(WTF::move(rect))
     , m_gradient(WTF::move(gradient))
 {
@@ -605,7 +615,7 @@ void FillRectWithGradient::dump(TextStream& ts, OptionSet<AsTextFlag>) const
     ts.dumpProperty("gradient"_s, m_gradient);
 }
 
-FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(const FloatRect& rect, Gradient& gradient, const AffineTransform& gradientSpaceTransform, GraphicsContext::RequiresClipToRect requiresClipToRect)
+FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(const FloatRect& rect, const Gradient& gradient, const AffineTransform& gradientSpaceTransform, GraphicsContext::RequiresClipToRect requiresClipToRect)
     : m_rect(rect)
     , m_gradient(gradient)
     , m_gradientSpaceTransform(gradientSpaceTransform)
@@ -613,7 +623,7 @@ FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(con
 {
 }
 
-FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(FloatRect&& rect, Ref<Gradient>&& gradient, AffineTransform&& gradientSpaceTransform, GraphicsContext::RequiresClipToRect requiresClipToRect)
+FillRectWithGradientAndSpaceTransform::FillRectWithGradientAndSpaceTransform(FloatRect&& rect, Ref<const Gradient>&& gradient, AffineTransform&& gradientSpaceTransform, GraphicsContext::RequiresClipToRect requiresClipToRect)
     : m_rect(WTF::move(rect))
     , m_gradient(WTF::move(gradient))
     , m_gradientSpaceTransform(WTF::move(gradientSpaceTransform))
@@ -781,19 +791,6 @@ void EndTransparencyLayer::apply(GraphicsContext& context) const
     if (context.isInTransparencyLayer())
         context.endTransparencyLayer();
 }
-
-#if USE(CG)
-
-void ApplyStrokePattern::apply(GraphicsContext& context) const
-{
-    context.applyStrokePattern();
-}
-
-void ApplyFillPattern::apply(GraphicsContext& context) const
-{
-    context.applyFillPattern();
-}
-#endif
 
 void ApplyDeviceScaleFactor::apply(GraphicsContext& context) const
 {

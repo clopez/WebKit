@@ -532,6 +532,19 @@ bool WebChromeClient::isPopup() const
     return page->isPopup();
 }
 
+#if ENABLE(DOCUMENT_PIP)
+bool WebChromeClient::supportsDocumentPictureInPicture() const
+{
+    return true;
+}
+
+void WebChromeClient::startDocumentPictureInPictureWindowDrag()
+{
+    if (RefPtr page = m_page)
+        page->send(Messages::WebPageProxy::StartDocumentPictureInPictureWindowDrag());
+}
+#endif
+
 void WebChromeClient::setResizable(bool resizable)
 {
     if (RefPtr page = m_page.get())
@@ -1768,6 +1781,18 @@ bool WebChromeClient::supportsFullScreenForElement(const Element& element, bool 
     return page && protect(page->fullScreenManager())->supportsFullScreenForElement(element, withKeyboard);
 }
 
+void WebChromeClient::beginRequestFullscreen()
+{
+    if (RefPtr page = m_page)
+        protect(page->fullScreenManager())->beginRequestFullscreen();
+}
+
+void WebChromeClient::endRequestFullscreen()
+{
+    if (RefPtr page = m_page)
+        protect(page->fullScreenManager())->endRequestFullscreen();
+}
+
 void WebChromeClient::enterFullScreenForElement(Element& element, HTMLMediaElementEnums::VideoFullscreenMode mode, CompletionHandler<void(ExceptionOr<void>)>&& willEnterFullscreen, CompletionHandler<bool(bool)>&& didEnterFullscreen)
 {
     RefPtr page = m_page.get();
@@ -1907,10 +1932,10 @@ void WebChromeClient::allowImmersiveElement(CompletionHandler<void(bool)>&& comp
         completion(false);
 }
 
-void WebChromeClient::presentImmersiveElement(const LayerHostingContextIdentifier contextID, CompletionHandler<void(bool)>&& completion) const
+void WebChromeClient::presentImmersiveElement(ImmersiveElement& element, CompletionHandler<void(bool)>&& completion) const
 {
     if (RefPtr page = m_page.get())
-        page->presentImmersiveElement(contextID, WTF::move(completion));
+        page->presentImmersiveElement(element, WTF::move(completion));
     else
         completion(false);
 }
@@ -2116,6 +2141,12 @@ bool WebChromeClient::shouldDispatchFakeMouseMoveEvents() const
 {
     auto* page = m_page.get();
     return page && page->shouldDispatchFakeMouseMoveEvents();
+}
+
+void WebChromeClient::dispatchFakeMouseMoveEventInRemoteFrame(FrameIdentifier frameID, const DoublePoint& eventPoint, const DoublePoint& globalPoint)
+{
+    if (RefPtr page = m_page)
+        page->send(Messages::WebPageProxy::DispatchFakeMouseMoveEventInRemoteFrame(frameID, eventPoint, globalPoint));
 }
 
 RefPtr<API::Object> userDataFromJSONData(JSON::Value& value)
@@ -2485,7 +2516,7 @@ void WebChromeClient::showMediaControlsContextMenu(FloatRect&& targetFrame, Vect
 void WebChromeClient::enumerateImmersiveXRDevices(CompletionHandler<void(const PlatformXR::DeviceList&)>&& completionHandler)
 {
     if (RefPtr page = m_page.get())
-        page->xrSystemProxy().enumerateImmersiveXRDevices(WTF::move(completionHandler));
+        protect(page->xrSystemProxy())->enumerateImmersiveXRDevices(WTF::move(completionHandler));
     else
         completionHandler({ });
 }
@@ -2493,7 +2524,7 @@ void WebChromeClient::enumerateImmersiveXRDevices(CompletionHandler<void(const P
 void WebChromeClient::requestPermissionOnXRSessionFeatures(const SecurityOriginData& origin, PlatformXR::SessionMode mode, const PlatformXR::Device::FeatureList& granted, const PlatformXR::Device::FeatureList& consentRequired, const PlatformXR::Device::FeatureList& consentOptional, const PlatformXR::Device::FeatureList& requiredFeaturesRequested, const PlatformXR::Device::FeatureList& optionalFeaturesRequested,  CompletionHandler<void(std::optional<PlatformXR::Device::FeatureList>&&)>&& completionHandler)
 {
     if (RefPtr page = m_page.get())
-        page->xrSystemProxy().requestPermissionOnSessionFeatures(origin, mode, granted, consentRequired, consentOptional, requiredFeaturesRequested, optionalFeaturesRequested, WTF::move(completionHandler));
+        protect(page->xrSystemProxy())->requestPermissionOnSessionFeatures(origin, mode, granted, consentRequired, consentOptional, requiredFeaturesRequested, optionalFeaturesRequested, WTF::move(completionHandler));
     else
         completionHandler(std::nullopt);
 }

@@ -79,18 +79,19 @@ GridLanesResult GridLanesLayout::placeGridLanesItems(const GridTrackSizingAlgori
 
 GridArea GridLanesLayout::gridAreaForDefiniteGridAxisItem(const RenderBox& gridItem) const
 {
-    auto itemSpan = m_renderGrid->currentGrid().gridItemSpan(gridItem, gridAxisDirection());
-    ASSERT(!itemSpan.isIndefinite());
-    itemSpan.translate(m_renderGrid->currentGrid().explicitGridStart(gridAxisDirection()));
-    return gridAreaFromGridAxisSpan(itemSpan);
+    auto& grid = m_renderGrid->currentGrid();
+    auto itemArea = grid.gridItemArea(gridItem);
+    grid.clampAreaToSubgridIfNeeded(itemArea);
+    auto gridAxisPosition = gridAxisSpanFromArea(itemArea);
+    ASSERT(!gridAxisPosition.isIndefinite());
+    gridAxisPosition.translate(grid.explicitGridStart(gridAxisDirection()));
+    return gridAreaFromGridAxisSpan(gridAxisPosition);
 }
 
 LayoutUnit GridLanesLayout::calculateGridLanesIntrinsicLogicalWidth(RenderBox& gridItem, Phase layoutPhase)
 {
     auto intrinsicWidthComputationScope = IntrinsicLogicalWidthComputationScope { protect(gridItem.layoutContext()), gridItem };
     switch (layoutPhase) {
-    case Phase::MinContent:
-        return gridItem.computeSizingKeywordLogicalWidthUsing(CSS::Keyword::MinContent { }, { }, gridItem.borderAndPaddingLogicalWidth());
     case Phase::MaxContent:
         return gridItem.computeSizingKeywordLogicalWidthUsing(CSS::Keyword::MaxContent { }, { }, gridItem.borderAndPaddingLogicalWidth());
     case Phase::Layout:
@@ -181,10 +182,14 @@ GridLanesLayout::StackingAxisPlacement GridLanesLayout::updateRunningPositions(c
     for (auto line : gridAxisSpan)
         previousRunningPosition = std::max(previousRunningPosition, m_runningPositions[line]);
 
-    auto marginBoxEnd = previousRunningPosition + stackingAxisMarginBoxForItem(gridItem);
+    auto marginBoxSize = stackingAxisMarginBoxForItem(gridItem);
+    auto marginBoxEnd = previousRunningPosition + marginBoxSize;
 
+    // "Set the running position of the spanned grid axis tracks to max_pos + outer size + grid-gap.
+    // For this purpose, the outer sizes of the box are floored at zero."
+    auto runningPosition = previousRunningPosition + std::max(0_lu, marginBoxSize) + m_stackingAxisGridGap;
     for (auto span : gridAxisSpan)
-        m_runningPositions[span] = marginBoxEnd + m_stackingAxisGridGap;
+        m_runningPositions[span] = runningPosition;
 
     return { previousRunningPosition, marginBoxEnd };
 }

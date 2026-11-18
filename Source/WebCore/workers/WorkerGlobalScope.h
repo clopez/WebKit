@@ -117,7 +117,7 @@ public:
     WorkerSWClientConnection& swClientConnection();
     void updateServiceWorkerClientData() final;
 
-    Ref<WorkerThread> thread() const;
+    WEBCORE_EXPORT Ref<WorkerThread> thread() const;
 
     using ScriptExecutionContext::hasPendingActivity;
 
@@ -161,7 +161,7 @@ public:
     CSSValuePool& cssValuePool() final;
     CSSFontSelector* cssFontSelector() final;
     Ref<FontFaceSet> fonts();
-    RefPtr<FontLoadRequest> fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, LoadedFromOpaqueSource) final;
+    RefPtr<FontLoadRequest> fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, const CSS::URLModifiers&) final;
     void beginLoadingFontSoon(FontLoadRequest&) final;
 
     NODELETE const SettingsValues& settingsValues() const LIFETIME_BOUND final { return m_settingsValues; }
@@ -208,6 +208,7 @@ private:
 
     URL parseURL(const String&) const final;
     String userAgent(const URL&) const final;
+    String navigatorPlatform() const final { return m_navigatorPlatform; }
 
     EventTarget* errorEventTarget() final;
     String resourceRequestIdentifier() const final { return m_inspectorIdentifier; }
@@ -229,6 +230,7 @@ private:
     URL m_ownerURL;
     String m_inspectorIdentifier;
     String m_userAgent;
+    String m_navigatorPlatform;
 
     const RefPtr<WorkerLocation> m_location;
     const RefPtr<WorkerNavigator> m_navigator;

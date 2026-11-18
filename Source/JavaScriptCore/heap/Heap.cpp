@@ -221,14 +221,14 @@ NODELETE constexpr bool measurePhaseTiming()
     return false;
 }
 
-UncheckedKeyHashMap<const char*, GCTypeMap<SimpleStats>>& timingStats()
+HashMap<const char*, GCTypeMap<SimpleStats>>& timingStats()
 {
-    static UncheckedKeyHashMap<const char*, GCTypeMap<SimpleStats>>* result;
+    static HashMap<const char*, GCTypeMap<SimpleStats>>* result;
     static std::once_flag once;
     std::call_once(
         once,
         [] {
-            result = new UncheckedKeyHashMap<const char*, GCTypeMap<SimpleStats>>();
+            result = new HashMap<const char*, GCTypeMap<SimpleStats>>();
         });
     return *result;
 }
@@ -411,9 +411,12 @@ Heap::~Heap()
 
     m_mutatorMarkStack->clear();
 
-    while (WeakBlock* block = m_detachedWeakBlocks.removeHead())
-        WeakBlock::destroy(*this, block);
-    destroyAllPooledWeakBlocks();
+    {
+        Locker locker { m_weakBlockLock };
+        while (WeakBlock* block = m_detachedWeakBlocks.removeHead())
+            WeakBlock::destroy(*this, block);
+        destroyAllPooledWeakBlocks();
+    }
     ASSERT(!m_weakBlockCount);
 }
 
@@ -941,6 +944,7 @@ void Heap::endMarking()
     updateOldGenerationCellBytes(m_bytesMarkedThisCycle.exchange<MemoryOrder::Relaxed>(0));
 
     m_objectSpace.endMarking();
+    trimPooledWeakBlocksAfterMarking();
     setMutatorShouldBeFenced(Options::forceFencedBarrier());
 
 #if ENABLE(WEBASSEMBLY)
@@ -1291,7 +1295,12 @@ void Heap::sweepSynchronously()
     }
     m_objectSpace.sweepBlocks();
     m_objectSpace.shrink();
-    destroyAllPooledWeakBlocks();
+    // collectNow() can get here after the mutator, conducting, has already begun the next collection.
+    // trimPooledWeakBlocksAfterMarking() trims the pool once those markers stop.
+    if (!m_objectSpace.isMarking()) {
+        Locker locker { m_weakBlockLock };
+        destroyAllPooledWeakBlocks();
+    }
 #if ENABLE(WEBASSEMBLY)
     Wasm::TypeInformation::cleanupIfRequested();
 #endif
@@ -2129,35 +2138,56 @@ bool Heap::shouldSweepSynchronously()
     return overCriticalMemoryThreshold() || Options::sweepSynchronously() || VM::isInMiniMode();
 }
 
-void Heap::addDetachedWeakBlock(WeakBlock* block)
+void Heap::addDetachedWeakBlock(Locker<Lock>& locker, WeakBlock* block)
 {
     RELEASE_ASSERT(!block->next() && !block->prev());
     ASSERT(&block->heap() == this);
-    block->setDetached();
+    block->setDetached(locker);
     m_detachedWeakBlocks.append(block);
 }
 
-void Heap::releaseDetachedWeakBlock(WeakBlock* block)
+void Heap::releaseDetachedWeakBlock(Locker<Lock>& locker, WeakBlock* block, IsConcurrent isConcurrent)
 {
     ASSERT(&block->heap() == this);
     m_detachedWeakBlocks.remove(block);
-    returnWeakBlockToPool(block);
+    returnWeakBlockToPool(locker, block, isConcurrent);
 }
 
-void Heap::returnWeakBlockToPool(WeakBlock* block)
+void Heap::returnWeakBlockToPool(Locker<Lock>& locker, WeakBlock* block, IsConcurrent isConcurrent)
 {
-    RELEASE_ASSERT(!block->next() && !block->prev());
     ASSERT(&block->heap() == this);
     ASSERT(block->isEmpty());
 
-    if (m_pooledWeakBlockCount >= maxPooledWeakBlocks()) {
-        WeakBlock::destroy(*this, block);
-        return;
-    }
+    addWeakBlockToPool(locker, block);
 
-    block->setPooled();
+    // Destroying a block updates the mutator's block accounting, so a concurrent caller can leave the
+    // pool over its limit for the mutator to trim here. Concurrent markers read Weak<>s without a lock
+    // (e.g. SlotVisitor::append(const Weak<T>&)), so one may still hold a WeakImpl* into a pooled
+    // block; trimPooledWeakBlocksAfterMarking() trims once they have stopped.
+    if (isConcurrent == IsConcurrent::No && !m_objectSpace.isMarking())
+        trimWeakBlockPool();
+}
+
+void Heap::trimWeakBlockPool()
+{
+    unsigned maxPooled = maxPooledWeakBlocks();
+    while (m_pooledWeakBlockCount > maxPooled)
+        WeakBlock::destroy(*this, takeWeakBlockFromPool());
+}
+
+void Heap::addWeakBlockToPool(Locker<Lock>& locker, WeakBlock* block)
+{
+    RELEASE_ASSERT(!block->next() && !block->prev());
+    block->setPooled(locker);
     m_pooledWeakBlocks.push(block);
     ++m_pooledWeakBlockCount;
+}
+
+void Heap::trimPooledWeakBlocksAfterMarking()
+{
+    ASSERT(isInPhase(CollectorPhase::End));
+    Locker locker { m_weakBlockLock };
+    trimWeakBlockPool();
 }
 
 unsigned Heap::maxPooledWeakBlocks()
@@ -2436,7 +2466,7 @@ Vector<std::unique_ptr<MarkingConstraint>> Heap::createCoreConstraints()
                 // If we tried to scan while not under a safepoint we could stop a thread that's in the process of calling
                 // one of the callees we are looking for.
                 // FIXME: Should we have two constraints for this? One for concurrent and one under safepoint at the bitter end.
-                ASSERT(worldIsStopped());
+                m_collector->assertIsMarkerWithWorldStopped();
                 ConservativeRoots conservativeRoots(*this);
 
                 gatherStackRoots(conservativeRoots);
@@ -2596,7 +2626,7 @@ Vector<std::unique_ptr<MarkingConstraint>> Heap::createCoreConstraints()
             IsoSubspace* subspace = m_pinballCompletionSpace.get();
             if (!subspace)
                 return;
-            ASSERT(worldIsStopped());
+            m_collector->assertIsMarkerWithWorldStopped();
             // ConservativeRoots gathering requires an up-to-date precise allocations snapshot.
             m_objectSpace.prepareForConservativeScan();
             // FIXME: Add a second CellState for PinballCompletion so we can skip

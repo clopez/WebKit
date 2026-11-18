@@ -540,7 +540,7 @@ static void tryInterceptNavigation(Ref<API::NavigationAction>&& navigationAction
             referrerURL = URL { referrerString }.createNSURL();
 
         auto* localCompletionHandler = new WTF::Function<void (bool)>([navigationAction = WTF::move(navigationAction), weakPage = WeakPtr { page }, completionHandler = WTF::move(completionHandler)] (bool success) mutable {
-            ASSERT(RunLoop::isMain());
+            ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
             RELEASE_LOG(Loading, "tryInterceptNavigation: LSAppLink openWithURL completed, success=%d", success);
             RefPtr page = weakPage;
             if (!success && page) {
@@ -1306,9 +1306,6 @@ static _WKProcessTerminationReason wkProcessTerminationReason(ProcessTermination
 
 bool NavigationState::NavigationClient::processDidTerminate(WebPageProxy& page, ProcessTerminationReason reason)
 {
-    if (reason == ProcessTerminationReason::NonMainFrameWebContentProcessCrash)
-        return true;
-
     RefPtr navigationState = m_navigationState.get();
     if (!navigationState)
         return false;

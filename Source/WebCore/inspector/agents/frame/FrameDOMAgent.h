@@ -26,6 +26,7 @@
 #pragma once
 
 #include "EventTarget.h"
+#include "InspectorMediaEventTracker.h"
 #include "InspectorOverlay.h"
 #include "InspectorWebAgentBase.h"
 #include "Timer.h"
@@ -35,6 +36,7 @@
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/TZoneMalloc.h>
+#include <wtf/UniqueRef.h>
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakPtr.h>
 
@@ -45,6 +47,7 @@ class CharacterData;
 class DOMEditor;
 class Document;
 class Element;
+class Event;
 class EventListener;
 class EventTarget;
 class HTMLFrameOwnerElement;
@@ -57,10 +60,16 @@ class RegisteredEventListener;
 class RenderObject;
 class ShadowRoot;
 
+struct Styleable;
+
 enum class PlatformEventModifier : uint8_t;
 
 // FrameDOMAgent is the per-frame DOM agent for Site Isolation.
-class FrameDOMAgent final : public InspectorAgentBase, public Inspector::DOMBackendDispatcherHandler, public CanMakeCheckedPtr<FrameDOMAgent> {
+class FrameDOMAgent final : public InspectorAgentBase, public Inspector::DOMBackendDispatcherHandler
+#if ENABLE(VIDEO)
+    , public InspectorMediaEventTracker::Client
+#endif
+    , public CanMakeCheckedPtr<FrameDOMAgent> {
     WTF_MAKE_NONCOPYABLE(FrameDOMAgent);
     WTF_MAKE_TZONE_ALLOCATED(FrameDOMAgent);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(FrameDOMAgent);
@@ -141,6 +150,8 @@ public:
     Inspector::CommandResult<Ref<Inspector::Protocol::DOM::MediaStats>> getMediaStats(int nodeId) override;
 
     // InspectorInstrumentation hooks
+    void addEventListenersToNode(Node&);
+    void eventDidResetAfterDispatch(const Event&);
     void didInsertDOMNode(Node&);
     void didRemoveDOMNode(Node&);
     void frameOwnerContentFrameChanged(HTMLFrameOwnerElement&);
@@ -171,11 +182,22 @@ public:
     Inspector::Protocol::DOM::NodeId boundNodeId(const Node*);
     Vector<Ref<Node>> boundNodes() const;
     Inspector::Protocol::DOM::NodeId pushNodePathToFrontend(Node*);
+    Inspector::Protocol::ErrorStringOr<Ref<Inspector::Protocol::DOM::Styleable>> pushStyleablePathToFrontend(const Styleable&);
+    Inspector::Protocol::DOM::NodeId pushStyleableElementToFrontend(const Styleable&);
     InspectorHistory* history() LIFETIME_BOUND { return m_history.get(); }
     Vector<size_t> flexibleBoxRendererCachedItemsAtStartOfLine(const RenderObject&) const;
     bool ownsElementSelection() const;
 
 private:
+#if ENABLE(VIDEO)
+    // InspectorMediaEventTracker::Client
+    Inspector::Protocol::DOM::NodeId pushNodePathForMediaEvent(Node&) final;
+    void mediaEventDidFire(Inspector::Protocol::DOM::NodeId, const String& eventName, RefPtr<JSON::Object>&& data) final;
+    void powerEfficientPlaybackStateDidChange(Inspector::Protocol::DOM::NodeId, bool isPowerEfficient) final;
+
+    bool pageDOMAgentReportsMediaEvents(Node&) const;
+#endif
+
     Inspector::Protocol::DOM::NodeId bind(Node&);
     void unbind(Node&);
     void discardBindings();
@@ -183,6 +205,7 @@ private:
     RefPtr<Element> assertElement(Inspector::Protocol::ErrorString&, Inspector::Protocol::DOM::NodeId);
     RefPtr<Node> assertEditableNode(Inspector::Protocol::ErrorString&, Inspector::Protocol::DOM::NodeId);
     RefPtr<Element> assertEditableElement(Inspector::Protocol::ErrorString&, Inspector::Protocol::DOM::NodeId);
+    RefPtr<HTMLFrameOwnerElement> assertChildFrameOwner(Inspector::Protocol::ErrorString&, const Inspector::Protocol::Network::FrameId&);
 
     RefPtr<Node> nodeForObjectId(const Inspector::Protocol::Runtime::RemoteObjectId&);
     RefPtr<Inspector::Protocol::Runtime::RemoteObject> resolveNodeInternal(Node*, const String& objectGroup);
@@ -196,6 +219,7 @@ private:
     RefPtr<JSON::ArrayOf<Inspector::Protocol::DOM::Node>> buildArrayForPseudoElements(const Element&);
     void pushChildNodesToFrontend(Inspector::Protocol::DOM::NodeId, int depth = 1);
     Inspector::Protocol::DOM::NodeId pushNodePathToFrontend(Inspector::Protocol::ErrorString&, Node*);
+    Inspector::Protocol::DOM::NodeId pushStyleableNodePathToFrontend(Inspector::Protocol::ErrorString&, const Styleable&);
 
     void setDocument(Document*);
     void relayoutDocument();
@@ -284,6 +308,10 @@ private:
 
     std::unique_ptr<InspectorHistory> m_history;
     std::unique_ptr<DOMEditor> m_domEditor;
+
+#if ENABLE(VIDEO)
+    const UniqueRef<InspectorMediaEventTracker> m_mediaEventTracker;
+#endif
 
     bool m_suppressAttributeModifiedEvent { false };
     bool m_documentRequested { false };

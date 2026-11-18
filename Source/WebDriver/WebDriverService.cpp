@@ -31,6 +31,7 @@
 #include "Logging.h"
 #include "SessionHost.h"
 #include <cmath>
+#include <numbers>
 #include <ranges>
 #include <wtf/Compiler.h>
 #include <wtf/FileSystem.h>
@@ -851,19 +852,102 @@ static std::optional<PageLoadStrategy> deserializePageLoadStrategy(const String&
     return std::nullopt;
 }
 
-static std::optional<UnhandledPromptBehavior> deserializeUnhandledPromptBehavior(const String& unhandledPromptBehavior)
+static std::optional<PromptHandlerConfiguration> deserializePromptHandlerConfiguration(const String& handler)
 {
-    if (unhandledPromptBehavior == "dismiss"_s)
-        return UnhandledPromptBehavior::Dismiss;
-    if (unhandledPromptBehavior == "accept"_s)
-        return UnhandledPromptBehavior::Accept;
-    if (unhandledPromptBehavior == "dismiss and notify"_s)
-        return UnhandledPromptBehavior::DismissAndNotify;
-    if (unhandledPromptBehavior == "accept and notify"_s)
-        return UnhandledPromptBehavior::AcceptAndNotify;
-    if (unhandledPromptBehavior == "ignore"_s)
-        return UnhandledPromptBehavior::Ignore;
+    // https://w3c.github.io/webdriver/#dfn-known-prompt-handlers
+    if (handler == "dismiss"_s)
+        return PromptHandlerConfiguration { PromptHandlerType::Dismiss, false };
+    if (handler == "accept"_s)
+        return PromptHandlerConfiguration { PromptHandlerType::Accept, false };
+    if (handler == "dismiss and notify"_s)
+        return PromptHandlerConfiguration { PromptHandlerType::Dismiss, true };
+    if (handler == "accept and notify"_s)
+        return PromptHandlerConfiguration { PromptHandlerType::Accept, true };
+    if (handler == "ignore"_s)
+        return PromptHandlerConfiguration { PromptHandlerType::Ignore, true };
     return std::nullopt;
+}
+
+static std::optional<UserPromptHandler> deserializeUnhandledPromptBehavior(const JSON::Value& value)
+{
+    // https://w3c.github.io/webdriver/#dfn-deserialize-as-an-unhandled-prompt-behavior
+    UserPromptHandler userPromptHandler;
+
+    if (auto handler = value.asString(); !!handler) {
+        userPromptHandler.fallbackDefault = deserializePromptHandlerConfiguration(handler);
+        if (!userPromptHandler.fallbackDefault)
+            return std::nullopt;
+        return userPromptHandler;
+    }
+
+    auto handlers = value.asObject();
+    if (!handlers)
+        return std::nullopt;
+
+    for (auto& [promptType, handlerValue] : *handlers) {
+        auto handler = handlerValue->asString();
+        if (!handler)
+            return std::nullopt;
+        auto configuration = deserializePromptHandlerConfiguration(handler);
+        if (!configuration)
+            return std::nullopt;
+
+        if (promptType == "alert"_s)
+            userPromptHandler.alert = configuration;
+        else if (promptType == "beforeUnload"_s)
+            userPromptHandler.beforeUnload = configuration;
+        else if (promptType == "confirm"_s)
+            userPromptHandler.confirm = configuration;
+        else if (promptType == "default"_s)
+            userPromptHandler.defaultHandler = configuration;
+        else if (promptType == "file"_s)
+            userPromptHandler.file = configuration;
+        else if (promptType == "prompt"_s)
+            userPromptHandler.prompt = configuration;
+        else
+            return std::nullopt;
+    }
+
+    return userPromptHandler;
+}
+
+static String serializePromptHandlerConfiguration(const PromptHandlerConfiguration& configuration)
+{
+    // https://w3c.github.io/webdriver/#dfn-serialize-a-prompt-handler-configuration
+    switch (configuration.handler) {
+    case PromptHandlerType::Accept:
+        return configuration.notify ? "accept and notify"_s : "accept"_s;
+    case PromptHandlerType::Dismiss:
+        return configuration.notify ? "dismiss and notify"_s : "dismiss"_s;
+    case PromptHandlerType::Ignore:
+        return "ignore"_s;
+    }
+
+    ASSERT_NOT_REACHED();
+    return "ignore"_s;
+}
+
+static Ref<JSON::Value> serializeUserPromptHandler(const std::optional<UserPromptHandler>& userPromptHandler)
+{
+    // https://w3c.github.io/webdriver/#dfn-serialize-the-user-prompt-handler
+    if (!userPromptHandler)
+        return JSON::Value::create(String("dismiss and notify"_s));
+
+    if (userPromptHandler->fallbackDefault)
+        return JSON::Value::create(serializePromptHandlerConfiguration(*userPromptHandler->fallbackDefault));
+
+    auto serialized = JSON::Object::create();
+    auto serializeIfPresent = [&](ASCIILiteral promptType, const std::optional<PromptHandlerConfiguration>& configuration) {
+        if (configuration)
+            serialized->setString(promptType, serializePromptHandlerConfiguration(*configuration));
+    };
+    serializeIfPresent("alert"_s, userPromptHandler->alert);
+    serializeIfPresent("beforeUnload"_s, userPromptHandler->beforeUnload);
+    serializeIfPresent("confirm"_s, userPromptHandler->confirm);
+    serializeIfPresent("default"_s, userPromptHandler->defaultHandler);
+    serializeIfPresent("file"_s, userPromptHandler->file);
+    serializeIfPresent("prompt"_s, userPromptHandler->prompt);
+    return serialized;
 }
 
 void WebDriverService::parseCapabilities(const JSON::Object& matchedCapabilities, Capabilities& capabilities) const
@@ -905,9 +989,8 @@ void WebDriverService::parseCapabilities(const JSON::Object& matchedCapabilities
     if (!!pageLoadStrategy)
         capabilities.pageLoadStrategy = deserializePageLoadStrategy(pageLoadStrategy);
 
-    auto unhandledPromptBehavior = matchedCapabilities.getString("unhandledPromptBehavior"_s);
-    if (!!unhandledPromptBehavior)
-        capabilities.unhandledPromptBehavior = deserializeUnhandledPromptBehavior(unhandledPromptBehavior);
+    if (auto unhandledPromptBehavior = matchedCapabilities.getValue("unhandledPromptBehavior"_s))
+        capabilities.unhandledPromptBehavior = deserializeUnhandledPromptBehavior(*unhandledPromptBehavior);
 
     if (auto webSocketURL = matchedCapabilities.getBoolean("webSocketUrl"_s))
         capabilities.webSocketURL = *webSocketURL;
@@ -992,10 +1075,9 @@ RefPtr<JSON::Object> WebDriverService::validatedCapabilities(const JSON::Object&
                 return nullptr;
             result->setValue(it->key, *timeouts);
         } else if (it->key == "unhandledPromptBehavior"_s) {
-            auto unhandledPromptBehavior = it->value->asString();
-            if (!unhandledPromptBehavior || !deserializeUnhandledPromptBehavior(unhandledPromptBehavior))
+            if (!deserializeUnhandledPromptBehavior(it->value))
                 return nullptr;
-            result->setString(it->key, unhandledPromptBehavior);
+            result->setValue(it->key, it->value.copyRef());
         } else if (it->key.find(':') != notFound) {
             if (!platformValidateCapability(it->key, it->value))
                 return nullptr;
@@ -1130,9 +1212,8 @@ Vector<Capabilities> WebDriverService::processCapabilities(const JSON::Object& p
     }
 
     // 4. Let validated first match capabilities be an empty JSON List.
-    Vector<RefPtr<JSON::Object>> validatedFirstMatchCapabilitiesList;
     auto firstMatchCapabilitiesListLength = firstMatchCapabilitiesList->length();
-    validatedFirstMatchCapabilitiesList.reserveInitialCapacity(firstMatchCapabilitiesListLength);
+    Vector<RefPtr<JSON::Object>> validatedFirstMatchCapabilitiesList(ReserveCapacityTag { }, firstMatchCapabilitiesListLength);
     // 5. For each first match capabilities corresponding to an indexed property in all first match capabilities.
     for (unsigned i = 0; i < firstMatchCapabilitiesListLength; ++i) {
         auto firstMatchCapabilities = firstMatchCapabilitiesList->get(i)->asObject();
@@ -1277,23 +1358,7 @@ void WebDriverService::createSession(Vector<Capabilities>&& capabilitiesList, Re
             capabilitiesObject->setBoolean("strictFileInteractability"_s, capabilities.strictFileInteractability.value_or(false));
             capabilitiesObject->setBoolean("setWindowRect"_s, capabilities.setWindowRect.value_or(true));
             capabilitiesObject->setInteger("webkit:processID"_s, capabilities.processID.value_or(0));
-            switch (capabilities.unhandledPromptBehavior.value_or(UnhandledPromptBehavior::DismissAndNotify)) {
-            case UnhandledPromptBehavior::Dismiss:
-                capabilitiesObject->setString("unhandledPromptBehavior"_s, "dismiss"_s);
-                break;
-            case UnhandledPromptBehavior::Accept:
-                capabilitiesObject->setString("unhandledPromptBehavior"_s, "accept"_s);
-                break;
-            case UnhandledPromptBehavior::DismissAndNotify:
-                capabilitiesObject->setString("unhandledPromptBehavior"_s, "dismiss and notify"_s);
-                break;
-            case UnhandledPromptBehavior::AcceptAndNotify:
-                capabilitiesObject->setString("unhandledPromptBehavior"_s, "accept and notify"_s);
-                break;
-            case UnhandledPromptBehavior::Ignore:
-                capabilitiesObject->setString("unhandledPromptBehavior"_s, "ignore"_s);
-                break;
-            }
+            capabilitiesObject->setValue("unhandledPromptBehavior"_s, serializeUserPromptHandler(capabilities.unhandledPromptBehavior));
             switch (capabilities.pageLoadStrategy.value_or(PageLoadStrategy::Normal)) {
             case PageLoadStrategy::None:
                 capabilitiesObject->setString("pageLoadStrategy"_s, "none"_s);
@@ -2539,6 +2604,44 @@ static bool processPointerMoveAction(JSON::Object& actionItem, Action& action, s
     return true;
 }
 
+static bool processPointerProperties(JSON::Object& actionItem, std::optional<String>& errorMessage)
+{
+    // https://www.w3.org/TR/webdriver2/#dfn-process-a-pointer-up-or-pointer-down-action
+    // https://www.w3.org/TR/webdriver2/#dfn-process-a-pointer-move-action
+    // FIXME: Store these in the action and dispatch them with the events, https://bugs.webkit.org/show_bug.cgi?id=270895
+    struct Property {
+        ASCIILiteral name;
+        double minAllowed;
+        double maxAllowed;
+        bool isInteger;
+    };
+    static const std::array properties {
+        Property { "width"_s, 0, std::numeric_limits<double>::max(), false },
+        Property { "height"_s, 0, std::numeric_limits<double>::max(), false },
+        Property { "pressure"_s, 0, 1, false },
+        Property { "tangentialPressure"_s, -1, 1, false },
+        Property { "tiltX"_s, -90, 90, true },
+        Property { "tiltY"_s, -90, 90, true },
+        Property { "twist"_s, 0, 359, true },
+        Property { "altitudeAngle"_s, 0, std::numbers::pi / 2, false },
+        Property { "azimuthAngle"_s, 0, 2 * std::numbers::pi, false },
+    };
+
+    for (auto& property : properties) {
+        auto value = actionItem.getValue(property.name);
+        if (!value)
+            continue;
+
+        auto number = valueAsNumberInRange(*value, property.minAllowed, property.maxAllowed);
+        if (!number || (property.isInteger && number.value() != std::floor(number.value()))) {
+            errorMessage = makeString("The '"_s, property.name, "' parameter for the pointer action is invalid"_s);
+            return false;
+        }
+    }
+
+    return true;
+}
+
 static std::optional<Action> processPointerAction(const String& id, PointerParameters& parameters, JSON::Object& actionItem, std::optional<String>& errorMessage)
 {
     Action::Subtype actionSubtype;
@@ -2579,10 +2682,14 @@ static std::optional<Action> processPointerAction(const String& id, PointerParam
             return std::nullopt;
         }
         action.button = actionMouseButton(button.value());
+        if (!processPointerProperties(actionItem, errorMessage))
+            return std::nullopt;
         break;
     }
     case Action::Subtype::PointerMove:
         if (!processPointerMoveAction(actionItem, action, errorMessage))
+            return std::nullopt;
+        if (!processPointerProperties(actionItem, errorMessage))
             return std::nullopt;
         break;
     case Action::Subtype::PointerCancel:
@@ -2670,10 +2777,11 @@ static std::optional<PointerParameters> processPointerParameters(JSON::Object& a
         return std::nullopt;
     }
 
-    auto pointerType = parametersData->getString("pointerType"_s);
-    if (!pointerType)
+    auto pointerTypeValue = parametersData->getValue("pointerType"_s);
+    if (!pointerTypeValue)
         return parameters;
 
+    auto& pointerType = pointerTypeValue->asString();
     if (pointerType == "mouse"_s)
         parameters.pointerType = PointerType::Mouse;
     else if (pointerType == "pen"_s)

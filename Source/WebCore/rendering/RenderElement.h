@@ -38,6 +38,7 @@ namespace WebCore {
 class ContainerNode;
 class BlendingKeyframes;
 class GraphicsLayerAnimation;
+class ImageAnimationTimeline;
 class ReferencedSVGResources;
 class RenderBlock;
 class RenderHTMLCanvas;
@@ -101,7 +102,7 @@ public:
         TableOrTablePart    = 1 << 2,
         DeprecatedFlexBox   = 1 << 3
     };
-    static RenderPtr<RenderElement> createFor(Element&, Style::ComputedStyle&&, OptionSet<ConstructBlockLevelRendererFor> = { });
+    static RenderPtr<RenderElement> createFor(Element&, UniqueRef<Style::ComputedStyle>&&, OptionSet<ConstructBlockLevelRendererFor> = { });
 
     bool hasInitializedStyle() const { return m_hasInitializedStyle; }
 
@@ -117,7 +118,8 @@ public:
     // Calling with minimalStyleDifference > Style::DifferenceResult::Equal indicates that
     // out-of-band state (e.g. animations) requires that styleDidChange processing
     // continue even if the style isn't different from the current style.
-    void setStyle(Style::ComputedStyle&&, Style::DifferenceResult minimalStyleDifference = Style::DifferenceResult::Equal);
+    // Returns the previous style.
+    UniqueRef<Style::ComputedStyle> setStyle(UniqueRef<Style::ComputedStyle>&&, Style::DifferenceResult minimalStyleDifference = Style::DifferenceResult::Equal);
 
     // Resolves and caches the style for a lazily-resolved pseudo-element.
     const Style::ComputedStyle* lazyPseudoElementStyle(const Style::PseudoElementIdentifier&, const Style::ComputedStyle* parentStyle = nullptr) const LIFETIME_BOUND;
@@ -293,6 +295,7 @@ public:
     void setIsClippedByLineClamp(bool isClipped) { setLineClampState(isClipped ? LineClampState::Clipped : LineClampState::None); }
 
     bool allowsAnimation() const final;
+    Ref<ImageAnimationTimeline> imageAnimationTimeline() const;
     bool repaintForPausedImageAnimationsIfNeeded(const IntRect& visibleRect);
     bool hasPausedImageAnimations() const { return m_hasPausedImageAnimations; }
     void setHasPausedImageAnimations(bool b) { m_hasPausedImageAnimations = b; }
@@ -364,7 +367,7 @@ public:
     void establishesTopLayerWillChange();
     void establishesTopLayerDidChange();
 
-    static void markRendererDirtyAfterTopLayerChange(RenderElement* renderer, RenderBlock* containingBlockBeforeStyleResolution);
+    static void markRendererDirtyAfterTopLayerChange(RenderElement* renderer, RenderBoxModelObject* containingBlockBeforeStyleResolution);
 
     void clearNeedsLayoutForSkippedContent();
 
@@ -410,8 +413,8 @@ public:
     void scheduleRenderingUpdateForImage(CachedImage&) final;
 
 protected:
-    RenderElement(Type, Element&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
-    RenderElement(Type, Document&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
+    RenderElement(Type, Element&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags);
+    RenderElement(Type, Document&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags);
 
     NODELETE bool layerCreationAllowedForSubtree() const;
 
@@ -459,7 +462,7 @@ protected:
     inline bool shouldApplySizeOrStyleContainment(bool) const;
 
 private:
-    RenderElement(Type, ContainerNode&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags);
+    RenderElement(Type, ContainerNode&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags);
     void node() const = delete;
     void nonPseudoNode() const = delete;
     void isRenderText() const = delete;
@@ -589,7 +592,7 @@ namespace Layout {
 
 inline bool isExcludedFromLayoutBoxNavigation(const RenderObject& renderer)
 {
-    return renderer.isRenderListOutsideMarker() && renderer.isExcludedMarker();
+    return renderer.isExcludedMarker();
 }
 
 inline RenderElement* ElementBox::rendererForIntegration() const

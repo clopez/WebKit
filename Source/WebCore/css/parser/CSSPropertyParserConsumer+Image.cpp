@@ -33,6 +33,7 @@
 #include "CSSCrossfadeValue.h"
 #include "CSSCursorImageValue.h"
 #include "CSSFilterImageValue.h"
+#include "CSSFreeformGradientValue.h"
 #include "CSSGradientValue.h"
 #include "CSSImageSetOptionValue.h"
 #include "CSSImageSetValue.h"
@@ -984,7 +985,7 @@ template<CSSValueID Name> static RefPtr<CSSValue> consumeConicGradient(CSSParser
 }
 
 // MARK: <mesh-gradient()>
-// https://github.com/w3c/csswg-drafts/blob/main/css-images-5/explainers/2d-gradients.md#mesh-gradient
+// https://github.com/w3c/csswg-drafts/pull/14655
 
 static std::optional<CSS::MeshGradientRelativeControlPoint> consumeMeshGradientRelativeControlPoint(CSSParserTokenRange& range, CSS::PropertyParserState& state)
 {
@@ -1018,18 +1019,15 @@ template<typename ControlPoints> static std::optional<ControlPoints> consumeMesh
     if (!consumeIdent<CSSValueID::With>(range))
         return ControlPoints { };
 
-    using Edges = typename ControlPoints::value_type;
-
-    std::array<std::optional<typename Edges::value_type>, 4> controlPoints;
-    size_t count = 0;
+    typename ControlPoints::value_type::Container controlPoints;
     do {
         auto controlPoint = consumeControlPoint(range);
         if (!controlPoint)
             return { };
-        controlPoints[count++] = WTF::move(*controlPoint);
-    } while (count < controlPoints.size() && consumeSlashIncludingWhitespace(range));
+        controlPoints.append(WTF::move(*controlPoint));
+    } while (controlPoints.size() < 4 && consumeSlashIncludingWhitespace(range));
 
-    return ControlPoints { completeQuadFromArray<Edges>(WTF::move(controlPoints)) };
+    return ControlPoints { WTF::move(controlPoints) };
 }
 
 static std::optional<CSS::MeshGradientPoint> consumeMeshGradientPoint(CSSParserTokenRange& range, CSS::PropertyParserState& state)
@@ -1083,11 +1081,11 @@ static std::optional<CSS::MeshGradientPoint> consumeMeshGradientPoint(CSSParserT
 static RefPtr<CSSValue> consumeMeshGradient(CSSParserTokenRange& range, CSS::PropertyParserState& state)
 {
     // mesh-gradient( [ <color-interpolation-method> || <color> ]?,
-    //                <mesh-point># [ ';' <mesh-point># ]*
+    //                <mesh-point>#{2,} [ ';' <mesh-point>#{2,} ]+
     //              )
     // <mesh-point> = <color> [ <mesh-absolute-position> | <mesh-relative-position> ]?
     // <mesh-absolute-position> = <position> [ with <position> [ / <position> ]{0,3} ]?
-    // <mesh-relative-position> = by <coordinate-pair> [ with <mesh-relative-control-point> [ / <mesh-relative-control-points> ]{0,3} ]?
+    // <mesh-relative-position> = by <coordinate-pair> [ with <mesh-relative-control-point> [ / <mesh-relative-control-point> ]{0,3} ]?
     // <mesh-relative-control-point> = <coordinate-pair> [from origin]?
 
     if (!state.context.cssMeshGradientsEnabled)
@@ -1143,8 +1141,7 @@ static RefPtr<CSSValue> consumeMeshGradient(CSSParserTokenRange& range, CSS::Pro
             return nullptr;
     }
 
-    // FIXME: The explainer doesn't say what grids are valid. For now, require a minimum of 2x2 and that
-    // each row has the same number of points.
+    // A mesh needs at least two rows and two columns, and rows of equal length.
     if (rows.size() < 2 || rows[0].size() < 2)
         return nullptr;
     for (auto& meshRow : rows) {
@@ -1167,6 +1164,74 @@ static RefPtr<CSSValue> consumeMeshGradient(CSSParserTokenRange& range, CSS::Pro
             .colorInterpolationMethod = computeGradientColorInterpolationMethod(colorInterpolationMethod, defaultColorInterpolationMethod),
             .backgroundColor = WTF::move(backgroundColor),
             .rows = { WTF::move(rows) },
+        }
+    });
+}
+
+// MARK: <freeform-gradient()>
+// https://github.com/w3c/csswg-drafts/pull/14655
+
+static std::optional<CSS::FreeformGradientColorStop> consumeFreeformGradientColorStop(CSSParserTokenRange& range, CSS::PropertyParserState& state)
+{
+    // <freeform-color-stop> = <color> <position> [ / <number> ]?
+
+    auto color = consumeUnresolvedColor(range, state);
+    if (!color)
+        return { };
+
+    auto position = consumePositionUnresolved(range, state);
+    if (!position)
+        return { };
+
+    std::optional<CSS::Number<>> weight;
+    if (consumeSlashIncludingWhitespace(range)) {
+        weight = MetaConsumer<CSS::Number<>>::consume(range, state);
+        if (!weight)
+            return { };
+    }
+
+    return CSS::FreeformGradientColorStop {
+        .color = WTF::move(*color),
+        .position = WTF::move(*position),
+        .weight = WTF::move(weight),
+    };
+}
+
+static RefPtr<CSSValue> consumeFreeformGradient(CSSParserTokenRange& range, CSS::PropertyParserState& state)
+{
+    // freeform-gradient( <color-interpolation-method>? , <freeform-color-stop># )
+    // <freeform-color-stop> = <color> <position> [ / <number> ]?
+
+    if (!state.context.cssFreeformGradientsEnabled)
+        return nullptr;
+
+    std::optional<CSS::ColorInterpolationMethod> colorInterpolationMethod;
+    if (range.peek().id() == CSSValueID::In) {
+        colorInterpolationMethod = consumeColorInterpolationMethod(range, state);
+        if (!colorInterpolationMethod)
+            return nullptr;
+        if (!consumeCommaIncludingWhitespace(range))
+            return nullptr;
+    }
+
+    CSS::FreeformGradientColorStops::Container stops;
+    do {
+        auto stop = consumeFreeformGradientColorStop(range, state);
+        if (!stop)
+            return nullptr;
+        stops.append(WTF::move(*stop));
+    } while (consumeCommaIncludingWhitespace(range));
+
+    auto defaultColorInterpolationMethod = CSS::GradientColorInterpolationMethod::Default::SRGB;
+    for (auto& stop : stops) {
+        if (!stopColorIs8Bit(stop.color))
+            defaultColorInterpolationMethod = CSS::GradientColorInterpolationMethod::Default::OKLab;
+    }
+
+    return CSSFreeformGradientValue::create({
+        .parameters = {
+            .colorInterpolationMethod = computeGradientColorInterpolationMethod(colorInterpolationMethod, defaultColorInterpolationMethod),
+            .stops = { WTF::move(stops) },
         }
     });
 }
@@ -1481,6 +1546,8 @@ RefPtr<CSSValue> consumeImage(CSSParserTokenRange& range, CSS::PropertyParserSta
             return consumeGeneratedImage([&](auto& args) { return consumeConicGradient<CSSValueID::RepeatingConicGradient>(args, state); });
         case CSSValueID::MeshGradient:
             return consumeGeneratedImage([&](auto& args) { return consumeMeshGradient(args, state); });
+        case CSSValueID::FreeformGradient:
+            return consumeGeneratedImage([&](auto& args) { return consumeFreeformGradient(args, state); });
         case CSSValueID::WebkitCrossFade:
             return consumeGeneratedImage([&](auto& args) { return consumeWebkitCrossfade(args, state); });
         case CSSValueID::CrossFade:
@@ -1507,7 +1574,7 @@ RefPtr<CSSValue> consumeImage(CSSParserTokenRange& range, CSS::PropertyParserSta
     }
 
     if (allowedImageTypes.contains(AllowedImageType::URLFunction)) {
-        if (auto imageURL = consumeURLRaw(range, state, { AllowedURLModifiers::CrossOrigin, AllowedURLModifiers::ReferrerPolicy, AllowedURLModifiers::Param }))
+        if (auto imageURL = consumeURLRaw(range, state, { AllowedURLModifiers::CrossOrigin, AllowedURLModifiers::Integrity, AllowedURLModifiers::ReferrerPolicy, AllowedURLModifiers::Param }))
             return CSSImageValue::create(WTF::move(*imageURL));
     }
 

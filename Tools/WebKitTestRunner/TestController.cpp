@@ -982,6 +982,7 @@ void TestController::initialize(int argc, const char* argv[])
     m_forceComplexText = options.forceComplexText;
     m_paths = options.paths;
     m_allowedHosts = options.allowedHosts;
+    m_disabledKeys = options.disabledKeys;
     m_localhostAliases = options.localhostAliases;
     m_checkForWorldLeaks = options.checkForWorldLeaks;
     m_allowAnyHTTPSCertificateForAllowedHosts = options.allowAnyHTTPSCertificateForAllowedHosts;
@@ -1600,6 +1601,8 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
     resetMockMediaDevices();
     WKPageSetMediaCaptureReportingDelayForTesting(m_mainWebView->page(), 0);
 
+    WKPageSetVirtualWalletBehaviorForTesting(m_mainWebView->page(), toWK("clear").get(), nullptr, nullptr);
+
     WKWebsiteDataStoreResetResourceMonitorThrottler(websiteDataStore(), nullptr, nullptr);
 
     WKURLRequestSetDefaultTimeoutInterval((60_s).value());
@@ -1644,6 +1647,7 @@ bool TestController::resetStateToConsistentValues(const TestOptions& options, Re
     m_isGeolocationPermissionSet = false;
     m_isGeolocationPermissionAllowed = false;
     m_geolocationPermissionQueryOrigins.clear();
+    m_geolocationProvider->reset();
 
     // Reset Screen Wake Lock permission.
     m_screenWakeLockPermission = std::nullopt;
@@ -2222,14 +2226,14 @@ WKURLRef TestController::createTestURL(std::span<const char> pathOrURL)
     return url.leakRef();
 }
 
-TestOptions TestController::testOptionsForTest(const TestCommand& command) const
+TestOptions TestController::testOptionsForTest(const TestCommand& command, TestFeatures testHeaderFeatures) const
 {
     TestFeatures features = TestOptions::defaults();
     merge(features, m_globalFeatures);
     merge(features, hardcodedFeaturesBasedOnPathForTest(command));
     merge(features, platformSpecificFeatureDefaultsForTest(command));
     merge(features, featureDefaultsFromSelfComparisonHeader(command, TestOptions::keyTypeMapping()));
-    merge(features, featureDefaultsFromTestHeaderForTest(command, TestOptions::keyTypeMapping()));
+    merge(features, WTF::move(testHeaderFeatures));
     merge(features, featureFromAdditionalHeaderOption(command, TestOptions::keyTypeMapping()));
     merge(features, platformSpecificFeatureOverridesDefaultsForTest(command));
 
@@ -3395,10 +3399,16 @@ bool TestController::runTest(const char* inputLine)
     WKTextCheckerSetTestingMode(true);
     
     auto command = parseInputLine(std::string(inputLine));
+    auto testHeader = testHeaderForTest(command, TestOptions::keyTypeMapping());
+
+    if (auto disabledKey = firstDisabledKeyForTest(command, testHeader, m_disabledKeys)) {
+        dumpSkippedTestReply(*disabledKey);
+        return true;
+    }
 
     m_state = RunningTest;
 
-    TestOptions options = testOptionsForTest(command);
+    TestOptions options = testOptionsForTest(command, WTF::move(testHeader.features));
 
     m_mainResourceURL = adoptWK(createTestURL(command.pathOrURL));
     if (!m_mainResourceURL)
@@ -5188,6 +5198,11 @@ unsigned long long TestController::decideStorageQuota(unsigned long long current
 }
 
 bool TestController::isDoingMediaCapture() const
+{
+    return false;
+}
+
+bool TestController::isEnhancedSecurity() const
 {
     return false;
 }

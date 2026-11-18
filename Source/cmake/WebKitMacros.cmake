@@ -316,7 +316,12 @@ function(_WEBKIT_ADD_PCH_OBJECT _target)
         return ()
     endif ()
     cmake_parse_arguments(PARSE_ARGV 1 _PO "PREFIX_NO_CODEGEN" "" "PREFIX_LANGUAGES")
-    set(_stub_flags "-fpch-debuginfo;-Xclang;-building-pch-with-obj")
+    set(_stub_flags "-Xclang;-building-pch-with-obj")
+    # Apple clang before 2100.3 omits the vtable of a prefix header class from the
+    # translation unit that defines its key function under -fpch-debuginfo.
+    if (NOT (CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 21.0.0.21000300))
+        list(PREPEND _stub_flags "-fpch-debuginfo")
+    endif ()
     if (NOT _PO_PREFIX_NO_CODEGEN AND USE_PCH_CODEGEN)
         list(PREPEND _stub_flags "-fpch-codegen")
     endif ()
@@ -876,11 +881,12 @@ function(_WEBKIT_ADD_CODE_SIGN _target)
             VERBATIM
             COMMENT "Code signing ${_target}")
         # A POST_BUILD command only re-runs when the target relinks, so make a
-        # change to the entitlements force a relink; otherwise editing the
-        # entitlements would leave the binary signed with the stale set.
-        if (_entitlements_path)
+        # change to any signing input, like the entitlements or the
+        # ${_target}_CODE_SIGN_INPUTS, force a relink; otherwise the binary
+        # would stay signed with the stale inputs.
+        if (_arg_DEPENDS)
             set_property(TARGET ${_target} APPEND PROPERTY
-                LINK_DEPENDS ${_entitlements_path})
+                LINK_DEPENDS ${_arg_DEPENDS})
         endif ()
         # Preserve a named ${_target}_CodeSign target so ordering edges elsewhere
         # (e.g. WebKit.framework signing after its XPC services) keep resolving.
@@ -1033,6 +1039,42 @@ function(_WEBKIT_CREATE_FRAMEWORK_BUNDLE_STRUCTURE _target)
     endforeach ()
 endfunction()
 
+# Symlinks each source to its destination with one ln -sf step per destination directory and batch.
+function(_WEBKIT_ADD_SYMLINK_COMMANDS _dst_files_var _srcs _dsts)
+    set(_dirs "")
+    foreach (_src _dst IN ZIP_LISTS _srcs _dsts)
+        get_property(_has_rule GLOBAL PROPERTY "_WEBKIT_SYMLINK:${_dst}" SET)
+        get_source_file_property(_generated "${_dst}" GENERATED)
+        if (_has_rule OR _generated)
+            continue ()
+        endif ()
+        set_property(GLOBAL PROPERTY "_WEBKIT_SYMLINK:${_dst}" 1)
+        get_filename_component(_dir "${_dst}" DIRECTORY)
+        list(FIND _dirs "${_dir}" _i)
+        if (_i EQUAL -1)
+            list(LENGTH _dirs _i)
+            list(APPEND _dirs "${_dir}")
+        endif ()
+        list(APPEND _srcs_${_i} "${_src}")
+    endforeach ()
+    foreach (_dir IN LISTS _dirs)
+        list(FIND _dirs "${_dir}" _i)
+        list(LENGTH _srcs_${_i} _n)
+        math(EXPR _last "${_n} - 1")
+        foreach (_start RANGE 0 ${_last} 256)
+            list(SUBLIST _srcs_${_i} ${_start} 256 _batch)
+            list(TRANSFORM _batch REPLACE "^.*/" "${_dir}/" OUTPUT_VARIABLE _outputs)
+            add_custom_command(OUTPUT ${_outputs}
+                COMMAND ln -sf ${_batch} ${_dir}
+                DEPENDS ${_batch}
+                COMMENT "Symlinking headers into ${_dir}"
+                VERBATIM
+            )
+        endforeach ()
+    endforeach ()
+    set(${_dst_files_var} ${${_dst_files_var}} ${_dsts} PARENT_SCOPE)
+endfunction()
+
 function(WEBKIT_COPY_FILES target_name)
     set(options FLATTENED NO_SYMLINK)
     set(oneValueArgs DESTINATION)
@@ -1061,6 +1103,11 @@ function(WEBKIT_COPY_FILES target_name)
         if (opt_COMMAND)
             set(command ${opt_COMMAND})
         elseif (APPLE AND NOT opt_NO_SYMLINK)
+            if (CMAKE_GENERATOR MATCHES "Ninja")
+                list(APPEND link_srcs ${src_file})
+                list(APPEND link_dsts ${dst_file})
+                continue ()
+            endif ()
             set(command ln -sfn)
         else ()
             set(command ${CMAKE_COMMAND} -E copy_if_different)
@@ -1072,6 +1119,7 @@ function(WEBKIT_COPY_FILES target_name)
         )
         list(APPEND dst_files ${dst_file})
     endforeach ()
+    _WEBKIT_ADD_SYMLINK_COMMANDS(dst_files "${link_srcs}" "${link_dsts}")
     add_custom_target(${target_name} ALL DEPENDS ${dst_files})
 endfunction()
 
@@ -1098,7 +1146,11 @@ function(WEBKIT_SYMLINK_FILES target_name)
             file(MAKE_DIRECTORY ${opt_DESTINATION}/${file_dir})
             set(dst_file ${opt_DESTINATION}/${file})
         endif ()
-        if (CMAKE_HOST_UNIX)
+        if (APPLE AND CMAKE_GENERATOR MATCHES "Ninja")
+            list(APPEND link_srcs ${src_file})
+            list(APPEND link_dsts ${dst_file})
+            continue ()
+        elseif (CMAKE_HOST_UNIX)
             set(command ln -sfn)
         else ()
             set(command ${CMAKE_COMMAND} -E create_symlink)
@@ -1110,7 +1162,110 @@ function(WEBKIT_SYMLINK_FILES target_name)
         )
         list(APPEND dst_files ${dst_file})
     endforeach ()
+    _WEBKIT_ADD_SYMLINK_COMMANDS(dst_files "${link_srcs}" "${link_dsts}")
     add_custom_target(${target_name} ALL DEPENDS ${dst_files})
+endfunction()
+
+# WEBKIT_ADD_UMBRELLA_INVALIDATION_HEADER(<copy-target> DESTINATION <dir> FILES <headers>...)
+#
+# Works around rdar://173516139: when a header is removed from a directory that a module map names
+# with `umbrella`, the Swift driver keeps reusing the explicitly built Clang module, and the first
+# lookup that reaches the removed header fails with "malformed or corrupted precompiled file". The
+# module maps expect a WorkAround173516139.h in the umbrella directory that changes whenever the
+# header list does. Xcode re-copies it from a build rule; this writes one into DESTINATION holding a
+# digest of the names of FILES. Header lists live in CMake files, so changing one re-runs CMake,
+# which rewrites the digest and invalidates the module. <copy-target> installs FILES into DESTINATION.
+function(WEBKIT_ADD_UMBRELLA_INVALIDATION_HEADER copy_target)
+    set(oneValueArgs DESTINATION)
+    set(multiValueArgs FILES)
+    cmake_parse_arguments(opt "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+
+    set(names ${opt_FILES})
+    list(TRANSFORM names REPLACE "^.*/" "")
+    list(REMOVE_DUPLICATES names)
+    list(SORT names)
+    string(SHA256 digest "${names}")
+
+    # file(CONFIGURE) leaves the file alone when its content is unchanged, so reconfiguring
+    # without a header list change doesn't rebuild the module.
+    set(staged_header "${CMAKE_CURRENT_BINARY_DIR}/${copy_target}-WorkAround173516139.h")
+    file(CONFIGURE OUTPUT "${staged_header}" @ONLY CONTENT
+"// Generated by CMake. Do not edit.
+//
+// Works around rdar://173516139. This header changes whenever the set of headers in this directory
+// does, which makes the Clang module whose umbrella is this directory rebuild.
+// Header list digest: ${digest}
+
+#pragma once
+")
+
+    set(header "${opt_DESTINATION}/WorkAround173516139.h")
+    add_custom_command(OUTPUT "${header}"
+        # Remove first instead of copying over: earlier builds symlinked this header into the source tree.
+        COMMAND ${CMAKE_COMMAND} -E rm -f "${header}"
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${opt_DESTINATION}"
+        COMMAND ${CMAKE_COMMAND} -E copy "${staged_header}" "${header}"
+        DEPENDS "${staged_header}"
+        VERBATIM
+    )
+    add_custom_target(${copy_target}_WorkAround173516139 DEPENDS "${header}")
+    add_dependencies(${copy_target} ${copy_target}_WorkAround173516139)
+endfunction()
+
+# Copies the contents of SOURCE into DESTINATION, merging with what's already
+# there. A depfile listing every file and directory in SOURCE re-runs the copy
+# when anything in the tree is edited, added or removed, without globbing at
+# configure time. EXCLUDE patterns skip matching SOURCE-relative paths;
+# DELETE_DESTINATION removes DESTINATION first.
+function(WEBKIT_COPY_DIRECTORY target_name)
+    set(options DELETE_DESTINATION)
+    set(oneValueArgs SOURCE DESTINATION)
+    set(multiValueArgs EXCLUDE)
+    cmake_parse_arguments(opt "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    if (opt_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "WEBKIT_COPY_DIRECTORY(${target_name}): unknown arguments: ${opt_UNPARSED_ARGUMENTS}")
+    endif ()
+
+    set(script "${CMAKE_SOURCE_DIR}/Source/cmake/copy-tree-with-depfile.py")
+    set(stamp "${CMAKE_CURRENT_BINARY_DIR}/${target_name}.stamp")
+    set(args --source "${opt_SOURCE}" --dest "${opt_DESTINATION}" --stamp "${stamp}" --depfile "${stamp}.d")
+    foreach (pattern IN LISTS opt_EXCLUDE)
+        list(APPEND args --exclude "${pattern}")
+    endforeach ()
+    if (opt_DELETE_DESTINATION)
+        list(APPEND args --delete-destination)
+    endif ()
+
+    add_custom_command(OUTPUT "${stamp}"
+        COMMAND ${Python_EXECUTABLE} "${script}" ${args}
+        DEPFILE "${stamp}.d"
+        DEPENDS "${script}"
+        COMMENT "Copying ${opt_SOURCE}"
+        VERBATIM
+    )
+    add_custom_target(${target_name} ALL DEPENDS "${stamp}")
+    set_property(TARGET ${target_name} APPEND PROPERTY ADDITIONAL_CLEAN_FILES "${opt_DESTINATION}")
+endfunction()
+
+# Sets out_var to a COMMAND that writes DEPFILE, listing every file and
+# directory under DIRECTORIES as dependencies of OUTPUT. Append it to an
+# add_custom_command whose tool reads those directories itself, and pass the
+# same DEPFILE there. The tool's command line must not depend on what's in the
+# directories, since only the depfile sees them change.
+function(webkit_get_directory_depfile_command out_var)
+    set(oneValueArgs OUTPUT DEPFILE)
+    set(multiValueArgs DIRECTORIES)
+    cmake_parse_arguments(opt "" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
+    if (opt_UNPARSED_ARGUMENTS)
+        message(FATAL_ERROR "webkit_get_directory_depfile_command: unknown arguments: ${opt_UNPARSED_ARGUMENTS}")
+    endif ()
+
+    set(command ${Python_EXECUTABLE} "${CMAKE_SOURCE_DIR}/Source/cmake/copy-tree-with-depfile.py")
+    foreach (directory IN LISTS opt_DIRECTORIES)
+        list(APPEND command --source "${directory}")
+    endforeach ()
+    list(APPEND command --depfile "${opt_DEPFILE}" --depfile-target "${opt_OUTPUT}")
+    set(${out_var} ${command} PARENT_SCOPE)
 endfunction()
 
 # Helper macros for debugging CMake problems.
@@ -1364,6 +1519,32 @@ function(_WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS _outvar)
     set(${_outvar} ${_flags} PARENT_SCOPE)
 endfunction()
 
+# Importer flags in the SDK module cache key to create one shared set of SDK modules.
+function(_WEBKIT_SWIFT_SHARED_IMPORTER_OPTIONS _outvar _resp_path _cxx_interop)
+    set(_opts "@${_resp_path}")
+    if (_cxx_interop)
+        list(APPEND _opts ${WEBKIT_SWIFT_CXX_INTEROP_FLAGS})
+    endif ()
+    if (CMAKE_Swift_COMPILER_TARGET)
+        list(APPEND _opts "-clang-target ${CMAKE_Swift_COMPILER_TARGET}")
+    endif ()
+    _WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS(_shared_cc_flags)
+    if (NOT _cxx_interop)
+        # UCHAR_TYPE is only for C++ and breaks icu's module otherwise.
+        list(FILTER _shared_cc_flags EXCLUDE REGEX "^-DUCHAR_TYPE=")
+    endif ()
+    foreach (_f IN LISTS _shared_cc_flags)
+        list(APPEND _opts "-Xcc ${_f}")
+    endforeach ()
+    set(${_outvar} ${_opts} PARENT_SCOPE)
+endfunction()
+
+# For Swift targets without C++ interop so they all share one set of Objective-C SDK modules.
+function(webkit_target_add_swift_objc_importer_options _target _resp_path)
+    _WEBKIT_SWIFT_SHARED_IMPORTER_OPTIONS(_opts "${_resp_path}" OFF)
+    webkit_target_add_swift_options(${_target} ${_opts})
+endfunction()
+
 # Generates ${_resp_path}, a swiftc @-response file with the platform-derived
 # flags. Mirrors the Xcode "Generate Swift platform args" build phase.
 # Format (one token per line): -DNAME for truthy HAVE_/USE_/ENABLE_/
@@ -1544,7 +1725,7 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # it ends up in the swiftc invocation that CMake assembles from
         # target_compile_options.
         set(_resp_path "${CMAKE_CURRENT_BINARY_DIR}/${_target}.platform-swift-args.resp")
-        set(_swift_options "@${_resp_path}")
+        _WEBKIT_SWIFT_SHARED_IMPORTER_OPTIONS(_swift_options "${_resp_path}" ON)
         # Other options needed by Swift for C++ interop, including the location
         # of the modulemap and hader for WebKit's internal "APIs" which we
         # make available from C++ to Swift.
@@ -1555,14 +1736,6 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # WebKit_Private framework module — matches Xcode's SWIFT_INCLUDE_PATHS
         # which is also Swift-only) can set
         # ${_target}_SWIFT_INTEROP_MODULE_PATH_SWIFT_ONLY to TRUE.
-        list(APPEND _swift_options ${WEBKIT_SWIFT_CXX_INTEROP_FLAGS})
-        if (CMAKE_Swift_COMPILER_TARGET)
-            list(APPEND _swift_options "-clang-target ${CMAKE_Swift_COMPILER_TARGET}")
-        endif ()
-        _WEBKIT_COMPUTE_SWIFT_SHARED_CLANG_FLAGS(_shared_cc_flags)
-        foreach (_f IN LISTS _shared_cc_flags)
-            list(APPEND _swift_options "-Xcc ${_f}")
-        endforeach ()
         if (APPLE)
             # Swift modules extend their underlying ObjC++ module.
             list(APPEND _swift_options "-import-underlying-module")
@@ -1619,6 +1792,7 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
                 "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -F${CMAKE_LIBRARY_OUTPUT_DIRECTORY}>"
                 "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-F ${CMAKE_LIBRARY_OUTPUT_DIRECTORY}>"
                 "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -iframework${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks>")
+            # FIXME: Logic should probably be folded into FindICU module.
             if (EXISTS "${CMAKE_OSX_SYSROOT}/usr/local/include/unicode_private.modulemap")
                 target_compile_options(${_target} PRIVATE
                     "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-Xcc -isystem${CMAKE_OSX_SYSROOT}/usr/local/include>"

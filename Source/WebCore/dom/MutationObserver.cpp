@@ -82,7 +82,7 @@ MutationObserver::MutationObserver(Ref<MutationCallback>&& callback)
 
 MutationObserver::~MutationObserver()
 {
-    ASSERT(m_registrations.isEmptyIgnoringNullReferences());
+    ASSERT(m_registrations.computeIsEmpty());
 }
 
 bool MutationObserver::validateOptions(MutationObserverOptions options)
@@ -155,7 +155,7 @@ void MutationObserver::observationEnded(MutationObserverRegistration& registrati
 
 void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     Ref document = mutation->target().document();
 
     m_pendingTargets.add(mutation->target());
@@ -168,7 +168,7 @@ void MutationObserver::enqueueMutationRecord(Ref<MutationRecord>&& mutation)
 
 void MutationObserver::enqueueSlotChangeEvent(HTMLSlotElement& slot)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     Ref eventLoop = protect(slot.document())->windowEventLoop();
     auto& list = eventLoop->signalSlotList();
     ASSERT(list.findIf([&slot](auto& entry) { return entry.ptr() == &slot; }) == notFound);

@@ -58,8 +58,8 @@ class RenderTableSection final : public RenderBox {
     WTF_MAKE_TZONE_ALLOCATED(RenderTableSection);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTableSection);
 public:
-    RenderTableSection(Element&, Style::ComputedStyle&&);
-    RenderTableSection(Document&, Style::ComputedStyle&&);
+    RenderTableSection(Element&, UniqueRef<Style::ComputedStyle>&&);
+    RenderTableSection(Document&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderTableSection();
 
     RenderTableRow* firstRow() const;
@@ -210,14 +210,14 @@ private:
     CellSpan dirtiedRows(const LayoutRect& repaintRect) const;
     CellSpan dirtiedColumns(const LayoutRect& repaintRect) const;
 
-    // These two functions take a rectangle as input that has been flipped by logicalRectForWritingModeAndDirection.
+    // These two functions take a rectangle as input that has been converted by logicalRectForWritingModeAndDirection.
     // The returned span of rows or columns is end-exclusive, and empty if start==end.
     // The IncludeAllIntersectingCells argument is used to determine which cells to include when
-    // an edge of the flippedRect lies exactly on a cell boundary. Using IncludeAllIntersectingCells
+    // an edge of the tableAlignedRect lies exactly on a cell boundary. Using IncludeAllIntersectingCells
     // will return both cells, and using DoNotIncludeAllIntersectingCells will return only the cell
     // that hittesting should return.
-    CellSpan spannedRows(const LayoutRect& flippedRect, ShouldIncludeAllIntersectingCells) const;
-    CellSpan spannedColumns(const LayoutRect& flippedRect, ShouldIncludeAllIntersectingCells) const;
+    CellSpan spannedRows(const LayoutRect& tableAlignedRect, ShouldIncludeAllIntersectingCells) const;
+    CellSpan spannedColumns(const LayoutRect& tableAlignedRect, ShouldIncludeAllIntersectingCells) const;
 
     void setLogicalPositionForCell(RenderTableCell*, unsigned effectiveColumn) const;
 

@@ -385,6 +385,17 @@ Ref<Inspector::Protocol::BidiBrowsingContext::Info> BidiBrowsingContextAgent::ge
     return info;
 }
 
+static const FrameTreeNodeData* findFrameTreeNode(const FrameTreeNodeData& tree, WebCore::FrameIdentifier frameID)
+{
+    if (tree.info.frameID == frameID)
+        return &tree;
+    for (const auto& child : tree.children) {
+        if (const auto* node = findFrameTreeNode(child, frameID))
+            return node;
+    }
+    return nullptr;
+}
+
 // Recursively traverses the frame tree of the given pages, one page at a time.
 // We need such recursion because we need to wait for the frame tree of the current page to be fully processed before moving on to the next page.
 void BidiBrowsingContextAgent::getNextTree(Vector<Ref<WebPageProxy>>&& pagesToProcess, Ref<JSON::ArrayOf<Inspector::Protocol::BidiBrowsingContext::Info>> resultsObject, std::optional<uint64_t> maxDepth, CommandCallback<Ref<JSON::ArrayOf<Inspector::Protocol::BidiBrowsingContext::Info>>>&& callback)
@@ -417,6 +428,31 @@ void BidiBrowsingContextAgent::getTree(const BrowsingContext& optionalRoot, std:
         ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(std::floor(*optionalMaxDepth) != *optionalMaxDepth, InvalidParameter);
         ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(*optionalMaxDepth > JSC::maxSafeInteger(), InvalidParameter);
         maxDepth = std::optional<uint64_t>(static_cast<uint64_t>(*optionalMaxDepth));
+    }
+
+    // A child frame as the root: the tree is that frame's subtree within its page.
+    if (!optionalRoot.isEmpty() && !session->webPageProxyForHandle(optionalRoot)) {
+        auto handles = session->extractBrowsingContextHandles(optionalRoot);
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!handles, FrameNotFound);
+        auto [pageHandle, frameHandle] = handles.value();
+
+        RefPtr page = session->webPageProxyForHandle(pageHandle);
+        bool frameNotFound = false;
+        auto frameID = session->webFrameIDForHandle(frameHandle, frameNotFound);
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!page || frameNotFound || !frameID, FrameNotFound);
+
+        page->getAllFrames([weakThis = WeakPtr { *this }, frameID = *frameID, maxDepth, callback = WTF::move(callback)](std::optional<FrameTreeNodeData>&& tree) mutable {
+            RefPtr protectedThis = weakThis;
+            if (!protectedThis)
+                return;
+            const auto* node = tree ? findFrameTreeNode(*tree, frameID) : nullptr;
+            ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!node, FrameNotFound);
+
+            auto resultsObject = JSON::ArrayOf<Inspector::Protocol::BidiBrowsingContext::Info>::create();
+            resultsObject->addItem(protectedThis->getNavigableInfo(*node, maxDepth, IncludeParentID::Yes));
+            callback(WTF::move(resultsObject));
+        });
+        return;
     }
 
     Vector<Ref<WebPageProxy>> pagesToProcess;
@@ -452,20 +488,29 @@ void BidiBrowsingContextAgent::getTree(const BrowsingContext& optionalRoot, std:
     });
 }
 
-void BidiBrowsingContextAgent::handleUserPrompt(const BrowsingContext& browsingContext, std::optional<bool>&& optionalShouldAccept, const String&, CommandCallback<void>&& callback)
+void BidiBrowsingContextAgent::handleUserPrompt(const BrowsingContext& browsingContext, std::optional<bool>&& optionalShouldAccept, const String& optionalUserText, CommandCallback<void>&& callback)
 {
+    // https://w3c.github.io/webdriver-bidi/#command-browsingContext-handleUserPrompt
     RefPtr session = m_session.get();
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(browsingContext.isEmpty(), FrameNotFound);
 
-    // FIXME: implement `userText` option.
+    // User prompts belong to the top-level traversable, so a child context handles its page's prompt.
+    auto handles = session->extractBrowsingContextHandles(browsingContext);
+    ASYNC_FAIL_IF_UNEXPECTED_RESULT(handles);
+    auto& pageHandle = handles.value().first;
 
-    if (optionalShouldAccept && *optionalShouldAccept) {
-        callback(session->acceptCurrentJavaScriptDialog(browsingContext));
+    if (!optionalShouldAccept.value_or(true)) {
+        callback(session->dismissCurrentJavaScriptDialog(pageHandle));
         return;
     }
 
-    // FIXME: this should consider the session's user prompt handler. <https://webkit.org/b/291666>
-    callback(session->dismissCurrentJavaScriptDialog(browsingContext));
+    // A prompt is answered with userText, or the empty string when it is omitted, not with the dialog's default
+    // text. userText only applies to prompt dialogs, so ignore the error that other dialog types report.
+    // Accepting still fails with no such alert when no dialog is showing.
+    std::ignore = session->setUserInputForCurrentJavaScriptPrompt(pageHandle, optionalUserText.isNull() ? emptyString() : optionalUserText);
+
+    callback(session->acceptCurrentJavaScriptDialog(pageHandle));
 }
 
 void BidiBrowsingContextAgent::locateNodes(const BrowsingContext& browsingContext, Ref<JSON::Object>&& locator, std::optional<double>&& optionalMaxNodeCount, RefPtr<JSON::Object>&& optionalSerializationOptions, RefPtr<JSON::Array>&&, CommandCallback<Ref<JSON::ArrayOf<Inspector::Protocol::BidiScript::RemoteValue>>>&& callback)
@@ -537,7 +582,7 @@ void BidiBrowsingContextAgent::locateNodes(const BrowsingContext& browsingContex
     // FIXME: Implement startNodes support. https://bugs.webkit.org/show_bug.cgi?id=288329
     // Inline JavaScript for CSS selector logic. Since _execute uses .apply(null, ...), this wrapper has this=null,
     // so we cannot access proxy methods. Instead, we inline the complete logic here.
-    session->evaluateJavaScriptFunction(topLevelContextHandle, frameHandle,
+    session->evaluateJavaScriptFunctionForBidi(topLevelContextHandle, frameHandle,
         "function(selector, maxCount) { \
             try { \
                 const elements = document.querySelectorAll(selector); \
@@ -566,7 +611,7 @@ void BidiBrowsingContextAgent::locateNodes(const BrowsingContext& browsingContex
                 error.name = 'InvalidSelector'; \
                 throw error; \
             } \
-        }"_s, WTF::move(arguments), false, false, std::nullopt, [callback = WTF::move(callback)](Inspector::CommandResult<String>&& result) mutable {
+        }"_s, WTF::move(arguments), false, [callback = WTF::move(callback)](Inspector::CommandResult<String>&& result) mutable {
         if (!result) {
             callback(makeUnexpected(result.error()));
             return;
@@ -585,7 +630,8 @@ void BidiBrowsingContextAgent::locateNodes(const BrowsingContext& browsingContex
 
 // https://www.w3.org/TR/webdriver/#dfn-session-page-load-timeout
 static constexpr Seconds defaultPageLoadTimeout = 300_s;
-static constexpr ReadinessState defaultReadinessState = ReadinessState::Interactive;
+// https://w3c.github.io/webdriver-bidi/#command-browsingContext-navigate: `wait` defaults to "none".
+static constexpr ReadinessState defaultReadinessState = ReadinessState::None;
 
 NODELETE static PageLoadStrategy pageLoadStrategyFromReadinessState(ReadinessState state)
 {
@@ -607,10 +653,25 @@ void BidiBrowsingContextAgent::navigate(const BrowsingContext& browsingContext, 
     RefPtr session = m_session.get();
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);
 
-    RefPtr webPageProxy = session->webPageProxyForHandle(browsingContext);
+    // https://w3c.github.io/webdriver-bidi/#get-a-navigable: no navigable has an empty id, so it is "no such frame".
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(browsingContext.isEmpty(), FrameNotFound);
+
+    auto handles = session->extractBrowsingContextHandles(browsingContext);
+    ASYNC_FAIL_IF_UNEXPECTED_RESULT(handles);
+    auto [pageHandle, frameHandle] = handles.value();
+
+    RefPtr webPageProxy = session->webPageProxyForHandle(pageHandle);
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!webPageProxy, FrameNotFound);
 
+    // The URL is parsed against the navigable's active document.
     URL baseURL { webPageProxy->currentURL() };
+    if (!frameHandle.isEmpty()) {
+        bool frameNotFound = false;
+        auto frameID = session->webFrameIDForHandle(frameHandle, frameNotFound);
+        RefPtr frame = frameID && !frameNotFound ? WebFrameProxy::webFrame(*frameID) : nullptr;
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!frame, FrameNotFound);
+        baseURL = frame->url();
+    }
     URL urlRecord { baseURL, url };
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!urlRecord.isValid(), InvalidParameter);
 
@@ -623,39 +684,32 @@ void BidiBrowsingContextAgent::navigate(const BrowsingContext& browsingContext, 
 
     auto readinessState = waitCondition.value_or(defaultReadinessState);
     auto pageLoadStrategy = pageLoadStrategyFromReadinessState(readinessState);
-    session->navigateBrowsingContext(browsingContext, urlRecord.string(), pageLoadStrategy, defaultPageLoadTimeout.milliseconds(), [urlRecord, callback = WTF::move(callback)](CommandResult<void>&& result) {
-        if (!result) {
-            callback(makeUnexpected(result.error()));
-            return;
-        }
-
-        // FIXME: keep track of navigation IDs that we hand out.
-        callback({ { urlRecord.string(), "placeholder_navigation"_s } });
-    });
+    session->navigateBrowsingContextForBidi(pageHandle, frameHandle, urlRecord.string(), pageLoadStrategy, defaultPageLoadTimeout, WTF::move(callback));
 }
 
-void BidiBrowsingContextAgent::reload(const BrowsingContext& browsingContext, std::optional<bool>&& optionalIgnoreCache, std::optional<ReadinessState>&& optionalReadinessState, CommandCallbackOf<String, Inspector::Protocol::BidiBrowsingContext::NavigationID>&& callback)
+void BidiBrowsingContextAgent::reload(const BrowsingContext& browsingContext, std::optional<bool>&& optionalIgnoreCache, const String& optionalWait, CommandCallbackOf<String, Inspector::Protocol::BidiBrowsingContext::NavigationID>&& callback)
 {
+    // https://w3c.github.io/webdriver-bidi/#command-browsingContext-reload
     RefPtr session = m_session.get();
     ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);
 
-    // FIXME: implement `ignoreCache` option.
+    // https://w3c.github.io/webdriver-bidi/#get-a-navigable: no navigable has an empty id, so it is "no such frame".
+    ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(browsingContext.isEmpty(), FrameNotFound);
 
-    auto pageLoadStrategy = pageLoadStrategyFromReadinessState(optionalReadinessState.value_or(defaultReadinessState));
-    session->reloadBrowsingContext(browsingContext, pageLoadStrategy, defaultPageLoadTimeout.milliseconds(), [session = WTF::move(session), browsingContext, callback = WTF::move(callback)](CommandResult<void>&& result) {
-        if (!result) {
-            callback(makeUnexpected(result.error()));
-            return;
-        }
+    auto handles = session->extractBrowsingContextHandles(browsingContext);
+    ASYNC_FAIL_IF_UNEXPECTED_RESULT(handles);
+    auto [pageHandle, frameHandle] = handles.value();
 
-        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!session, InternalError);
+    // `wait` is modeled as an optional string so we can reject invalid provided values (e.g. "" per WPT).
+    std::optional<ReadinessState> waitCondition;
+    if (!optionalWait.isNull()) {
+        waitCondition = Inspector::Protocol::WebDriverBidiHelpers::parseEnumValueFromString<ReadinessState>(optionalWait);
+        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!waitCondition, InvalidParameter);
+    }
 
-        RefPtr webPageProxy = session->webPageProxyForHandle(browsingContext);
-        ASYNC_FAIL_WITH_PREDEFINED_ERROR_IF(!webPageProxy, WindowNotFound);
-
-        // FIXME: keep track of navigation IDs that we hand out.
-        callback({ { webPageProxy->currentURL(), "placeholder_navigation"_s } });
-    });
+    auto pageLoadStrategy = pageLoadStrategyFromReadinessState(waitCondition.value_or(defaultReadinessState));
+    auto ignoreCache = optionalIgnoreCache.value_or(false) ? WebAutomationSession::IgnoreCache::Yes : WebAutomationSession::IgnoreCache::No;
+    session->reloadBrowsingContextForBidi(pageHandle, frameHandle, ignoreCache, pageLoadStrategy, defaultPageLoadTimeout, WTF::move(callback));
 }
 
 void BidiBrowsingContextAgent::traverseHistory(const BrowsingContext& browsingContext, double delta, CommandCallback<void>&& callback)

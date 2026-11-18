@@ -112,7 +112,7 @@ static bool isValidColumnSpanner(const RenderMultiColumnFlow& fragmentedFlow, co
         return false;
 
     // This looks like a spanner, but if we're inside something unbreakable, it's not to be treated as one.
-    for (auto* ancestor = descendantBox->containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
+    for (RenderBoxModelObject* ancestor = descendantBox->containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
         if (is<RenderView>(*ancestor))
             return false;
         if (ancestor->isLegend())
@@ -137,7 +137,8 @@ static bool isValidColumnSpanner(const RenderMultiColumnFlow& fragmentedFlow, co
             }
         }
         ASSERT(ancestor->style().columnSpan() != ColumnSpan::All || !isValidColumnSpanner(fragmentedFlow, *ancestor));
-        if (ancestor->isUnsplittableForPagination())
+        // Inline boxes split across columns.
+        if (CheckedPtr box = dynamicDowncast<RenderBox>(*ancestor); box && box->isUnsplittableForPagination())
             return false;
     }
     ASSERT_NOT_REACHED();
@@ -468,7 +469,8 @@ void RenderTreeBuilder::MultiColumn::handleSpannerRemoval(RenderMultiColumnFlow&
 {
     // The placeholder may already have been removed, but if it hasn't, do so now.
     if (auto placeholder = flow.spannerMap().take(downcast<RenderBox>(spanner)))
-        m_builder.destroy(*placeholder, canCollapseAnonymousBlock);
+        // The renderer is destroyed by this call, so it cannot be protected.
+        SUPPRESS_UNCHECKED_ARG m_builder.destroy(*placeholder, canCollapseAnonymousBlock);
 
     if (auto* next = spanner.nextSibling()) {
         if (auto* previous = spanner.previousSibling()) {

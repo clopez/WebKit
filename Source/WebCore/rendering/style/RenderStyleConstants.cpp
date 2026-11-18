@@ -299,6 +299,7 @@ TextStream& operator<<(TextStream& ts, CSSBoxType boxType)
     case CSSBoxType::BoxMissing: ts << "missing"_s; break;
     case CSSBoxType::MarginBox: ts << "margin-box"_s; break;
     case CSSBoxType::BorderBox: ts << "border-box"_s; break;
+    case CSSBoxType::HalfBorderBox: ts << "half-border-box"_s; break;
     case CSSBoxType::PaddingBox: ts << "padding-box"_s; break;
     case CSSBoxType::ContentBox: ts << "content-box"_s; break;
     case CSSBoxType::FillBox: ts << "fill-box"_s; break;
@@ -585,6 +586,7 @@ TextStream& operator<<(TextStream& ts, FillBox fill)
     case FillBox::ContentBox: ts << "content-box"_s; break;
     case FillBox::BorderArea: ts << "border-area"_s; break;
     case FillBox::Text: ts << "text"_s; break;
+    case FillBox::BorderAreaText: ts << "border-area text"_s; break;
     case FillBox::NoClip: ts << "no-clip"_s; break;
     }
     return ts;
@@ -1453,6 +1455,8 @@ TextStream& operator<<(TextStream& ts, AlignmentBaseline value)
     case AlignmentBaseline::Alphabetic: ts << "alphabetic"_s; break;
     case AlignmentBaseline::Hanging: ts << "hanging"_s; break;
     case AlignmentBaseline::Mathematical: ts << "mathematical"_s; break;
+    case AlignmentBaseline::TextTop: ts << "text-top"_s; break;
+    case AlignmentBaseline::TextBottom: ts << "text-bottom"_s; break;
     }
     return ts;
 }

@@ -332,6 +332,7 @@ ScrollOffset RenderLayerScrollableArea::scrollToOffset(const ScrollOffset& scrol
         return clampedScrollOffset;
 
     auto scrollTypeScope = ScrollTypeScope(*this, options.type);
+    setCurrentScrollRelativity(scrollRelativityFor(options.snapPointSelectionMethod));
 
     if (options.animated == ScrollIsAnimated::Yes) {
         registerScrollableAreaForAnimatedScroll();
@@ -840,7 +841,7 @@ void RenderLayerScrollableArea::invalidateScrollbarRect(Scrollbar& scrollbar, co
         scrollRect.moveBy(rects.horizontalScrollbar.location());
 
     LayoutRect repaintRect = scrollRect;
-    box->flipForWritingMode(repaintRect);
+    box->physicalToBlockStartRelative(repaintRect);
     box->repaintRectangle(repaintRect);
 }
 
@@ -1157,7 +1158,7 @@ void RenderLayerScrollableArea::computeScrollOrigin()
     CheckedPtr box = m_layer.renderBox();
 
     auto overflowRect = box->layoutOverflowRect();
-    box->flipForWritingMode(overflowRect);
+    box->blockStartRelativeToPhysical(overflowRect);
 
     int scrollableLeftOverflow = roundToInt(overflowRect.x() - box->borderLeft());
     if (shouldPlaceVerticalScrollbarOnLeft())
@@ -1356,7 +1357,7 @@ std::optional<ScrollbarUpdateScope> RenderLayerScrollableArea::updateScrollInfoA
         m_layer.updateSelfPaintingLayer();
     }
 
-    return ScrollbarUpdateScope { *this, originalScrollPosition, autoScrollbarChanges, hasHorizontalOverflow ? HasHorizontalOverflow::Yes : HasHorizontalOverflow::No, hasVerticalOverflow ? HasVerticalOverflow::Yes : HasVerticalOverflow::No };
+    return std::optional<ScrollbarUpdateScope> { std::in_place, *this, originalScrollPosition, autoScrollbarChanges, hasHorizontalOverflow ? HasHorizontalOverflow::Yes : HasHorizontalOverflow::No, hasVerticalOverflow ? HasVerticalOverflow::Yes : HasVerticalOverflow::No };
 }
 
 void RenderLayerScrollableArea::updateScrollbarSteps()
@@ -1488,12 +1489,10 @@ void RenderLayerScrollableArea::paintOverflowControls(GraphicsContext& context, 
             damageRect.move(-widgetPaintOffset.width(), -widgetPaintOffset.height());
         }
 
-        bool paintingIntoSnapshot = paintBehavior.contains(PaintBehavior::Snapshotting);
-        if (paintingIntoSnapshot)
-            scrollbar->setPaintingIntoSnapshot(true);
-        scrollbar->paint(context, damageRect);
-        if (paintingIntoSnapshot)
-            scrollbar->setPaintingIntoSnapshot(false);
+        OptionSet<ScrollbarPaintBehavior> scrollbarPaintBehavior;
+        if (paintBehavior.contains(PaintBehavior::Snapshotting))
+            scrollbarPaintBehavior.add(ScrollbarPaintBehavior::Snapshot);
+        scrollbar->paint(context, damageRect, scrollbarPaintBehavior);
     };
 
     paintScrollBarIfNecessary(m_hBar, damageRect);
@@ -1788,12 +1787,12 @@ void RenderLayerScrollableArea::updateScrollCornerStyle()
     }
 
     if (!m_scrollCorner) {
-        m_scrollCorner = createRenderer<RenderScrollbarPart>(protect(renderer.document()), WTF::move(*corner));
+        m_scrollCorner = createRenderer<RenderScrollbarPart>(protect(renderer.document()), makeUniqueRefFromNonNullUniquePtr(WTF::move(corner)));
         // FIXME: A renderer should be a child of its parent!
         m_scrollCorner->setParent(&renderer);
         m_scrollCorner->initializeStyle();
     } else
-        m_scrollCorner->setStyle(WTF::move(*corner));
+        m_scrollCorner->setStyle(makeUniqueRefFromNonNullUniquePtr(WTF::move(corner)));
 }
 
 void RenderLayerScrollableArea::clearScrollCorner()
@@ -1819,12 +1818,12 @@ void RenderLayerScrollableArea::updateResizerStyle()
     }
 
     if (!m_resizer) {
-        m_resizer = createRenderer<RenderScrollbarPart>(protect(renderer.document()), WTF::move(*resizer));
+        m_resizer = createRenderer<RenderScrollbarPart>(protect(renderer.document()), makeUniqueRefFromNonNullUniquePtr(WTF::move(resizer)));
         // FIXME: A renderer should be a child of its parent!
         m_resizer->setParent(&renderer);
         m_resizer->initializeStyle();
     } else
-        m_resizer->setStyle(WTF::move(*resizer));
+        m_resizer->setStyle(makeUniqueRefFromNonNullUniquePtr(WTF::move(resizer)));
 }
 
 void RenderLayerScrollableArea::clearResizer()
@@ -1894,8 +1893,7 @@ void RenderLayerScrollableArea::panScrollFromPoint(const IntPoint& sourcePoint)
 
 static LayoutRect computeLocalExposeRect(const LayoutRect& absoluteRect, RenderBox* box)
 {
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST return LayoutRect { box->absoluteToLocalQuad(FloatQuad(FloatRect(absoluteRect))).boundingBox() };
+    return LayoutRect { box->absoluteToLocalQuad(FloatQuad(FloatRect(absoluteRect))).boundingBox() };
 }
 
 LayoutRect RenderLayerScrollableArea::scrollRectToVisible(const LayoutRect& absoluteRect, const ScrollRectToVisibleOptions& options)
@@ -1954,8 +1952,7 @@ std::optional<LayoutRect> RenderLayerScrollableArea::updateScrollPositionForScro
     IntSize scrollOffsetDifference = realScrollOffset - oldScrollOffset;
     auto localExposeRectScrolled = localExposeRect;
     localExposeRectScrolled.move(-scrollOffsetDifference);
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST return LayoutRect(box->localToAbsoluteQuad(FloatQuad(FloatRect(localExposeRectScrolled)), MapCoordinatesMode::UseTransforms).boundingBox());
+    return LayoutRect(box->localToAbsoluteQuad(FloatQuad(FloatRect(localExposeRectScrolled)), MapCoordinatesMode::UseTransforms).boundingBox());
 }
 
 void RenderLayerScrollableArea::scrollByRecursively(const IntSize& delta, ScrollableArea** scrolledArea)

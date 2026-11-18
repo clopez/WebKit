@@ -33,6 +33,7 @@
 #include "LegacyRenderSVGImage.h"
 #include "LegacyRenderSVGResource.h"
 #include "NodeName.h"
+#include "ReferrerPolicy.h"
 #include "RenderImageResource.h"
 #include "RenderSVGImage.h"
 #include "SVGElementInlines.h"
@@ -135,6 +136,13 @@ void SVGImageElement::attributeChanged(const QualifiedName& name, const AtomStri
         if (parseCORSSettingsAttribute(oldValue) != parseCORSSettingsAttribute(newValue))
             m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
         break;
+    case AttributeNames::referrerpolicyAttr: {
+        auto oldReferrerPolicy = parseReferrerPolicy(oldValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+        auto newReferrerPolicy = parseReferrerPolicy(newValue, ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
+        if (oldReferrerPolicy != newReferrerPolicy)
+            m_imageLoader->updateFromElementIgnoringPreviousError(RelevantMutation::Yes);
+        break;
+    }
     default:
         break;
     }
@@ -180,7 +188,7 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
     SVGGraphicsElement::svgAttributeChanged(attrName);
 }
 
-RenderPtr<RenderElement> SVGImageElement::createElementRenderer(Style::ComputedStyle&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGImageElement::createElementRenderer(UniqueRef<Style::ComputedStyle>&& style, const RenderTreePosition&)
 {
     if (document().settings().layerBasedSVGEngineEnabled())
         return createRenderer<RenderSVGImage>(*this, WTF::move(style));
@@ -231,6 +239,16 @@ void SVGImageElement::setCrossOrigin(const AtomString& value)
 String SVGImageElement::crossOrigin() const
 {
     return parseCORSSettingsAttribute(attributeWithoutSynchronization(HTMLNames::crossoriginAttr));
+}
+
+String SVGImageElement::referrerPolicyForBindings() const
+{
+    return referrerPolicyToString(referrerPolicy());
+}
+
+ReferrerPolicy SVGImageElement::referrerPolicy() const
+{
+    return parseReferrerPolicy(attributeWithoutSynchronization(SVGNames::referrerpolicyAttr), ReferrerPolicySource::ReferrerPolicyAttribute).value_or(ReferrerPolicy::EmptyString);
 }
 
 void SVGImageElement::addSubresourceAttributeURLs(OrderedHashSet<URL>& urls) const

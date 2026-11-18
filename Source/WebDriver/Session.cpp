@@ -294,25 +294,93 @@ void Session::handleUserPrompts(Function<void(CommandResult&&)>&& completionHand
     });
 }
 
+static PromptHandlerConfiguration promptHandlerForType(const std::optional<UserPromptHandler>& userPromptHandler, UserPromptType type)
+{
+    // https://w3c.github.io/webdriver/#dfn-get-the-prompt-handler
+    if (userPromptHandler) {
+        const std::optional<PromptHandlerConfiguration>* handlerForType = nullptr;
+        switch (type) {
+        case UserPromptType::Alert:
+            handlerForType = &userPromptHandler->alert;
+            break;
+        case UserPromptType::BeforeUnload:
+            handlerForType = &userPromptHandler->beforeUnload;
+            break;
+        case UserPromptType::Confirm:
+            handlerForType = &userPromptHandler->confirm;
+            break;
+        case UserPromptType::Prompt:
+            handlerForType = &userPromptHandler->prompt;
+            break;
+        case UserPromptType::Default:
+            break;
+        }
+        if (handlerForType && *handlerForType)
+            return **handlerForType;
+        if (userPromptHandler->defaultHandler)
+            return *userPromptHandler->defaultHandler;
+    }
+
+    if (type == UserPromptType::BeforeUnload)
+        return { PromptHandlerType::Accept, false };
+
+    if (userPromptHandler && userPromptHandler->fallbackDefault)
+        return *userPromptHandler->fallbackDefault;
+
+    return { PromptHandlerType::Dismiss, true };
+}
+
+static UserPromptType userPromptTypeFromDialogType(const String& dialogType)
+{
+    if (dialogType == "alert"_s)
+        return UserPromptType::Alert;
+    if (dialogType == "beforeunload"_s)
+        return UserPromptType::BeforeUnload;
+    if (dialogType == "confirm"_s)
+        return UserPromptType::Confirm;
+    if (dialogType == "prompt"_s)
+        return UserPromptType::Prompt;
+    return UserPromptType::Default;
+}
+
 void Session::handleUnexpectedAlertOpen(Function<void(CommandResult&&)>&& completionHandler)
 {
-    switch (capabilities().unhandledPromptBehavior.value_or(UnhandledPromptBehavior::DismissAndNotify)) {
-    case UnhandledPromptBehavior::Dismiss:
-        dismissAlert(WTF::move(completionHandler));
-        break;
-    case UnhandledPromptBehavior::Accept:
-        acceptAlert(WTF::move(completionHandler));
-        break;
-    case UnhandledPromptBehavior::DismissAndNotify:
-        dismissAndNotifyAlert(WTF::move(completionHandler));
-        break;
-    case UnhandledPromptBehavior::AcceptAndNotify:
-        acceptAndNotifyAlert(WTF::move(completionHandler));
-        break;
-    case UnhandledPromptBehavior::Ignore:
-        reportUnexpectedAlertOpen(WTF::move(completionHandler));
-        break;
-    }
+    // https://w3c.github.io/webdriver/#dfn-handle-any-user-prompts
+    auto parameters = JSON::Object::create();
+    parameters->setString("browsingContextHandle"_s, uncheckedTopLevelBrowsingContext());
+    m_host->sendCommandToBackend("typeOfCurrentJavaScriptDialog"_s, WTF::move(parameters), [this, protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)](SessionHost::CommandResponse&& response) mutable {
+        auto type = UserPromptType::Default;
+        if (response.isError) {
+            // The dialog was closed after isShowingJavaScriptDialog returned true, so there's nothing to handle.
+            if (CommandResult::fail(WTF::move(response.responseObject)).errorCode() == CommandResult::ErrorCode::NoSuchAlert) {
+                completionHandler(CommandResult::success());
+                return;
+            }
+            // Otherwise the browser can't tell the dialog type, so fall back to the "default" handler.
+        } else if (response.responseObject)
+            type = userPromptTypeFromDialogType(response.responseObject->getString("type"_s));
+
+        auto configuration = promptHandlerForType(capabilities().unhandledPromptBehavior, type);
+        switch (configuration.handler) {
+        case PromptHandlerType::Accept:
+            if (configuration.notify)
+                acceptAndNotifyAlert(WTF::move(completionHandler));
+            else
+                acceptAlert(WTF::move(completionHandler));
+            break;
+        case PromptHandlerType::Dismiss:
+            if (configuration.notify)
+                dismissAndNotifyAlert(WTF::move(completionHandler));
+            else
+                dismissAlert(WTF::move(completionHandler));
+            break;
+        case PromptHandlerType::Ignore:
+            // An "ignore" handler always notifies.
+            ASSERT(configuration.notify);
+            reportUnexpectedAlertOpen(WTF::move(completionHandler));
+            break;
+        }
+    });
 }
 
 void Session::dismissAndNotifyAlert(Function<void(CommandResult&&)>&& completionHandler)
@@ -1307,6 +1375,8 @@ void Session::getActiveElement(Function<void(CommandResult&&)>&& completionHandl
         }
         auto parameters = JSON::Object::create();
         parameters->setString("browsingContextHandle"_s, uncheckedTopLevelBrowsingContext());
+        if (m_currentBrowsingContext)
+            parameters->setString("frameHandle"_s, m_currentBrowsingContext.value());
         parameters->setString("function"_s, "function() { return document.activeElement; }"_s);
         parameters->setArray("arguments"_s, JSON::Array::create());
         m_host->sendCommandToBackend("evaluateJavaScriptFunction"_s, WTF::move(parameters), [this, protectedThis, completionHandler = WTF::move(completionHandler)](SessionHost::CommandResponse&& response) {
@@ -1507,7 +1577,7 @@ void Session::getElementTagName(const String& elementID, Function<void(CommandRe
         parameters->setString("browsingContextHandle"_s, uncheckedTopLevelBrowsingContext());
         if (m_currentBrowsingContext)
             parameters->setString("frameHandle"_s, m_currentBrowsingContext.value());
-        parameters->setString("function"_s, "function(element) { return element.tagName.toLowerCase() }"_s);
+        parameters->setString("function"_s, "function(element) { return element.prefix ? element.prefix + ':' + element.localName : element.localName }"_s);
         parameters->setArray("arguments"_s, WTF::move(arguments));
         m_host->sendCommandToBackend("evaluateJavaScriptFunction"_s, WTF::move(parameters), [protectedThis, completionHandler = WTF::move(completionHandler)](SessionHost::CommandResponse&& response) {
             if (response.isError || !response.responseObject) {

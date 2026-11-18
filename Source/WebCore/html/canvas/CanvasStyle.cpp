@@ -37,10 +37,12 @@
 #include "CanvasGradient.h"
 #include "CanvasPattern.h"
 #include "ColorConversion.h"
+#include "Document.h"
 #include "Gradient.h"
 #include "GraphicsContext.h"
 #include "HTMLCanvasElement.h"
 #include "NodeDocument.h"
+#include "StyleComputedStyle.h"
 #include "StylePropertiesInlines.h"
 
 #if ENABLE(OFFSCREEN_CANVAS)
@@ -48,6 +50,8 @@
 #endif
 
 namespace WebCore {
+
+std::atomic<uint64_t> CanvasStyle::s_gradientPatternVersion { 0 };
 
 class CanvasStyleColorResolutionDelegate final : public CSS::PlatformColorResolutionDelegate {
 public:
@@ -63,13 +67,11 @@ public:
 
 Color CanvasStyleColorResolutionDelegate::currentColor() const
 {
-    if (!m_canvasElement->isConnected() || !m_canvasElement->inlineStyle())
-        return Color::black;
+    protect(m_canvasElement->document())->updateStyleIfNeeded();
 
-    auto colorString = protect(protect(m_canvasElement)->inlineStyle())->getPropertyValue(CSSPropertyID::Color);
-    auto color = CSSPropertyParserHelpers::parseColorRaw(colorString, m_canvasElement->cssParserContext(), protect(m_canvasElement->document()).get());
-    if (color.isValid())
-        return color;
+    if (CheckedPtr computedStyle = m_canvasElement->computedStyle())
+        return computedStyle->color();
+
     return Color::black;
 }
 

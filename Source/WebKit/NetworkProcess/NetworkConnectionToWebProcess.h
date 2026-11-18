@@ -43,6 +43,7 @@
 #include "WebResourceLoadObserver.h"
 #include "WebSWServerToContextConnection.h"
 #include <JavaScriptCore/ConsoleTypes.h>
+#include <WebCore/DeferredFetchIdentifier.h>
 #include <WebCore/ExceptionData.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/IPAddressSpace.h>
@@ -77,6 +78,10 @@
 #include "CocoaWindow.h"
 #endif
 
+#if ENABLE(WEB_AUTHN) && PLATFORM(COCOA)
+#include <WebCore/UnvalidatedDigitalCredentialRequest.h>
+#endif
+
 namespace PAL {
 class SessionID;
 }
@@ -85,12 +90,16 @@ namespace WebCore {
 class BlobDataFileReference;
 class BlobPart;
 class BlobRegistryImpl;
+struct DigitalCredentialsRequestData;
+struct DigitalCredentialsResponseData;
+struct ExceptionData;
 class LoginStatus;
 class MockContentFilterSettings;
 class ResourceError;
 class ResourceRequest;
 class Site;
 enum class AdvancedPrivacyProtections : uint16_t;
+enum class CredentiallessSupport : bool;
 enum class StorageAccessScope : bool;
 enum class IsLoggedIn : uint8_t;
 enum class ShouldPartitionCookie : bool;
@@ -191,8 +200,9 @@ public:
 
     bool usesSingleWebProcess() const { return m_sharedPreferencesForWebProcess.usesSingleWebProcess; }
     bool blobFileAccessEnforcementEnabled() const { return m_sharedPreferencesForWebProcess.blobFileAccessEnforcementEnabled; }
-    bool compressionDictionaryEnabled() const { return m_sharedPreferencesForWebProcess.compressionDictionaryEnabled; }
+    bool compressionDictionaryEnabled();
     bool localNetworkAccessEnabled() const { return m_sharedPreferencesForWebProcess.localNetworkAccessEnabled; }
+    NODELETE WebCore::CredentiallessSupport credentiallessSupport() const;
 
     struct LocalNetworkAccessFrameRecord {
         WebCore::IPAddressSpace addressSpace;
@@ -304,6 +314,9 @@ public:
     // Called by NetworkSession when draining the deferred-claim queue for a parked loader.
     void completeQueuedExistingLoaderResume(Ref<NetworkResourceLoader>&&, NetworkResourceLoadParameters&&);
     void terminateForInvalidLoaderResumeClaim();
+#if ENABLE(WEB_AUTHN) && PLATFORM(COCOA)
+    void presentDigitalCredentialRequest(WebPageProxyIdentifier, WebCore::DigitalCredentialsRequestData&&, Vector<WebCore::UnvalidatedDigitalCredentialRequest>&&, CompletionHandler<void(std::expected<WebCore::DigitalCredentialsResponseData, WebCore::ExceptionData>&&)>&&);
+#endif
 
 private:
     NetworkConnectionToWebProcess(WebCore::ProcessIdentifier, PAL::SessionID, NetworkProcessConnectionParameters&&, IPC::Connection::Identifier&&);
@@ -323,6 +336,12 @@ private:
     void scheduleResourceLoad(NetworkResourceLoadParameters&&, std::optional<NetworkResourceLoadIdentifier> existingLoaderToResume);
     void performSynchronousLoad(NetworkResourceLoadParameters&&, CompletionHandler<void(const WebCore::ResourceError&, const WebCore::ResourceResponse, Vector<uint8_t>&&)>&&);
     void testProcessIncomingSyncMessagesWhenWaitingForSyncReply(WebPageProxyIdentifier, CompletionHandler<void(bool)>&&);
+    void reserveDeferredFetchQuota(WebPageProxyIdentifier, WebCore::FrameIdentifier controlFrameIdentifier, WebCore::SecurityOriginData&& reportingOrigin, uint64_t maximumQuota, bool isTopLevelControlFrame, uint64_t requestedBytes, CompletionHandler<void(std::optional<WebCore::DeferredFetchIdentifier>, uint64_t availableBytes)>&&);
+    void releaseDeferredFetchQuota(WebCore::DeferredFetchIdentifier);
+    void addDeferredFetch(WebCore::DeferredFetchIdentifier, NetworkResourceLoadParameters&&);
+    void sendDeferredFetch(WebCore::DeferredFetchIdentifier);
+    void removeDeferredFetch(WebCore::DeferredFetchIdentifier);
+    void sendAllDeferredFetches();
     void prefetchDNS(const String&);
     void sendH2Ping(URL&&, WebPageProxyIdentifier, WebCore::PageIdentifier, WebCore::FrameIdentifier, std::optional<NavigatingToAppBoundDomain>, OptionSet<WebCore::AdvancedPrivacyProtections>, CompletionHandler<void(std::expected<WTF::Seconds, WebCore::ResourceError>&&)>&&);
     void preconnectTo(PreconnectRequest&&);
@@ -557,7 +576,12 @@ private:
     HashMap<WebCore::FrameIdentifier, LocalNetworkAccessFrameRecord> m_localNetworkAccessFrameRecords;
 
     HashMap<WebCore::ResourceLoaderIdentifier, std::unique_ptr<WebCore::NetworkLoadInformation>> m_networkLoadInformationByID;
+    HashSet<WebCore::DeferredFetchIdentifier> m_deferredFetchQuotaReservations;
+    void retainBlobURLsForDeferredFetch(WebCore::DeferredFetchIdentifier, const NetworkResourceLoadParameters&);
+    void releaseBlobURLsForDeferredFetch(WebCore::DeferredFetchIdentifier, const NetworkResourceLoadParameters*);
 
+    HashMap<WebCore::DeferredFetchIdentifier, std::unique_ptr<NetworkResourceLoadParameters>> m_deferredFetches;
+    HashMap<WebCore::DeferredFetchIdentifier, Vector<URL>> m_deferredFetchBlobURLs;
 
 #if USE(LIBWEBRTC)
     RefPtr<NetworkRTCProvider> m_rtcProvider;

@@ -37,14 +37,14 @@ class Document;
 
 namespace Style {
 
-struct ImageWithScale {
+struct ImageWithResolution {
     RefPtr<Image> image { InvalidImage::create() };
-    Style::Resolution<> scaleFactor { 1 };
+    Style::Resolution<> resolution { 1 };
     std::optional<FunctionNotation<CSSValueID::Type, Style::String>> mimeType;
 
-    bool operator==(const ImageWithScale& other) const
+    bool operator==(const ImageWithResolution& other) const
     {
-        return image == other.image && scaleFactor == other.scaleFactor;
+        return image == other.image && resolution == other.resolution;
     }
 };
 
@@ -58,17 +58,17 @@ protected:
 
     bool equals(const MultiImage& other) const;
 
-    virtual ImageWithScale selectBestFitImage(const Document&) = 0;
-    WebCore::CachedImage* cachedImage() const final;
+    virtual ImageWithResolution selectBestFitImage(const Document&) = 0;
+    NODELETE WebCore::CachedImage* cachedImage() const final;
 
 private:
-    WrappedImagePtr data() const final;
+    NODELETE WrappedImagePtr data() const final;
 
     bool canRender(const RenderElement*) const final;
     bool isPending() const final { return m_isPending; }
     void load(CachedResourceLoader&, const ResourceLoaderOptions&) final;
     bool isLoaded(const RenderElement*) const final;
-    bool errorOccurred() const final;
+    NODELETE bool errorOccurred() const final;
     bool hasDecodedImage() const final;
     NaturalDimensions naturalDimensions(const RenderElement&, const ImageSizingContext&) const final;
     ImageRenditionOptions renditionOptionsForRenderer(const RenderElement&, ImageRenditionOptions) const override;
@@ -82,7 +82,7 @@ private:
     RefPtr<NativeImage> nativeImage(const RenderElement&, const ImageDrawDescriptor&, float resolutionScale) const final;
     bool currentFrameIsComplete(const RenderElement*) const final;
     std::optional<IntPoint> hotSpot() const final;
-    float imageScaleFactor() const final;
+    Resolution<> imageResolution() const final;
     bool knownToBeOpaque(const RenderElement&) const final;
     bool canDraw(const RenderElement&) const final;
     bool containsCurrentColor() const final;

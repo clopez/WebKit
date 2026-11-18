@@ -114,6 +114,7 @@
 #include "HistoryItem.h"
 #include "IDBConnectionToServer.h"
 #include "ImageAnalysisQueue.h"
+#include "ImageAnimationTimeline.h"
 #include "ImageOverlay.h"
 #include "ImageOverlayController.h"
 #include "InspectorBackendClient.h"
@@ -441,6 +442,7 @@ Page::Page(PageConfiguration&& pageConfiguration)
 #if PLATFORM(IOS_FAMILY)
     , m_canShowWhileLocked(pageConfiguration.canShowWhileLocked)
 #endif
+    , m_imageAnimationTimeline(ImageAnimationTimeline::normal())
     , m_domTimerAlignmentInterval(DOMTimer::defaultAlignmentInterval())
     , m_domTimerAlignmentIntervalIncreaseTimer(*this, &Page::domTimerAlignmentIntervalIncreaseTimerFired)
     , m_activityState(pageInitialActivityState())
@@ -2465,7 +2467,7 @@ void Page::enumerateLocalFrameGeometry(NOESCAPE const Function<void(LocalFrame&,
                 ownerIsFullyClipped,
                 frameView->childFrameOwnerToRootContentTransform(*child),
                 WTF::move(absoluteToChildFrameOwnerLocalTransform),
-                frame.frameScaleFactorForChild(*child),
+                frame.frameOwnerZoomFactorForChild(*child),
                 contentBoxLocation,
                 frameView->appearanceOfOwnerElementOfChildFrame(*child)
             ));
@@ -2972,16 +2974,22 @@ bool Page::shouldUpdateAccessibilityRegions() const
 }
 #endif
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+bool Page::imageAnimationEnabled() const
+{
+    return m_imageAnimationTimeline->allowsAnimation();
+}
+
 void Page::setImageAnimationEnabled(bool enabled)
 {
     // This method overrides any individually set animation play-states (so we need to do work even if `enabled` is
-    // already equal to `m_imageAnimationEnabled` because there may be individually playing or paused images).
-    m_imageAnimationEnabled = enabled;
+    // already equal to `imageAnimationEnabled()` because there may be individually playing or paused images).
+    if (enabled)
+        m_imageAnimationTimeline = ImageAnimationTimeline::normal();
+    else if (imageAnimationEnabled())
+        m_imageAnimationTimeline = ImageAnimationTimeline::createPaused();
     updatePlayStateForAllAnimations();
     chrome().client().isAnyAnimationAllowedToPlayDidChange(enabled);
 }
-#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 #if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
 void Page::setVideoAutoplayPreviewsEnabled(bool enabled)
@@ -4355,7 +4363,7 @@ void Page::setVisitedLinkStore(Ref<VisitedLinkStore>&& visitedLinkStore)
 
 std::optional<uint64_t> Page::noiseInjectionHashSaltForDomain(const RegistrableDomain& domain)
 {
-    if (!m_noiseInjectionHashSalts.isValidKey(domain))
+    if (domain.string().isNull())
         return std::nullopt;
 
     return m_noiseInjectionHashSalts.ensure(domain, [] {
@@ -5031,7 +5039,7 @@ void Page::applicationWillResignActive()
 #endif
 }
 
-NODELETE void Page::applicationDidEnterBackground()
+void Page::applicationDidEnterBackground()
 {
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
@@ -5039,7 +5047,7 @@ NODELETE void Page::applicationDidEnterBackground()
 #endif
 }
 
-NODELETE void Page::applicationWillEnterForeground()
+void Page::applicationWillEnterForeground()
 {
 #if ENABLE(WEBXR)
     if (auto session = this->activeImmersiveXRSession())
@@ -5444,7 +5452,7 @@ void Page::resetImageAnalysisQueue()
 
 void Page::updateElementsWithTextRecognitionResults()
 {
-    if (m_textRecognitionResults.isEmptyIgnoringNullReferences())
+    if (m_textRecognitionResults.computeIsEmpty())
         return;
 
     m_textRecognitionResults.removeNullReferences();
@@ -5524,7 +5532,7 @@ JSC::JSGlobalObject* Page::serviceWorkerGlobalObject(DOMWrapperWorld& world)
 
 void Page::setServiceWorkerGlobalScope(ServiceWorkerGlobalScope& serviceWorkerGlobalScope)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     ASSERT(m_isServiceWorkerPage);
     m_serviceWorkerGlobalScope = serviceWorkerGlobalScope;
 }
@@ -5599,7 +5607,6 @@ void Page::forceRepaintAllFrames()
     }
 }
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 void Page::updatePlayStateForAllAnimations()
 {
     for (auto& rootFrame : m_rootFrames) {
@@ -5615,7 +5622,7 @@ void Page::addIndividuallyPlayingAnimationElement(HTMLImageElement& element)
     m_individuallyPlayingAnimationElements.add(element);
 
     // If there were no individually playing animations prior to this addition, then the effective state of isAnyAnimationAllowedToPlay has changed.
-    if (wasEmpty && !m_imageAnimationEnabled)
+    if (wasEmpty && !imageAnimationEnabled())
         chrome().client().isAnyAnimationAllowedToPlayDidChange(true);
 }
 
@@ -5625,10 +5632,9 @@ void Page::removeIndividuallyPlayingAnimationElement(HTMLImageElement& element)
 
     // If removing this animation caused there to be no remaining individually playing animations,
     // then the effective state of isAnyAnimationAllowedToPlay has changed.
-    if (!m_individuallyPlayingAnimationElements.computeSize() && !m_imageAnimationEnabled)
+    if (!m_individuallyPlayingAnimationElements.computeSize() && !imageAnimationEnabled())
         chrome().client().isAnyAnimationAllowedToPlayDidChange(false);
 }
-#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 ScreenOrientationManager* Page::screenOrientationManager() const
 {
@@ -5678,12 +5684,12 @@ void Page::removeRootFrame(LocalFrame& frame)
     chrome().client().rootFrameRemoved(frame);
 }
 
-String Page::ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData& origin)
+String Page::ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData& origin, std::optional<FrameIdentifier> frameID)
 {
     if (usesEphemeralSession())
         return emptyString();
 
-    return m_storageProvider->ensureMediaKeysStorageDirectoryForOrigin(origin);
+    return m_storageProvider->ensureMediaKeysStorageDirectoryForOrigin(origin, frameID);
 }
 
 void Page::setMediaKeysStorageDirectory(const String& directory)
@@ -5961,7 +5967,7 @@ RefPtr<WebXRSession> Page::activeImmersiveXRSession() const
         if (!navigator)
             continue;
 
-        if (auto xrSystem = NavigatorWebXR::xrIfExists(*navigator))
+        if (RefPtr xrSystem = NavigatorWebXR::xrIfExists(*navigator))
             return xrSystem->activeImmersiveSession();
     }
 
@@ -6248,7 +6254,7 @@ bool Page::requiresScriptTrackingPrivacyProtections(const URL& scriptURL) const
 {
     RefPtr localMainFrame = dynamicDowncast<LocalFrame>(m_mainFrame.get());
     if (RefPtr document = localMainFrame ? localMainFrame->document() : nullptr) {
-        if (document->quirks().needsConsistentQueryParameterFilteringQuirk(scriptURL))
+        if (document->quirks().needsConsistentQueryParameterFilteringQuirkForScript(scriptURL))
             return true;
     }
     if (!advancedPrivacyProtections().contains(AdvancedPrivacyProtections::ScriptTrackingPrivacy))

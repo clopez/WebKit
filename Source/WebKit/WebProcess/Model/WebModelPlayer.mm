@@ -271,7 +271,8 @@ bool WebModelPlayer::ensureModelBacking(WebCore::LayoutSize size)
 #if HAVE(SUPPORT_HDR_DISPLAY) && ENABLE(PIXEL_FORMAT_RGBA16F)
     m_lastSentContentsHeadroom = -1.f;
 #endif
-    m_currentModel = static_cast<RemoteGPUProxy&>(gpu->backing()).createModelBacking(m_currentPixelSize.width(), m_currentPixelSize.height(), WTF::move(diffuseTexture), WTF::move(specularTexture), standardDynamicRange, [protectedThis = protect(*this)] (Vector<MachSendRight>&& surfaceHandles) {
+    Ref backing = gpu->backing();
+    m_currentModel = static_cast<RemoteGPUProxy&>(backing.get()).createModelBacking(m_currentPixelSize.width(), m_currentPixelSize.height(), WTF::move(diffuseTexture), WTF::move(specularTexture), standardDynamicRange, [protectedThis = protect(*this)](Vector<MachSendRight>&& surfaceHandles) {
         if (surfaceHandles.size()) {
             protectedThis->m_displayBuffers = WTF::move(surfaceHandles);
             protectedThis->m_renderTextureIndex = 0;
@@ -880,8 +881,8 @@ bool WebModelPlayer::render()
     if (++m_renderTextureIndex >= m_displayBuffers.size())
         m_renderTextureIndex = 0;
 
-    currentModel->render(textureIndex, [protectedThis = protect(*this), textureIndex] (bool result) mutable {
-        protectedThis->ensureOnMainThreadWithProtectedThis([result, textureIndex] (Ref<WebModelPlayer> protectedThis) {
+    currentModel->render(textureIndex, [protectedThis = protect(*this), textureIndex](bool result) mutable {
+        protectedThis->ensureOnMainThreadWithProtectedThis([result, textureIndex](Ref<WebModelPlayer> protectedThis) {
             protectedThis->m_isUpdating = false;
             if (!result)
                 return;

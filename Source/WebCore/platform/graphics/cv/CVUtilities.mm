@@ -27,10 +27,13 @@
 #import "CVUtilities.h"
 
 #import "ColorSpaceCG.h"
+#import "FourCC.h"
 #import "IOSurface.h"
 #import "ImageUtilities.h"
 #import "Logging.h"
+#import "PlanarImageConverterCV.h"
 #import "RealtimeVideoUtilities.h"
+#import <array>
 #import <pal/spi/cg/CoreGraphicsSPI.h>
 #import <wtf/CheckedArithmetic.h>
 #import <wtf/StdLibExtras.h>
@@ -174,6 +177,234 @@ void setOwnershipIdentityForCVPixelBuffer(CVPixelBufferRef pixelBuffer, const Pr
     RetainPtr surface = CVPixelBufferGetIOSurface(pixelBuffer);
     ASSERT(surface);
     IOSurface::setOwnershipIdentity(surface.get(), owner);
+}
+
+CGImageAlphaInfo alphaInfoForCVPixelBuffer(CVPixelBufferRef buffer)
+{
+    RetainPtr alphaMode = dynamic_cf_cast<CFStringRef>(CVBufferGetAttachment(buffer, kCVImageBufferAlphaChannelModeKey, nullptr));
+    if (alphaMode && CFEqual(alphaMode, kCVImageBufferAlphaChannelMode_PremultipliedAlpha))
+        return kCGImageAlphaPremultipliedFirst;
+    return kCGImageAlphaFirst;
+}
+
+void setAlphaInfoForCVPixelBuffer(CVPixelBufferRef pixelBuffer, CGImageAlphaInfo alphaInfo)
+{
+    CFStringRef alphaMode = nullptr;
+    bool isOpaque = false;
+    switch (alphaInfo) {
+    case kCGImageAlphaFirst:
+    case kCGImageAlphaLast:
+        alphaMode = kCVImageBufferAlphaChannelMode_StraightAlpha;
+        break;
+    case kCGImageAlphaPremultipliedFirst:
+    case kCGImageAlphaPremultipliedLast:
+        alphaMode = kCVImageBufferAlphaChannelMode_PremultipliedAlpha;
+        break;
+    case kCGImageAlphaNone:
+    case kCGImageAlphaNoneSkipFirst:
+    case kCGImageAlphaNoneSkipLast:
+        isOpaque = true;
+        break;
+    case kCGImageAlphaOnly:
+        break;
+    }
+
+    if (alphaMode)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferAlphaChannelModeKey, alphaMode, kCVAttachmentMode_ShouldPropagate);
+    else
+        CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferAlphaChannelModeKey);
+
+    if (isOpaque)
+        CVBufferSetAttachment(pixelBuffer, kCVImageBufferAlphaChannelIsOpaque, kCFBooleanTrue, kCVAttachmentMode_ShouldPropagate);
+    else
+        CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferAlphaChannelIsOpaque);
+}
+
+static constexpr OSType pixelFormat422YpCbCr8VideoRange8ATriPlanar = 'v2a8';
+static constexpr OSType pixelFormat420YpCbCr10VideoRange8ATriPlanar = 'x0a8';
+static constexpr OSType pixelFormat422YpCbCr10VideoRange8ATriPlanar = 'x2a8';
+
+static constexpr std::array<OSType, 4> alphaPlanePixelFormats {
+    kCVPixelFormatType_420YpCbCr8VideoRange_8A_TriPlanar,
+    pixelFormat420YpCbCr10VideoRange8ATriPlanar,
+    pixelFormat422YpCbCr8VideoRange8ATriPlanar,
+    pixelFormat422YpCbCr10VideoRange8ATriPlanar,
+};
+
+// VideoToolbox tags the frames it decodes into these formats as opaque.
+static void setStraightAlpha(CVPixelBufferRef pixelBuffer)
+{
+    CVBufferSetAttachment(pixelBuffer, kCVImageBufferAlphaChannelModeKey, kCVImageBufferAlphaChannelMode_StraightAlpha, kCVAttachmentMode_ShouldPropagate);
+    CVBufferRemoveAttachment(pixelBuffer, kCVImageBufferAlphaChannelIsOpaque);
+}
+
+std::optional<OSType> pixelFormatWithAlpha(OSType colorFormat)
+{
+    auto description = PlanarImageConverter::pixelFormatDescription(colorFormat);
+    if (!description || description->alpha || description->subsampling == PlanarImageConverter::ChromaSubsampling::None)
+        return { };
+    // These formats are video range only; 8-bit full range is widened to 10 bits to keep every level distinct.
+    bool isTenBitOutput = description->color.bitDepth > 8 || description->isFullRange;
+    return PlanarImageConverter::pixelFormat(description->subsampling, isTenBitOutput ? PlanarImageConverter::tenBitMSB : PlanarImageConverter::eightBit, false, PlanarImageConverter::eightBit);
+}
+
+// pixelFormatWithAlpha() widens 8-bit full range samples to the 10-bit alpha formats.
+static bool shouldTreatI420AsFullRange(OSType destinationFormat)
+{
+    auto description = PlanarImageConverter::pixelFormatDescription(destinationFormat);
+    return description && (description->isFullRange || (description->alpha && description->color.bitDepth > 8));
+}
+
+std::span<const OSType> pixelFormatsWithAlphaPlane()
+{
+    return alphaPlanePixelFormats;
+}
+
+bool isPixelFormatWithAlphaPlane(OSType format)
+{
+    return std::ranges::find(alphaPlanePixelFormats, format) != alphaPlanePixelFormats.end();
+}
+
+std::optional<int> bitDepthOfPixelFormatWithAlphaPlane(OSType format)
+{
+    if (!isPixelFormatWithAlphaPlane(format))
+        return { };
+    if (auto description = PlanarImageConverter::pixelFormatDescription(format))
+        return description->color.bitDepth;
+    return { };
+}
+
+std::expected<RetainPtr<CVPixelBufferRef>, CVReturn> createPixelBufferWithAlpha(CVPixelBufferRef colorBuffer, CVPixelBufferRef alphaBuffer, CVPixelBufferPoolRef pool)
+{
+    if (!colorBuffer || !alphaBuffer || !pool)
+        return RetainPtr<CVPixelBufferRef> { };
+
+    auto colorFormat = CVPixelBufferGetPixelFormatType(colorBuffer);
+    if (!pixelFormatWithAlpha(colorFormat)) {
+        RELEASE_LOG_ERROR(Media, "createPixelBufferWithAlpha: unsupported colour format %" PUBLIC_LOG_STRING, FourCC(colorFormat).string().data());
+        return RetainPtr<CVPixelBufferRef> { };
+    }
+
+    auto outputBuffer = createCVPixelBufferFromPool(pool);
+    if (!outputBuffer) {
+        RELEASE_LOG_ERROR(Media, "createPixelBufferWithAlpha: CVPixelBufferPool allocation failed (status=%d)", int(outputBuffer.error()));
+        return makeUnexpected(outputBuffer.error());
+    }
+    RetainPtr output = WTF::move(*outputBuffer);
+
+    if (!PlanarImageConverter::copyColorPlanes(colorBuffer, output)) {
+        RELEASE_LOG_ERROR(Media, "createPixelBufferWithAlpha: plane copy failed for colour format %" PUBLIC_LOG_STRING, FourCC(colorFormat).string().data());
+        return RetainPtr<CVPixelBufferRef> { };
+    }
+
+    CVBufferPropagateAttachments(colorBuffer, output);
+    if (!copyAlphaIntoAlphaPlane(output, alphaBuffer))
+        return RetainPtr<CVPixelBufferRef> { };
+    return output;
+}
+
+bool copyI420ToPixelBuffer(std::span<const uint8_t> source, size_t width, size_t height, CVPixelBufferRef destination)
+{
+    auto format = CVPixelBufferGetPixelFormatType(destination);
+    bool hasAlpha = format == kCVPixelFormatType_420YpCbCr8VideoRange_8A_TriPlanar || format == pixelFormat420YpCbCr10VideoRange8ATriPlanar;
+    if (!hasAlpha && format != kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange && format != kCVPixelFormatType_420YpCbCr8BiPlanarFullRange)
+        return false;
+
+    size_t chromaWidth = (width + 1) / 2;
+    size_t chromaHeight = (height + 1) / 2;
+    size_t lumaSize = width * height;
+    size_t chromaSize = chromaWidth * chromaHeight;
+    if (!width || !height || source.size() != lumaSize + 2 * chromaSize + (hasAlpha ? lumaSize : 0))
+        return false;
+
+    auto y = PlanarImageConverter::makePlane(source, 0, width, width, height, PlanarImageConverter::eightBit);
+    auto u = PlanarImageConverter::makePlane(source, lumaSize, chromaWidth, chromaWidth, chromaHeight, PlanarImageConverter::eightBit);
+    auto v = PlanarImageConverter::makePlane(source, lumaSize + chromaSize, chromaWidth, chromaWidth, chromaHeight, PlanarImageConverter::eightBit);
+    std::optional<PlanarImageConverter::SourcePlane> alpha;
+    if (hasAlpha)
+        alpha = PlanarImageConverter::makePlane(source, lumaSize + 2 * chromaSize, width, width, height, PlanarImageConverter::eightBit);
+    if (!y || !u || !v || (hasAlpha && !alpha))
+        return false;
+
+    if (!PlanarImageConverter::copyFrame({ PlanarImageConverter::ChromaSubsampling::HorizontalAndVertical, shouldTreatI420AsFullRange(format), *y, *u, *v, alpha }, destination))
+        return false;
+
+    if (hasAlpha)
+        setStraightAlpha(destination);
+    return true;
+}
+
+bool copyAlphaIntoAlphaPlane(CVPixelBufferRef destination, CVPixelBufferRef alphaBuffer)
+{
+    if (!destination || !alphaBuffer || !isPixelFormatWithAlphaPlane(CVPixelBufferGetPixelFormatType(destination)))
+        return false;
+
+    size_t width = CVPixelBufferGetWidth(destination);
+    size_t height = CVPixelBufferGetHeight(destination);
+    if (width != CVPixelBufferGetWidth(alphaBuffer) || height != CVPixelBufferGetHeight(alphaBuffer)) {
+        RELEASE_LOG_ERROR(Media, "copyAlphaIntoAlphaPlane: colour (%zux%zu) and alpha (%zux%zu) dimensions differ", width, height, CVPixelBufferGetWidth(alphaBuffer), CVPixelBufferGetHeight(alphaBuffer));
+        return false;
+    }
+
+    if (!PlanarImageConverter::copyLumaToAlphaPlane(alphaBuffer, destination)) {
+        RELEASE_LOG_ERROR(Media, "copyAlphaIntoAlphaPlane: unsupported alpha format %" PUBLIC_LOG_STRING, FourCC(CVPixelBufferGetPixelFormatType(alphaBuffer)).string().data());
+        return false;
+    }
+
+    setStraightAlpha(destination);
+    return true;
+}
+
+bool copyAlphaFromLumaPlane(CVPixelBufferRef alphaBuffer, std::span<uint8_t> destination, size_t destinationBytesPerRow)
+{
+    if (!alphaBuffer)
+        return false;
+
+    auto alphaPlane = PlanarImageConverter::makePlane(destination, 0, destinationBytesPerRow, CVPixelBufferGetWidth(alphaBuffer), CVPixelBufferGetHeight(alphaBuffer), PlanarImageConverter::eightBit);
+    if (!alphaPlane)
+        return false;
+
+    if (!PlanarImageConverter::copyLumaToAlpha(alphaBuffer, *alphaPlane)) {
+        RELEASE_LOG_ERROR(Media, "copyAlphaFromLumaPlane: unsupported alpha format %" PUBLIC_LOG_STRING, FourCC(CVPixelBufferGetPixelFormatType(alphaBuffer)).string().data());
+        return false;
+    }
+    return true;
+}
+
+RetainPtr<CVPixelBufferRef> createBiPlanarPixelBufferFromColorPlanes(CVPixelBufferRef source)
+{
+    auto sourceFormat = CVPixelBufferGetPixelFormatType(source);
+    if (sourceFormat != pixelFormat420YpCbCr10VideoRange8ATriPlanar && sourceFormat != pixelFormat422YpCbCr10VideoRange8ATriPlanar)
+        return nullptr;
+    auto description = PlanarImageConverter::pixelFormatDescription(sourceFormat);
+    if (!description)
+        return nullptr;
+    auto colorFormat = PlanarImageConverter::pixelFormat(description->subsampling, description->color, description->isFullRange);
+    if (!colorFormat)
+        return nullptr;
+
+    size_t width = CVPixelBufferGetWidth(source);
+    size_t height = CVPixelBufferGetHeight(source);
+    NSDictionary *attributes = CVPixelBufferGetIOSurface(source) ? @{ (__bridge NSString *)kCVPixelBufferIOSurfacePropertiesKey : @{ } } : nil;
+    CVPixelBufferRef rawOutput = nullptr;
+    if (CVPixelBufferCreate(kCFAllocatorDefault, width, height, *colorFormat, (__bridge CFDictionaryRef)attributes, &rawOutput) != kCVReturnSuccess || !rawOutput)
+        return nullptr;
+    RetainPtr output = adoptCF(rawOutput);
+
+    if (!PlanarImageConverter::copyColorPlanes(source, output))
+        return nullptr;
+
+    CVBufferPropagateAttachments(source, output);
+    CVBufferRemoveAttachment(output, kCVImageBufferAlphaChannelModeKey);
+    return output;
+}
+
+bool copyAlphaPlaneToBGRAPixelBuffer(CVPixelBufferRef source, CVPixelBufferRef destination)
+{
+    if (!isPixelFormatWithAlphaPlane(CVPixelBufferGetPixelFormatType(source)) || !PlanarImageConverter::copyAlphaPlaneToBGRA(source, destination))
+        return false;
+    setStraightAlpha(destination);
+    return true;
 }
 
 RetainPtr<CVPixelBufferRef> createBlackPixelBuffer(size_t width, size_t height, bool shouldUseIOSurface)

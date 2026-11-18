@@ -91,6 +91,7 @@
 #include <JavaScriptCore/ArrayBuffer.h>
 #include <JavaScriptCore/ScriptCallStack.h>
 #include <wtf/Atomics.h>
+#include <wtf/Borrow.h>
 #include <wtf/MainThread.h>
 #include <wtf/NativePromise.h>
 #include <wtf/Ref.h>
@@ -124,7 +125,7 @@ NODELETE static uint64_t generateContextID()
 
 NODELETE static HashSet<uint64_t>& liveAudioContexts()
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     static NeverDestroyed<HashSet<uint64_t>> contexts;
     return contexts;
 }
@@ -235,7 +236,7 @@ void BaseAudioContext::uninitialize()
         derefFinishedSourceNodes();
         // Any still-playing scheduled source nodes were registered as automatic pull nodes; remove
         // them before their references are dropped so m_automaticPullNodes ends up empty.
-        for (auto& node : m_referencedSourceNodes) {
+        for (auto& node : borrow(m_referencedSourceNodes)) {
             if (is<AudioScheduledSourceNode>(node.get()))
                 removeAutomaticPullNode(node.get());
         }
@@ -254,7 +255,7 @@ void BaseAudioContext::addReaction(State state, DOMPromiseDeferred<void>&& promi
     if (stateIndex >= m_stateReactions.size())
         m_stateReactions.grow(stateIndex + 1);
 
-    m_stateReactions[stateIndex].append(WTF::move(promise));
+    borrow(m_stateReactions)[stateIndex].append(WTF::move(promise));
 }
 
 void BaseAudioContext::setState(State state)
@@ -273,7 +274,7 @@ void BaseAudioContext::setState(State state)
     Vector<DOMPromiseDeferred<void>> reactions;
     m_stateReactions[stateIndex].swap(reactions);
 
-    for (auto& promise : reactions)
+    for (auto& promise : borrow(reactions))
         promise.resolve();
 }
 
@@ -560,7 +561,7 @@ ExceptionOr<Ref<IIRFilterNode>> BaseAudioContext::createIIRFilter(ScriptExecutio
 
 void BaseAudioContext::derefFinishedSourceNodes()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     ASSERT(isAudioThread() || isAudioThreadFinished());
 
     if (!m_hasFinishedAudioSourceNodes)
@@ -582,13 +583,13 @@ void BaseAudioContext::derefFinishedSourceNodes()
 
 void BaseAudioContext::derefUnfinishedSourceNodes()
 {
-    ASSERT(isMainThread() && isAudioThreadFinished());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread() && isAudioThreadFinished());
     m_referencedSourceNodes.clear();
 }
 
 void BaseAudioContext::addDeferredDecrementConnectionCount(AudioNode* node)
 {
-    ASSERT(isAudioThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -597,7 +598,7 @@ void BaseAudioContext::addDeferredDecrementConnectionCount(AudioNode* node)
 
 void BaseAudioContext::addDeferredDeref(const AudioNode* node)
 {
-    ASSERT(isAudioThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -606,7 +607,7 @@ void BaseAudioContext::addDeferredDeref(const AudioNode* node)
 
 void BaseAudioContext::handlePreRenderTasks(const AudioIOPosition& outputPosition)
 {
-    ASSERT(isAudioThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
 
     // At the beginning of every render quantum, try to update the internal rendering graph state (from main thread changes).
     // It's OK if the tryLock() fails, we'll just take slightly longer to pick up the changes.
@@ -631,7 +632,7 @@ AudioIOPosition BaseAudioContext::outputPosition()
 
 void BaseAudioContext::handlePostRenderTasks()
 {
-    ASSERT(isAudioThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
 
     // Must use a tryLock() here too. Don't worry, the lock will very rarely be contended and this method is called frequently.
     // The worst that can happen is that there will be some nodes which will take slightly longer than usual to be deleted or removed
@@ -661,7 +662,7 @@ void BaseAudioContext::handlePostRenderTasks()
 
 void BaseAudioContext::handleDeferredDecrementConnectionCounts()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     while (!m_deferredBreakConnectionList.isEmpty()) {
         SUPPRESS_UNCHECKED_LOCAL auto* node = m_deferredBreakConnectionList.takeLast().unsafeGet(); // NOLINT.
         node->decrementConnectionCountWithLock();
@@ -670,7 +671,7 @@ void BaseAudioContext::handleDeferredDecrementConnectionCounts()
 
 void BaseAudioContext::handleDeferredDerefs()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     while (!m_deferredDerefList.isEmpty()) {
         SUPPRESS_UNCHECKED_LOCAL auto* node = m_deferredDerefList.takeLast().unsafeGet(); // NOLINT.
         node->derefWithLock();
@@ -679,7 +680,7 @@ void BaseAudioContext::handleDeferredDerefs()
 
 void BaseAudioContext::addTailProcessingNode(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     if (node.isTailProcessing()) {
         ASSERT(m_tailProcessingNodes.contains(node) || m_finishedTailProcessingNodes.contains(node));
         return;
@@ -694,7 +695,7 @@ void BaseAudioContext::addTailProcessingNode(AudioNode& node)
 
 void BaseAudioContext::removeTailProcessingNode(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     ASSERT(node.isTailProcessing());
 
     if (m_tailProcessingNodes.removeFirst(node))
@@ -708,12 +709,11 @@ void BaseAudioContext::removeTailProcessingNode(AudioNode& node)
 void BaseAudioContext::updateTailProcessingNodes()
 {
     ASSERT(isAudioThread());
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     // Go backwards as the current node may be removed from m_tailProcessingNodes as we iterate.
     // We are on the audio thread so we want to avoid allocations as much as possible.
     for (auto i = m_tailProcessingNodes.size(); i > 0; --i) {
-        auto& node = m_tailProcessingNodes[i - 1];
-        if (!protect(node.node())->propagatesSilence())
+        if (!protect(borrow(m_tailProcessingNodes)[i - 1].node())->propagatesSilence())
             continue; // Node is not done processing its tail.
 
         // Ideally we'd find a way to avoid this vector append since we try to avoid potential heap allocations
@@ -722,8 +722,8 @@ void BaseAudioContext::updateTailProcessingNodes()
 
         // Disabling of outputs should happen on the main thread we add the node to m_finishedTailProcessingNodes
         // for disableOutputsForFinishedTailProcessingNodes() to process later on the main thread.
-        ASSERT(!m_finishedTailProcessingNodes.contains(node));
-        m_finishedTailProcessingNodes.append(WTF::move(node));
+        ASSERT(!m_finishedTailProcessingNodes.contains(borrow(m_tailProcessingNodes)[i - 1]));
+        m_finishedTailProcessingNodes.append(WTF::move(borrow(m_tailProcessingNodes)[i - 1]));
         m_tailProcessingNodes.removeAt(i - 1);
     }
 
@@ -745,7 +745,7 @@ void BaseAudioContext::updateTailProcessingNodes()
 void BaseAudioContext::disableOutputsForFinishedTailProcessingNodes()
 {
     ASSERT(isMainThread());
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     for (auto& finishedTailProcessingNode : std::exchange(m_finishedTailProcessingNodes, { }))
         protect(finishedTailProcessingNode.node())->disableOutputs();
 }
@@ -765,7 +765,7 @@ void BaseAudioContext::finishTailProcessing()
 
 void BaseAudioContext::markForDeletion(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     ASSERT_WITH_MESSAGE(node.nodeType() != AudioNode::NodeTypeDestination, "Destination node is owned by the BaseAudioContext");
 
     if (isAudioThreadFinished())
@@ -786,7 +786,7 @@ void BaseAudioContext::markForDeletion(AudioNode& node)
 
 void BaseAudioContext::unmarkForDeletion(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     ASSERT_WITH_MESSAGE(node.nodeType() != AudioNode::NodeTypeDestination, "Destination node is owned by the BaseAudioContext");
 
     m_nodesToDelete.removeFirst(&node);
@@ -818,7 +818,7 @@ void BaseAudioContext::scheduleNodeDeletion()
 
 void BaseAudioContext::deleteMarkedNodes()
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
 
     // Protect this object from being deleted before we release the lock.
     Ref protectedThis { *this };
@@ -857,7 +857,7 @@ void BaseAudioContext::deleteMarkedNodes()
 
 void BaseAudioContext::markSummingJunctionDirty(AudioSummingJunction* summingJunction)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -878,13 +878,13 @@ enum EventTargetInterfaceType BaseAudioContext::eventTargetInterface() const
 
 void BaseAudioContext::markAudioNodeOutputDirty(AudioNodeOutput* output)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
     m_dirtyAudioNodeOutputs.add(output);
 }
 
 void BaseAudioContext::handleDirtyAudioSummingJunctions()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
 
     for (auto& junction : m_dirtySummingJunctions)
         junction->updateRenderingState();
@@ -894,7 +894,7 @@ void BaseAudioContext::handleDirtyAudioSummingJunctions()
 
 void BaseAudioContext::handleDirtyAudioNodeOutputs()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
 
     for (auto& output : m_dirtyAudioNodeOutputs)
         output->updateRenderingState();
@@ -904,7 +904,7 @@ void BaseAudioContext::handleDirtyAudioNodeOutputs()
 
 void BaseAudioContext::addAutomaticPullNode(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
 
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
@@ -915,7 +915,7 @@ void BaseAudioContext::addAutomaticPullNode(AudioNode& node)
 
 void BaseAudioContext::removeAutomaticPullNode(AudioNode& node)
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
 
     if (m_automaticPullNodes.remove(&node)) {
         if (m_isAudioThreadFinished) {
@@ -932,7 +932,7 @@ void BaseAudioContext::removeAutomaticPullNode(AudioNode& node)
 
 void BaseAudioContext::updateAutomaticPullNodes()
 {
-    ASSERT(isGraphOwner());
+    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
 
     if (!m_automaticPullNodesNeedUpdating)
         return;
@@ -953,9 +953,9 @@ void BaseAudioContext::updateAutomaticPullNodes()
 
 void BaseAudioContext::processAutomaticPullNodes(size_t framesToProcess)
 {
-    ASSERT(isAudioThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
 
-    for (auto& node : m_renderingAutomaticPullNodes)
+    for (auto& node : borrow(m_renderingAutomaticPullNodes))
         node->processIfNecessary(framesToProcess);
 }
 
@@ -966,7 +966,7 @@ ScriptExecutionContext* BaseAudioContext::scriptExecutionContext() const
 
 void BaseAudioContext::postTask(Function<void()>&& task)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     if (!m_isStopScheduled)
         queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [task = WTF::move(task)](auto&) mutable { task(); });
 }

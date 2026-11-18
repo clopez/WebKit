@@ -89,10 +89,6 @@
 #import <wtf/cocoa/SpanCocoa.h>
 #import <wtf/text/cf/StringConcatenateCF.h>
 
-#if HAVE(APPKIT_GESTURES_SUPPORT)
-#import <WebKitAdditions/AppKitUtilities.h>
-#endif
-
 #define MESSAGE_CHECK(assertion, connection) MESSAGE_CHECK_BASE(assertion, connection)
 #define MESSAGE_CHECK_COMPLETION(assertion, connection, completion) MESSAGE_CHECK_COMPLETION_BASE(assertion, connection, completion)
 #define MESSAGE_CHECK_URL(url) MESSAGE_CHECK_BASE(checkURLReceivedFromCurrentOrPreviousWebProcess(process, url), connection)
@@ -801,10 +797,10 @@ void WebPageProxy::showPDFContextMenu(const WebKit::PDFContextMenu& contextMenu,
         completionHandler(std::nullopt);
     };
 
-    if (contextMenu.inputSource == WebEventInputSource::Automation) {
+    if (contextMenu.inputSource == WebEventInputSource::Touch) {
 #if HAVE(APPKIT_GESTURES_SUPPORT)
         NSPoint locationInScreenCoordinates = [window convertPointToScreen:locationInWindowCoordinates];
-        RetainPtr screenRelativeContext = [_NSViewMenuContext menuContextWithLocation:locationInScreenCoordinates source:ContextMenuRequestSourceForAutomation];
+        RetainPtr screenRelativeContext = [_NSViewMenuContext menuContextWithLocation:locationInScreenCoordinates source:_NSViewMenuRequestSourceTouch];
         [NSMenu _popUpContextMenu:nsMenu.get() withContext:screenRelativeContext.get() forView:view.get() completionBlock:makeBlockPtr(WTF::move(handleSelectedMenuItem)).get()];
 #else
         RELEASE_ASSERT_NOT_REACHED();
@@ -867,6 +863,14 @@ void WebPageProxy::startWindowDrag()
     if (RefPtr pageClient = this->pageClient())
         pageClient->startWindowDrag();
 }
+
+#if ENABLE(DOCUMENT_PIP)
+void WebPageProxy::startDocumentPictureInPictureWindowDrag(IPC::Connection& connection)
+{
+    MESSAGE_CHECK_BASE(isDocumentPictureInPicture(), connection);
+    startWindowDrag();
+}
+#endif
 
 NSWindow *WebPageProxy::platformWindow()
 {
@@ -1281,7 +1285,9 @@ void WebPageProxy::interruptSyntheticMomentumScrolling()
         .ioHIDEventTimestamp = timestamp,
         .rawPlatformDelta = std::nullopt,
         .momentumEndType = WebWheelEvent::MomentumEndType::Interrupted,
-        .inputSource = WebEventInputSource::Automation,
+        // This is tagged as coming from a touch even when a trackpad swipe ends it, which also keeps
+        // WebCore from taking the event's empty position as the mouse location.
+        .inputSource = WebEventInputSource::Touch,
     });
     handleNativeWheelEvent(NativeWebWheelEvent::create(cancelEvent));
 }

@@ -379,6 +379,9 @@ public:
     MutatorState mutatorState() const { return m_mutatorState; }
     std::optional<CollectionScope> collectionScope() const { return m_collectionScope; }
     bool needCollectionEpilogue() const { return m_worldState.load() & needCollectionEpilogueBit; }
+    // Whether this heap's world is stopped: its mutator, unless it is the conductor, and the compiler threads. Only
+    // this heap's: while the conductor stops or resumes the heaps, others may still run. "WithWorldStopped" in this
+    // class's asserts means this heap's world.
     bool worldIsStopped() const { return m_worldIsStopped; }
 #if ASSERT_ENABLED
     // Asserts that the current thread has access to the heap and that the world is running. While the world is stopped,
@@ -391,6 +394,8 @@ public:
     // with access.
     JS_EXPORT_PRIVATE void assertIsExclusiveAccessHolder() const WTF_ASSERTS_ACQUIRED_CAPABILITY(m_accessHolderRole);
     JS_EXPORT_PRIVATE void assertIsExclusiveAccessHolderOrConductorWithWorldStopped() const;
+    // For asserts that thread-safety analysis cannot express.
+    inline bool currentThreadIsConductor() const;
 #else
     ALWAYS_INLINE void assertIsAccessHolder() const WTF_ASSERTS_ACQUIRED_SHARED_CAPABILITY(m_accessHolderRole) { }
     ALWAYS_INLINE void assertIsExclusiveAccessHolder() const WTF_ASSERTS_ACQUIRED_CAPABILITY(m_accessHolderRole) { }
@@ -487,7 +492,7 @@ public:
     JS_EXPORT_PRIVATE TypeCountSet protectedObjectTypeCounts();
     JS_EXPORT_PRIVATE TypeCountSet objectTypeCounts();
 
-    UncheckedKeyHashSet<MarkedVectorBase*>& markListSet() { return m_markListSet; }
+    HashSet<MarkedVectorBase*>& markListSet() { return m_markListSet; }
 
     template<typename Functor> inline void forEachProtectedCell(NOESCAPE const Functor&);
     template<typename Functor> inline void forEachCodeBlock(NOESCAPE const Functor&);
@@ -534,8 +539,11 @@ public:
 
     unsigned weakBlockCount() const { return m_weakBlockCount; }
 
-    // Guards changes to each WeakSet's m_blocks, so that WeakSet::finalizeDeadHandles() can walk a
-    // WeakSet off the mutator. Never hold it across a finalizer, since clear() may take it.
+    // Lets WeakSet::finalizeDeadHandles() and Weak::clearConcurrently() run off the mutator. A
+    // sweep running finalizeDeadHandles() off the mutator must finish before the next collection
+    // reaps. clearConcurrently() must run on a GC aware thread, one that stop-the-world pauses
+    // halt, so it never runs while the world is stopped, which is when marking and reaping walk the
+    // weak blocks. Never hold it across a finalizer, since clearing a handle may take it.
     Lock& weakBlockLock() WTF_RETURNS_LOCK(m_weakBlockLock) { return m_weakBlockLock; }
 
 #if ENABLE(RESOURCE_USAGE)
@@ -762,11 +770,14 @@ private:
     void runCollectionEpilogue() WTF_REQUIRES_SHARED_CAPABILITY(m_accessHolderRole);
     void sweepEagerlyInEpilogue() WTF_REQUIRES_SHARED_CAPABILITY(m_accessHolderRole);
     
-    void addDetachedWeakBlock(WeakBlock*);
-    void releaseDetachedWeakBlock(WeakBlock*);
-    void returnWeakBlockToPool(WeakBlock*);
-    WeakBlock* takeWeakBlockFromPool();
-    void destroyAllPooledWeakBlocks();
+    void addDetachedWeakBlock(Locker<Lock>&, WeakBlock*) WTF_REQUIRES_LOCK(m_weakBlockLock);
+    void releaseDetachedWeakBlock(Locker<Lock>&, WeakBlock*, IsConcurrent) WTF_REQUIRES_LOCK(m_weakBlockLock);
+    void returnWeakBlockToPool(Locker<Lock>&, WeakBlock*, IsConcurrent) WTF_REQUIRES_LOCK(m_weakBlockLock);
+    void addWeakBlockToPool(Locker<Lock>&, WeakBlock*) WTF_REQUIRES_LOCK(m_weakBlockLock);
+    WeakBlock* takeWeakBlockFromPool() WTF_REQUIRES_LOCK(m_weakBlockLock);
+    void trimWeakBlockPool() WTF_REQUIRES_LOCK(m_weakBlockLock);
+    void trimPooledWeakBlocksAfterMarking() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
+    void destroyAllPooledWeakBlocks() WTF_REQUIRES_LOCK(m_weakBlockLock);
     unsigned maxPooledWeakBlocks();
 
     inline void incrementDeferralDepth();
@@ -851,7 +862,7 @@ private:
     size_t m_deprecatedExtraMemorySize { 0 };
 
     ProtectCountSet m_protectedValues;
-    UncheckedKeyHashSet<MarkedVectorBase*> m_markListSet;
+    HashSet<MarkedVectorBase*> m_markListSet;
 
     std::unique_ptr<MachineThreads> m_machineThreads;
     
@@ -884,9 +895,9 @@ private:
 #endif
 
     Lock m_weakBlockLock;
-    DoublyLinkedList<WeakBlock> m_detachedWeakBlocks;
-    DoublyLinkedList<WeakBlock> m_pooledWeakBlocks;
-    unsigned m_pooledWeakBlockCount { 0 };
+    DoublyLinkedList<WeakBlock> m_detachedWeakBlocks WTF_GUARDED_BY_LOCK(m_weakBlockLock);
+    DoublyLinkedList<WeakBlock> m_pooledWeakBlocks WTF_GUARDED_BY_LOCK(m_weakBlockLock);
+    unsigned m_pooledWeakBlockCount WTF_GUARDED_BY_LOCK(m_weakBlockLock) { 0 };
     unsigned m_weakBlockCount { 0 };
 
 #if ASSERT_ENABLED
@@ -901,7 +912,7 @@ private:
     // Since this list is walked once to deref all the strings
     // We don't need fast access.
     SegmentedVector<std::pair<const JSString*, String>, 256, 10, SegmentedVectorGrowthPolicy::Doubling> m_possiblyAccessedStringsFromConcurrentThreadsOrGCOwnedDataScope;
-    UncheckedKeyHashSet<const JSString*> m_stringsFoundOnStack;
+    HashSet<const JSString*> m_stringsFoundOnStack;
     
     RefPtr<GCActivityCallback> m_fullActivityCallback;
     RefPtr<GCActivityCallback> m_edenActivityCallback;
@@ -924,17 +935,17 @@ private:
 #endif
     unsigned m_deferralDepth { 0 };
 
-    UncheckedKeyHashSet<WeakGCHashTable*> m_weakGCHashTables;
+    HashSet<WeakGCHashTable*> m_weakGCHashTables;
     SentinelLinkedList<WeakGCHashTable, BasicRawSentinelNode<WeakGCHashTable>> m_dirtyWeakGCHashTables;
     
 #if ENABLE(WEBASSEMBLY)
-    UncheckedKeyHashSet<Ref<Wasm::Callee>> m_wasmCalleesPendingDestruction WTF_GUARDED_BY_LOCK(m_wasmCalleesPendingDestructionLock);
+    HashSet<Ref<Wasm::Callee>> m_wasmCalleesPendingDestruction WTF_GUARDED_BY_LOCK(m_wasmCalleesPendingDestructionLock);
     // We snapshot m_wasmCalleesPendingDestruction at the start of GC rather than consulting it
     // directly during scanning because new callees can be registered while we scan. Without the
     // snapshot, a callee could be added after we already passed its frame, never be recorded
     // as found on a stack, and be incorrectly destroyed.
-    UncheckedKeyHashSet<const Wasm::Callee*> m_wasmCalleesPendingDestructionSnapshot;
-    UncheckedKeyHashSet<const Wasm::Callee*> m_wasmCalleesFoundOnStacks;
+    HashSet<const Wasm::Callee*> m_wasmCalleesPendingDestructionSnapshot;
+    HashSet<const Wasm::Callee*> m_wasmCalleesFoundOnStacks;
     TinyBloomFilter<uintptr_t> m_boxedWasmCalleeFilter;
 #endif
 

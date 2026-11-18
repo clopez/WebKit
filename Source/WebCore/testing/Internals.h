@@ -326,9 +326,11 @@ public:
     void setAXCustomColorModeElementQuirksForTesting(const String& forceFilterSelector, const String& preserveAuthoredColorsSelector);
 #endif
     String usedBackgroundColor(Element&);
+    ExceptionOr<void> setOverrideBackgroundColor(Element&, const String& colorValue);
 
     Node& ensureUserAgentShadowRoot(Element& host);
     Node* shadowRoot(Element& host);
+    void scheduleDeferredMediaControlsBuild(Element& host);
     ExceptionOr<String> shadowRootType(const Node&) const;
     NODELETE const AtomString& userAgentPart(Element&);
     void setUserAgentPart(Element&, const AtomString&);
@@ -737,6 +739,7 @@ public:
     void setFooterHeight(float);
 
     float obscuredContentInsetTop();
+    ExceptionOr<void> setSoftwareKeyboardHeight(float);
 
     struct FullscreenInsets {
         float top { 0 };
@@ -936,6 +939,7 @@ public:
 #endif
 #endif
     ExceptionOr<double> getContextEffectiveDynamicRangeLimitValue(const HTMLCanvasElement&);
+    ExceptionOr<bool> isCanvasContextHDR(const HTMLCanvasElement&);
 
     ExceptionOr<void> setPageShouldSuppressHDR(bool);
 
@@ -994,6 +998,8 @@ public:
     ExceptionOr<void> postRemoteControlCommand(const String&, float argument);
     ExceptionOr<void> postSystemRemoteControlCommand(const String&, float argument);
     void activeAudioRouteDidChange(bool shouldPause);
+    void simulateActiveOutputDeviceChange();
+    bool activeVideoRouteSupportsAirPlayVideo() const;
     NODELETE bool elementIsBlockingDisplaySleep(const HTMLMediaElement&) const;
     NODELETE bool isPlayerVisibleInViewport(const HTMLMediaElement&) const;
     bool isMediaElementIntersectingViewport(const HTMLMediaElement&) const;
@@ -1343,6 +1349,7 @@ public:
     ExceptionOr<NowPlayingState> nowPlayingState() const;
     ExceptionOr<double> nowPlayingUpdateInterval() const;
     void setNowPlayingUpdateInterval(double);
+    ExceptionOr<unsigned> mediaSessionStatusUpdateCount() const;
 
     struct MediaUsageState {
         String mediaURL;

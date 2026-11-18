@@ -100,7 +100,7 @@ struct SiteIsolationBackForwardTests {
 
         try await server.run { serverConfiguration in
             let configuration = WKWebViewConfiguration(httpsProxyFor: serverConfiguration)
-            try configuration.setFeature("IPCTestingAPIEnabled", enabled: true)
+            configuration.setFeature("IPCTestingAPIEnabled", enabled: true)
             let (webView, navigationDelegate) = siteIsolatedWebViewAndDelegate(configuration: configuration)
 
             webView.load(URLRequest(url: try #require(URL(string: "https://example.com/main-frame-secret"))))
@@ -161,14 +161,14 @@ struct SiteIsolationBackForwardTests {
 
         try await server.run { serverConfiguration in
             let configuration = WKWebViewConfiguration(httpsProxyFor: serverConfiguration)
-            try configuration.setFeature("IPCTestingAPIEnabled", enabled: true)
+            configuration.setFeature("IPCTestingAPIEnabled", enabled: true)
             // With the shared process, the iframes and the opened window would all end up in one process.
-            try configuration.setFeature("SiteIsolationSharedProcessEnabled", enabled: false)
+            configuration.setFeature("SiteIsolationSharedProcessEnabled", enabled: false)
             configuration.preferences.javaScriptCanOpenWindowsAutomatically = true
             let (opener, openerNavigationDelegate) = siteIsolatedWebViewAndDelegate(configuration: configuration)
 
             let openedWebViewRecorder = OpenedWebViewRecorder()
-            defer { withExtendedLifetime(openedWebViewRecorder) {} }
+            defer { extendLifetime(openedWebViewRecorder) }
             opener.uiDelegate = openedWebViewRecorder
 
             opener.load(URLRequest(url: try #require(URL(string: "https://example.com/opener"))))

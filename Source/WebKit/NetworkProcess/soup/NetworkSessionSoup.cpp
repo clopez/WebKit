@@ -42,8 +42,8 @@ using namespace WebCore;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(NetworkSessionSoup);
 
-NetworkSessionSoup::NetworkSessionSoup(NetworkProcess& networkProcess, const NetworkSessionCreationParameters& parameters)
-    : NetworkSession(networkProcess, parameters)
+NetworkSessionSoup::NetworkSessionSoup(const NetworkSessionCreationParameters& parameters)
+    : NetworkSession(parameters)
     , m_networkSession(makeUnique<SoupNetworkSession>(m_sessionID))
     , m_persistentCredentialStorageEnabled(parameters.persistentCredentialStorageEnabled)
 {
@@ -98,6 +98,15 @@ void NetworkSessionSoup::clearCredentials(WallTime)
     soup_auth_manager_clear_cached_credentials(SOUP_AUTH_MANAGER(soup_session_get_feature(soupSession(), SOUP_TYPE_AUTH_MANAGER)));
 }
 
+bool NetworkSessionSoup::hasCompressionDictionarySupport() const
+{
+#if HAVE(SOUP_COMPRESSION_DICTIONARY_SUPPORT)
+    return true;
+#else
+    return false;
+#endif
+}
+
 RefPtr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdentifier webPageProxyID, std::optional<FrameIdentifier> frameID, std::optional<PageIdentifier> pageID, NetworkSocketChannel& channel, const ResourceRequest& request, const String& protocol, const ClientOrigin&, bool, bool, OptionSet<WebCore::AdvancedPrivacyProtections>, StoredCredentialsPolicy, IsInitiatedByWorker isInitiatedByWorker)
 {
     GRefPtr<SoupMessage> soupMessage = request.createSoupMessage(blobRegistry());
@@ -113,7 +122,7 @@ RefPtr<WebSocketTask> NetworkSessionSoup::createWebSocketTask(WebPageProxyIdenti
         }), this);
     }
 
-    bool shouldBlockCookies = protect(networkStorageSession())->shouldBlockCookies(request, frameID, webPageProxyID, networkProcess().shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), WebCore::IsKnownCrossSiteTracker::No);
+    bool shouldBlockCookies = protect(networkStorageSession())->shouldBlockCookies(request, frameID, webPageProxyID, protect(NetworkProcess::singleton())->shouldRelaxThirdPartyCookieBlockingForPage(webPageProxyID), WebCore::IsKnownCrossSiteTracker::No);
     if (shouldBlockCookies)
         soup_message_disable_feature(soupMessage.get(), SOUP_TYPE_COOKIE_JAR);
 

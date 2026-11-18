@@ -48,6 +48,8 @@
 
 namespace WebCore {
 class CAAudioStreamDescription;
+class FloatSize;
+class SharedBuffer;
 struct GraphicsContextGLAttributes;
 struct PageIdentifierType;
 using PageIdentifier = ObjectIdentifier<PageIdentifierType>;
@@ -58,6 +60,7 @@ class Semaphore;
 }
 
 namespace WebKit {
+class DisplayListData;
 class RemoteAudioSourceProviderManager;
 class RemoteMediaPlayerManager;
 class RemoteSharedResourceCacheProxy;
@@ -136,6 +139,7 @@ public:
 
     static constexpr Seconds defaultTimeout = 3_s;
     bool waitForDidInitialize();
+    void close();
 
 private:
     GPUProcessConnection(Ref<IPC::Connection>&&);
@@ -157,6 +161,10 @@ private:
 #if ENABLE(ROUTING_ARBITRATION)
     void beginRoutingArbitrationWithCategory(WebCore::AudioSession::CategoryType, WebCore::AudioSessionRoutingArbitrationClient::ArbitrationCallback&&);
     void endRoutingArbitration();
+#endif
+
+#if PLATFORM(COCOA)
+    void drawDisplayListToPDF(DisplayListData&&, const WebCore::FloatSize&, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
 #endif
 
     // The connection from the web process to the GPU process.

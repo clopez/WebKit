@@ -39,12 +39,12 @@
 #include "TreeResolutionState.h"
 #include <wtf/Function.h>
 #include <wtf/Ref.h>
+#include <wtf/UniqueRef.h>
 
 namespace WebCore {
 
 class Document;
 class Element;
-class Node;
 class ShadowRoot;
 
 namespace Style {
@@ -112,7 +112,7 @@ private:
 
     struct Scope : RefCounted<Scope> {
         WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED_WITH_HEAP_IDENTIFIER(Scope, TreeResolverScope);
-        Ref<Resolver> resolver;
+        const Ref<Resolver> resolver;
         SelectorMatchingState selectorMatchingState;
         RefPtr<ShadowRoot> shadowRoot;
         RefPtr<Scope> enclosingScope;
@@ -223,7 +223,7 @@ private:
     HashMap<Ref<Element>, QueryContainerState> m_queryContainerStates;
 
     // This state gets passes to the style builder and holds state for a single tree resolution, including over any interleaving.
-    TreeResolutionState m_treeResolutionState;
+    const UniqueRef<TreeResolutionState> m_treeResolutionState { makeUniqueRef<TreeResolutionState>() };
     HashMap<Ref<const Element>, std::unique_ptr<Style::ComputedStyle>> m_savedBeforeResolutionStylesForInterleaving;
 
     struct PositionOption {

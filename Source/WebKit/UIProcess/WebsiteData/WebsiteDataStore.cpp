@@ -1550,7 +1550,7 @@ void WebsiteDataStore::setTimeToLiveUserInteraction(Seconds seconds, CompletionH
 
 IsolatedSiteStore& WebsiteDataStore::isolatedSiteStore()
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     if (!m_isolatedSiteStore) {
         IsolatedSiteStore::UserInteractionDomainFetcher fetcher = [weakThis = WeakPtr { *this }](CompletionHandler<void(std::optional<HashMap<WebCore::RegistrableDomain, WallTime>>&&)>&& completionHandler) mutable {
@@ -2135,6 +2135,8 @@ void WebsiteDataStore::clearResourceLoadStatisticsInWebProcesses(CompletionHandl
     if (trackingPreventionEnabled()) {
         for (Ref processPool : processPools())
             processPool->sendToAllProcessesForSession(Messages::WebProcess::ClearResourceLoadStatistics(), m_sessionID);
+        for (Ref page : m_pages)
+            page->clearPageLevelStorageAccess();
     }
     callback();
 }
@@ -2280,7 +2282,7 @@ bool WebsiteDataStore::computeIsOptInCookiePartitioningEnabled() const
 {
 #if !PLATFORM(COCOA) || (defined(CFN_COOKIE_ACCEPTS_POLICY_PARTITION) && CFN_COOKIE_ACCEPTS_POLICY_PARTITION)
     // Keep the flag unchanged when all pages are gone.
-    if (m_pages.isEmptyIgnoringNullReferences() && m_cachedIsOptInCookiePartitioningEnabled)
+    if (m_pages.computeIsEmpty() && m_cachedIsOptInCookiePartitioningEnabled)
         return *m_cachedIsOptInCookiePartitioningEnabled;
 
     for (Ref page : m_pages) {

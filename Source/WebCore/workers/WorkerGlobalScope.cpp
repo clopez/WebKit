@@ -90,10 +90,6 @@
 #include <wtf/WorkQueue.h>
 #include <wtf/threads/BinarySemaphore.h>
 
-#if ENABLE(WEBDRIVER_BIDI)
-#include "AutomationInstrumentation.h"
-#endif
-
 namespace WebCore {
 using namespace Inspector;
 
@@ -101,7 +97,7 @@ static Lock allWorkerGlobalScopeIdentifiersLock;
 NODELETE static HashSet<ScriptExecutionContextIdentifier>& allWorkerGlobalScopeIdentifiers() WTF_REQUIRES_LOCK(allWorkerGlobalScopeIdentifiersLock)
 {
     static NeverDestroyed<HashSet<ScriptExecutionContextIdentifier>> identifiers;
-    ASSERT(allWorkerGlobalScopeIdentifiersLock.isLocked());
+    ASSERT_WITH_SECURITY_IMPLICATION(allWorkerGlobalScopeIdentifiersLock.isLocked());
     return identifiers;
 }
 
@@ -119,6 +115,7 @@ WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParamete
     , m_ownerURL(params.ownerURL)
     , m_inspectorIdentifier(params.inspectorIdentifier)
     , m_userAgent(params.userAgent)
+    , m_navigatorPlatform(params.navigatorPlatform)
     , m_isOnline(params.isOnline)
     , m_shouldBypassMainWorldContentSecurityPolicy(params.shouldBypassMainWorldContentSecurityPolicy)
     , m_isSecureContext(params.isSecureContext == IsSecureContext::Yes)
@@ -155,7 +152,7 @@ WorkerGlobalScope::WorkerGlobalScope(WorkerThreadType type, const WorkerParamete
 
 WorkerGlobalScope::~WorkerGlobalScope()
 {
-    ASSERT(thread()->thread() == &Thread::currentSingleton());
+    ASSERT_WITH_SECURITY_IMPLICATION(thread()->thread() == &Thread::currentSingleton());
 
     {
         Locker locker { allWorkerGlobalScopeIdentifiersLock };
@@ -359,7 +356,7 @@ void WorkerGlobalScope::close()
 WorkerNavigator& WorkerGlobalScope::navigator()
 {
     if (!m_navigator)
-        lazyInitialize(m_navigator, WorkerNavigator::create(*this, m_userAgent, m_isOnline));
+        lazyInitialize(m_navigator, WorkerNavigator::create(*this, m_userAgent, m_navigatorPlatform, m_isOnline));
     return *m_navigator;
 }
 
@@ -507,9 +504,6 @@ void WorkerGlobalScope::addConsoleMessage(std::unique_ptr<Inspector::ConsoleMess
     if (settingsValues().logsPageMessagesToSystemConsoleEnabled && sessionID && !sessionID->isEphemeral()) [[unlikely]]
         FrameConsoleClient::logMessageToSystemConsole(*message);
 
-#if ENABLE(WEBDRIVER_BIDI)
-    AutomationInstrumentation::addMessageToConsole(message);
-#endif
     InspectorInstrumentation::addMessageToConsole(*this, WTF::move(message));
 }
 
@@ -531,9 +525,6 @@ void WorkerGlobalScope::addMessage(MessageSource source, MessageLevel level, con
     else
         message = makeUnique<Inspector::ConsoleMessage>(source, MessageType::Log, level, messageText, sourceURL, lineNumber, columnNumber, state, requestIdentifier);
 
-#if ENABLE(WEBDRIVER_BIDI)
-    AutomationInstrumentation::addMessageToConsole(message);
-#endif
     InspectorInstrumentation::addMessageToConsole(*this, WTF::move(message));
 }
 
@@ -652,9 +643,9 @@ Ref<FontFaceSet> WorkerGlobalScope::fonts()
     return cssFontSelector()->fontFaceSet();
 }
 
-RefPtr<FontLoadRequest> WorkerGlobalScope::fontLoadRequest(const String& url, bool, bool, LoadedFromOpaqueSource loadedFromOpaqueSource)
+RefPtr<FontLoadRequest> WorkerGlobalScope::fontLoadRequest(const String& url, bool, bool, const CSS::URLModifiers& modifiers)
 {
-    return WorkerFontLoadRequest::create(parseURL(url), loadedFromOpaqueSource);
+    return WorkerFontLoadRequest::create(parseURL(url), modifiers);
 }
 
 void WorkerGlobalScope::beginLoadingFontSoon(FontLoadRequest& request)
@@ -669,7 +660,7 @@ Ref<WorkerThread> WorkerGlobalScope::thread() const
 
 void WorkerGlobalScope::releaseMemory(Synchronous synchronous)
 {
-    ASSERT(isContextThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isContextThread());
     deleteJSCodeAndGC(synchronous);
     clearDecodedScriptData();
 }
@@ -738,7 +729,7 @@ void WorkerGlobalScope::reportErrorToWorkerObject(const String& errorMessage)
 
 void WorkerGlobalScope::clearDecodedScriptData()
 {
-    ASSERT(isContextThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isContextThread());
 
     if (RefPtr provider = m_mainScriptSourceProvider.get())
         provider->clearDecodedData();
@@ -751,14 +742,14 @@ void WorkerGlobalScope::clearDecodedScriptData()
 
 bool WorkerGlobalScope::crossOriginIsolated() const
 {
-    if (documentIsolationPolicy().value != DocumentIsolationPolicyValue::None)
+    if (documentIsolationPolicy().value != DocumentIsolationPolicyValue::None || crossOriginEmbedderPolicy().value == CrossOriginEmbedderPolicyValue::Credentialless)
         return m_canBeCrossOriginIsolated == CanBeCrossOriginIsolated::Yes;
     return crossOriginEmbedderPolicy().value == CrossOriginEmbedderPolicyValue::RequireCORP;
 }
 
 void WorkerGlobalScope::updateSourceProviderBuffers(const ScriptBuffer& mainScript, const HashMap<URL, ScriptBuffer>& importedScripts)
 {
-    ASSERT(isContextThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isContextThread());
 
     if (mainScript) {
         if (RefPtr provider = m_mainScriptSourceProvider.get())

@@ -32,6 +32,7 @@
 #include "AirCode.h"
 #include "B3ArgumentRegValue.h"
 #include "B3AtomicValue.h"
+#include "B3BulkMemoryValue.h"
 #include "B3Dominators.h"
 #include "B3MemoryValue.h"
 #include "B3Procedure.h"
@@ -67,12 +68,12 @@ public:
 
     void run()
     {
-        UncheckedKeyHashSet<BasicBlock*> blocks;
-        UncheckedKeyHashSet<Value*> valueInProc;
-        UncheckedKeyHashMap<Value*, unsigned> valueInBlock;
-        UncheckedKeyHashMap<Value*, BasicBlock*> valueOwner;
-        UncheckedKeyHashMap<Value*, unsigned> valueIndex;
-        UncheckedKeyHashMap<Value*, Vector<std::optional<Type>>> extractions;
+        HashSet<BasicBlock*> blocks;
+        HashSet<Value*> valueInProc;
+        HashMap<Value*, unsigned> valueInBlock;
+        HashMap<Value*, BasicBlock*> valueOwner;
+        HashMap<Value*, unsigned> valueIndex;
+        HashMap<Value*, Vector<std::optional<Type>>> extractions;
 
         for (unsigned tuple = 0; tuple < m_procedure.tuples().size(); ++tuple) {
             VALIDATE(m_procedure.tuples()[tuple].size(), ("In tuple ", tuple));
@@ -114,7 +115,7 @@ public:
             }
         }
 
-        UncheckedKeyHashMap<BasicBlock*, UncheckedKeyHashSet<BasicBlock*>> allPredecessors;
+        HashMap<BasicBlock*, HashSet<BasicBlock*>> allPredecessors;
         for (BasicBlock* block : blocks) {
             VALIDATE(block->size() >= 1, ("At ", *block));
             for (unsigned i = 0; i < block->size() - 1; ++i)
@@ -122,7 +123,7 @@ public:
             VALIDATE(block->last()->effects().terminal, ("At ", *block->last()));
             
             for (BasicBlock* successor : block->successorBlocks()) {
-                allPredecessors.add(successor, UncheckedKeyHashSet<BasicBlock*>()).iterator->value.add(block);
+                allPredecessors.add(successor, HashSet<BasicBlock*>()).iterator->value.add(block);
                 VALIDATE(
                     blocks.contains(successor), ("At ", *block, "->", pointerDump(successor)));
             }
@@ -131,7 +132,7 @@ public:
         // Note that this totally allows dead code.
         for (auto& entry : allPredecessors) {
             BasicBlock* successor = entry.key;
-            UncheckedKeyHashSet<BasicBlock*>& predecessors = entry.value;
+            HashSet<BasicBlock*>& predecessors = entry.value;
             VALIDATE(predecessors == successor->predecessors(), ("At ", *successor));
         }
 
@@ -422,13 +423,18 @@ public:
                 VALIDATE(value->child(2)->type() == pointerType(), ("At ", *value));
                 VALIDATE(value->type() == Void, ("At ", *value));
                 break;
-            case MemoryFill:
+            case MemoryFill8:
+            case MemoryFill16:
+            case MemoryFill32:
+            case MemoryFill64:
+            case MemoryFill128:
                 VALIDATE(!value->kind().isChill(), ("At ", *value));
                 VALIDATE(value->numChildren() == 3, ("At ", *value));
                 VALIDATE(value->child(0)->type() == pointerType(), ("At ", *value));
-                VALIDATE(value->child(1)->type() == Int32, ("At ", *value));
+                VALIDATE(value->child(1)->type() == memoryFillPatternType(value->opcode()), ("At ", *value));
                 VALIDATE(value->child(2)->type() == pointerType(), ("At ", *value));
                 VALIDATE(value->type() == Void, ("At ", *value));
+                VALIDATE(!value->as<BulkMemoryValue>()->isGCSafe() || value->opcode() == MemoryFill64, ("At ", *value));
                 break;
             case AtomicWeakCAS:
                 VALIDATE(!value->kind().isChill(), ("At ", *value));
@@ -999,7 +1005,7 @@ public:
 
         for (BasicBlock* block : m_procedure) {
             // We expect the predecessor list to be de-duplicated.
-            UncheckedKeyHashSet<BasicBlock*> predecessors;
+            HashSet<BasicBlock*> predecessors;
             for (BasicBlock* predecessor : block->predecessors())
                 predecessors.add(predecessor);
             VALIDATE(block->numPredecessors() == predecessors.size(), ("At ", *block));
@@ -1095,7 +1101,7 @@ private:
     {
         bool changed = true;
         BitVector blocksToVisit;
-        IndexMap<BasicBlock*, UncheckedKeyHashSet<Value*>> undominatedPhisAtTail(m_procedure.size());
+        IndexMap<BasicBlock*, HashSet<Value*>> undominatedPhisAtTail(m_procedure.size());
         for (BasicBlock* block : m_procedure)
             blocksToVisit.set(block->index());
         while (changed) {
@@ -1103,7 +1109,7 @@ private:
             for (BasicBlock* block : m_procedure.blocksInPostOrder()) {
                 if (!blocksToVisit.quickClear(block->index()))
                     continue;
-                UncheckedKeyHashSet<Value*> undominatedPhis = undominatedPhisAtTail[block];
+                HashSet<Value*> undominatedPhis = undominatedPhisAtTail[block];
                 for (unsigned index = block->size()-1; index--;) {
                     Value* value = block->at(index);
                     switch (value->opcode()) {

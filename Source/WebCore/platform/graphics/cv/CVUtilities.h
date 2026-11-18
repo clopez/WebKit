@@ -26,6 +26,9 @@
 #pragma once
 
 #include <CoreVideo/CoreVideo.h>
+#include <expected>
+#include <optional>
+#include <span>
 #include <utility>
 #include <wtf/RetainPtr.h>
 
@@ -49,6 +52,20 @@ WEBCORE_EXPORT std::expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixe
 WEBCORE_EXPORT std::expected<RetainPtr<CVPixelBufferRef>, CVReturn> createCVPixelBuffer(IOSurfaceRef);
 
 WEBCORE_EXPORT RetainPtr<CGColorSpaceRef> createCGColorSpaceForCVPixelBuffer(CVPixelBufferRef);
+
+WEBCORE_EXPORT CGImageAlphaInfo alphaInfoForCVPixelBuffer(CVPixelBufferRef);
+void setAlphaInfoForCVPixelBuffer(CVPixelBufferRef, CGImageAlphaInfo);
+
+std::span<const OSType> pixelFormatsWithAlphaPlane();
+bool isPixelFormatWithAlphaPlane(OSType);
+std::optional<int> bitDepthOfPixelFormatWithAlphaPlane(OSType);
+std::optional<OSType> pixelFormatWithAlpha(OSType colorFormat);
+std::expected<RetainPtr<CVPixelBufferRef>, CVReturn> createPixelBufferWithAlpha(CVPixelBufferRef colorBuffer, CVPixelBufferRef alphaBuffer, CVPixelBufferPoolRef);
+bool copyAlphaIntoAlphaPlane(CVPixelBufferRef destination, CVPixelBufferRef alphaBuffer);
+bool copyAlphaFromLumaPlane(CVPixelBufferRef alphaBuffer, std::span<uint8_t> destination, size_t destinationBytesPerRow);
+bool copyI420ToPixelBuffer(std::span<const uint8_t> source, size_t width, size_t height, CVPixelBufferRef destination);
+RetainPtr<CVPixelBufferRef> createBiPlanarPixelBufferFromColorPlanes(CVPixelBufferRef);
+bool copyAlphaPlaneToBGRAPixelBuffer(CVPixelBufferRef source, CVPixelBufferRef destination);
 
 // Should be called with non-empty ProcessIdentity.
 WEBCORE_EXPORT void setOwnershipIdentityForCVPixelBuffer(CVPixelBufferRef, const ProcessIdentity&);

@@ -46,6 +46,7 @@
 #include "HTMLNames.h"
 #include "HTMLTableCellElement.h"
 #include "HTMLTableElement.h"
+#include "ImageAnimationTimeline.h"
 #include "InlineIteratorLineBox.h"
 #include "InlineIteratorTextBox.h"
 #include "InlineWalker.h"
@@ -148,7 +149,7 @@ NODELETE static Visibility visibilityIncludingForceHidden(const Style::ComputedS
     return style.isForceHidden() ? Visibility::Hidden : style.visibility();
 }
 
-inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument, Style::ComputedStyle&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
+inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument, UniqueRef<Style::ComputedStyle>&& style, OptionSet<TypeFlag> flags, TypeSpecificFlags typeSpecificFlags)
     : RenderObject(type, elementOrDocument, flags, typeSpecificFlags)
     , Layout::ElementBox(WTF::move(style), LayoutIntegration::BoxTreeUpdater::elementAttributes(*this))
     , m_firstChild(nullptr)
@@ -158,12 +159,12 @@ inline RenderElement::RenderElement(Type type, ContainerNode& elementOrDocument,
     ASSERT(&RenderObject::layoutBox() == &layoutBox());
 }
 
-RenderElement::RenderElement(Type type, Element& element, Style::ComputedStyle&& style, OptionSet<TypeFlag> baseTypeFlags, TypeSpecificFlags typeSpecificFlags)
+RenderElement::RenderElement(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style, OptionSet<TypeFlag> baseTypeFlags, TypeSpecificFlags typeSpecificFlags)
     : RenderElement(type, static_cast<ContainerNode&>(element), WTF::move(style), baseTypeFlags, typeSpecificFlags)
 {
 }
 
-RenderElement::RenderElement(Type type, Document& document, Style::ComputedStyle&& style, OptionSet<TypeFlag> baseTypeFlags, TypeSpecificFlags typeSpecificFlags)
+RenderElement::RenderElement(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style, OptionSet<TypeFlag> baseTypeFlags, TypeSpecificFlags typeSpecificFlags)
     : RenderElement(type, static_cast<ContainerNode&>(document), WTF::move(style), baseTypeFlags, typeSpecificFlags)
 {
 }
@@ -195,10 +196,10 @@ bool RenderElement::isContentDataSupported(const Style::Content& content)
     return minimallySupportedContentDataImage(content) != nullptr;
 }
 
-RenderPtr<RenderElement> RenderElement::createFor(Element& element, Style::ComputedStyle&& style, OptionSet<ConstructBlockLevelRendererFor> rendererTypeOverride)
+RenderPtr<RenderElement> RenderElement::createFor(Element& element, UniqueRef<Style::ComputedStyle>&& style, OptionSet<ConstructBlockLevelRendererFor> rendererTypeOverride)
 {
     if (!rendererTypeOverride) {
-        if (RefPtr styleImage = minimallySupportedContentDataImage(style.content()); styleImage && !element.isPseudoElement()) {
+        if (RefPtr styleImage = minimallySupportedContentDataImage(style->content()); styleImage && !element.isPseudoElement()) {
             Style::loadPendingResources(style, protect(element.document()), &element);
             auto image = createRenderer<RenderImage>(RenderObject::Type::Image, element, WTF::move(style), styleImage.get());
             image->setIsGeneratedContent();
@@ -207,7 +208,7 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, Style::Compu
         }
     }
 
-    switch (style.display().value) {
+    switch (style->display().value) {
     case Style::DisplayType::None:
     case Style::DisplayType::Contents:
         return nullptr;
@@ -246,10 +247,10 @@ RenderPtr<RenderElement> RenderElement::createFor(Element& element, Style::Compu
         return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
 
     default: {
-        if (style.display().isTableOrTablePart() && rendererTypeOverride.contains(ConstructBlockLevelRendererFor::TableOrTablePart))
+        if (style->display().isTableOrTablePart() && rendererTypeOverride.contains(ConstructBlockLevelRendererFor::TableOrTablePart))
             return createRenderer<RenderBlockFlow>(RenderObject::Type::BlockFlow, element, WTF::move(style));
 
-        switch (style.display().value) {
+        switch (style->display().value) {
         case Style::DisplayType::BlockTable:
         case Style::DisplayType::InlineTable:
             return createRenderer<RenderTable>(RenderObject::Type::Table, element, WTF::move(style));
@@ -604,7 +605,7 @@ bool RenderElement::repaintBeforeStyleChange(Style::Difference diff, const Style
 
 void RenderElement::initializeStyle()
 {
-    Style::loadPendingResources(mutableStyle(), protect(document()), protect(element()).get());
+    Style::loadPendingResources(style(), protect(document()), protect(element()).get());
 
     styleWillChange(Style::DifferenceResult::NewStyle, style());
     m_hasInitializedStyle = true;
@@ -635,7 +636,7 @@ static void logStyleDifference(const RenderElement& renderer, const Style::Compu
 }
 #endif
 
-void RenderElement::setStyle(Style::ComputedStyle&& style, Style::DifferenceResult minimalStyleDifference)
+UniqueRef<Style::ComputedStyle> RenderElement::setStyle(UniqueRef<Style::ComputedStyle>&& style, Style::DifferenceResult minimalStyleDifference)
 {
     // FIXME: Should change RenderView so it can use initializeStyle too.
     // If we do that, we can assert m_hasInitializedStyle unconditionally,
@@ -686,7 +687,7 @@ void RenderElement::setStyle(Style::ComputedStyle&& style, Style::DifferenceResu
     // we will safely bail out with the detachedFromParent flag. We might want to broaden this condition
     // in the future as we move renderer changes out of layout and into style changes.
     if (detachedFromParent)
-        return;
+        return oldStyle;
 
     // Now that the layer (if any) has been updated, we need to adjust the diff again,
     // check whether we should layout now, and decide if we need to repaint.
@@ -700,6 +701,8 @@ void RenderElement::setStyle(Style::ComputedStyle&& style, Style::DifferenceResu
         // not having an outline to having an outline.
         repaint();
     }
+
+    return oldStyle;
 }
 
 void RenderElement::didAttachChild(RenderObject& child, RenderObject*)
@@ -969,9 +972,9 @@ void RenderElement::propagateStyleToAnonymousChildren(StylePropagationType propa
 
         if (style().specifiesColumns()) {
             if (elementChild->style().specifiesColumns())
-                newStyle.inheritColumnPropertiesFrom(style());
+                newStyle->inheritColumnPropertiesFrom(style());
             if (elementChild->style().columnSpan() == ColumnSpan::All)
-                newStyle.setColumnSpan(ColumnSpan::All);
+                newStyle->setColumnSpan(ColumnSpan::All);
         }
 
         updateAnonymousChildStyle(newStyle);
@@ -1592,7 +1595,7 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
         if (hasFilter() && !computeFilterOutsets().isZero())
             return true;
 
-        if (style().border().hasBorderRadius()) {
+        if (usedStyle().hasBorderRadius()) {
             // If the border radius changed, repaints at style change time will take care of that.
             // This code is attempting to detect whether border-radius constraining based on box size
             // affects the radii, using the outlineBoundsRect as a proxy for the border box.
@@ -1710,11 +1713,11 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 auto* renderBox = dynamicDowncast<RenderBox>(*this);
                 if (!renderBox)
                     return { };
-                auto borderBoxWidth = renderBox->borderBoxWidth();
+                auto borderBoxSize = renderBox->borderBoxSize();
                 return std::max({
                     renderBox->borderRight(),
-                    Style::evaluate<LayoutUnit>(style->borderTopRightRadius().width(), borderBoxWidth, zoom),
-                    Style::evaluate<LayoutUnit>(style->borderBottomRightRadius().width(), borderBoxWidth, zoom),
+                    renderBox->usedStyle().borderTopRightRadius(borderBoxSize).width(),
+                    renderBox->usedStyle().borderBottomRightRadius(borderBoxSize).width(),
                 });
             };
             auto outlineRightInsetExtent = [&] -> LayoutUnit {
@@ -1754,11 +1757,11 @@ bool RenderElement::repaintAfterLayoutIfNeeded(SingleThreadWeakPtr<const RenderL
                 auto* renderBox = dynamicDowncast<RenderBox>(*this);
                 if (!renderBox)
                     return { };
-                auto borderBoxHeight = renderBox->borderBoxHeight();
+                auto borderBoxSize = renderBox->borderBoxSize();
                 return std::max({
                     renderBox->borderBottom(),
-                    Style::evaluate<LayoutUnit>(style->borderBottomLeftRadius().height(), borderBoxHeight, zoom),
-                    Style::evaluate<LayoutUnit>(style->borderBottomRightRadius().height(), borderBoxHeight, zoom),
+                    renderBox->usedStyle().borderBottomLeftRadius(borderBoxSize).height(),
+                    renderBox->usedStyle().borderBottomRightRadius(borderBoxSize).height(),
                 });
             };
             auto outlineBottomInsetExtent = [&] -> LayoutUnit {
@@ -1930,6 +1933,13 @@ bool RenderElement::allowsAnimation() const
     if (RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element()))
         return imageElement->allowsAnimation();
     return page().imageAnimationEnabled();
+}
+
+Ref<ImageAnimationTimeline> RenderElement::imageAnimationTimeline() const
+{
+    if (RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element()))
+        return imageElement->imageAnimationTimeline();
+    return page().imageAnimationTimeline();
 }
 
 void RenderElement::didRemoveCachedImageClient(CachedImage& cachedImage)
@@ -2255,9 +2265,12 @@ bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) cons
                 if (!linesBox.maxX() && !linesBox.maxY())
                     continue;
                 point.moveBy(linesBox.maxXMaxYCorner());
-            } else
-                point.moveBy(downcast<RenderBox>(*o).borderBoxRectInContainer().maxXMaxYCorner());
-            point = o->container()->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
+                point = o->container()->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
+                return true;
+            }
+            // Like the leading corner, map from the box itself, whose location may not be in the coordinate space of its container (e.g. an
+            // out-of-flow box positioned relative to an inline box).
+            point = o->localToAbsolute(LayoutPoint(downcast<RenderBox>(*o).borderBoxSize()), MapCoordinatesMode::UseTransforms, &insideFixed);
             return true;
         }
     }
@@ -2314,12 +2327,12 @@ void RenderElement::paintOutline(PaintInfo& paintInfo, const LayoutRect& paintRe
     if (!hasOutline())
         return;
 
-    OutlinePainter { paintInfo }.paintOutline(*this, paintRect);
+    Paint::OutlinePainter { paintInfo }.paintOutline(*this, paintRect);
 }
 
 void RenderElement::issueRepaintForOutlineAuto(float outlineSize)
 {
-    auto focusRingRects = OutlinePainter::collectFocusRingRects(*this, LayoutPoint(), containerForRepaint().renderer.get());
+    auto focusRingRects = Paint::OutlinePainter::collectFocusRingRects(*this, LayoutPoint(), containerForRepaint().renderer.get());
 
     LayoutRect repaintRect;
     for (auto rect : focusRingRects) {
@@ -2864,6 +2877,7 @@ FloatRect RenderElement::referenceBoxRect(CSSBoxType boxType) const
         return alignReferenceBox(objectBoundingBox());
     case CSSBoxType::BoxMissing:
     case CSSBoxType::BorderBox:
+    case CSSBoxType::HalfBorderBox:
     case CSSBoxType::MarginBox:
     case CSSBoxType::StrokeBox:
         return alignReferenceBox(strokeBoundingBox());
@@ -2898,7 +2912,7 @@ void RenderElement::establishesTopLayerDidChange()
         protect(renderer->layer())->establishesTopLayerDidChange();
 }
 
-void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer, RenderBlock* containingBlockBeforeStyleResolution)
+void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer, RenderBoxModelObject* containingBlockBeforeStyleResolution)
 {
     auto* renderBox = dynamicDowncast<RenderBox>(renderer);
     if (!renderBox || !renderBox->parent() || !containingBlockBeforeStyleResolution)

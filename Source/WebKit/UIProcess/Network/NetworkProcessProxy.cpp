@@ -73,6 +73,7 @@
 #include "WebNotificationManagerProxy.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
+#include "WebPageProxyTesting.h"
 #include "WebProcessMessages.h"
 #include "WebProcessPool.h"
 #include "WebProcessProxy.h"
@@ -138,7 +139,7 @@ static constexpr Seconds networkProcessResponsivenessTimeout = 6_s;
 
 NODELETE static WeakHashSet<NetworkProcessProxy>& networkProcessesSet()
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
     static NeverDestroyed<WeakHashSet<NetworkProcessProxy>> set;
     return set;
 }
@@ -448,7 +449,6 @@ void NetworkProcessProxy::dataTaskWithRequest(WebPageProxy& page, PAL::SessionID
 
 void NetworkProcessProxy::dataTaskReceivedChallenge(DataTaskIdentifier identifier, WebCore::AuthenticationChallenge&& challenge, CompletionHandler<void(AuthenticationChallengeDisposition, WebCore::Credential&&)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(decltype(m_dataTasks)::isValidKey(identifier), completionHandler({ }, { }));
     if (RefPtr task = m_dataTasks.get(identifier))
         protect(task->client())->didReceiveChallenge(*task, WTF::move(challenge), WTF::move(completionHandler));
     else
@@ -457,7 +457,6 @@ void NetworkProcessProxy::dataTaskReceivedChallenge(DataTaskIdentifier identifie
 
 void NetworkProcessProxy::dataTaskWillPerformHTTPRedirection(DataTaskIdentifier identifier, WebCore::ResourceResponse&& response, WebCore::ResourceRequest&& request, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(decltype(m_dataTasks)::isValidKey(identifier), completionHandler(false));
     if (RefPtr task = m_dataTasks.get(identifier))
         protect(task->client())->willPerformHTTPRedirection(*task, WTF::move(response), WTF::move(request), WTF::move(completionHandler));
     else
@@ -466,7 +465,6 @@ void NetworkProcessProxy::dataTaskWillPerformHTTPRedirection(DataTaskIdentifier 
 
 void NetworkProcessProxy::dataTaskDidReceiveResponse(DataTaskIdentifier identifier, WebCore::ResourceResponse&& response, CompletionHandler<void(bool)>&& completionHandler)
 {
-    MESSAGE_CHECK_COMPLETION(decltype(m_dataTasks)::isValidKey(identifier), completionHandler(false));
     if (RefPtr task = m_dataTasks.get(identifier))
         protect(task->client())->didReceiveResponse(*task, WTF::move(response), WTF::move(completionHandler));
     else
@@ -475,14 +473,12 @@ void NetworkProcessProxy::dataTaskDidReceiveResponse(DataTaskIdentifier identifi
 
 void NetworkProcessProxy::dataTaskDidReceiveData(DataTaskIdentifier identifier, std::span<const uint8_t> data)
 {
-    MESSAGE_CHECK(decltype(m_dataTasks)::isValidKey(identifier));
     if (RefPtr task = m_dataTasks.get(identifier))
         protect(task->client())->didReceiveData(*task, data);
 }
 
 void NetworkProcessProxy::dataTaskDidCompleteWithError(DataTaskIdentifier identifier, WebCore::ResourceError&& error)
 {
-    MESSAGE_CHECK(decltype(m_dataTasks)::isValidKey(identifier));
     if (RefPtr task = m_dataTasks.take(identifier))
         task->didCompleteWithError(WTF::move(error));
 }
@@ -671,6 +667,9 @@ void NetworkProcessProxy::considerProcessSwapForNavigationResponse(WebPageProxyI
     RefPtr page = WebProcessProxy::webPage(pageID);
     if (!page)
         return completionHandler(NavigationResponseWithoutProcessSwap::CancelLoad);
+
+    if (RefPtr pageForTesting = page->pageForTesting())
+        completionHandler = pageForTesting->holdNavigationResponseProcessSwapReply(WTF::move(completionHandler));
 
     switch (reason) {
     case NavigationResponseProcessSwapReason::EnhancedSecurity:
@@ -1473,6 +1472,12 @@ void NetworkProcessProxy::setDomainsWithUserInteraction(HashSet<WebCore::Registr
         processPool->setDomainsWithUserInteraction(HashSet<WebCore::RegistrableDomain> { domains });
 }
 
+void NetworkProcessProxy::didGrantPageLevelStorageAccess(WebPageProxyIdentifier pageID, WebCore::RegistrableDomain&& topFrameDomain, WebCore::RegistrableDomain&& subFrameDomain)
+{
+    if (RefPtr page = WebPageProxy::fromIdentifier(pageID))
+        page->addDomainWithPageLevelStorageAccess(topFrameDomain, subFrameDomain);
+}
+
 void NetworkProcessProxy::setDomainsWithCrossPageStorageAccess(HashMap<TopFrameDomain, Vector<SubResourceDomain>>&& domains, CompletionHandler<void()>&& completionHandler)
 {    
     auto callbackAggregator = CallbackAggregator::create(WTF::move(completionHandler));
@@ -1566,7 +1571,7 @@ void NetworkProcessProxy::removeSession(WebsiteDataStore& websiteDataStore, Comp
     if (completionHandler)
         completionHandler({ });
 
-    if (m_websiteDataStores.isEmptyIgnoringNullReferences())
+    if (m_websiteDataStores.computeIsEmpty())
         defaultNetworkProcess() = nullptr;
 }
 
@@ -2177,12 +2182,12 @@ void NetworkProcessProxy::reloadExecutionContextsForOrigin(const WebCore::Client
         process->sendWithAsyncReply(Messages::WebProcess::ReloadExecutionContextsForOrigin(origin, triggeringFrame), [callbackAggregator] { });
 }
 
-void NetworkProcessProxy::addAllowedFirstPartyForCookies(WebProcessProxy& webProcessProxy, const WebCore::RegistrableDomain& firstPartyForCookies, LoadedWebArchive loadedWebArchive, CompletionHandler<void()>&& completionHandler)
+void NetworkProcessProxy::addAllowedFirstPartyForCookies(WebProcessProxy& webProcessProxy, const WebCore::Site& firstPartyForCookies, LoadedWebArchive loadedWebArchive, CompletionHandler<void()>&& completionHandler)
 {
     webProcessProxy.addAllowedFirstPartyForCookies(firstPartyForCookies, loadedWebArchive);
 
     auto& pair = m_allowedFirstPartiesForCookies.ensure(webProcessProxy, [] {
-        return std::make_pair(LoadedWebArchive::No, HashSet<RegistrableDomain> { });
+        return std::make_pair(LoadedWebArchive::No, HashSet<WebCore::Site> { });
     }).iterator->value;
 
     bool madeChange = pair.second.add(firstPartyForCookies).isNewEntry;

@@ -71,11 +71,9 @@ static void forEachFragmentInRange(FragmentList& fragmentList, const RenderFragm
     }
 }
 
-RenderFragmentedFlow::RenderFragmentedFlow(Type type, Document& document, Style::ComputedStyle&& style)
+RenderFragmentedFlow::RenderFragmentedFlow(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(type, document, WTF::move(style), BlockFlowFlag::IsFragmentedFlow)
-    , m_currentFragmentMaintainer(nullptr)
     , m_fragmentsInvalidated(false)
-    , m_fragmentsHaveUniformLogicalWidth(true)
     , m_fragmentsHaveUniformLogicalHeight(true)
     , m_pageLogicalSizeChanged(false)
 {
@@ -120,32 +118,23 @@ void RenderFragmentedFlow::validateFragments()
 {
     if (m_fragmentsInvalidated) {
         m_fragmentsInvalidated = false;
-        m_fragmentsHaveUniformLogicalWidth = true;
         m_fragmentsHaveUniformLogicalHeight = true;
 
         if (hasFragments()) {
-            LayoutUnit previousFragmentLogicalWidth;
             LayoutUnit previousFragmentLogicalHeight;
             bool firstFragmentVisited = false;
             
             for (auto& fragment : m_fragmentList) {
-                ASSERT(!fragment.needsLayout() || fragment.isRenderFragmentContainerSet());
-
                 fragment.deleteAllRenderBoxFragmentInfo();
 
-                LayoutUnit fragmentLogicalWidth = fragment.pageLogicalWidth();
                 LayoutUnit fragmentLogicalHeight = fragment.pageLogicalHeight();
 
                 if (!firstFragmentVisited)
                     firstFragmentVisited = true;
-                else {
-                    if (m_fragmentsHaveUniformLogicalWidth && previousFragmentLogicalWidth != fragmentLogicalWidth)
-                        m_fragmentsHaveUniformLogicalWidth = false;
-                    if (m_fragmentsHaveUniformLogicalHeight && previousFragmentLogicalHeight != fragmentLogicalHeight)
-                        m_fragmentsHaveUniformLogicalHeight = false;
-                }
+                else if (m_fragmentsHaveUniformLogicalHeight && previousFragmentLogicalHeight != fragmentLogicalHeight)
+                    m_fragmentsHaveUniformLogicalHeight = false;
 
-                previousFragmentLogicalWidth = fragmentLogicalWidth;
+                previousFragmentLogicalHeight = fragmentLogicalHeight;
             }
 
             setFragmentRangeForBox(*this, &m_fragmentList.first(), &m_fragmentList.last());
@@ -173,7 +162,6 @@ void RenderFragmentedFlow::updateLogicalWidth()
 {
     LayoutUnit logicalWidth = initialLogicalWidth();
     for (auto& fragment : m_fragmentList) {
-        ASSERT(!fragment.needsLayout() || fragment.isRenderFragmentContainerSet());
         logicalWidth = std::max(fragment.pageLogicalWidth(), logicalWidth);
     }
     setLogicalWidth(logicalWidth);
@@ -183,28 +171,8 @@ void RenderFragmentedFlow::updateLogicalWidth()
         LayoutUnit fragmentLogicalWidth = fragment.pageLogicalWidth();
         LayoutUnit logicalLeft = writingMode().isLogicalLeftInlineStart() ? 0_lu
             : logicalWidth - fragmentLogicalWidth;
-        fragment.setRenderBoxFragmentInfo(*this, logicalLeft, fragmentLogicalWidth, false);
+        fragment.setRenderBoxFragmentInfo(*this, logicalLeft, fragmentLogicalWidth);
     }
-}
-
-RenderBox::LogicalExtentComputedValues RenderFragmentedFlow::computeLogicalHeight(LayoutUnit, LayoutUnit logicalTop) const
-{
-    LogicalExtentComputedValues computedValues;
-    computedValues.position = logicalTop;
-    computedValues.extent = 0;
-
-    const LayoutUnit maxFlowSize = RenderFragmentedFlow::maxLogicalHeight();
-    for (auto& fragment : m_fragmentList) {
-        ASSERT(!fragment.needsLayout() || fragment.isRenderFragmentContainerSet());
-
-        LayoutUnit distanceToMaxSize = maxFlowSize - computedValues.extent;
-        computedValues.extent += std::min(distanceToMaxSize, fragment.logicalHeightOfAllFragmentedFlowContent());
-
-        // If we reached the maximum size there's no point in going further.
-        if (computedValues.extent == maxFlowSize)
-            return computedValues;
-    }
-    return computedValues;
 }
 
 bool RenderFragmentedFlow::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& accumulatedOffset, HitTestAction hitTestAction)
@@ -249,8 +217,7 @@ bool RenderFragmentedFlow::absoluteQuadsForBox(Vector<FloatQuad>& quads, bool* w
     forEachFragmentInRange(m_fragmentList, *startFragment, *endFragment, [&](auto& fragment) {
         auto rectsInFragment = fragment.fragmentRectsForFlowContentRect(boxRectInFlowCoordinates);
         for (auto rect : rectsInFragment) {
-            // FIXME: Remove suppression once rdar://189998444 is fixed.
-            SUPPRESS_MEMORY_UNSAFE_CAST auto absoluteQuad = fragment.localToAbsoluteQuad(FloatRect(rect), MapCoordinatesMode::UseTransforms, wasFixed);
+            auto absoluteQuad = fragment.localToAbsoluteQuad(FloatRect(rect), MapCoordinatesMode::UseTransforms, wasFixed);
             quads.append(absoluteQuad);
         }
     });
@@ -306,7 +273,7 @@ RenderFragmentContainer* RenderFragmentedFlow::fragmentAtBlockOffset(const Rende
 {
     ASSERT(!m_fragmentsInvalidated);
 
-    if (m_fragmentList.isEmptyIgnoringNullReferences())
+    if (m_fragmentList.computeIsEmpty())
         return nullptr;
 
     if (m_fragmentList.computeSize() == 1 && extendLastFragment) {
@@ -326,25 +293,14 @@ RenderFragmentContainer* RenderFragmentedFlow::fragmentAtBlockOffset(const Rende
     if (auto* fragment = adapter.result())
         return clamp(fragment);
 
-    // If no fragment was found, the offset is in the flow thread overflow.
-    // The last fragment will contain the offset if extendLastFragment is set or if the last fragment is a set.
-    if (extendLastFragment || m_fragmentList.last().isRenderFragmentContainerSet()) {
-        return clamp(const_cast<RenderFragmentContainer*>(&m_fragmentList.last()));
-    }
-
-    return nullptr;
+    // If no fragment was found, the offset is in the flow thread overflow, which the last column set contains.
+    return clamp(const_cast<RenderFragmentContainer*>(&m_fragmentList.last()));
 }
 
 LayoutUnit RenderFragmentedFlow::pageLogicalTopForOffset(LayoutUnit offset) const
 {
     RenderFragmentContainer* fragment = fragmentAtBlockOffset(0, offset, false);
     return fragment ? fragment->pageLogicalTopForOffset(offset) : 0_lu;
-}
-
-LayoutUnit RenderFragmentedFlow::pageLogicalWidthForOffset(LayoutUnit offset) const
-{
-    RenderFragmentContainer* fragment = fragmentAtBlockOffset(0, offset, true);
-    return fragment ? fragment->pageLogicalWidth() : contentBoxLogicalWidth();
 }
 
 LayoutUnit RenderFragmentedFlow::pageLogicalHeightForOffset(LayoutUnit offset) const
@@ -378,30 +334,6 @@ LayoutUnit RenderFragmentedFlow::pageRemainingLogicalHeightForOffset(LayoutUnit 
         remainingHeight = pageLogicalHeight;
     }
     return remainingHeight;
-}
-
-RenderFragmentContainer* RenderFragmentedFlow::mapFromFlowToFragment(TransformState& transformState) const
-{
-    if (!hasValidFragmentInfo())
-        return nullptr;
-
-    RenderFragmentContainer* RenderFragmentContainer = currentFragment();
-    if (!RenderFragmentContainer) {
-        LayoutRect boxRect = transformState.mappedQuad().enclosingBoundingBox();
-        flipForWritingMode(boxRect);
-
-        LayoutPoint center = boxRect.center();
-        RenderFragmentContainer = fragmentAtBlockOffset(this, isHorizontalWritingMode() ? center.y() : center.x(), true);
-        if (!RenderFragmentContainer)
-            return nullptr;
-    }
-
-    LayoutRect flippedFragmentRect(RenderFragmentContainer->fragmentedFlowPortionRect());
-    flipForWritingMode(flippedFragmentRect);
-
-    transformState.move(RenderFragmentContainer->contentBoxRect().location() - flippedFragmentRect.location());
-
-    return RenderFragmentContainer;
 }
 
 void RenderFragmentedFlow::removeRenderBoxFragmentInfo(const RenderBox& box)
@@ -463,8 +395,6 @@ void RenderFragmentedFlow::logicalWidthChangedInFragmentsForBlock(const RenderBl
         return;
 
     forEachFragmentInRange(m_fragmentList, *startFragment, *endFragment, [&](auto& fragment) {
-        ASSERT(!fragment.needsLayout() || fragment.isRenderFragmentContainerSet());
-
         // We have no information computed for this fragment so we need to do it.
         std::unique_ptr<RenderBoxFragmentInfo> oldInfo = fragment.takeRenderBoxFragmentInfo(block);
         if (!oldInfo) {
@@ -499,14 +429,6 @@ LayoutUnit RenderFragmentedFlow::contentLogicalHeightOfFirstFragment() const
     return isHorizontalWritingMode() ? firstValidFragmentInFlow->contentBoxHeight() : firstValidFragmentInFlow->contentBoxWidth();
 }
 
-LayoutUnit RenderFragmentedFlow::contentLogicalLeftOfFirstFragment() const
-{
-    RenderFragmentContainer* firstValidFragmentInFlow = firstFragment();
-    if (!firstValidFragmentInFlow)
-        return 0;
-    return isHorizontalWritingMode() ? firstValidFragmentInFlow->fragmentedFlowPortionRect().x() : firstValidFragmentInFlow->fragmentedFlowPortionRect().y();
-}
-
 RenderFragmentContainer* RenderFragmentedFlow::firstFragment() const
 {
     if (!hasFragments())
@@ -521,7 +443,7 @@ RenderFragmentContainer* RenderFragmentedFlow::lastFragment() const
     return const_cast<RenderFragmentContainer*>(&m_fragmentList.last());
 }
 
-void RenderFragmentedFlow::clearRenderBoxFragmentInfoAndCustomStyle(const RenderBox& box,
+void RenderFragmentedFlow::clearRenderBoxFragmentInfo(const RenderBox& box,
     const RenderFragmentContainer* newStartFragment, const RenderFragmentContainer* newEndFragment,
     const RenderFragmentContainer* oldStartFragment, const RenderFragmentContainer* oldEndFragment)
 {
@@ -559,7 +481,7 @@ void RenderFragmentedFlow::setFragmentRangeForBox(const RenderBox& box, RenderFr
     auto& range = result.iterator->value;
     if (range.startFragment() == startFragment && range.endFragment() == endFragment)
         return;
-    clearRenderBoxFragmentInfoAndCustomStyle(box, startFragment, endFragment, range.startFragment(), range.endFragment());
+    clearRenderBoxFragmentInfo(box, startFragment, endFragment, range.startFragment(), range.endFragment());
 }
 
 bool RenderFragmentedFlow::hasCachedFragmentRangeForBox(const RenderBox& box) const
@@ -669,53 +591,6 @@ bool RenderFragmentedFlow::objectShouldFragmentInFlowFragment(const RenderObject
     return object->isRenderBox() || object->isInlineBox();
 }
 
-bool RenderFragmentedFlow::objectInFlowFragment(const RenderObject* object, const RenderFragmentContainer* fragment) const
-{
-    ASSERT(object);
-    ASSERT(fragment);
-
-    RenderFragmentedFlow* fragmentedFlow = object->enclosingFragmentedFlow();
-    if (fragmentedFlow != this)
-        return false;
-
-    if (!m_fragmentList.contains(*fragment))
-        return false;
-
-    RenderFragmentContainer* enclosingBoxStartFragment = nullptr;
-    RenderFragmentContainer* enclosingBoxEndFragment = nullptr;
-    if (!getFragmentRangeForBox(object->enclosingBox(), enclosingBoxStartFragment, enclosingBoxEndFragment))
-        return false;
-
-    if (!fragmentInRange(fragment, enclosingBoxStartFragment, enclosingBoxEndFragment))
-        return false;
-
-    if (object->isRenderBox())
-        return true;
-
-    LayoutRect objectABBRect = object->absoluteBoundingBoxRect(true);
-    if (!objectABBRect.width())
-        objectABBRect.setWidth(1);
-    if (!objectABBRect.height())
-        objectABBRect.setHeight(1); 
-    if (objectABBRect.intersects(fragment->absoluteBoundingBoxRect(true)))
-        return true;
-
-    if (fragment == lastFragment()) {
-        // If the object does not intersect any of the enclosing box fragments
-        // then the object is in last fragment.
-        for (auto it = m_fragmentList.find(*enclosingBoxStartFragment), end = m_fragmentList.end(); it != end; ++it) {
-            const RenderFragmentContainer& currFragment = *it;
-            if (&currFragment == fragment)
-                break;
-            if (objectABBRect.intersects(currFragment.absoluteBoundingBoxRect(true)))
-                return false;
-        }
-        return true;
-    }
-
-    return false;
-}
-
 void RenderFragmentedFlow::updateFragmentsFragmentedFlowPortionRect()
 {
     LayoutUnit logicalHeight;
@@ -734,31 +609,6 @@ void RenderFragmentedFlow::updateFragmentsFragmentedFlowPortionRect()
 
         logicalHeight += fragmentLogicalHeight;
     }
-}
-
-// Even if we require the break to occur at offsetBreakInFragmentedFlow, because fragments may have min/max-height values,
-// it is possible that the break will occur at a different offset than the original one required.
-// offsetBreakAdjustment measures the different between the requested break offset and the current break offset.
-bool RenderFragmentedFlow::addForcedFragmentBreak(const RenderBlock* block, LayoutUnit offsetBreakInFragmentedFlow, RenderBox*, bool, LayoutUnit* offsetBreakAdjustment)
-{
-    // We need to update the fragments flow thread portion rect because we are going to process
-    // a break on these fragments.
-    updateFragmentsFragmentedFlowPortionRect();
-
-    // Simulate a fragment break at offsetBreakInFragmentedFlow. If it points inside an auto logical height fragment,
-    // then it determines the fragment computed auto height.
-    RenderFragmentContainer* fragment = fragmentAtBlockOffset(block, offsetBreakInFragmentedFlow);
-    if (!fragment)
-        return false;
-
-    LayoutUnit currentFragmentOffsetInFragmentedFlow = isHorizontalWritingMode() ? fragment->fragmentedFlowPortionRect().y() : fragment->fragmentedFlowPortionRect().x();
-
-    currentFragmentOffsetInFragmentedFlow += isHorizontalWritingMode() ? fragment->fragmentedFlowPortionRect().height() : fragment->fragmentedFlowPortionRect().width();
-
-    if (offsetBreakAdjustment)
-        *offsetBreakAdjustment = std::max<LayoutUnit>(0, currentFragmentOffsetInFragmentedFlow - offsetBreakInFragmentedFlow);
-
-    return false;
 }
 
 void RenderFragmentedFlow::collectLayerFragments(LayerFragments& layerFragments, const LayoutRect& layerBoundingBox, const LayoutRect& dirtyRect) const
@@ -807,6 +657,8 @@ LayoutUnit RenderFragmentedFlow::offsetFromLogicalTopOfFirstFragment(const Rende
         if (!containerBox)
             return 0;
         auto currentBoxLocation = currentBox->location();
+        if (CheckedPtr inlineBox = dynamicDowncast<RenderBoxModelObject>(currentBox->container()); inlineBox && inlineBox->isInlineBox() && currentBox->isOutOfFlowPositioned())
+            currentBoxLocation += toLayoutSize(inlineBox->blockStartRelativeFirstFragmentBorderBoxRect().location());
 
         if (containerBox->writingMode().blockDirection() != currentBox->writingMode().blockDirection()) {
             // We have to put the block rect in container coordinates
@@ -817,7 +669,7 @@ LayoutUnit RenderFragmentedFlow::offsetFromLogicalTopOfFirstFragment(const Rende
                 else
                     blockRect.setX(currentBox->borderBoxWidth() - blockRect.maxX());
             }
-            currentBox->flipForWritingMode(blockRect);
+            currentBox->blockStartRelativeToPhysical(blockRect);
         }
         blockRect.moveBy(currentBoxLocation);
         currentBox = containerBox;
@@ -839,16 +691,6 @@ void RenderFragmentedFlow::mapLocalToContainer(const RenderLayerModelObject* anc
         // it with the fragment's repaint container.
         ancestorContainer = ancestorContainer ? fragment->containerForRepaint().renderer.unsafeGet() : nullptr;
 
-        if (RenderFragmentedFlow* fragmentFragmentedFlow = fragment->enclosingFragmentedFlow()) {
-            RenderFragmentContainer* startFragment = nullptr;
-            RenderFragmentContainer* endFragment = nullptr;
-            if (fragmentFragmentedFlow->getFragmentRangeForBox(*fragment, startFragment, endFragment)) {
-                CurrentRenderFragmentContainerMaintainer fragmentMaintainer(*startFragment);
-                fragmentObject->mapLocalToContainer(ancestorContainer, transformState, mode, wasFixed);
-                return;
-            }
-        }
-
         fragmentObject->mapLocalToContainer(ancestorContainer, transformState, mode, wasFixed);
     }
 }
@@ -864,9 +706,14 @@ LayoutRect RenderFragmentedFlow::mapFromLocalToFragmentedFlow(const RenderBox* b
         if (!containerBlock)
             return LayoutRect();
         LayoutPoint currentBoxLocation = box->location();
+        if (CheckedPtr inlineBox = dynamicDowncast<RenderBoxModelObject>(box->container()); inlineBox && inlineBox->isInlineBox() && box->isOutOfFlowPositioned()) {
+            // The box is positioned relative to the inline box, which is positioned in its own containing block.
+            currentBoxLocation += toLayoutSize(inlineBox->blockStartRelativeFirstFragmentBorderBoxRect().location());
+            containerBlock = inlineBox->containingBlock();
+        }
 
         if (containerBlock->writingMode().blockDirection() != box->writingMode().blockDirection())
-            box->flipForWritingMode(boxRect);
+            box->blockStartRelativeToPhysical(boxRect);
 
         boxRect.moveBy(currentBoxLocation);
         box = containerBlock;
@@ -886,18 +733,23 @@ LayoutRect RenderFragmentedFlow::mapFromFragmentedFlowToLocal(const RenderBox* b
     ASSERT(containerBlock);
     if (!containerBlock)
         return LayoutRect();
+    LayoutPoint currentBoxLocation = box->location();
+    if (CheckedPtr inlineBox = dynamicDowncast<RenderBoxModelObject>(box->container()); inlineBox && inlineBox->isInlineBox() && box->isOutOfFlowPositioned()) {
+        // The box is positioned relative to the inline box, which is positioned in its own containing block.
+        currentBoxLocation += toLayoutSize(inlineBox->blockStartRelativeFirstFragmentBorderBoxRect().location());
+        containerBlock = inlineBox->containingBlock();
+    }
     localRect = mapFromFragmentedFlowToLocal(containerBlock, localRect);
 
-    LayoutPoint currentBoxLocation = box->location();
     localRect.moveBy(-currentBoxLocation);
 
     if (containerBlock->writingMode().blockDirection() != box->writingMode().blockDirection())
-        box->flipForWritingMode(localRect);
+        box->physicalToBlockStartRelative(localRect);
 
     return localRect;
 }
 
-void RenderFragmentedFlow::flipForWritingModeLocalCoordinates(LayoutRect& rect) const
+void RenderFragmentedFlow::physicalToBlockStartRelativeIgnoringSize(LayoutRect& rect) const
 {
     if (!writingMode().isBlockFlipped())
         return;
@@ -971,20 +823,6 @@ void RenderFragmentedFlow::addFragmentsOverflowFromChild(const RenderBox& box, c
     });
 }
     
-void RenderFragmentedFlow::addFragmentsLayoutOverflow(const RenderBox& box, const LayoutRect& layoutOverflow)
-{
-    RenderFragmentContainer* startFragment = nullptr;
-    RenderFragmentContainer* endFragment = nullptr;
-    if (!getFragmentRangeForBox(box, startFragment, endFragment))
-        return;
-
-    forEachFragmentInRange(m_fragmentList, *startFragment, *endFragment, [&](auto& fragment) {
-        LayoutRect layoutOverflowInFragment = fragment.rectFlowPortionForBox(box, layoutOverflow);
-
-        fragment.addLayoutOverflowForBox(box, layoutOverflowInFragment);
-    });
-}
-
 void RenderFragmentedFlow::addFragmentsVisualOverflow(const RenderBox& box, const LayoutRect& visualOverflow)
 {
     RenderFragmentContainer* startFragment = nullptr;
@@ -1011,11 +849,6 @@ void RenderFragmentedFlow::clearFragmentsOverflow(const RenderBox& box)
         if (boxInfo && boxInfo->overflow())
             boxInfo->clearOverflow();
     });
-}
-
-RenderFragmentContainer* RenderFragmentedFlow::currentFragment() const
-{
-    return m_currentFragmentMaintainer ? &m_currentFragmentMaintainer->fragment() : nullptr;
 }
 
 } // namespace WebCore

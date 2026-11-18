@@ -879,10 +879,11 @@ struct InstanceDescriptor {
 // A canvas surface, backed by the render buffers of a compositor.
 struct PresentationContextDescriptor {
     // Called once, with the functions that the compositor calls back: one with the IOSurfaces of the
-    // render buffers each time it recreates them, and one with a completion handler to call once the
-    // work submitted so far has been scheduled. The IOSurfaces are borrowed for the call. The
+    // render buffers each time it recreates them, one with a completion handler to call once the
+    // work submitted so far has been scheduled, and one with the index and the new IOSurface of a
+    // render buffer it replaces. The IOSurfaces are borrowed for the call. The
     // signatures have no RetainPtr, which is a different type in ARC and non-ARC code.
-    Function<void(Function<void(std::span<const IOSurfaceRef>)>&&, Function<void(CompletionHandler<void()>&&)>&&)> registerCompositorIntegration;
+    Function<void(Function<void(std::span<const IOSurfaceRef>)>&&, Function<void(CompletionHandler<void()>&&)>&&, Function<void(uint32_t, IOSurfaceRef)>&&)> registerCompositorIntegration;
 };
 #endif
 
@@ -951,9 +952,9 @@ struct ImageCopyExternalImage {
     RetainPtr<IOSurfaceRef> source;
     // The format of the single plane of the IOSurface. An accelerated 2D canvas can be backed by it.
     std::optional<TextureFormat> sourceFormat;
-    // The logical extent of the IOSurface, which may be larger.
+    // The logical extent of the IOSurface, or the presented extent of a video frame.
     Extent2D sourceSize;
-    // A video frame carries its own extent, crop and primaries, and it is treated as opaque.
+    // A video frame carries its own crop and primaries, and it is treated as opaque.
     RetainPtr<CVPixelBufferRef> pixelBuffer;
     // The display transform of the frame: a horizontal mirror, then a clockwise rotation.
     VideoFrameRotation pixelBufferRotation { VideoFrameRotation::None };
@@ -1527,6 +1528,7 @@ public:
     virtual void unconfigure() = 0;
     virtual void present(uint32_t frameIndex) = 0;
     virtual RefPtr<Texture> getCurrentTexture(uint32_t frameIndex) = 0;
+    virtual void renderBufferWasReplaced(uint32_t frameIndex) = 0;
     // The GPU time of the last frame that finished.
     virtual Seconds lastFrameGPUCost() const = 0;
     // The time the last present waited for an in-flight frame to finish.

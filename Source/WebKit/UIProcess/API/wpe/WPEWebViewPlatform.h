@@ -57,6 +57,7 @@ public:
     void exitFullScreen();
     void didExitFullScreen();
     void requestExitFullScreen();
+    void closeFullScreen();
 #endif
 
 #if ENABLE(GAMEPAD)
@@ -83,7 +84,7 @@ private:
     void toplevelStateChanged(WPEToplevelState previousState, WPEToplevelState);
 
 #if ENABLE(POINTER_LOCK)
-    void requestPointerLock() override;
+    bool requestPointerLock() override;
     void didLosePointerLock() override;
 #endif
 
@@ -100,7 +101,7 @@ private:
     uint32_t m_displayID { 0 };
     unsigned long m_bufferRenderedID { 0 };
     Vector<CompletionHandler<void()>> m_nextPresentationUpdateCallbacks;
-    HashMap<uint32_t, GRefPtr<WPEEvent>, IntHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> m_touchEvents;
+    HashMap<uint32_t, GRefPtr<WPEEvent>> m_touchEvents;
 #if ENABLE(FULLSCREEN_API)
     bool m_viewWasAlreadyInFullScreen { false };
 #endif

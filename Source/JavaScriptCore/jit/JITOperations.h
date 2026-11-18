@@ -58,6 +58,7 @@ class CodeBlock;
 class DirectArguments;
 class InlineCacheHandler;
 class JSArray;
+class JSArrayBufferView;
 class JSBoundFunction;
 class JSCell;
 class JSFunction;
@@ -208,6 +209,7 @@ JSC_DECLARE_JIT_OPERATION(operationInByValGaveUp, EncodedJSValue, (EncodedJSValu
 JSC_DECLARE_JIT_OPERATION(operationInByValMegamorphicGeneric, EncodedJSValue, (JSGlobalObject*, EncodedJSValue encodedBase, EncodedJSValue encodedSubscript));
 
 JSC_DECLARE_JIT_OPERATION(operationHasPrivateNameOptimize, EncodedJSValue, (EncodedJSValue, EncodedJSValue, PropertyInlineCache*));
+JSC_DECLARE_JIT_OPERATION(operationHasPrivateNameMegamorphic, EncodedJSValue, (EncodedJSValue, EncodedJSValue, PropertyInlineCache*));
 JSC_DECLARE_JIT_OPERATION(operationHasPrivateNameGaveUp, EncodedJSValue, (EncodedJSValue, EncodedJSValue, PropertyInlineCache*));
 
 JSC_DECLARE_JIT_OPERATION(operationHasPrivateBrandOptimize, EncodedJSValue, (EncodedJSValue, EncodedJSValue, PropertyInlineCache*));
@@ -389,6 +391,7 @@ JSC_DECLARE_JIT_OPERATION(operationGetFromScope, EncodedJSValue, (JSGlobalObject
 JSC_DECLARE_JIT_OPERATION(operationPutToScope, void, (JSGlobalObject*, const JSInstruction* bytecodePC));
 JSC_DECLARE_JIT_OPERATION(operationResolveRope, StringImpl*, (JSGlobalObject*, JSString*));
 JSC_DECLARE_JIT_OPERATION(operationResolveRopeString, JSString*, (JSGlobalObject*, JSRopeString*));
+JSC_DECLARE_JIT_OPERATION(operationGetTypedArrayBuffer, JSCell*, (JSGlobalObject*, JSArrayBufferView*));
 
 JSC_DECLARE_JIT_OPERATION(operationReallocateButterflyToHavePropertyStorageWithInitialCapacity, char*, (VM*, JSObject*));
 JSC_DECLARE_JIT_OPERATION(operationReallocateButterflyToGrowPropertyStorage, char*, (VM*, JSObject*, size_t newSize));

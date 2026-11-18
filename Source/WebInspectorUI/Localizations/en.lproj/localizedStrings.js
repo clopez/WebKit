@@ -1102,7 +1102,7 @@ localizedStrings["Max Comparison"] = "Max Comparison";
 localizedStrings["Maximum"] = "Maximum";
 localizedStrings["Maximum CPU Usage: %s"] = "Maximum CPU Usage: %s";
 localizedStrings["Maximum Size: %s"] = "Maximum Size: %s";
-localizedStrings["Maximum maximum memory size in this recording"] = "Maximum maximum memory size in this recording";
+localizedStrings["Maximum memory size in this recording"] = "Maximum memory size in this recording";
 /* Max axis value @ Font Details Sidebar */
 localizedStrings["Maximum value of variation axis"] = "Maximum value of variation axis";
 localizedStrings["Media"] = "Media";
@@ -1494,6 +1494,7 @@ localizedStrings["Result"] = "Result";
 localizedStrings["Result Data"] = "Result Data";
 localizedStrings["Result Levels"] = "Result Levels";
 localizedStrings["Results"] = "Results";
+localizedStrings["Resume Frame"] = "Resume Frame";
 localizedStrings["Resume Processing"] = "Resume Processing";
 localizedStrings["Resume Thread"] = "Resume Thread";
 localizedStrings["Retained Size"] = "Retained Size";

@@ -69,7 +69,7 @@ public:
     // Returns true if there has been potential draws since last call.
     bool consumeHasDrawn();
 
-    // Single-line strokes are coalesced into a batch message that is written
+    // Single-line and single-arc strokes are coalesced into a batch message that is written
     // into the IPC stream lazily, so the buffered strokes sit *in front of* the
     // stream. They must be sent into the stream before any other command is
     // written to it (otherwise they would be reordered behind it) and before
@@ -79,7 +79,7 @@ public:
     // read-backs) call it explicitly.
     void sendPendingDrawsIfNecessary()
     {
-        if (!m_pendingLineStrokes.isEmpty()) [[unlikely]]
+        if (!m_pendingLineStrokes.isEmpty() || !m_pendingArcStrokes.isEmpty()) [[unlikely]]
             sendPendingDraws();
     }
 
@@ -87,6 +87,10 @@ protected:
     RemoteGraphicsContextProxy(const WebCore::GraphicsContextState&, const WebCore::FloatRect& initialClip, const WebCore::AffineTransform&, const WebCore::ColorSpace&, DrawGlyphsMode, std::optional<WebCore::ContentsFormat>, WebCore::RenderingMode, RemoteGraphicsContextIdentifier, RemoteRenderingBackendProxy&);
 
     template<typename T> void send(T&& message);
+
+    // The GPU process context may start at another CTM than this one. SetCTM is absolute, so it is sent relative
+    // to the CTM of the GPU process context. The other transforms are relative, and are sent the same either way.
+    void setCTMToRemote(const WebCore::AffineTransform& ctmToRemote) { m_ctmToRemote = ctmToRemote; }
 
 private:
     void didBecomeUnresponsive() const;
@@ -97,7 +101,9 @@ private:
     std::optional<WebCore::RenderingMethod> renderingMethod() const final { return std::nullopt; }
 
     void save(WebCore::GraphicsContextState::Purpose) final;
-    void restore(WebCore::GraphicsContextState::Purpose) final;
+    bool restore(WebCore::GraphicsContextState::Purpose) final;
+    void saveTransform() final;
+    bool restoreTransform() final;
     void translate(float x, float y) final;
     void rotate(float angle) final;
     void scale(const WebCore::FloatSize&) final;
@@ -114,7 +120,7 @@ private:
     void clipOutRoundedRect(const WebCore::FloatRoundedRect&) final;
     void clipPath(const WebCore::Path&, WebCore::WindRule) final;
     void clipTransformedPath(const WebCore::AffineTransform&, const WebCore::Path&, WebCore::WindRule) final;
-    void clipToImageBuffer(WebCore::ImageBuffer&, const WebCore::FloatRect& destinationRect) final;
+    void clipToNativeImage(const WebCore::NativeImage&, const WebCore::FloatRect& destinationRect) final;
     void resetClip() final;
     void beginTransparencyLayer(float) final;
     void beginTransparencyLayer(WebCore::CompositeOperator, WebCore::BlendMode) final;
@@ -137,8 +143,8 @@ private:
     void fillPath(const WebCore::Path&) final;
     void fillRect(const WebCore::FloatRect&, RequiresClipToRect) final;
     void fillRect(const WebCore::FloatRect&, const WebCore::Color&) final;
-    void fillRect(const WebCore::FloatRect&, WebCore::Gradient&) final;
-    void fillRect(const WebCore::FloatRect&, WebCore::Gradient&, const WebCore::AffineTransform&, RequiresClipToRect) final;
+    void fillRect(const WebCore::FloatRect&, const WebCore::Gradient&) final;
+    void fillRect(const WebCore::FloatRect&, const WebCore::Gradient&, const WebCore::AffineTransform&, RequiresClipToRect) final;
     void fillRect(const WebCore::FloatRect&, const WebCore::Color&, WebCore::CompositeOperator, WebCore::BlendMode) final;
     void fillRoundedRect(const WebCore::FloatRoundedRect&, const WebCore::Color&, WebCore::BlendMode) final;
     void fillRectWithRoundedHole(const WebCore::FloatRect&, const WebCore::FloatRoundedRect&, const WebCore::Color&) final;
@@ -154,10 +160,6 @@ private:
     void drawGlyphs(const WebCore::Font&, std::span<const WebCore::GlyphBufferGlyph>, std::span<const WebCore::GlyphBufferAdvance>, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
     void drawGlyphsImmediate(const WebCore::FontBase&, std::span<const WebCore::GlyphBufferGlyph>, std::span<const WebCore::GlyphBufferAdvance>, const WebCore::FloatPoint& localAnchor, WebCore::FontSmoothingMode) final;
 
-#if USE(CG)
-    void applyStrokePattern() final;
-    void applyFillPattern() final;
-#endif
     void applyDeviceScaleFactor(float) final;
 
     void beginPage(const WebCore::FloatRect&) final;
@@ -169,7 +171,7 @@ private:
     std::optional<RemotePathImplIdentifier> recordResourceUse(const WebCore::PathImpl&);
     bool recordResourceUse(const WebCore::SourceImage&);
     bool recordResourceUse(WebCore::FontBase&);
-    std::optional<RemoteGradientIdentifier> recordResourceUse(WebCore::Gradient&);
+    std::optional<RemoteGradientIdentifier> recordResourceUse(const WebCore::Gradient&);
     std::optional<RemoteMeshGradientIdentifier> recordResourceUse(WebCore::MeshGradient&);
     bool recordResourceUse(WebCore::Filter&);
     std::optional<RemoteDisplayListIdentifier> recordResourceUse(const WebCore::DisplayList::DisplayList&);
@@ -191,10 +193,15 @@ private:
     std::optional<InlineStrokeData> inlineStrokeStateIfBatchable();
 
     void bufferLine(const WebCore::PathDataLine&, const InlineStrokeData&);
+    void bufferArc(const WebCore::PathArc&, const InlineStrokeData&);
     void sendPendingDraws();
 
     static constexpr size_t maxPendingLineStrokes = 64;
     Vector<WebCore::PathDataLineColorThickness> m_pendingLineStrokes;
+    // At most one of m_pendingLineStrokes and m_pendingArcStrokes is non-empty:
+    // buffering one kind sends the other first, so draw order is preserved.
+    static constexpr size_t maxPendingArcStrokes = 64;
+    Vector<WebCore::PathArcColorThickness> m_pendingArcStrokes;
 
     RefPtr<WebCore::ImageBuffer> createImageBuffer(const WebCore::FloatSize&, float resolutionScale, const WebCore::ColorSpace&, std::optional<WebCore::RenderingMode>, std::optional<WebCore::RenderingMethod>, WebCore::ImageBufferFormat) const final;
     RefPtr<WebCore::ImageBuffer> createAlignedImageBuffer(const WebCore::FloatSize&, const WebCore::ColorSpace&, std::optional<WebCore::RenderingMethod>) const final;
@@ -212,6 +219,7 @@ private:
     RefPtr<IPC::StreamClientConnection> m_connection;
     WeakPtr<RemoteRenderingBackendProxy> m_renderingBackend;
     std::optional<WebCore::ContentsFormat> m_contentsFormat;
+    WebCore::AffineTransform m_ctmToRemote;
     ThreadSafeWeakPtr<RemoteImageBufferProxy> m_client;
 #if PLATFORM(COCOA) && ENABLE(VIDEO)
     Lock m_sharedVideoFrameWriterLock;

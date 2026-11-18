@@ -58,6 +58,7 @@
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLLIElement.h"
+#include "HTMLLabelElement.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
@@ -320,6 +321,8 @@ struct TraversalContext {
     NodeIdentifierInclusion nodeIdentifierInclusion { NodeIdentifierInclusion::None };
     bool includeAccessibilityAttributes { false };
     unsigned visibleTextLength { 0 };
+    HashSet<Ref<ContainerNode>> treeScopeRootsWithIndexedLabels { };
+    HashMap<Ref<HTMLElement>, Vector<Ref<HTMLLabelElement>>> labelsByControl { };
 
     NODELETE inline bool shouldIncludeNodeWithRect(const FloatRect& rect) const
     {
@@ -348,6 +351,23 @@ struct TraversalContext {
     void popEnclosingBlock()
     {
         enclosingBlocks.removeLast();
+    }
+
+    std::span<const Ref<HTMLLabelElement>> labelsForControl(HTMLElement& control)
+    {
+        Ref treeScopeRoot = control.treeScope().rootNode();
+        if (treeScopeRootsWithIndexedLabels.add(treeScopeRoot).isNewEntry) {
+            for (Ref label : descendantsOfType<HTMLLabelElement>(treeScopeRoot)) {
+                if (RefPtr labeledControl = label->control())
+                    labelsByControl.ensure(labeledControl.releaseNonNull(), [] { return Vector<Ref<HTMLLabelElement>> { }; }).iterator->value.append(WTF::move(label));
+            }
+        }
+
+        auto iterator = labelsByControl.find(control);
+        if (iterator == labelsByControl.end())
+            return { };
+
+        return iterator->value.span();
     }
 };
 
@@ -520,16 +540,25 @@ static inline FloatRect rootViewBounds(const Node& node)
     return view->contentsToRootView(absoluteBoundsForNode(*renderer));
 }
 
-static inline String labelText(HTMLElement& element)
+static Vector<Ref<HTMLLabelElement>> associatedLabels(HTMLElement& element)
 {
     RefPtr labels = element.labels();
     if (!labels)
         return { };
 
-    StringBuilder builder;
+    Vector<Ref<HTMLLabelElement>> result;
     for (unsigned index = 0; index < labels->length(); ++index) {
-        RefPtr label = dynamicDowncast<Element>(labels->item(index));
-        if (!label || !label->renderer())
+        if (RefPtr label = dynamicDowncast<HTMLLabelElement>(labels->item(index)))
+            result.append(label.releaseNonNull());
+    }
+    return result;
+}
+
+static inline String labelText(std::span<const Ref<HTMLLabelElement>> labels)
+{
+    StringBuilder builder;
+    for (auto& label : labels) {
+        if (!label->renderer())
             continue;
 
         auto text = label->textContent().simplifyWhiteSpace(isASCIIWhitespace);
@@ -543,17 +572,9 @@ static inline String labelText(HTMLElement& element)
     return builder.toString();
 }
 
-static inline std::optional<FloatRect> visibleAssociatedLabelBounds(HTMLElement& element)
+static inline std::optional<FloatRect> visibleAssociatedLabelBounds(HTMLElement& element, TraversalContext& context)
 {
-    RefPtr labels = element.labels();
-    if (!labels)
-        return std::nullopt;
-
-    for (unsigned index = 0; index < labels->length(); ++index) {
-        RefPtr label = dynamicDowncast<Element>(labels->item(index));
-        if (!label)
-            continue;
-
+    for (auto& label : context.labelsForControl(element)) {
         CheckedPtr renderer = label->renderer();
         if (!renderer)
             continue;
@@ -564,7 +585,7 @@ static inline std::optional<FloatRect> visibleAssociatedLabelBounds(HTMLElement&
         if (renderer->style().opacity() < minOpacityToConsiderVisible)
             continue;
 
-        auto bounds = mainFrameViewBounds(*label);
+        auto bounds = mainFrameViewBounds(label);
         if (!bounds.isEmpty())
             return bounds;
     }
@@ -735,7 +756,7 @@ static String normalizedLabelText(Element& element, IncludeAssociatedLabels incl
 
     if (includeAssociatedLabels == IncludeAssociatedLabels::Yes) {
         if (RefPtr htmlElement = dynamicDowncast<HTMLElement>(element))
-            return normalizeText(labelText(*htmlElement));
+            return normalizeText(labelText(associatedLabels(*htmlElement).span()));
     }
 
     return { };
@@ -816,7 +837,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
         if (!input)
             return { SkipExtraction::SelfAndSubtree };
 
-        if (!visibleAssociatedLabelBounds(*input)) {
+        if (!visibleAssociatedLabelBounds(*input, context)) {
             RefPtr proxy = visualProxyForTransparentControl(*input);
             if (!proxy)
                 return { SkipExtraction::SelfAndSubtree };
@@ -971,7 +992,7 @@ static inline Variant<SkipExtraction, ItemData, URL, Editable> extractItemData(N
     if (RefPtr control = dynamicDowncast<HTMLTextFormControlElement>(element)) {
         RefPtr input = dynamicDowncast<HTMLInputElement>(control);
         Editable editable {
-            labelText(*control),
+            labelText(context.labelsForControl(*control)),
             input ? input->placeholder() : nullString(),
             shouldTreatAsPasswordField(element.get()),
             protect(element->document())->activeElement() == control
@@ -1527,7 +1548,7 @@ static inline void extractRecursive(Node& node, Item& parentItem, TraversalConte
             auto bounds = mainFrameViewBounds(node);
             if (bounds.isEmpty()) {
                 if (RefPtr input = dynamicDowncast<HTMLInputElement>(node)) {
-                    if (auto labelBounds = visibleAssociatedLabelBounds(*input))
+                    if (auto labelBounds = visibleAssociatedLabelBounds(*input, context))
                         bounds = *labelBounds;
                 }
             }
@@ -2098,7 +2119,7 @@ RenderedText extractRenderedText(Element& element)
 
     RefPtr frameView = renderer->view().frameView();
     auto direction = renderer->writingMode().blockDirection();
-    auto elementRectInDocument = frameView->absoluteToDocumentRect(renderer->absoluteBoundingBoxRect());
+    auto elementSizeInDocument = frameView->absoluteToDocumentRect(renderer->absoluteBoundingBoxRect()).size();
 
     Vector<TokenAndBlockOffset> allTokensAndOffsets;
     extractRenderedTokens(allTokensAndOffsets, element, direction);
@@ -2136,15 +2157,46 @@ RenderedText extractRenderedText(Element& element)
                 appendText(textWithReplacedContent, text);
                 appendText(textWithoutReplacedContent, text);
             }, [&](const IntSize& size) {
-                constexpr auto ratioToConsiderLengthAsLarge = 0.9;
-                if (size.width() > ratioToConsiderLengthAsLarge * elementRectInDocument.width() && size.height() > ratioToConsiderLengthAsLarge * elementRectInDocument.height())
+                if (isLargeReplacedContent(size, elementSizeInDocument))
                     hasLargeReplacedDescendant = true;
                 appendText(textWithReplacedContent, makeString('{', size.width(), ',', size.height(), '}'));
             });
         }
     }
 
-    return { textWithReplacedContent.toString(), textWithoutReplacedContent.toString(), hasLargeReplacedDescendant };
+    return { textWithReplacedContent.toString(), textWithoutReplacedContent.toString(), hasLargeReplacedDescendant, elementSizeInDocument };
+}
+
+Vector<IntSize> extractLargestReplacedContentSizes(ContainerNode& container)
+{
+    Vector<TokenAndBlockOffset> tokensAndOffsets;
+    extractRenderedTokens(tokensAndOffsets, container, FlowDirection::TopToBottom);
+
+    Vector<IntSize> sizes;
+    for (auto& [tokens, offset] : tokensAndOffsets) {
+        for (auto& token : tokens) {
+            if (auto* size = std::get_if<IntSize>(&token))
+                sizes.append(*size);
+        }
+    }
+
+    // After sorting by descending width, a size is only needed if it's taller than every size before it.
+    std::ranges::sort(sizes, [](auto& a, auto& b) {
+        return a.width() > b.width() || (a.width() == b.width() && a.height() > b.height());
+    });
+
+    Vector<IntSize> largestSizes;
+    for (auto& size : sizes) {
+        if (largestSizes.isEmpty() || size.height() > largestSizes.last().height())
+            largestSizes.append(size);
+    }
+    return largestSizes;
+}
+
+bool isLargeReplacedContent(IntSize size, FloatSize elementSizeInDocument)
+{
+    constexpr auto ratioToConsiderLengthAsLarge = 0.9;
+    return size.width() > ratioToConsiderLengthAsLarge * elementSizeInDocument.width() && size.height() > ratioToConsiderLengthAsLarge * elementSizeInDocument.height();
 }
 
 static Vector<std::pair<String, MainFrameViewFloatRect>> extractAllTextAndRectsRecursive(Document& document)
@@ -2416,15 +2468,15 @@ static constexpr auto interactedWithSelectElementDescription = "Successfully upd
 static void dispatchSimulatedClick(LocalFrame& frame, IntPoint location, CompletionHandler<void(bool, String&&)>&& completion)
 {
     frame.eventHandler().handleMouseMoveEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Default
     }, nullptr, false, HitTestRequest::Type::IgnoreClipping);
 
     frame.eventHandler().handleMousePressEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
+        location, location, MouseButton::Left, PlatformEvent::Type::MousePressed, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Default
     }, HitTestRequest::Type::IgnoreClipping);
 
     frame.eventHandler().handleMouseReleaseEvent({
-        location, location, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
+        location, location, MouseButton::Left, PlatformEvent::Type::MouseReleased, 1, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Default
     }, HitTestRequest::Type::IgnoreClipping);
 
     completion(true, { });
@@ -2433,7 +2485,7 @@ static void dispatchSimulatedClick(LocalFrame& frame, IntPoint location, Complet
 static void dispatchSimulatedHover(LocalFrame& frame, IntPoint location, CompletionHandler<void(bool, String&&)>&& completion)
 {
     frame.eventHandler().handleMouseMoveEvent({
-        location, location, MouseButton::None, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::UserDriven
+        location, location, std::unexpected { MouseButtonState::None }, PlatformEvent::Type::MouseMoved, 0, { }, MonotonicTime::now(), ForceAtClick, SyntheticClickType::NoTap, MouseEventInputSource::Default
     });
 
     completion(true, { });
@@ -2885,13 +2937,34 @@ static bool containsMultipleWords(StringView text)
     return false;
 }
 
+static String normalizedAltText(const Element& element)
+{
+    if (RefPtr image = dynamicDowncast<HTMLImageElement>(element))
+        return normalizeText(image->attributeWithoutSynchronization(HTMLNames::altAttr));
+
+    if (RefPtr input = dynamicDowncast<HTMLInputElement>(element)) {
+        if (input->isImageButton())
+            return normalizeText(input->attributeWithoutSynchronization(HTMLNames::altAttr));
+    }
+
+    return { };
+}
+
+static String labelTextForDescription(Element& element, IncludeAssociatedLabels includeAssociatedLabels = IncludeAssociatedLabels::No)
+{
+    if (auto text = normalizedLabelText(element, includeAssociatedLabels); !text.isEmpty())
+        return text;
+
+    return normalizedAltText(element);
+}
+
 static bool hasNoRenderedTextOrLabeledChild(Element& element)
 {
     if (containsLetterOrDigit(normalizeText(plainText(makeRangeSelectingNodeContents(element), behaviorsForTextExtraction))))
         return false;
 
     for (Ref child : descendantsOfType<Element>(element)) {
-        if (!normalizedLabelText(child).isEmpty())
+        if (!labelTextForDescription(child).isEmpty())
             return false;
     }
 
@@ -2953,7 +3026,7 @@ static String textDescription(Element& element, Vector<String>& stringsToValidat
         hasAccessibleName = true;
     }
 
-    if (auto text = normalizedLabelText(element, IncludeAssociatedLabels::Yes); !text.isEmpty()) {
+    if (auto text = labelTextForDescription(element, IncludeAssociatedLabels::Yes); !text.isEmpty()) {
         description.append(makeString(" labeled "_s, wrapWithDoubleQuotes(WTF::move(text))));
         stringsToValidate.append(WTF::move(text));
         needsParentContext = false;
@@ -3098,7 +3171,7 @@ static String textDescription(Node* node, Vector<String>& stringsToValidate)
         String labeledChildSuffix;
         if (RefPtr container = dynamicDowncast<ContainerNode>(node)) {
             for (Ref child : descendantsOfType<Element>(*container)) {
-                auto label = normalizedLabelText(child);
+                auto label = labelTextForDescription(child);
                 if (label.isEmpty())
                     continue;
 

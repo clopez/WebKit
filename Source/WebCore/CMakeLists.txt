@@ -32,6 +32,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/cookie-store"
     "${WEBCORE_DIR}/Modules/credentialmanagement"
     "${WEBCORE_DIR}/Modules/device-posture"
+    "${WEBCORE_DIR}/Modules/documentpip"
     "${WEBCORE_DIR}/Modules/encryptedmedia"
     "${WEBCORE_DIR}/Modules/encryptedmedia/legacy"
     "${WEBCORE_DIR}/Modules/entriesapi"
@@ -208,6 +209,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/plugins"
     "${WEBCORE_DIR}/rendering"
     "${WEBCORE_DIR}/rendering/mathml"
+    "${WEBCORE_DIR}/rendering/paint"
     "${WEBCORE_DIR}/rendering/shapes"
     "${WEBCORE_DIR}/rendering/style"
     "${WEBCORE_DIR}/rendering/svg"
@@ -406,6 +408,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/device-posture/DevicePostureType.idl
     Modules/device-posture/Navigator+DevicePosture.idl
 
+    Modules/documentpip/DocumentPictureInPicture.idl
+    Modules/documentpip/DocumentPictureInPictureEvent.idl
+
     Modules/encryptedmedia/MediaKeyEncryptionScheme.idl
     Modules/encryptedmedia/MediaKeyMessageEvent.idl
     Modules/encryptedmedia/MediaKeyMessageEventInit.idl
@@ -429,7 +434,10 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/entriesapi/FileSystemEntryCallback.idl
     Modules/entriesapi/FileSystemFileEntry.idl
 
+    Modules/fetch/DOMWindow+FetchLater.idl
+    Modules/fetch/DeferredRequestInit.idl
     Modules/fetch/FetchHeaders.idl
+    Modules/fetch/FetchLaterResult.idl
     Modules/fetch/FetchReferrerPolicy.idl
     Modules/fetch/FetchRequest.idl
     Modules/fetch/FetchRequestCache.idl
@@ -667,6 +675,10 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/permissions/PermissionStatus.idl
     Modules/permissions/Permissions.idl
 
+    Modules/phonenumberpossession/PhoneNumberPossessionCredential.idl
+    Modules/phonenumberpossession/PhoneNumberPossessionRequestOptions.idl
+    Modules/phonenumberpossession/PhoneNumberPossessionResponseType.idl
+
     Modules/pictureinpicture/PictureInPictureEvent.idl
     Modules/pictureinpicture/PictureInPictureWindow.idl
 
@@ -686,13 +698,9 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/remoteplayback/RemotePlayback.idl
     Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl
 
-    Modules/reporting/DeprecationReportBody.idl
-    Modules/reporting/IntegrityPolicyViolationReportBody.idl
     Modules/reporting/Report.idl
-    Modules/reporting/ReportBody.idl
     Modules/reporting/ReportingObserver.idl
     Modules/reporting/ReportingObserverCallback.idl
-    Modules/reporting/TestReportBody.idl
 
     Modules/screen-wake-lock/WakeLock.idl
     Modules/screen-wake-lock/WakeLockSentinel.idl
@@ -1066,6 +1074,7 @@ set(WebCore_NON_SVG_IDL_FILES
     css/DOMMatrixInit.idl
     css/DOMMatrixReadOnly.idl
     css/FontFace.idl
+    css/FontFaceLoadStatus.idl
     css/FontFaceSet.idl
     css/MediaList.idl
     css/MediaQueryList.idl
@@ -1400,6 +1409,8 @@ set(WebCore_NON_SVG_IDL_FILES
     html/canvas/CanvasRenderingContext2DSettings.idl
     html/canvas/CanvasTextAlign.idl
     html/canvas/CanvasTextBaseline.idl
+    html/canvas/CanvasToneMapping.idl
+    html/canvas/CanvasToneMappingMode.idl
     html/canvas/ImageBitmapRenderingContext.idl
     html/canvas/ImageBitmapRenderingContextSettings.idl
     html/canvas/ImageSmoothingQuality.idl
@@ -1436,8 +1447,6 @@ set(WebCore_NON_SVG_IDL_FILES
     inspector/InspectorFrontendHost.idl
     inspector/RTCLogsCallback.idl
 
-    loader/COEPInheritenceViolationReportBody.idl
-    loader/CORPViolationReportBody.idl
 
     mathml/MathMLAnchorElement.idl
     mathml/MathMLElement.idl
@@ -1522,7 +1531,6 @@ set(WebCore_NON_SVG_IDL_FILES
     page/WindowPostMessageOptions.idl
     page/WorkerNavigator.idl
 
-    page/csp/CSPViolationReportBody.idl
 
     plugins/DOMMimeType.idl
     plugins/DOMMimeTypeArray.idl
@@ -1983,6 +1991,8 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
 
     Modules/credentialmanagement/Navigator+Credentials.idl
 
+    Modules/documentpip/DOMWindow+DocumentPictureInPicture.idl
+
     Modules/encryptedmedia/Navigator+EME.idl
 
     Modules/entriesapi/HTMLInputElement+EntriesAPI.idl
@@ -2140,6 +2150,7 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
     html/canvas/CanvasPath.idl
     html/canvas/CanvasPathDrawingStyles.idl
     html/canvas/CanvasRect.idl
+    html/canvas/CanvasSettings.idl
     html/canvas/CanvasShadowStyles.idl
     html/canvas/CanvasState.idl
     html/canvas/CanvasText.idl
@@ -2256,7 +2267,6 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/popover.css
     ${WEBCORE_DIR}/css/quirks.css
     ${WEBCORE_DIR}/css/selectMultipleAndListBox.css
-    ${WEBCORE_DIR}/css/selectMultipleSelectedContent.css
     ${WEBCORE_DIR}/css/svg.css
     ${WEBCORE_DIR}/css/viewTransitions.css
     ${WEBCORE_DIR}/html/shadow/attachmentElementShadow.css
@@ -2694,6 +2704,9 @@ if (ENABLE_WEBXR)
     )
 endif ()
 
+# The style sheets below are concatenated into one sheet that every media element shares through
+# the style sheet contents cache. Do not use CSS nesting in them: one nested rule makes the whole
+# sheet uncacheable, and each media element would parse its own copy.
 set(MODERN_MEDIA_CONTROLS_STYLE_SHEETS
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/activity-indicator.css"
     "${WEBCORE_DIR}/Modules/modern-media-controls/controls/airplay-button.css"
@@ -3367,6 +3380,13 @@ WEBKIT_SYMLINK_FILES(WebCore_CopyPrivateHeaders
     FILES ${WebCore_PRIVATE_FRAMEWORK_HEADERS}
     FLATTENED
 )
+if (APPLE)
+    # WebCore_Private.modulemap's umbrella is PrivateHeaders.
+    WEBKIT_ADD_UMBRELLA_INVALIDATION_HEADER(WebCore_CopyPrivateHeaders
+        DESTINATION ${WebCore_PRIVATE_HEADERS_DIR}
+        FILES ${WebCore_PRIVATE_FRAMEWORK_HEADERS}
+    )
+endif ()
 if (NOT USE_HEADER_MAPS)
     list(APPEND WebCore_INTERFACE_DEPENDENCIES WebCore_CopyPrivateHeaders)
     if (ENABLE_WEBCORE_TEST_SUPPORT)

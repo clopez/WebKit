@@ -180,7 +180,7 @@ public:
     void resetScript();
     NODELETE FrameView* virtualView() const final;
 
-    bool isRootFrame() const final { return m_rootFrame.get() == this; }
+    NODELETE bool isRootFrame() const final { return m_rootFrame.get() == this; }
     const LocalFrame& rootFrame() const { return *m_rootFrame; }
     LocalFrame& rootFrame() { return *m_rootFrame; }
 
@@ -193,6 +193,12 @@ public:
 
     bool hasHadUserInteraction() const { return m_hasHadUserInteraction; }
     void setHasHadUserInteraction() { m_hasHadUserInteraction = true; }
+
+    unsigned cachedPageCount() const { return m_cachedPageCount; }
+    void incrementCachedPageCount() { ++m_cachedPageCount; }
+    void decrementCachedPageCount() { --m_cachedPageCount; }
+    bool existsOnlyForCachedPages() const { return m_existsOnlyForCachedPages; }
+    WEBCORE_EXPORT void willBeReplacedByRemoteFrame();
 
     bool requestDOMPasteAccess(DOMPasteAccessCategory = DOMPasteAccessCategory::General);
 
@@ -224,11 +230,15 @@ public:
     WEBCORE_EXPORT void setPageZoomFactor(float);
     WEBCORE_EXPORT void setTextZoomFactor(float);
     WEBCORE_EXPORT void setPageAndTextZoomFactors(float pageZoomFactor, float textZoomFactor);
+    WEBCORE_EXPORT void frameOwnerZoomDidChange();
 
     float pageZoomFactor() const { return m_pageZoomFactor; }
+    // The zoom of this frame's document. Use it to convert between CSS and layout units.
+    float effectiveZoomFactor() const { return m_pageZoomFactor * m_frameOwnerZoomFactor; }
     float textZoomFactor() const { return m_textZoomFactor; }
+    float frameOwnerZoomFactor() const { return m_frameOwnerZoomFactor; }
 
-    float frameScaleFactorForChild(const Frame&) const final;
+    float frameOwnerZoomFactorForChild(const Frame&) const final;
 
     void deviceOrPageScaleFactorChanged();
 
@@ -429,13 +439,16 @@ private:
 
     float m_pageZoomFactor;
     float m_textZoomFactor;
+    float m_frameOwnerZoomFactor { 1 };
     ScrollbarMode m_scrollingMode { ScrollbarMode::Auto };
 
     int m_activeDOMObjectsAndAnimationsSuspendedCount { 0 };
     bool m_documentIsBeingReplaced { false };
     unsigned m_navigationDisableCount { 0 };
     unsigned m_selfOnlyRefCount { 0 };
+    unsigned m_cachedPageCount { 0 };
     bool m_hasHadUserInteraction { false };
+    bool m_existsOnlyForCachedPages { false };
 
     std::unique_ptr<OverrideScreenSize> m_overrideScreenSize;
 

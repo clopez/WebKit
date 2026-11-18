@@ -797,10 +797,19 @@ static Inspector::CommandResult<Vector<SimulatedInputKeyFrame>> translateTicksTo
             }
             case ActionType::PointerMove:
                 // https://w3c.github.io/webdriver/#dfn-dispatch-a-pointermove-action
-                if (action.origin == OriginType::Element)
-                    SYNC_FAIL_WITH_PREDEFINED_ERROR_AND_DETAILS(NotImplemented, "Element origin is not supported yet."_s);
                 sourceState.mouseInteraction = MouseInteraction::Move;
-                sourceState.origin = action.origin == OriginType::Pointer ? MouseMoveOrigin::Pointer : MouseMoveOrigin::Viewport;
+                switch (action.origin) {
+                case OriginType::Pointer:
+                    sourceState.origin = MouseMoveOrigin::Pointer;
+                    break;
+                case OriginType::Viewport:
+                    sourceState.origin = MouseMoveOrigin::Viewport;
+                    break;
+                case OriginType::Element:
+                    sourceState.origin = MouseMoveOrigin::Element;
+                    sourceState.nodeHandle = action.originSharedId;
+                    break;
+                }
                 sourceState.location = WebCore::flooredIntPoint(WebCore::FloatPoint(action.x, action.y));
                 break;
             default:
@@ -871,6 +880,18 @@ Automation::BidiInputState& BidiInputAgent::inputStateForTopLevelContext(const S
 
 void BidiInputAgent::willClosePage(const String& pageHandle)
 {
+#if ENABLE(WEBDRIVER_MOUSE_INTERACTIONS)
+    RefPtr session = m_session;
+    RefPtr inputState = m_inputStates.get(pageHandle);
+    if (session && inputState) {
+        for (auto& source : inputState->simulatedSources().values()) {
+            auto& sourceState = source->state;
+            if (sourceState.pressedMouseButton && sourceState.mouseInteraction != MouseInteraction::Up)
+                session->forgetPressedMouseButton(*sourceState.pressedMouseButton);
+        }
+    }
+#endif
+
     m_inputStates.remove(pageHandle);
 }
 

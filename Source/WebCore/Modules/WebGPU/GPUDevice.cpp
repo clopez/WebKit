@@ -85,6 +85,7 @@
 #include "WebGPUShaderModuleDescriptor.h"
 #include "XRGPUBinding.h"
 #include <WebCore/WebGPUCppAPI.h>
+#include <wtf/Borrow.h>
 #include <wtf/CheckedArithmetic.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/RAMSize.h>
@@ -264,10 +265,9 @@ void GPUDevice::destroy(ScriptExecutionContext& scriptExecutionContext)
         return;
 
     m_isDestroyed = true;
-    for (Ref buffer : m_buffersToUnmap)
-        buffer->destroy(scriptExecutionContext);
-
-    m_buffersToUnmap.clear();
+    auto buffersToUnmap = std::exchange(m_buffersToUnmap, { });
+    for (Ref buffer : buffersToUnmap)
+        buffer->unmap(scriptExecutionContext);
 
     m_backing->destroy();
     notifyMemoryCostChanged();
@@ -320,6 +320,8 @@ ExceptionOr<Ref<GPUBuffer>> GPUDevice::createBuffer(GPUBufferDescriptor&& buffer
         return Exception { ExceptionCode::InvalidStateError, "GPUDevice.createBuffer: Unable to create buffer."_s };
 
     Ref result = GPUBuffer::create(buffer.releaseNonNull(), bufferSize, usage, mappedAtCreation, WTF::move(backingDescriptor.label), *this);
+    if (mappedAtCreation)
+        addBufferToUnmap(result);
     // A buffer over the device's limits is invalid, so it holds no memory.
     if (bufferSize <= limits()->maxBufferSize())
         result->setMemoryCost(memoryCostIfAllocatable(bufferSize));
@@ -629,7 +631,7 @@ ExceptionOr<Ref<GPUExternalTexture>> GPUDevice::importExternalTexture(GPUExterna
 
 ExceptionOr<Ref<GPUBindGroupLayout>> GPUDevice::createBindGroupLayout(GPUBindGroupLayoutDescriptor&& bindGroupLayoutDescriptor)
 {
-    for (auto& entry : bindGroupLayoutDescriptor.entries) {
+    for (auto& entry : borrow(bindGroupLayoutDescriptor.entries)) {
         if (entry.storageTexture) {
             if (auto error = errorValidatingSupportedFormat(entry.storageTexture->format))
                 return Exception { ExceptionCode::TypeError, makeString("GPUDevice.createBindGroupLayout: Unsupported texture format: "_s, *error) };
@@ -702,9 +704,9 @@ ExceptionOr<Ref<GPUShaderModule>> GPUDevice::createShaderModule(GPUShaderModuleD
 
     auto descriptor = shaderModuleDescriptor.convertToBacking(*m_autoPipelineLayout);
     auto backingDescriptor = descriptor;
-#if PLATFORM(VISION)
+#if ENABLE(WEBXR)
     // FIXME: Remove once https://bugs.webkit.org/show_bug.cgi?id=297538 is addressed
-    if (auto context = scriptExecutionContext(); context && context->url().string().contains("toji.github.io/webgpu-metaballs"_s))
+    if (RefPtr context = scriptExecutionContext(); context && context->url().string().contains("toji.github.io/webgpu-metaballs"_s))
         backingDescriptor.code = makeStringByReplacingAll(descriptor.code, "fma(depthSample"_s, "fma(min(depthSample, 0.95)"_s);
 #endif
     RefPtr shaderModule = WebCore::createShaderModule(m_backing, backingDescriptor);
@@ -732,7 +734,7 @@ ExceptionOr<Ref<GPUComputePipeline>> GPUDevice::createComputePipeline(UniquelyAn
 ExceptionOr<Ref<GPURenderPipeline>> GPUDevice::createRenderPipeline(UniquelyAnnotatedDescriptor<GPURenderPipelineDescriptor>&& renderPipelineDescriptor)
 {
     if (renderPipelineDescriptor->fragment) {
-        for (auto& colorState : renderPipelineDescriptor->fragment->targets) {
+        for (auto& colorState : borrow(renderPipelineDescriptor->fragment->targets)) {
             if (colorState) {
                 if (auto error = errorValidatingSupportedFormat(colorState->format))
                     return Exception { ExceptionCode::TypeError, makeString("GPUDevice.createRenderPipeline: Unsupported texture format for color target: "_s, *error) };
@@ -783,7 +785,7 @@ void GPUDevice::createComputePipelineAsync(UniquelyAnnotatedDescriptor<GPUComput
 ExceptionOr<void> GPUDevice::createRenderPipelineAsync(UniquelyAnnotatedDescriptor<GPURenderPipelineDescriptor>&& renderPipelineDescriptor, CreateRenderPipelineAsyncPromise&& promise)
 {
     if (renderPipelineDescriptor->fragment) {
-        for (auto& colorState : renderPipelineDescriptor->fragment->targets) {
+        for (auto& colorState : borrow(renderPipelineDescriptor->fragment->targets)) {
             if (colorState) {
                 if (auto error = errorValidatingSupportedFormat(colorState->format))
                     return Exception { ExceptionCode::TypeError, makeString("GPUDevice.createRenderBundleEncoder: Unsupported texture format for color format: "_s, *error) };
@@ -837,7 +839,7 @@ ExceptionOr<Ref<GPUCommandEncoder>> GPUDevice::createCommandEncoder(std::optiona
 
 ExceptionOr<Ref<GPURenderBundleEncoder>> GPUDevice::createRenderBundleEncoder(GPURenderBundleEncoderDescriptor&& renderBundleEncoderDescriptor)
 {
-    for (auto& colorFormat : renderBundleEncoderDescriptor.colorFormats) {
+    for (auto& colorFormat : borrow(renderBundleEncoderDescriptor.colorFormats)) {
         if (colorFormat) {
             if (auto error = errorValidatingSupportedFormat(*colorFormat))
                 return Exception { ExceptionCode::TypeError, makeString("GPUDevice.createRenderBundleEncoder: Unsupported texture format for color format."_s, *error) };

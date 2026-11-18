@@ -304,9 +304,9 @@ void PageClientImpl::didCreateContextInModelProcessForVisibilityPropagation(Laye
     [m_contentView _modelProcessDidCreateContextForVisibilityPropagation];
 }
 
-void PageClientImpl::didReceiveInteractiveModelElement(std::optional<WebCore::NodeIdentifier> nodeID)
+void PageClientImpl::didReceiveInteractiveModelElement(std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::NodeIdentifier> nodeID)
 {
-    [m_contentView didReceiveInteractiveModelElement:nodeID];
+    [m_contentView didReceiveInteractiveModelElement:nodeID frameID:frameID];
 }
 #endif // ENABLE(MODEL_PROCESS)
 
@@ -376,7 +376,7 @@ void PageClientImpl::decidePolicyForGeolocationPermissionRequest(WebFrameProxy& 
         return std::exchange(completionHandler, nullptr)(false);
     if (auto webView = this->webView()) {
         RetainPtr geolocationProvider = [protect(wrapper(webView->_page->configuration().processPool())) _geolocationProvider];
-        [geolocationProvider decidePolicyForGeolocationRequestFromOrigin:FrameInfoData { frameInfo } topOrigin:mainFrame->documentSecurityOriginData() completionHandler:std::exchange(completionHandler, nullptr) view:webView.get()];
+        [geolocationProvider decidePolicyForGeolocationRequestFromOrigin:FrameInfoData { frameInfo } frameOrigin:frame.documentSecurityOriginData() topOrigin:mainFrame->documentSecurityOriginData() completionHandler:std::exchange(completionHandler, nullptr) view:webView.get()];
     }
 }
 
@@ -986,6 +986,17 @@ bool PageClientImpl::lockFullscreenOrientation(WebCore::ScreenOrientationType or
 void PageClientImpl::unlockFullscreenOrientation()
 {
     [[webView() fullScreenWindowController] resetSupportedOrientations];
+}
+
+void PageClientImpl::beginRequestFullscreen()
+{
+    [[webView() fullScreenWindowController] installPlaceholderSnapshot];
+}
+
+void PageClientImpl::endRequestFullscreen()
+{
+    if ([webView() hasFullScreenWindowController])
+        [[webView() fullScreenWindowController] discardPlaceholderSnapshot];
 }
 
 void PageClientImpl::beganEnterFullScreen(const IntRect& initialFrame, const IntRect& finalFrame, CompletionHandler<void(bool)>&& completionHandler)

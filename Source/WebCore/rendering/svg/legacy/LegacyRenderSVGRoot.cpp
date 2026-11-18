@@ -61,7 +61,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(LegacyRenderSVGRoot);
 const int legacySVGRootDefaultWidth = 300;
 const int legacySVGRootDefaultHeight = 150;
 
-LegacyRenderSVGRoot::LegacyRenderSVGRoot(SVGSVGElement& element, Style::ComputedStyle&& style)
+LegacyRenderSVGRoot::LegacyRenderSVGRoot(SVGSVGElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderReplaced(Type::LegacySVGRoot, element, WTF::move(style), ReplacedFlag::UsesBoundaryCaching)
 {
     ASSERT(isLegacyRenderSVGRoot());
@@ -226,7 +226,7 @@ void LegacyRenderSVGRoot::layout()
     m_isLayoutSizeChanged = needsLayout || (svgSVGElement().hasRelativeLengths() && oldSize != borderBoxSize());
     SVGRenderSupport::layoutChildren(*this, needsLayout || SVGRenderSupport::filtersForceContainerLayout(*this));
 
-    if (!m_resourcesNeedingToInvalidateClients.isEmptyIgnoringNullReferences()) {
+    if (!m_resourcesNeedingToInvalidateClients.computeIsEmpty()) {
         // Invalidate resource clients, which may mark some nodes for layout.
         for (auto& resource :  m_resourcesNeedingToInvalidateClients) {
             resource.removeAllClientsFromCacheAndMarkForInvalidation();
@@ -484,8 +484,7 @@ std::optional<FloatRect> LegacyRenderSVGRoot::computeFloatVisibleRectInContainer
     if (!rectsInContainer)
         return std::nullopt;
 
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST return FloatRect(rectsInContainer->clippedOverflowRect);
+    return FloatRect(rectsInContainer->clippedOverflowRect);
 }
 
 // This method expects local CSS box coordinates.
@@ -570,8 +569,7 @@ bool LegacyRenderSVGRoot::nodeAtPoint(const HitTestRequest& request, HitTestResu
     // Test SVG content if the point is in our content box or it is inside the visualOverflowRect and the overflow is visible.
     // FIXME: This should be an intersection when rect-based hit tests are supported by nodeAtFloatPoint.
     if (contentBoxRect().contains(pointInBorderBox) || (!shouldApplyViewportClip() && visualOverflowRect().contains(pointInParent))) {
-        // FIXME: Remove suppression once rdar://189998444 is fixed.
-        SUPPRESS_MEMORY_UNSAFE_CAST FloatPoint localPoint = valueOrDefault(localToParentTransform().inverse()).mapPoint(FloatPoint(pointInParent));
+        FloatPoint localPoint = valueOrDefault(localToParentTransform().inverse()).mapPoint(FloatPoint(pointInParent));
 
         for (RenderObject* child = lastChild(); child; child = child->previousSibling()) {
             // FIXME: nodeAtFloatPoint() doesn't handle rect-based hit tests yet.

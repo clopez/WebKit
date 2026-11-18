@@ -514,6 +514,7 @@ public:
             return;
         }
 
+        ASSERT(src != dataTempRegister);
         move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.and_<32>(dest, src, dataTempRegister);
     }
@@ -527,6 +528,7 @@ public:
             return;
         }
 
+        ASSERT(src != dataTempRegister);
         move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.and_<32, S>(dest, src, dataTempRegister);
     }
@@ -564,6 +566,7 @@ public:
             return;
         }
 
+        ASSERT(src != dataTempRegister);
         move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.and_<64>(dest, src, dataTempRegister);
     }
@@ -587,6 +590,7 @@ public:
             return;
         }
 
+        ASSERT(src != dataTempRegister);
         signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.and_<64>(dest, src, dataTempRegister);
     }
@@ -1414,6 +1418,7 @@ public:
             return;
         }
 
+        ASSERT(src != dataTempRegister);
         move(imm, getCachedDataTempRegisterIDAndInvalidate());
         m_assembler.orr<64>(dest, src, dataTempRegister);
     }
@@ -1736,6 +1741,7 @@ public:
                 return;
             }
 
+            ASSERT(src != dataTempRegister);
             move(imm, getCachedDataTempRegisterIDAndInvalidate());
             m_assembler.eor<32>(dest, src, dataTempRegister);
         }
@@ -1777,6 +1783,7 @@ public:
                 return;
             }
 
+            ASSERT(src != dataTempRegister);
             move(imm, getCachedDataTempRegisterIDAndInvalidate());
             m_assembler.eor<64>(dest, src, dataTempRegister);
         }
@@ -1801,6 +1808,7 @@ public:
                 return;
             }
 
+            ASSERT(src != dataTempRegister);
             signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
             m_assembler.eor<64>(dest, src, dataTempRegister);
         }
@@ -1931,11 +1939,13 @@ public:
 
     void loadPair32(PreIndexAddress src, RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(dest1 != dest2); // If it is the same, ldp becomes illegal instruction.
         m_assembler.ldp<32>(dest1, dest2, src.base, PairPreIndex(src.index));
     }
 
     void loadPair32(PostIndexAddress src, RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(dest1 != dest2); // If it is the same, ldp becomes illegal instruction.
         m_assembler.ldp<32>(dest1, dest2, src.base, PairPostIndex(src.index));
     }
 
@@ -1983,11 +1993,13 @@ public:
 
     void loadPair64(PreIndexAddress src, RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(dest1 != dest2); // If it is the same, ldp becomes illegal instruction.
         m_assembler.ldp<64>(dest1, dest2, src.base, PairPreIndex(src.index));
     }
 
     void loadPair64(PostIndexAddress src, RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(dest1 != dest2); // If it is the same, ldp becomes illegal instruction.
         m_assembler.ldp<64>(dest1, dest2, src.base, PairPostIndex(src.index));
     }
 
@@ -4283,6 +4295,7 @@ public:
 
     void popPair(RegisterID dest1, RegisterID dest2)
     {
+        ASSERT(dest1 != dest2); // If it is the same, ldp becomes illegal instruction.
         m_assembler.ldp<64>(dest1, dest2, ARM64Registers::sp, PairPostIndex(16));
     }
 
@@ -4927,6 +4940,7 @@ public:
             if (logicalImm.isValid())
                 m_assembler.tst<32>(reg, logicalImm);
             else {
+                ASSERT(reg != dataTempRegister);
                 move(mask, getCachedDataTempRegisterIDAndInvalidate());
                 m_assembler.tst<32>(reg, dataTempRegister);
             }
@@ -5116,9 +5130,9 @@ public:
         move(TrustedImmPtr(reinterpret_cast<void*>(address.offset)), getCachedMemoryTempRegisterIDAndInvalidate());
 
         if (MacroAssemblerHelpers::isUnsigned<MacroAssemblerARM64>(cond))
-            m_assembler.ldrh(memoryTempRegister, memoryTempRegister, address.base);
+            m_assembler.ldrh(memoryTempRegister, memoryTempRegister, address.base, Assembler::UXTX, 1);
         else
-            m_assembler.ldrsh<32>(memoryTempRegister, memoryTempRegister, address.base);
+            m_assembler.ldrsh<32>(memoryTempRegister, memoryTempRegister, address.base, Assembler::UXTX, 1);
 
         return branchTest32(cond, memoryTempRegister, mask16);
     }
@@ -5325,25 +5339,25 @@ public:
     Jump branchNeg32(ResultCondition cond, RegisterID dest)
     {
         m_assembler.neg<32, S>(dest, dest);
-        return Jump(makeBranch(cond));
+        return Jump(makeBranchAfterSubtract(cond));
     }
 
     Jump branchNeg64(ResultCondition cond, RegisterID srcDest)
     {
         m_assembler.neg<64, S>(srcDest, srcDest);
-        return Jump(makeBranch(cond));
+        return Jump(makeBranchAfterSubtract(cond));
     }
 
     Jump branchSub32(ResultCondition cond, RegisterID dest)
     {
         m_assembler.neg<32, S>(dest, dest);
-        return Jump(makeBranch(cond));
+        return Jump(makeBranchAfterSubtract(cond));
     }
 
     Jump branchSub32(ResultCondition cond, RegisterID op1, RegisterID op2, RegisterID dest)
     {
         m_assembler.sub<32, S>(dest, op1, op2);
-        return Jump(makeBranch(cond));
+        return Jump(makeBranchAfterSubtract(cond));
     }
 
     Jump branchSub32(ResultCondition cond, RegisterID op1, TrustedImm32 imm, RegisterID dest)
@@ -5355,7 +5369,7 @@ public:
                 m_assembler.sub<32, S>(dest, op1, u12, shift);
             else
                 m_assembler.add<32, S>(dest, op1, u12, shift);
-            return Jump(makeBranch(cond));
+            return Jump(makeBranchAfterSubtract(cond));
         }
 
         signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
@@ -5375,7 +5389,7 @@ public:
     Jump branchSub64(ResultCondition cond, RegisterID op1, RegisterID op2, RegisterID dest)
     {
         m_assembler.sub<64, S>(dest, op1, op2);
-        return Jump(makeBranch(cond));
+        return Jump(makeBranchAfterSubtract(cond));
     }
 
     Jump branchSub64(ResultCondition cond, RegisterID op1, TrustedImm32 imm, RegisterID dest)
@@ -5387,7 +5401,7 @@ public:
                 m_assembler.sub<64, S>(dest, op1, u12, shift);
             else
                 m_assembler.add<64, S>(dest, op1, u12, shift);
-            return Jump(makeBranch(cond));
+            return Jump(makeBranchAfterSubtract(cond));
         }
 
         signExtend32ToPtr(imm, getCachedDataTempRegisterIDAndInvalidate());
@@ -5792,6 +5806,7 @@ public:
         if (mask.m_value == -1)
             m_assembler.tst<64>(src, src);
         else {
+            ASSERT(src != dataTempRegister);
             signExtend32ToPtr(mask, getCachedDataTempRegisterIDAndInvalidate());
             m_assembler.tst<64>(src, dataTempRegister);
         }
@@ -6755,7 +6770,7 @@ public:
     void vectorRelaxedMin(SIMDInfo simdInfo, FPRegisterID left, FPRegisterID right, FPRegisterID dest)
     {
         // Relaxed min allows implementation-defined NaN behavior
-        // ARM64 fmin returns the non-NaN operand if one is NaN, or NaN if both are NaN
+        // ARM64 fmin propagates NaN (FMINNM, not FMIN, returns the non-NaN operand)
         ASSERT(scalarTypeIsFloatingPoint(simdInfo.lane));
         m_assembler.vectorFmin(dest, left, right, simdInfo.lane);
     }
@@ -6763,7 +6778,7 @@ public:
     void vectorRelaxedMax(SIMDInfo simdInfo, FPRegisterID left, FPRegisterID right, FPRegisterID dest)
     {
         // Relaxed max allows implementation-defined NaN behavior
-        // ARM64 fmax returns the non-NaN operand if one is NaN, or NaN if both are NaN
+        // ARM64 fmax propagates NaN (FMAXNM, not FMAX, returns the non-NaN operand)
         ASSERT(scalarTypeIsFloatingPoint(simdInfo.lane));
         m_assembler.vectorFmax(dest, left, right, simdInfo.lane);
     }
@@ -6834,6 +6849,8 @@ public:
             m_assembler.vectorFmax(dest, left, right, simdInfo.lane);
         else {
             ASSERT(simdInfo.signMode != SIMDSignMode::None);
+            // SMAX and UMAX have no 64-bit element form.
+            ASSERT(simdInfo.lane != SIMDLane::i64x2);
             if (simdInfo.signMode == SIMDSignMode::Signed)
                 m_assembler.smax(dest, left, right, simdInfo.lane);
             else
@@ -6847,6 +6864,8 @@ public:
             m_assembler.vectorFmin(dest, left, right, simdInfo.lane);
         else {
             ASSERT(simdInfo.signMode != SIMDSignMode::None);
+            // SMIN and UMIN have no 64-bit element form.
+            ASSERT(simdInfo.lane != SIMDLane::i64x2);
             if (simdInfo.signMode == SIMDSignMode::Signed)
                 m_assembler.smin(dest, left, right, simdInfo.lane);
             else
@@ -6864,7 +6883,7 @@ public:
 
         // each bit in lane is 1 if left > right
         m_assembler.fcmgt(scratch, left, right, simdInfo.lane);
-        // 1 means use left
+        // 1 means use right
         m_assembler.bsl(scratch, right, left);
         moveVector(scratch, dest);
 
@@ -6875,8 +6894,10 @@ public:
         ASSERT(scalarTypeIsFloatingPoint(simdInfo.lane));
         ASSERT(left != scratch);
         ASSERT(right != scratch);
-        // right > left, dest = left
+        // right > left, dest = right
+        // each bit in lane is 1 if right > left
         m_assembler.fcmgt(scratch, right, left, simdInfo.lane);
+        // 1 means use right
         m_assembler.bsl(scratch, right, left);
         moveVector(scratch, dest);
     }
@@ -7148,6 +7169,9 @@ public:
     void vectorReverse(SIMDInfo simdInfo, TrustedImm32 groupSize, FPRegisterID input, FPRegisterID dest)
     {
         ASSERT(scalarTypeIsIntegral(simdInfo.lane));
+        // REV16 requires 8-bit elements, and REV32 and REV64 have no 64-bit element form,
+        // so the element must be smaller than the group being reversed.
+        ASSERT(elementByteSize(simdInfo.lane) < static_cast<unsigned>(groupSize.m_value));
         switch (groupSize.m_value) {
         case 2:
             m_assembler.rev16(dest, input, simdInfo.lane);
@@ -7308,7 +7332,13 @@ public:
         m_assembler.addpv(dst, a, b, simdInfo.lane);
     }
 
-    void vectorAvgRound(SIMDInfo simdInfo, FPRegisterID a, FPRegisterID b, FPRegisterID dest) { m_assembler.urhadd(dest, a, b, simdInfo.lane); }
+    void vectorAvgRound(SIMDInfo simdInfo, FPRegisterID a, FPRegisterID b, FPRegisterID dest)
+    {
+        ASSERT(scalarTypeIsIntegral(simdInfo.lane));
+        // URHADD has no 64-bit element form.
+        ASSERT(simdInfo.lane != SIMDLane::i64x2);
+        m_assembler.urhadd(dest, a, b, simdInfo.lane);
+    }
     
     void vectorMulSat(FPRegisterID a, FPRegisterID b, FPRegisterID dest)
     {
@@ -7591,6 +7621,14 @@ protected:
     ALWAYS_INLINE Jump makeBranch(RelationalCondition cond) { return makeBranch(ARM64Condition(cond)); }
     ALWAYS_INLINE Jump makeBranch(ResultCondition cond) { return makeBranch(ARM64Condition(cond)); }
     ALWAYS_INLINE Jump makeBranch(DoubleCondition cond) { return makeBranch(ARM64Condition(cond)); }
+
+    // AArch64 subtraction sets C when there is no borrow, whereas Carry means borrow on x86.
+    ALWAYS_INLINE Jump makeBranchAfterSubtract(ResultCondition cond)
+    {
+        if (cond == Carry)
+            return makeBranch(Assembler::ConditionCC);
+        return makeBranch(cond);
+    }
 
     template <int dataSize>
     ALWAYS_INLINE Jump makeCompareAndBranch(ZeroCondition cond, RegisterID reg)

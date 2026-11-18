@@ -1903,7 +1903,7 @@ void UnifiedPDFPlugin::updateScrollingExtents()
 
     EventRegion eventRegion;
     auto eventRegionContext = eventRegion.makeContext();
-    eventRegionContext.unite(FloatRoundedRect(FloatRect({ }, size())), *renderer, protect(renderer->style()).get());
+    eventRegionContext->unite(FloatRoundedRect(FloatRect({ }, size())), *renderer, protect(renderer->style()).get());
     m_scrollContainerLayer->setEventRegion(WTF::move(eventRegion));
 }
 
@@ -2178,8 +2178,7 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
     switch (mouseEventType) {
     case WebCore::PlatformEventType::MouseMoved:
         mouseMovedInContentArea();
-        switch (mouseEventButton) {
-        case WebCore::MouseButton::None: {
+        if (!mouseEventButton) {
             auto altKeyIsActive = event.altKey() ? AltKeyIsActive::Yes : AltKeyIsActive::No;
             auto pdfElementTypes = pdfElementTypesForPluginPoint(lastKnownMousePositionInView());
             notifyCursorChanged(toWebCoreCursorType(pdfElementTypes, altKeyIsActive));
@@ -2193,7 +2192,8 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
 
             return true;
         }
-        case WebCore::MouseButton::Left: {
+
+        if (*mouseEventButton == WebCore::MouseButton::Left) {
             if (RetainPtr trackedAnnotation = m_annotationTrackingState.trackedAnnotation()) {
                 RetainPtr annotationUnderMouse = annotationForRootViewPoint(flooredIntPoint(event.position()));
                 updateTrackedAnnotation(annotationUnderMouse.get());
@@ -2205,12 +2205,10 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
 
             return true;
         }
-        default:
-            return false;
-        }
+
+        return false;
     case WebCore::PlatformEventType::MousePressed:
-        switch (mouseEventButton) {
-        case WebCore::MouseButton::Left: {
+        if (mouseEventButton == WebCore::MouseButton::Left) {
             if (RetainPtr<PDFAnnotation> annotation = annotationForRootViewPoint(flooredIntPoint(event.position()))) {
                 if ([annotation isReadOnly]
                     && annotationIsWidgetOfType(annotation.get(), { WidgetType::Button, WidgetType::Text, WidgetType::Choice }))
@@ -2235,12 +2233,10 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
             beginTrackingSelection(pageIndex, pointInPageSpace, event);
             return false;
         }
-        default:
-            return false;
-        }
+
+        return false;
     case WebCore::PlatformEventType::MouseReleased:
-        switch (mouseEventButton) {
-        case WebCore::MouseButton::Left:
+        if (mouseEventButton == WebCore::MouseButton::Left) {
             if (RetainPtr trackedAnnotation = m_annotationTrackingState.trackedAnnotation(); trackedAnnotation && !annotationIsWidgetOfType(trackedAnnotation.get(), WidgetType::Text)) {
                 RetainPtr annotationUnderMouse = annotationForRootViewPoint(flooredIntPoint(event.position()));
                 finishTrackingAnnotation(annotationUnderMouse.get(), mouseEventType, mouseEventButton);
@@ -2266,9 +2262,9 @@ bool UnifiedPDFPlugin::handleMouseEvent(const WebCore::PlatformMouseEvent& event
             }
 
             return false;
-        default:
-            return false;
         }
+
+        return false;
     default:
         return false;
     }
@@ -2394,15 +2390,14 @@ void UnifiedPDFPlugin::repaintAnnotationsForFormField(NSString *fieldName)
 {
 #if HAVE(PDFDOCUMENT_ANNOTATIONS_FOR_FIELD_NAME)
     RetainPtr annotations = [m_pdfDocument annotationsForFieldName:fieldName];
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFAnnotation *annotation in annotations.get())
+    for (PDFAnnotation *annotation in annotations.get())
         setNeedsRepaintForAnnotation(annotation, repaintRequirementsForAnnotation(annotation));
 #else
     UNUSED_PARAM(fieldName);
 #endif
 }
 
-void UnifiedPDFPlugin::startTrackingAnnotation(RetainPtr<PDFAnnotation>&& annotation, WebCore::PlatformEventType mouseEventType, WebCore::MouseButton mouseEventButton)
+void UnifiedPDFPlugin::startTrackingAnnotation(RetainPtr<PDFAnnotation>&& annotation, WebCore::PlatformEventType mouseEventType, std::expected<WebCore::MouseButton, WebCore::MouseButtonState> mouseEventButton)
 {
     auto repaintRequirements = m_annotationTrackingState.startAnnotationTracking(WTF::move(annotation), mouseEventType, mouseEventButton);
     setNeedsRepaintForAnnotation(protect(m_annotationTrackingState.trackedAnnotation()).get(), repaintRequirements);
@@ -2425,7 +2420,7 @@ void UnifiedPDFPlugin::updateTrackedAnnotation(PDFAnnotation *annotationUnderMou
     setNeedsRepaintForAnnotation(currentTrackedAnnotation.get(), repaintRequirements);
 }
 
-void UnifiedPDFPlugin::finishTrackingAnnotation(PDFAnnotation *annotationUnderMouse, WebCore::PlatformEventType mouseEventType, WebCore::MouseButton mouseEventButton, RepaintRequirements repaintRequirements)
+void UnifiedPDFPlugin::finishTrackingAnnotation(PDFAnnotation *annotationUnderMouse, WebCore::PlatformEventType mouseEventType, std::expected<WebCore::MouseButton, WebCore::MouseButtonState> mouseEventButton, RepaintRequirements repaintRequirements)
 {
     // AnnotationTrackingState::finishAnnotationTracking() will clear this, so hold on to it.
     RetainPtr previouslyTrackedAnnotation = m_annotationTrackingState.trackedAnnotation();
@@ -2697,7 +2692,7 @@ std::optional<PDFContextMenu> UnifiedPDFPlugin::createContextMenu(const IntPoint
 
 Vector<String> UnifiedPDFPlugin::contextMenuItemTitlesForTesting(const IntPoint& contextMenuEventRootViewPoint) const
 {
-    auto contextMenu = createContextMenu(contextMenuEventRootViewPoint, WebEventInputSource::UserDriven);
+    auto contextMenu = createContextMenu(contextMenuEventRootViewPoint, WebEventInputSource::Default);
     if (!contextMenu)
         return { };
 
@@ -3148,7 +3143,7 @@ void UnifiedPDFPlugin::extendCurrentSelectionIfNeeded()
 
 static bool shouldNotTrackSelectionForEvent(const WebCore::PlatformMouseEvent& event)
 {
-    return event.inputSource() == WebCore::MouseEventInputSource::Automation && event.syntheticClickType() != WebCore::SyntheticClickType::NoTap;
+    return event.inputSource() == WebCore::MouseEventInputSource::Touch && event.syntheticClickType() != WebCore::SyntheticClickType::NoTap;
 }
 
 void UnifiedPDFPlugin::beginTrackingSelection(PDFDocumentLayout::PageIndex pageIndex, const WebCore::FloatPoint& pagePoint, const WebCore::PlatformMouseEvent& event)
@@ -3275,8 +3270,7 @@ PDFPageCoverage UnifiedPDFPlugin::pageCoverageForSelection(PDFSelection *selecti
 
     auto pageCoverage = PDFPageCoverage { };
 
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFPage *page in [selection pages]) {
+    for (PDFPage *page in [selection pages]) {
         auto pageIndex = m_documentLayout.indexForPage(page);
         if (!pageIndex)
             continue;
@@ -3364,8 +3358,7 @@ PDFPluginTextExtractionContent UnifiedPDFPlugin::textExtractionContent() const
         }];
 
         size_t searchOffset = 0;
-        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-        for (SUPPRESS_UNRETAINED_LOCAL PDFAnnotation *annotation in annotationsInReadingOrder.get()) {
+        for (PDFAnnotation *annotation in annotationsInReadingOrder.get()) {
             if (!annotationIsExternalLink(annotation))
                 continue;
 
@@ -3642,10 +3635,8 @@ void UnifiedPDFPlugin::collectFindMatchRects(const String& target, WebCore::Find
     m_findMatchRects.clear();
 
     RetainPtr foundSelections = [m_pdfDocument findString:target.createNSString().get() withOptions:compareOptionsForFindOptions(options)];
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFSelection *selection in foundSelections.get()) {
-        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-        for (SUPPRESS_UNRETAINED_LOCAL PDFPage *page in selection.pages) {
+    for (PDFSelection *selection in foundSelections.get()) {
+        for (PDFPage *page in selection.pages) {
             auto pageIndex = m_documentLayout.indexForPage(page);
             if (!pageIndex)
                 continue;
@@ -3679,8 +3670,7 @@ Vector<WebFoundTextRange::PDFData> UnifiedPDFPlugin::findTextMatches(const Strin
         return matches;
 
     RetainPtr foundSelections = [m_pdfDocument findString:target.createNSString().get() withOptions:compareOptionsForFindOptions(options)];
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFSelection *selection in foundSelections.get()) {
+    for (PDFSelection *selection in foundSelections.get()) {
         RetainPtr startPage = [[selection pages] firstObject];
         NSRange startPageRange = [selection rangeAtIndex:0 onPage:startPage.get()];
         NSUInteger startPageIndex = [m_pdfDocument indexForPage:startPage.get()];
@@ -3728,8 +3718,7 @@ Vector<WebCore::FloatRect> UnifiedPDFPlugin::rectsForTextMatchesInRect(const Vec
         if (!selection)
             continue;
 
-        // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-        for (SUPPRESS_UNRETAINED_LOCAL PDFPage *page in [selection pages]) {
+        for (PDFPage *page in [selection pages]) {
             auto pageIndex = m_documentLayout.indexForPage(page);
             if (!pageIndex)
                 continue;
@@ -3986,8 +3975,7 @@ std::pair<String, RetainPtr<PDFSelection>> UnifiedPDFPlugin::textForImmediateAct
     if (!annotationsForCurrentPage)
         return { { }, nil };
 
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFAnnotation *annotation in annotationsForCurrentPage.get()) {
+    for (PDFAnnotation *annotation in annotationsForCurrentPage.get()) {
         FloatRect annotationBoundsInPageSpace = [annotation bounds];
 
         if (!annotationBoundsInPageSpace.contains(pagePoint))
@@ -4471,7 +4459,7 @@ void UnifiedPDFPlugin::handlePDFActionForAnnotation(PDFAnnotation *annotation, P
 }
 #endif
 
-RepaintRequirements AnnotationTrackingState::startAnnotationTracking(RetainPtr<PDFAnnotation>&& annotation, WebCore::PlatformEventType mouseEventType, WebCore::MouseButton mouseEventButton)
+RepaintRequirements AnnotationTrackingState::startAnnotationTracking(RetainPtr<PDFAnnotation>&& annotation, WebCore::PlatformEventType mouseEventType, std::expected<WebCore::MouseButton, WebCore::MouseButtonState> mouseEventButton)
 {
     ASSERT(!m_trackedAnnotation);
     m_trackedAnnotation = WTF::move(annotation);
@@ -4483,7 +4471,7 @@ RepaintRequirements AnnotationTrackingState::startAnnotationTracking(RetainPtr<P
         repaintRequirements.add(UnifiedPDFPlugin::repaintRequirementsForAnnotation(m_trackedAnnotation.get()));
     }
 
-    if (mouseEventType == WebCore::PlatformEventType::MouseMoved && mouseEventButton == WebCore::MouseButton::None) {
+    if (mouseEventType == WebCore::PlatformEventType::MouseMoved && !mouseEventButton) {
         if (!m_isBeingHovered)
             repaintRequirements.add(RepaintRequirement::HoverOverlay);
 
@@ -4493,7 +4481,7 @@ RepaintRequirements AnnotationTrackingState::startAnnotationTracking(RetainPtr<P
     return repaintRequirements;
 }
 
-RepaintRequirements AnnotationTrackingState::finishAnnotationTracking(PDFAnnotation *annotationUnderMouse, WebCore::PlatformEventType mouseEventType, WebCore::MouseButton mouseEventButton)
+RepaintRequirements AnnotationTrackingState::finishAnnotationTracking(PDFAnnotation *annotationUnderMouse, WebCore::PlatformEventType mouseEventType, std::expected<WebCore::MouseButton, WebCore::MouseButtonState> mouseEventButton)
 {
     ASSERT(m_trackedAnnotation);
     auto repaintRequirements = RepaintRequirements { };
@@ -4979,8 +4967,7 @@ bool UnifiedPDFPlugin::platformPopulateEditorStateIfNeeded(EditorState& state) c
 
     Vector<FloatRect> selectionRects;
 #if HAVE(PDFSELECTION_ENUMERATE_RECTS_AND_TRANSFORMS)
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFPage *page in [selection pages]) {
+    for (PDFPage *page in [selection pages]) {
         auto pageIndex = m_documentLayout.indexForPage(page);
         [selection enumerateRectsAndTransformsForPage:page usingBlock:[&, protectedThis = Ref { *this }](CGRect rect, CGAffineTransform transform) {
             auto transformedRectInPage = CGRectApplyAffineTransform(rect, transform);
@@ -5167,7 +5154,7 @@ void UnifiedPDFPlugin::handleSyntheticClick(PlatformMouseEvent&& event)
 {
 #if HAVE(PDFDOCUMENT_SELECTION_WITH_GRANULARITY)
     auto handledMouseEvent = false;
-    if (event.inputSource() == WebCore::MouseEventInputSource::Automation)
+    if (event.inputSource() == WebCore::MouseEventInputSource::Touch)
         handledMouseEvent = handleMouseEvent(event);
 
     if (event.type() == WebCore::PlatformEventType::MousePressed)

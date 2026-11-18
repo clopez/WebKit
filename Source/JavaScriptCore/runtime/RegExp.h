@@ -203,6 +203,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
     const String& atom() const LIFETIME_BOUND { return m_atom; }
     Yarr::SpecificPattern specificPattern() const { return m_specificPattern; }
 
+    void setIsComingFromLiteral() { m_isComingFromLiteral = true; }
+
     const WTF::BitSet<256>* firstCharacterBitmap(FirstCharacterFilterPosition);
 
 private:
@@ -245,7 +247,7 @@ private:
         // This first element of the RHS vector is the subpatternId in the non-duplicate case.
         // For the duplicate case, the first element is the namedCaptureGroupId.
         // The remaining elements are the subpatternIds for each of the duplicate groups.
-        UncheckedKeyHashMap<String, Vector<unsigned>> m_namedGroupToParenIndices;
+        HashMap<String, Vector<unsigned>> m_namedGroupToParenIndices;
         WriteBarrierStructureID m_cachedGroupsStructureID;
     };
 
@@ -255,6 +257,7 @@ private:
     Yarr::SpecificPattern m_specificPattern { Yarr::SpecificPattern::None };
     OptionSet<Yarr::Flags> m_flags;
     Yarr::ErrorCode m_constructionErrorCode { Yarr::ErrorCode::NoError };
+    bool m_isComingFromLiteral : 1 { false };
     unsigned m_numSubpatterns { 0 };
     unsigned m_minimumSize { 0 };
     std::unique_ptr<Yarr::BytecodePattern> m_regExpBytecode;

@@ -61,7 +61,7 @@ using namespace HTMLNames;
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTextControlSingleLine);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTextControlInnerBlock);
 
-RenderTextControlSingleLine::RenderTextControlSingleLine(Type type, HTMLInputElement& element, Style::ComputedStyle&& style)
+RenderTextControlSingleLine::RenderTextControlSingleLine(Type type, HTMLInputElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderTextControl(type, element, WTF::move(style))
 {
     ASSERT(isRenderTextControlSingleLine());
@@ -268,7 +268,7 @@ void RenderTextControlSingleLine::layout()
         // The placeholder gets layout last, after the parent text control and its other children,
         // so in order to get the correct overflow from the placeholder we need to recompute it now.
         if (neededLayout) {
-            computeInFlowOverflow(flippedContentBoxRect());
+            computeInFlowOverflow(blockStartRelativeContentBoxRect());
             addOverflowFromOutOfFlowBoxes();
         } else if (auto* placeholderLayer = placeholderBox->layer(); placeholderLayer && placeholderBox->location() != oldPlaceholderLocation)
             placeholderLayer->setNeedsPositionUpdate();
@@ -522,13 +522,25 @@ RenderTextControlInnerBlock* RenderTextControlSingleLine::innerTextRenderer() co
     return innerTextElement() ? innerTextElement()->renderer() : nullptr;
 }
 
-RenderTextControlInnerBlock::RenderTextControlInnerBlock(Element& element, Style::ComputedStyle&& style)
+RenderTextControlInnerBlock::RenderTextControlInnerBlock(Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(Type::TextControlInnerBlock, element, WTF::move(style))
 {
     ASSERT(isRenderTextControlInnerBlock());
 }
 
 RenderTextControlInnerBlock::~RenderTextControlInnerBlock() = default;
+
+bool RenderTextControlInnerBlock::requiresLayerForScreenCaptureProtection() const
+{
+    RefPtr input = dynamicDowncast<HTMLInputElement>(element()->shadowHost());
+    return input && input->requiresLayerForScreenCaptureProtection();
+}
+
+bool RenderTextControlInnerBlock::shouldHideFromScreenCapture() const
+{
+    RefPtr input = dynamicDowncast<HTMLInputElement>(element()->shadowHost());
+    return input && input->shouldHideFromScreenCapture();
+}
 
 bool RenderTextControlInnerBlock::canBeProgramaticallyScrolled() const
 {

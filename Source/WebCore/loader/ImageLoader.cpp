@@ -61,7 +61,10 @@
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderSVGImage.h"
+#include "SVGElementTypeHelpers.h"
+#include "SVGImageElement.h"
 #include <JavaScriptCore/HeapCellInlines.h>
+#include <wtf/Borrow.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/Scope.h>
 #include <wtf/text/MakeString.h>
@@ -200,6 +203,8 @@ void ImageLoader::clearImageWithoutConsideringPendingLoadEvent()
         }
         m_imageComplete = true;
         oldImage->removeClient(*this);
+        if (RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element()))
+            imageElement->clearImageAnimationTimeline();
     }
 
     if (CheckedPtr imageResource = renderImageResource())
@@ -263,7 +268,8 @@ void ImageLoader::updateFromElement(RelevantMutation relevantMutation)
         options.fetchPriority = imageElement->fetchPriority();
         if (imageElement->usesSrcsetOrPicture())
             options.initiator = Initiator::Imageset;
-    }
+    } else if (RefPtr svgImageElement = dynamicDowncast<SVGImageElement>(element))
+        options.referrerPolicy = svgImageElement->referrerPolicy();
 
     auto crossOriginAttribute = element->attributeWithoutSynchronization(HTMLNames::crossoriginAttr);
 
@@ -382,6 +388,10 @@ void ImageLoader::didUpdateCachedImage(RelevantMutation relevantMutation, RefPtr
         }
 
         m_image = newImage;
+        if (newImage != oldImage) {
+            if (RefPtr imageElement = dynamicDowncast<HTMLImageElement>(element()))
+                imageElement->clearImageAnimationTimeline();
+        }
         m_hasPendingBeforeLoadEvent = !document->isImageDocument() && newImage;
         m_hasPendingLoadEvent = newImage;
         m_imageComplete = !newImage;
@@ -438,7 +448,7 @@ static inline void resolvePromises(Vector<Ref<DeferredPromise>>& promises)
 {
     ASSERT(!promises.isEmpty());
     auto promisesToBeResolved = std::exchange(promises, { });
-    for (auto& promise : promisesToBeResolved)
+    for (auto& promise : borrow(promisesToBeResolved))
         promise->resolve();
 }
 
@@ -446,7 +456,7 @@ static inline void rejectPromises(Vector<Ref<DeferredPromise>>& promises, ASCIIL
 {
     ASSERT(!promises.isEmpty());
     auto promisesToBeRejected = std::exchange(promises, { });
-    for (auto& promise : promisesToBeRejected)
+    for (auto& promise : borrow(promisesToBeRejected))
         promise->reject(Exception { ExceptionCode::EncodingError, message });
 }
 

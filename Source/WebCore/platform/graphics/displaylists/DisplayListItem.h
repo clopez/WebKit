@@ -51,7 +51,7 @@ class ClipOutRoundedRect;
 class ClipOutToPath;
 class ClipPath;
 class ClipTransformedPath;
-class ClipToImageBuffer;
+class ClipToNativeImage;
 class ConcatenateCTM;
 class DrawControlPart;
 class DrawDotsForDocumentMarker;
@@ -84,8 +84,10 @@ class FillRectWithRoundedHole;
 class FillRoundedRect;
 class ResetClip;
 class Restore;
+class RestoreTransform;
 class Rotate;
 class Save;
+class SaveTransform;
 class Scale;
 class SetCTM;
 class SetInlineFillColor;
@@ -99,10 +101,6 @@ class StrokeEllipse;
 class StrokePath;
 class StrokeRect;
 class Translate;
-#if USE(CG)
-class ApplyFillPattern;
-class ApplyStrokePattern;
-#endif
 class BeginPage;
 class EndPage;
 class SetURLForRect;
@@ -122,7 +120,7 @@ using Item = Variant
     , ClipOutToPath
     , ClipPath
     , ClipTransformedPath
-    , ClipToImageBuffer
+    , ClipToNativeImage
     , ConcatenateCTM
     , DrawControlPart
     , DrawDotsForDocumentMarker
@@ -155,8 +153,10 @@ using Item = Variant
     , FillRoundedRect
     , ResetClip
     , Restore
+    , RestoreTransform
     , Rotate
     , Save
+    , SaveTransform
     , Scale
     , SetCTM
     , SetInlineFillColor
@@ -170,10 +170,6 @@ using Item = Variant
     , StrokePath
     , StrokeRect
     , Translate
-#if USE(CG)
-    , ApplyFillPattern
-    , ApplyStrokePattern
-#endif
     , BeginPage
     , EndPage
     , SetURLForRect

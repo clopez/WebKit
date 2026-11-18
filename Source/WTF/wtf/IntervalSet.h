@@ -469,8 +469,8 @@ private:
         NodeRef(Node* ptr, size_t size)
             : m_bits(reinterpret_cast<uintptr_t>(ptr) | size)
         {
-            ASSERT(!(reinterpret_cast<uintptr_t>(ptr) & sizeMask));
-            ASSERT(size <= sizeMask);
+            ASSERT_WITH_SECURITY_IMPLICATION(!(reinterpret_cast<uintptr_t>(ptr) & sizeMask));
+            ASSERT_WITH_SECURITY_IMPLICATION(size <= sizeMask);
         }
 
         Node* node() const
@@ -485,7 +485,7 @@ private:
 
         void setSize(size_t newSize)
         {
-            ASSERT(newSize <= sizeMask);
+            ASSERT_WITH_SECURITY_IMPLICATION(newSize <= sizeMask);
             m_bits = (m_bits & ~sizeMask) | newSize;
         }
 
@@ -668,7 +668,7 @@ private:
     };
 
 public:
-    class iterator {
+    class WTF_VIEW_TYPE iterator {
     public:
         iterator() = default;
 
@@ -719,7 +719,7 @@ public:
     };
 
     // Returns an iterator with the path to the left-most leaf node and index 0
-    iterator begin() const
+    iterator begin() const LIFETIME_BOUND
     {
         if (isEmpty())
             return end();
@@ -738,7 +738,7 @@ public:
         return iterator(WTF::move(path));
     }
 
-    iterator end() const
+    iterator end() const LIFETIME_BOUND
     {
         return iterator();
     }

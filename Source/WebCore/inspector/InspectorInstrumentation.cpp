@@ -47,7 +47,9 @@
 #include "FrameDOMStorageAgent.h"
 #include "FrameDebuggerAgent.h"
 #include "FrameInspectorController.h"
+#include "FrameLayerTreeAgent.h"
 #include "FrameRuntimeAgent.h"
+#include "FrameTimelineAgent.h"
 #include "GPUCanvasContext.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HitTestResult.h"
@@ -178,6 +180,10 @@ void InspectorInstrumentation::addEventListenersToNodeImpl(InstrumentingAgents& 
 {
     if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
         domAgent->addEventListenersToNode(node);
+    if (RefPtr frame = node.document().frame()) {
+        if (CheckedPtr frameDOMAgent = frame->inspectorController().instrumentingAgents().persistentFrameDOMAgent())
+            frameDOMAgent->addEventListenersToNode(node);
+    }
 }
 
 void InspectorInstrumentation::willInsertDOMNodeImpl(InstrumentingAgents& instrumentingAgents, Node& parent)
@@ -475,8 +481,11 @@ void InspectorInstrumentation::pseudoElementCreatedImpl(InstrumentingAgents& ins
 void InspectorInstrumentation::pseudoElementDestroyedImpl(InstrumentingAgents& instrumentingAgents, PseudoElement& pseudoElement)
 {
     if (RefPtr frame = pseudoElement.document().frame()) {
-        if (CheckedPtr frameDOMAgent = frame->inspectorController().instrumentingAgents().persistentFrameDOMAgent())
+        Ref frameAgents = frame->inspectorController().instrumentingAgents();
+        if (CheckedPtr frameDOMAgent = frameAgents->persistentFrameDOMAgent())
             frameDOMAgent->pseudoElementDestroyed(pseudoElement);
+        if (CheckedPtr frameLayerTreeAgent = frameAgents->enabledFrameLayerTreeAgent())
+            frameLayerTreeAgent->pseudoElementDestroyed(pseudoElement);
     }
     if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
         domAgent->pseudoElementDestroyed(pseudoElement);
@@ -734,6 +743,8 @@ void InspectorInstrumentation::eventDidResetAfterDispatchImpl(InstrumentingAgent
 {
     if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
         domAgent->eventDidResetAfterDispatch(event);
+    if (CheckedPtr frameDOMAgent = instrumentingAgents.persistentFrameDOMAgent())
+        frameDOMAgent->eventDidResetAfterDispatch(event);
 }
 
 void InspectorInstrumentation::willEvaluateScriptImpl(InstrumentingAgents& instrumentingAgents, const String& url, int lineNumber, int columnNumber)
@@ -770,28 +781,51 @@ void InspectorInstrumentation::didFireTimerImpl(InstrumentingAgents& instrumenti
         timelineAgent->didFireTimer();
 }
 
+// Sends each layout, style, paint and paint timing record to one agent only, since the frontend shows the records
+// of every target and does not remove duplicates.
+template<typename Functor>
+static void withTrackingPageOrFrameTimelineAgent(InstrumentingAgents& instrumentingAgents, NOESCAPE const Functor& functor)
+{
+    // Under Site Isolation this slot does not fall back to the page's agents, unlike Timeline_Page, so a frame whose
+    // own agent is not recording reports nothing.
+    if (!instrumentingAgents.trackingTimelineAgent())
+        return;
+
+    if (CheckedPtr frameTimelineAgent = instrumentingAgents.trackingFrameTimelineAgent()) {
+        functor(*frameTimelineAgent);
+        return;
+    }
+
+    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
+        functor(*pageTimelineAgent);
+}
+
 void InspectorInstrumentation::willInvalidateLayoutImpl(InstrumentingAgents& instrumentingAgents, const RenderObject& renderer)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->willInvalidateLayout(renderer);
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.willInvalidateLayout(renderer);
+    });
 }
 
 void InspectorInstrumentation::didScheduleLayoutImpl(InstrumentingAgents& instrumentingAgents, const RenderElement& layoutRoot)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->didScheduleLayout(layoutRoot);
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.didScheduleLayout(layoutRoot);
+    });
 }
 
 void InspectorInstrumentation::willLayoutImpl(InstrumentingAgents& instrumentingAgents)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->willLayout();
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [](auto& timelineAgent) {
+        timelineAgent.willLayout();
+    });
 }
 
 void InspectorInstrumentation::didLayoutImpl(InstrumentingAgents& instrumentingAgents, const RenderElement& layoutRoot, const Vector<FloatQuad>& layoutAreas)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->didLayout(layoutRoot, layoutAreas);
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.didLayout(layoutRoot, layoutAreas);
+    });
     if (CheckedPtr pageAgent = instrumentingAgents.enabledPageAgent())
         pageAgent->didLayout();
 }
@@ -808,16 +842,33 @@ void InspectorInstrumentation::didCompositeImpl(InstrumentingAgents& instrumenti
         pageTimelineAgent->didComposite(frame);
 }
 
+// Taking a screenshot paints the main frame. Under Site Isolation those paints reach the main frame's agent,
+// not the page's agent that takes the screenshot.
+// FIXME: <https://webkit.org/b/300646> This finds the page's agent through the frame's fallback to the page's
+// agents, so it needs another path to the page's agent if that fallback is removed.
+static bool isCapturingTimelineScreenshot(InstrumentingAgents& instrumentingAgents)
+{
+    CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent();
+    return pageTimelineAgent && pageTimelineAgent->isCapturingScreenshot();
+}
+
 void InspectorInstrumentation::willPaintImpl(InstrumentingAgents& instrumentingAgents)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->willPaint();
+    if (isCapturingTimelineScreenshot(instrumentingAgents))
+        return;
+
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [](auto& timelineAgent) {
+        timelineAgent.willPaint();
+    });
 }
 
 void InspectorInstrumentation::didPaintImpl(InstrumentingAgents& instrumentingAgents, RenderObject& renderer, const LayoutRect& rect)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->didPaint(renderer, rect);
+    if (!isCapturingTimelineScreenshot(instrumentingAgents)) {
+        withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+            timelineAgent.didPaint(renderer, rect);
+        });
+    }
 
     if (CheckedPtr pageAgent = instrumentingAgents.enabledPageAgent())
         pageAgent->didPaint(renderer, rect);
@@ -830,16 +881,18 @@ void InspectorInstrumentation::didPaintImpl(InstrumentingAgents& instrumentingAg
 
 void InspectorInstrumentation::willRecalculateStyleImpl(InstrumentingAgents& instrumentingAgents)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->willRecalculateStyle();
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [](auto& timelineAgent) {
+        timelineAgent.willRecalculateStyle();
+    });
     if (CheckedPtr networkAgent = instrumentingAgents.enabledNetworkAgent())
         networkAgent->willRecalculateStyle();
 }
 
 void InspectorInstrumentation::didRecalculateStyleImpl(InstrumentingAgents& instrumentingAgents, Document& document)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->didRecalculateStyle(document);
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.didRecalculateStyle(document);
+    });
     if (CheckedPtr networkAgent = instrumentingAgents.enabledNetworkAgent())
         networkAgent->didRecalculateStyle();
     if (CheckedPtr pageAgent = instrumentingAgents.enabledPageAgent())
@@ -848,8 +901,9 @@ void InspectorInstrumentation::didRecalculateStyleImpl(InstrumentingAgents& inst
 
 void InspectorInstrumentation::didScheduleStyleRecalculationImpl(InstrumentingAgents& instrumentingAgents, Document& document)
 {
-    if (CheckedPtr pageTimelineAgent = instrumentingAgents.trackingPageTimelineAgent())
-        pageTimelineAgent->didScheduleStyleRecalculation(document);
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.didScheduleStyleRecalculation(document);
+    });
     if (CheckedPtr networkAgent = instrumentingAgents.enabledNetworkAgent())
         networkAgent->didScheduleStyleRecalculation(document);
 }
@@ -1132,6 +1186,9 @@ void InspectorInstrumentation::frameDocumentUpdatedImpl(InstrumentingAgents& ins
     if (CheckedPtr frameDOMAgent = frame.inspectorController().instrumentingAgents().persistentFrameDOMAgent())
         frameDOMAgent->frameDocumentUpdated(frame);
 
+    if (CheckedPtr frameLayerTreeAgent = frame.inspectorController().instrumentingAgents().enabledFrameLayerTreeAgent())
+        frameLayerTreeAgent->frameDocumentUpdated(frame);
+
     if (CheckedPtr domAgent = instrumentingAgents.persistentDOMAgent())
         domAgent->frameDocumentUpdated(frame);
 
@@ -1358,14 +1415,16 @@ void InspectorInstrumentation::performanceMarkImpl(InstrumentingAgents& instrume
 
 void InspectorInstrumentation::didEnqueueFirstContentfulPaintImpl(InstrumentingAgents& instrumentingAgents)
 {
-    if (CheckedPtr timelineAgent = instrumentingAgents.trackingTimelineAgent())
-        timelineAgent->didEnqueueFirstContentfulPaint();
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [](auto& timelineAgent) {
+        timelineAgent.didEnqueueFirstContentfulPaint();
+    });
 }
 
 void InspectorInstrumentation::didEnqueueLargestContentfulPaintImpl(InstrumentingAgents& instrumentingAgents, const LargestContentfulPaint& entry)
 {
-    if (CheckedPtr timelineAgent = instrumentingAgents.trackingTimelineAgent())
-        timelineAgent->didEnqueueLargestContentfulPaint(protect(entry.element()), entry.size());
+    withTrackingPageOrFrameTimelineAgent(instrumentingAgents, [&](auto& timelineAgent) {
+        timelineAgent.didEnqueueLargestContentfulPaint(protect(entry.element()), entry.size());
+    });
 }
 
 void InspectorInstrumentation::consoleStartRecordingCanvasImpl(InstrumentingAgents& instrumentingAgents, CanvasRenderingContext& context, JSC::JSGlobalObject& exec, JSC::JSObject* options)
@@ -1678,10 +1737,11 @@ void InspectorInstrumentation::didChangeWebAnimationNameImpl(InstrumentingAgents
 
 void InspectorInstrumentation::didSetWebAnimationEffectImpl(InstrumentingAgents& instrumentingAgents, WebAnimation& animation)
 {
-    if (CheckedPtr animationAgent = instrumentingAgents.enabledAnimationAgent())
-        animationAgent->didSetWebAnimationEffect(animation);
-    else if (CheckedPtr animationAgent = instrumentingAgents.trackingAnimationAgent())
-        animationAgent->didSetWebAnimationEffect(animation);
+    CheckedPtr enabledAgent = instrumentingAgents.enabledAnimationAgent();
+    if (enabledAgent)
+        enabledAgent->didSetWebAnimationEffect(animation);
+    if (CheckedPtr trackingAgent = instrumentingAgents.trackingAnimationAgent(); trackingAgent && trackingAgent != enabledAgent)
+        trackingAgent->didSetWebAnimationEffect(animation);
 }
 
 void InspectorInstrumentation::didChangeWebAnimationEffectTimingImpl(InstrumentingAgents& instrumentingAgents, WebAnimation& animation)
@@ -1704,10 +1764,11 @@ void InspectorInstrumentation::didCreateWebAnimationImpl(InstrumentingAgents& in
 
 void InspectorInstrumentation::willDestroyWebAnimationImpl(InstrumentingAgents& instrumentingAgents, WebAnimation& animation)
 {
-    if (CheckedPtr animationAgent = instrumentingAgents.enabledAnimationAgent())
-        animationAgent->willDestroyWebAnimation(animation);
-    else if (CheckedPtr animationAgent = instrumentingAgents.trackingAnimationAgent())
-        animationAgent->willDestroyWebAnimation(animation);
+    CheckedPtr enabledAgent = instrumentingAgents.enabledAnimationAgent();
+    if (enabledAgent)
+        enabledAgent->willDestroyWebAnimation(animation);
+    if (CheckedPtr trackingAgent = instrumentingAgents.trackingAnimationAgent(); trackingAgent && trackingAgent != enabledAgent)
+        trackingAgent->willDestroyWebAnimation(animation);
 }
 
 #if ENABLE(RESOURCE_USAGE)
@@ -1805,12 +1866,16 @@ InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(const RenderO
 
 void InspectorInstrumentation::layerTreeDidChangeImpl(InstrumentingAgents& instrumentingAgents)
 {
+    if (CheckedPtr frameLayerTreeAgent = instrumentingAgents.enabledFrameLayerTreeAgent())
+        frameLayerTreeAgent->layerTreeDidChange();
     if (CheckedPtr layerTreeAgent = instrumentingAgents.enabledLayerTreeAgent())
         layerTreeAgent->layerTreeDidChange();
 }
 
 void InspectorInstrumentation::renderLayerDestroyedImpl(InstrumentingAgents& instrumentingAgents, const RenderLayer& renderLayer)
 {
+    if (CheckedPtr frameLayerTreeAgent = instrumentingAgents.enabledFrameLayerTreeAgent())
+        frameLayerTreeAgent->renderLayerDestroyed(renderLayer);
     if (CheckedPtr layerTreeAgent = instrumentingAgents.enabledLayerTreeAgent())
         layerTreeAgent->renderLayerDestroyed(renderLayer);
 }
@@ -1843,9 +1908,19 @@ InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(Document& doc
     return instrumentingAgents(page);
 }
 
+// Unlike instrumentingAgents(Document&), prefers the document's frame, whose own agents report its records
+// under Site Isolation. A document without a frame has no page, except a template document, which uses its
+// host's page.
+InstrumentingAgents* InspectorInstrumentation::instrumentingAgentsForFrameOrPage(Document& document)
+{
+    if (RefPtr frame = document.frame())
+        return &instrumentingAgents(*frame);
+    return instrumentingAgents(document);
+}
+
 InstrumentingAgents& InspectorInstrumentation::instrumentingAgents(Page& page)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     return page.inspectorController().m_instrumentingAgents.get();
 }
 

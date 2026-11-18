@@ -50,6 +50,10 @@
 #include "WebPhoneNumberPossessionCoordinatorProxy.h"
 #endif
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+#include "MediaCapability.h"
+#endif
+
 namespace WebKit {
 using namespace WebCore;
 
@@ -91,6 +95,13 @@ void WebPageProxyTesting::dispatchActivityStateUpdate()
 void WebPageProxyTesting::isLayerTreeFrozen(CompletionHandler<void(bool)>&& completionHandler)
 {
     sendWithAsyncReply(Messages::WebPageTesting::IsLayerTreeFrozen(), WTF::move(completionHandler));
+}
+
+void WebPageProxyTesting::isLayerTreeFrozen(FrameIdentifier frameID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    Ref page = m_page;
+    Ref process = page->processContainingFrame(frameID);
+    process->sendWithAsyncReply(Messages::WebPageTesting::IsLayerTreeFrozen(), WTF::move(completionHandler), page->webPageIDInProcess(process.get()));
 }
 
 void WebPageProxyTesting::numberOfLiveDocuments(CompletionHandler<void(uint64_t)>&& completionHandler)
@@ -265,6 +276,15 @@ void WebPageProxyTesting::setSystemCanPromptForGetDisplayMediaForTesting(bool ca
 }
 #endif
 
+#if ENABLE(EXTENSION_CAPABILITIES)
+bool WebPageProxyTesting::isDisplayCaptureCapabilityActive() const
+{
+    Ref page = m_page;
+    RefPtr capability = page->displayCaptureCapability();
+    return capability && capability->isActivatingOrActive();
+}
+#endif
+
 void WebPageProxyTesting::setObscuredContentInsets(float top, float right, float bottom, float left, CompletionHandler<void()>&& completionHandler)
 {
     sendWithAsyncReply(Messages::WebPageTesting::SetObscuredContentInsets(top, right, bottom, left), WTF::move(completionHandler));
@@ -288,6 +308,21 @@ void WebPageProxyTesting::resetStateBetweenTests()
     if (RefPtr phoneNumberPossessionCoordinatorProxy = page->phoneNumberPossessionCoordinatorProxy())
         phoneNumberPossessionCoordinatorProxy->clearMockConfigurationForTesting();
 #endif
+}
+
+CompletionHandler<void(NavigationResponseProcessSwapResult&&)> WebPageProxyTesting::holdNavigationResponseProcessSwapReply(CompletionHandler<void(NavigationResponseProcessSwapResult&&)>&& completionHandler)
+{
+    if (!m_navigationResponseProcessSwapReplyHandler)
+        return WTF::move(completionHandler);
+
+    return [protectedThis = Ref { *this }, completionHandler = WTF::move(completionHandler)](NavigationResponseProcessSwapResult&& result) mutable {
+        if (!protectedThis->m_navigationResponseProcessSwapReplyHandler)
+            return completionHandler(WTF::move(result));
+        auto resultForHandler = result;
+        protectedThis->m_navigationResponseProcessSwapReplyHandler(WTF::move(resultForHandler), [completionHandler = WTF::move(completionHandler), result = WTF::move(result)] mutable {
+            completionHandler(WTF::move(result));
+        });
+    };
 }
 
 void WebPageProxyTesting::clearBackForwardList(CompletionHandler<void()>&& completionHandler)

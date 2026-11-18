@@ -455,8 +455,7 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navig
                     [historyDelegate _webView:webView.get() didReceiveSafeBrowsingResult:result forURL:url.createNSURL().get()];
             }
 
-            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-            for (SUPPRESS_UNRETAINED_LOCAL SSBServiceLookupResult *lookupResult in [result serviceLookupResults]) {
+            for (SSBServiceLookupResult *lookupResult in [result serviceLookupResults]) {
                 SAFE_BROWSING_LOOKUP_RESULT_ADDITIONS(lookupResult);
                 if (lookupResult.isPhishing || lookupResult.isMalware || lookupResult.isUnwantedSoftware || SAFE_BROWSING_RESULT_CHECK_ADDITIONS) {
                     RELEASE_LOG(Loading, "beginSafeBrowsingCheck: threat found navigationID=%" PRIu64 ", type=%s", navigation->navigationID().object().toUInt64(), lookupResult.isPhishing ? "phishing" : lookupResult.isMalware ? "malware" : "unwanted");
@@ -511,7 +510,7 @@ void WebPageProxy::beginSafeBrowsingCheck(const URL& url, API::Navigation& navig
 #if HAVE(SAFE_BROWSING)
 void WebPageProxy::completeSafeBrowsingCheckForModals(bool userProceeded)
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
 
     m_isSafeBrowsingCheckInProgress = false;
 
@@ -523,7 +522,7 @@ void WebPageProxy::completeSafeBrowsingCheckForModals(bool userProceeded)
 
 void WebPageProxy::drainDeferredModalsForNewNavigation()
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
     purgeQueuedModalDialogs();
 
     if (m_isSafeBrowsingCheckInProgress) {
@@ -621,7 +620,7 @@ void WebPageProxy::startDrag(IPC::Connection& connection, const DragItem& dragIt
 #if ENABLE(ATTACHMENT_ELEMENT)
     MESSAGE_CHECK(promisedAttachmentInfo.attachmentIdentifier.isEmpty() || protect(preferences())->attachmentElementEnabled(), connection);
 #endif
-    for (auto& [type, data] : promisedAttachmentInfo.additionalTypesAndData) {
+    for (auto& [type, data] : borrow(promisedAttachmentInfo.additionalTypesAndData)) {
         // These are written to the platform drag pasteboard verbatim, so hold them to the same
         // standard as any other pasteboard write coming from the web process: it must never be able
         // to plant a file reference on the drag pasteboard. Editor::getPasteboardTypesAndDataForAttachment
@@ -1129,7 +1128,7 @@ void WebPageProxy::restoreAppHighlightsAndScrollToIndex(const Vector<Ref<SharedM
     
     setUpHighlightsObserver();
 
-    protect(legacyMainFrameProcess())->send(Messages::WebPage::RestoreAppHighlightsAndScrollToIndex(WTF::move(memoryHandles), index), webPageIDInMainFrameProcess());
+    sendToFocusedOrMainFrameProcess(Messages::WebPage::RestoreAppHighlightsAndScrollToIndex(WTF::move(memoryHandles), index));
 }
 
 void WebPageProxy::setAppHighlightsVisibility(WebCore::HighlightVisibility appHighlightsVisibility)
@@ -1591,9 +1590,21 @@ void WebPageProxy::updateDisplayCaptureCapability()
         protect(processPool->extensionCapabilityGranter())->grant(*displayCaptureCapability, *this);
 }
 
+bool WebPageProxy::hasDisplayCaptureAuthorization() const
+{
+#if ENABLE(MEDIA_STREAM)
+    return m_isPromptingForDisplayCapture || m_hasGrantedDisplayCapture;
+#else
+    return false;
+#endif
+}
+
 bool WebPageProxy::shouldActivateDisplayCaptureCapability() const
 {
     if (!isViewVisible())
+        return false;
+
+    if (!hasDisplayCaptureAuthorization())
         return false;
 
     return internals().mediaState.containsAny(MediaProducer::DisplayCaptureMask | MediaProducer::IsPromptingForDisplayCaptureMask);
@@ -1604,6 +1615,9 @@ bool WebPageProxy::shouldDeactivateDisplayCaptureCapability() const
     RefPtr displayCaptureCapability = this->displayCaptureCapability();
     if (!displayCaptureCapability || !displayCaptureCapability->isActivatingOrActive())
         return false;
+
+    if (!hasDisplayCaptureAuthorization())
+        return true;
 
     if (internals().mediaState.containsAny(MediaProducer::DisplayCaptureMask | MediaProducer::IsPromptingForDisplayCaptureMask))
         return false;
@@ -2545,6 +2559,9 @@ void WebPageProxy::updateVisibleContentRects(const VisibleContentRectUpdateInfo&
         return;
 
     internals().lastVisibleContentRectUpdate = visibleContentRectUpdate;
+#if PLATFORM(IOS_FAMILY)
+    updateUnobscuredSafeAreaInsets(visibleContentRectUpdate.unobscuredSafeAreaInsets());
+#endif
 
     if (!hasRunningProcess())
         return;

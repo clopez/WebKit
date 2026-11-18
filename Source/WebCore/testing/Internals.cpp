@@ -52,6 +52,7 @@
 #include "CachedImage.h"
 #include "CachedMatchFinder.h"
 #include "CanvasBase.h"
+#include "CanvasRenderingContext.h"
 #include "CertificateInfo.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
@@ -222,7 +223,6 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderListBox.h"
 #include "RenderObjectInlines.h"
-#include "RenderSearchField.h"
 #include "RenderTheme.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
@@ -244,6 +244,7 @@
 #include "ScrollbarsControllerMock.h"
 #include "ScrollingCoordinator.h"
 #include "ScrollingMomentumCalculator.h"
+#include "SearchInputType.h"
 #include "SecurityOrigin.h"
 #include "SelectorFilter.h"
 #include "SerializedScriptValue.h"
@@ -264,6 +265,7 @@
 #include "StorageNamespaceProvider.h"
 #include "StreamTransferUtilities.h"
 #include "StringCallback.h"
+#include "StyleAdjuster.h"
 #include "StyleBackgroundLayers.h"
 #include "StyleDocumentScope.h"
 #include "StyleExtractor.h"
@@ -273,6 +275,7 @@
 #include "StyleRule.h"
 #include "StyleSheetContents.h"
 #include "SystemSoundManager.h"
+#include "TextControlInnerElements.h"
 #include "TextIterator.h"
 #include "TextPainter.h"
 #include "TextPlaceholderElement.h"
@@ -660,8 +663,10 @@ void Internals::resetToConsistentState(Page& page)
     page.setPageScaleFactor(1, IntPoint(0, 0));
     LayoutIntegration::LineLayout::setCollectsLayoutInfoForTesting(false);
     page.setPagination(Pagination());
+    page.setUserInterfaceLayoutDirection(WebCore::UserInterfaceLayoutDirection::LTR);
 
     CachedMatchFinder::setMaximumRunCountForTesting(std::nullopt);
+    UserGestureToken::setMaximumIntervalForUserGestureForwardingForFetchForTesting(std::nullopt);
 
     if (auto enabled = std::exchange(trackingPreventionEnabledBeforeTest(), std::nullopt))
         DeprecatedGlobalSettings::setTrackingPreventionEnabled(*enabled);
@@ -675,6 +680,9 @@ void Internals::resetToConsistentState(Page& page)
 #if ENABLE(SERVICE_CONTROLS)
     page.servicesOverlayController().setHasRelevantSelectionServicesForTesting(std::nullopt);
 #endif
+    page.setSystemImageAnimationEnabled(true);
+    if (!page.imageAnimationEnabled())
+        page.setImageAnimationEnabled(true);
 
     RefPtr localMainFrame = page.localMainFrame();
     if (!localMainFrame)
@@ -758,6 +766,9 @@ void Internals::resetToConsistentState(Page& page)
     page.setLowPowerModeEnabledOverrideForTesting(std::nullopt);
     page.setAggressiveThermalMitigationEnabledForTesting(std::nullopt);
     page.setOutsideViewportThrottlingEnabledForTesting(false);
+#if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
+    page.setVideoAutoplayPreviewsEnabled(true);
+#endif
 
 #if USE(QUICK_LOOK)
     MockPreviewLoaderClient::singleton().setPassword(emptyString());
@@ -785,6 +796,11 @@ void Internals::resetToConsistentState(Page& page)
 
     page.setFullscreenAutoHideDuration(0_s);
     page.setFullscreenInsets({ });
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    if (PlatformScreen::singleton()->screenContentsFormatsForTesting())
+        PlatformScreen::updateSingletonContentsFormatsForTesting({ });
+#endif
 
     PlatformMediaEngineConfigurationFactory::disableMock();
 
@@ -814,7 +830,7 @@ void Internals::resetToConsistentState(Page& page)
     setOverrideEnhanceTextLegibility(false);
 #endif
 
-    TextPainter::setForceUseGlyphDisplayListForTesting(false);
+    Paint::TextPainter::setForceUseGlyphDisplayListForTesting(false);
 
 #if ENABLE(DAMAGE_TRACKING)
     page.chrome().client().resetDamageHistoryForTesting();
@@ -1300,12 +1316,11 @@ bool Internals::isImageAnimating(HTMLImageElement& element)
     return image && (image->isAnimating() || image->animationPending());
 }
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 void Internals::setImageAnimationEnabled(bool enabled)
 {
     if (RefPtr page = contextDocument() ? contextDocument()->page() : nullptr) {
         // We need to set this here to mimic the behavior of the AX preference changing
-        Image::setSystemAllowsAnimationControls(!enabled);
+        page->setSystemImageAnimationEnabled(enabled);
         page->setImageAnimationEnabled(enabled);
     }
 }
@@ -1319,7 +1334,6 @@ void Internals::pauseImageAnimation(HTMLImageElement& element)
 {
     element.setAnimationOverride(ImageAnimationOverride::Pause);
 }
-#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 #if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
 void Internals::setVideoAutoplayPreviewsEnabled(bool enabled)
@@ -1758,6 +1772,20 @@ String Internals::usedBackgroundColor(Element& element)
     return serializationForCSS(protect(element.computedStyle())->usedBackgroundColorResolvingCurrentColor());
 }
 
+ExceptionOr<void> Internals::setOverrideBackgroundColor(Element& element, const String& colorValue)
+{
+    std::optional<Color> color;
+    if (!colorValue.isNull()) {
+        Ref document = element.document();
+        color = CSSPropertyParserHelpers::parseColorRaw(colorValue, document->cssParserContext(), document.get());
+        if (!color->isValid())
+            return Exception { ExceptionCode::SyntaxError };
+    }
+
+    Style::Adjuster::setOverrideBackgroundColorForTesting(element, WTF::move(color));
+    return { };
+}
+
 Node& Internals::ensureUserAgentShadowRoot(Element& host)
 {
     return host.ensureUserAgentShadowRoot();
@@ -1769,7 +1797,21 @@ Node* Internals::shadowRoot(Element& host)
         host.updateUserAgentShadowTree();
         protect(host.document())->removeElementWithPendingUserAgentShadowTreeUpdate(host);
     }
+#if ENABLE(VIDEO)
+    if (RefPtr mediaElement = dynamicDowncast<HTMLMediaElement>(host))
+        mediaElement->ensureDeferredMediaControls();
+#endif
     return host.shadowRoot();
+}
+
+void Internals::scheduleDeferredMediaControlsBuild(Element& host)
+{
+#if ENABLE(VIDEO)
+    if (RefPtr mediaElement = dynamicDowncast<HTMLMediaElement>(host))
+        mediaElement->scheduleEnsureDeferredMediaControls();
+#else
+    UNUSED_PARAM(host);
+#endif
 }
 
 ExceptionOr<String> Internals::shadowRootType(const Node& root) const
@@ -2896,16 +2938,12 @@ auto Internals::lastAutofillButtonType(const HTMLInputElement& element) -> AutoF
 
 Vector<String> Internals::recentSearches(const HTMLInputElement& element)
 {
-    if (!element.isSearchField())
-        return { };
-
-    protect(element.document())->updateLayout(LayoutOptions::IgnorePendingStylesheets);
-    CheckedPtr searchField = dynamicDowncast<RenderSearchField>(element.renderer());
-    if (!searchField)
+    RefPtr searchInputType = dynamicDowncast<SearchInputType>(*element.inputType());
+    if (!searchInputType)
         return { };
 
     Vector<String> result;
-    for (auto search : searchField->recentSearches())
+    for (auto search : searchInputType->recentSearches())
         result.append(search.string);
 
     return result;
@@ -4328,12 +4366,12 @@ ExceptionOr<String> Internals::replayDisplayListForElement(Element& element, uns
 
 void Internals::setForceUseGlyphDisplayListForTesting(bool enabled)
 {
-    TextPainter::setForceUseGlyphDisplayListForTesting(enabled);
+    Paint::TextPainter::setForceUseGlyphDisplayListForTesting(enabled);
 }
 
 void Internals::clearGlyphDisplayListCacheForTesting()
 {
-    TextPainter::clearGlyphDisplayListCacheForTesting();
+    Paint::TextPainter::clearGlyphDisplayListCacheForTesting();
 }
 
 ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, unsigned short flags)
@@ -4351,7 +4389,7 @@ ExceptionOr<String> Internals::cachedGlyphDisplayListsForTextNode(Node& node, un
     if (!node.renderer())
         return Exception { ExceptionCode::InvalidAccessError };
 
-    return TextPainter::cachedGlyphDisplayListsForTextNodeAsText(*textNode, toDisplayListFlags(flags));
+    return Paint::TextPainter::cachedGlyphDisplayListsForTextNodeAsText(*textNode, toDisplayListFlags(flags));
 }
 
 ExceptionOr<void> Internals::garbageCollectDocumentResources() const
@@ -4559,6 +4597,16 @@ float Internals::obscuredContentInsetTop()
         return 0;
 
     return protect(document->page())->obscuredContentInsets().top();
+}
+
+ExceptionOr<void> Internals::setSoftwareKeyboardHeight(float height)
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->view())
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    protect(document->view())->setSoftwareKeyboardHeightForTesting(height > 0 ? std::optional { LayoutUnit { height } } : std::nullopt);
+    return { };
 }
 
 void Internals::setFullscreenInsets(FullscreenInsets insets)
@@ -5420,6 +5468,18 @@ ExceptionOr<double> Internals::getContextEffectiveDynamicRangeLimitValue(const H
     return Exception { ExceptionCode::InvalidStateError };
 }
 
+ExceptionOr<bool> Internals::isCanvasContextHDR(const HTMLCanvasElement& canvas)
+{
+    RefPtr context = canvas.renderingContext();
+    if (!context)
+        return Exception { ExceptionCode::InvalidStateError };
+#if ENABLE(PIXEL_FORMAT_RGBA16F)
+    return context->isHDR();
+#else
+    return false;
+#endif
+}
+
 ExceptionOr<void> Internals::setPageShouldSuppressHDR(bool shouldSuppressHDR)
 {
     RefPtr document = contextDocument();
@@ -5991,6 +6051,22 @@ void Internals::activeAudioRouteDidChange(bool shouldPause)
 #endif
 }
 
+void Internals::simulateActiveOutputDeviceChange()
+{
+#if PLATFORM(IOS) || PLATFORM(VISION)
+    protect(MediaSessionHelper::sharedHelper())->simulateActiveOutputDeviceChangeForTesting();
+#endif
+}
+
+bool Internals::activeVideoRouteSupportsAirPlayVideo() const
+{
+#if PLATFORM(IOS) || PLATFORM(VISION)
+    return MediaSessionHelper::sharedHelper().activeVideoRouteSupportsAirPlayVideo();
+#else
+    return false;
+#endif
+}
+
 bool Internals::elementIsBlockingDisplaySleep(const HTMLMediaElement& element) const
 {
     return element.isDisablingSleep();
@@ -6201,6 +6277,15 @@ ExceptionOr<double> Internals::nowPlayingUpdateInterval() const
         return Exception { ExceptionCode::InvalidAccessError };
 
     return manager->nowPlayingUpdateInterval();
+}
+
+ExceptionOr<unsigned> Internals::mediaSessionStatusUpdateCount() const
+{
+    RefPtr manager = sessionManager();
+    if (!manager)
+        return Exception { ExceptionCode::InvalidAccessError };
+
+    return manager->sessionStatusUpdateCountForTesting();
 }
 
 
@@ -8683,7 +8768,7 @@ ExceptionOr<Ref<WebXRTest>> Internals::xrTest()
         return Exception { ExceptionCode::InvalidAccessError };
 
     if (!m_xrTest) {
-        auto* navigator = contextDocument()->window()->optionalNavigator();
+        RefPtr navigator = document->window()->optionalNavigator();
         if (!navigator)
             return Exception { ExceptionCode::InvalidAccessError };
 

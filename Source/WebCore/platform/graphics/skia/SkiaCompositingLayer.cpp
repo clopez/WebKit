@@ -164,7 +164,7 @@ void SkiaCompositingLayer::setUseBackingStore(bool useBackingStore, CoordinatedA
 
 void SkiaCompositingLayer::updateBackingStore(CoordinatedBackingStoreProxy::Update&& update, float scale)
 {
-    if (m_maskImage && !update.isEmpty())
+    if (m_maskImage)
         m_maskImage = nullptr;
 
     ASSERT(m_backingStore);
@@ -202,12 +202,12 @@ std::unique_ptr<CoordinatedPlatformLayerBuffer> SkiaCompositingLayer::takeConten
     return WTF::move(m_contentsBuffer);
 }
 
-void SkiaCompositingLayer::setContentsSolidColor(const Color& color)
+void SkiaCompositingLayer::setContentsSolidColor(Color&& color)
 {
     if (m_contentsSolidColor == color)
         return;
 
-    m_contentsSolidColor = color;
+    m_contentsSolidColor = WTF::move(color);
     damageWholeLayer();
 }
 
@@ -235,7 +235,7 @@ void SkiaCompositingLayer::setReplica(RefPtr<SkiaCompositingLayer>&& replica)
     groupPropertyChanged();
 }
 
-void SkiaCompositingLayer::setFilters(const FilterOperations& filterOperations)
+void SkiaCompositingLayer::setFilters(FilterOperations&& filterOperations)
 {
     if (filterOperations.isEmpty()) {
         if (!m_filter)
@@ -247,10 +247,10 @@ void SkiaCompositingLayer::setFilters(const FilterOperations& filterOperations)
     groupPropertyChanged();
 }
 
-void SkiaCompositingLayer::setBackdropFilters(const FilterOperations& filterOperations)
+void SkiaCompositingLayer::setBackdropFilters(FilterOperations&& filterOperations)
 {
     m_backdrop.filter = SkiaCompositingLayerFilters::create(filterOperations, SkTileMode::kClamp);
-    m_backdrop.filterOperations = filterOperations;
+    m_backdrop.filterOperations = WTF::move(filterOperations);
 }
 
 void SkiaCompositingLayer::setBackdropFiltersRect(const FloatRoundedRect& clipRect)
@@ -842,8 +842,6 @@ void SkiaCompositingLayer::paintContents(SkCanvas& canvas, PaintContext& context
         if (shouldPaintNow) {
             canvas.concat(transform);
 
-            // A corner shape the clipping rect cannot express arrives as a path instead; the rect has had
-            // its radii dropped in that case, so the path is the whole clip.
             if (m_contentsClipPath)
                 canvas.clipPath(*m_contentsClipPath, true);
             else if (m_contentsClippingRect.hasNonZeroRadii() || !m_contentsClippingRect.rect().contains(m_contentsRect))
@@ -1157,8 +1155,12 @@ void SkiaCompositingLayer::paintSelfAndChildren(SkCanvas& canvas, PaintContext& 
             clippingRect = rect;
     }
 
-    ScopedFlush autoFlush(canvas, context.imageSetBatch, clippingRect.isEmpty() ? ScopedFlush::Mode::DoNothing : ScopedFlush::Mode::FlushBeforeAndAfter);
-    if (!clippingRect.isEmpty())
+    const bool clipsDescendantsToPath = contentsRectClipsDescendants && m_contentsClipPath;
+
+    ScopedFlush autoFlush(canvas, context.imageSetBatch, (clippingRect.isEmpty() && !clipsDescendantsToPath) ? ScopedFlush::Mode::DoNothing : ScopedFlush::Mode::FlushBeforeAndAfter);
+    if (clipsDescendantsToPath)
+        canvas.clipPath(m_contentsClipPath->makeTransform(SkM44(clipTransform).asM33()), true);
+    else if (!clippingRect.isEmpty())
         clipRectToDevicePixels(canvas, clippingRect, clipTransform);
 
     for (auto& child : m_children)

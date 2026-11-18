@@ -400,6 +400,8 @@ struct FrameData {
 #if PLATFORM(COCOA)
         MachSendRight completionSyncEvent;
 #endif
+
+        WebCore::IntSize physicalSizeForEye(size_t eye) const { return { physicalSize[eye][0], physicalSize[eye][1] }; }
     };
 
 #if OS(ANDROID)
@@ -517,6 +519,11 @@ struct FrameData {
     FrameData copy() const;
 };
 
+enum class LayerUpdateMode : uint8_t {
+    Dynamic,
+    Static,
+};
+
 #if ENABLE(WEBXR_LAYERS)
 enum class CompositionLayerType : uint8_t {
     Quad,
@@ -547,6 +554,7 @@ struct DeviceLayer {
 #if ENABLE(WEBXR_LAYERS)
     bool blendTextureSourceAlpha { false };
     bool forceMonoPresentation { false };
+    bool contentUpdated { true };
     struct QuadLayerData {
         WebCore::FloatSize worldSize;
         FrameData::Pose poseInLocalSpace;
@@ -614,7 +622,7 @@ public:
     virtual void initializeReferenceSpace(ReferenceSpaceType) = 0;
     virtual std::optional<LayerInfo> createLayerProjection(uint32_t width, uint32_t height, bool alpha) = 0;
 #if ENABLE(WEBXR_LAYERS)
-    virtual std::optional<LayerInfo> createCompositionLayer(CompositionLayerType, WebCore::IntSize, LayerLayout) = 0;
+    virtual std::optional<LayerInfo> createCompositionLayer(CompositionLayerType, WebCore::IntSize, LayerLayout, LayerUpdateMode) = 0;
 #endif
     virtual void deleteLayer(LayerHandle) = 0;
 
@@ -646,7 +654,7 @@ protected:
     // https://immersive-web.github.io/webxr/#xr-device-concept
     // Each XR device has a list of enabled features for each XRSessionMode in its list of supported modes,
     // which is a list of feature descriptors which MUST be initially an empty list.
-    using FeaturesPerModeMap = HashMap<SessionMode, FeatureList, IntHash<SessionMode>, WTF::StrongEnumHashTraits<SessionMode>>;
+    using FeaturesPerModeMap = HashMap<SessionMode, FeatureList, IntHash<SessionMode>>;
     FeaturesPerModeMap m_enabledFeaturesMap;
     FeaturesPerModeMap m_supportedFeaturesMap;
 

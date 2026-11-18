@@ -34,7 +34,7 @@ from unittest import mock
 from twisted.internet import defer, reactor, task
 
 from .layout_test_failures import LayoutTestFailures
-from .send_email import send_email_to_patch_author, send_email_to_bot_watchers, send_email_to_github_admin, FROM_EMAIL
+from .send_email import send_email_to_change_author, send_email_to_bot_watchers, send_email_to_github_admin, FROM_EMAIL
 from .results_db import EWSPayload, EWSRowDetails, FlakyVerdict, ResultsDatabase
 from .twisted_additions import TwistedAdditions
 from .utils import load_password, get_custom_suffix
@@ -1448,25 +1448,17 @@ class AnalyzeChange(buildstep.BuildStep, AddToLogMixin):
     flunkOnFailure = True
     haltOnFailure = True
 
-    def _get_patch(self):
+    def _get_changed_files(self):
         sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
         if sourcestamp and sourcestamp.changes:
             return '\n'.join(sourcestamp.changes[0].files).encode('utf-8')
-        if sourcestamp and sourcestamp.patch:
-            return sourcestamp.patch[1]
         return None
-
-    @property
-    def change_type(self):
-        if self.getProperty('github.number', False):
-            return 'Pull request'
-        return 'Patch'
 
     def getResultSummary(self):
         if self.results in [FAILURE, SKIPPED]:
-            return {'step': '{} doesn\'t have relevant changes'.format(self.change_type)}
+            return {'step': "Pull request doesn't have relevant changes"}
         if self.results == SUCCESS:
-            return {'step': '{} contains relevant changes'.format(self.change_type)}
+            return {'step': 'Pull request contains relevant changes'}
         return buildstep.BuildStep.getResultSummary(self)
 
 
@@ -1552,6 +1544,7 @@ class CheckChangeRelevance(AnalyzeChange):
 
     webdriver_path_regexes = [
         re.compile(rb'Source/WebDriver/', re.IGNORECASE),
+        re.compile(rb'Tools/minidriver/', re.IGNORECASE),
         re.compile(rb'Source/WebKit/UIProcess/Automation/', re.IGNORECASE),
         re.compile(rb'Source/WebKit/WebProcess/Automation/', re.IGNORECASE),
         re.compile(rb'Source/WebKit/Shared/Automation/', re.IGNORECASE),
@@ -1575,16 +1568,16 @@ class CheckChangeRelevance(AnalyzeChange):
         'webdriver': webdriver_path_regexes,
     }
 
-    def _patch_is_relevant(self, patch, builderName, timeout=30):
+    def _change_is_relevant(self, changed_files, builderName, timeout=30):
         group = [group for group in self.group_to_paths_mapping.keys() if group.lower() in builderName.lower()]
         if not group:
-            # This builder doesn't have paths defined, all patches are relevant.
+            # This builder doesn't have paths defined, all changes are relevant.
             return True
 
         relevant_path_regexes = self.group_to_paths_mapping.get(group[0], [])
         start = time.time()
 
-        for change in patch.splitlines():
+        for change in changed_files.splitlines():
             for regex in relevant_path_regexes:
                 if type(change) == str:
                     change = change.encode(encoding='utf-8', errors='replace')
@@ -1596,21 +1589,18 @@ class CheckChangeRelevance(AnalyzeChange):
 
     @defer.inlineCallbacks
     def run(self):
-        patch = self._get_patch()
-        if not patch:
-            # This build doesn't have a patch, it might be a force build.
+        changed_files = self._get_changed_files()
+        if not changed_files:
+            # This build doesn't have a change, it might be a force build.
             defer.returnValue(SUCCESS)
 
-        if self._patch_is_relevant(patch, self.getProperty('buildername', '')):
-            yield self._addToLog('stdio', f'This {self.change_type.lower()} contains relevant changes.')
+        if self._change_is_relevant(changed_files, self.getProperty('buildername', '')):
+            yield self._addToLog('stdio', 'This pull request contains relevant changes.')
             defer.returnValue(SUCCESS)
 
-        yield self._addToLog('stdio', f'This {self.change_type.lower()} does not have relevant changes.')
+        yield self._addToLog('stdio', 'This pull request does not have relevant changes.')
         self.build.results = SKIPPED
-        self.build.buildFinished(['{} {} doesn\'t have relevant changes'.format(
-            self.change_type,
-            self.getProperty('github.number', ''),
-        )], SKIPPED)
+        self.build.buildFinished([f"Pull request {self.getProperty('github.number', '')} doesn't have relevant changes"], SKIPPED)
         defer.returnValue(FAILURE)
 
 
@@ -1707,20 +1697,17 @@ class FindModifiedLayoutTests(shell.ShellCommand, AnalyzeChange):
             modified_tests.add(f'LayoutTests/{test}')
         modified_tests = list(modified_tests)
 
-        patch = self._get_patch()
-        if not patch:
-            yield self._addToLog('stdio', 'Unable to access the patch/PR content.\n')
+        changed_files = self._get_changed_files()
+        if not changed_files:
+            yield self._addToLog('stdio', 'Unable to access the PR content.\n')
             self.results = WARNINGS
             if self.skipBuildIfNoResult:
-                self.build.buildFinished(['{} {} could not be accessed'.format(
-                    self.change_type,
-                    self.getProperty('github.number', ''),
-                )], WARNINGS)
+                self.build.buildFinished([f"Pull request {self.getProperty('github.number', '')} could not be accessed"], WARNINGS)
             return defer.returnValue(self.results)
 
         yield self._addToLog('stdio', '\nLooking for layout test changes...\n')
-        tests_from_patch = self.find_test_names_from_patch(patch)
-        modified_tests += tests_from_patch
+        tests_from_changed_files = self.find_test_names_from_changed_files(changed_files)
+        modified_tests += tests_from_changed_files
 
         if modified_tests:
             total_tests = len(modified_tests)
@@ -1735,15 +1722,12 @@ class FindModifiedLayoutTests(shell.ShellCommand, AnalyzeChange):
             self.results = SKIPPED
             if self.skipBuildIfNoResult:
                 self.build.results = SKIPPED
-                self.build.buildFinished(['{} {} doesn\'t have relevant changes'.format(
-                    self.change_type,
-                    self.getProperty('github.number', ''),
-                )], SKIPPED)
+                self.build.buildFinished([f"Pull request {self.getProperty('github.number', '')} doesn't have relevant changes"], SKIPPED)
         return defer.returnValue(self.results)
 
-    def find_test_names_from_patch(self, patch):
+    def find_test_names_from_changed_files(self, changed_files):
         tests = []
-        for line in patch.splitlines():
+        for line in changed_files.splitlines():
             match = re.search(self.RE_LAYOUT_TEST, line, re.IGNORECASE)
             if match:
                 if any(((suffix + '.html').encode('utf-8') or (suffix + '.svg').encode('utf-8') or (suffix + '.xml').encode('utf-8')) in line for suffix in self.SUFFIXES_TO_IGNORE):
@@ -1756,51 +1740,11 @@ class FindModifiedLayoutTests(shell.ShellCommand, AnalyzeChange):
 
     def getResultSummary(self):
         if self.results == WARNINGS:
-            return {'step': '{} could not be accessed'.format(self.change_type)}
+            return {'step': 'Pull request could not be accessed'}
         return super().getResultSummary()
 
 
 class BugzillaMixin(AddToLogMixin):
-    addURLs = False
-
-    @defer.inlineCallbacks
-    def fetch_data_from_url_with_authentication_bugzilla(self, url):
-        response = None
-        try:
-            response = yield TwistedAdditions.request(
-                url, type=b'GET', timeout=60,
-                params={'Bugzilla_api_key': self.get_bugzilla_api_key()},
-                logger=lambda content: self._addToLog('stdio', content),
-            )
-            if response.status_code != 200:
-                yield self._addToLog('stdio', 'Accessed {url} with unexpected status code {status_code}.\n'.format(url=url, status_code=response.status_code))
-                return defer.returnValue(None)
-        except Exception as e:
-            # Catching all exceptions here to safeguard api key.
-            yield self._addToLog('stdio', 'Failed to access {url}.\n'.format(url=url))
-            return defer.returnValue(None)
-        return defer.returnValue(response)
-
-    def send_email_for_infrastructure_issue(self, infrastructure_issue_text):
-        try:
-            builder_name = self.getProperty('buildername', '')
-            worker_name = self.getProperty('workername', '')
-            pr_number = self.getProperty('github.number')
-            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
-            owners = self.getProperty('owners', [])
-            author = owners[0] if owners else '?'
-            build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
-            email_subject = f'Infrastructure issue at {builder_name}'
-            email_text = f'The following infrastructure issue happened at:\n\n'
-            email_text += f'    - Build : <a href="{build_url}">{build_url}</a>\n'
-            email_text += f'    - Builder : {builder_name}\n'
-            email_text += f'    - Worker : {worker_name}\n'
-            email_text += f'    - PR: {pr_number}, Hash: {sha}, By: {author}\n'
-            email_text += f'    - Issue: {infrastructure_issue_text}\n'
-            send_email_to_bot_watchers(email_subject, email_text, builder_name, f'infrastructure-{builder_name}')
-        except Exception as e:
-            print(f'Error in sending email for infrastructure issue: {e}')
-
     def get_bugzilla_api_key(self):
         password = load_password('BUGZILLA_API_KEY', default='')
         if not password:
@@ -1846,7 +1790,7 @@ class BugzillaMixin(AddToLogMixin):
             defer.returnValue(FAILURE)
 
 
-class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
+class ValidateChange(buildstep.BuildStep, AddToLogMixin, GitHubMixin):
     name = 'validate-change'
     description = ['validate-change running']
     descriptionDone = ['Validated change']
@@ -1856,7 +1800,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
     def __init__(
         self,
         verifyObsolete=True,
-        verifyBugClosed=True,
+        verifyPRClosed=True,
         addURLs=True,
         verifyMergeQueue=False,
         verifyNoDraftForMergeQueue=False,
@@ -1865,7 +1809,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
         excluded_branches=None,
     ):
         self.verifyObsolete = verifyObsolete
-        self.verifyBugClosed = verifyBugClosed
+        self.verifyPRClosed = verifyPRClosed
         self.verifyMergeQueue = verifyMergeQueue
         self.verifyNoDraftForMergeQueue = verifyNoDraftForMergeQueue
         self.enableSkipEWSLabel = enableSkipEWSLabel
@@ -1965,7 +1909,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
                 if data.get('name') in GitHub.LABELS
             ])
 
-        pr_closed = yield self._is_pr_closed(pr_json) if self.verifyBugClosed else 0
+        pr_closed = yield self._is_pr_closed(pr_json) if self.verifyPRClosed else 0
         if pr_closed == 1:
             rc = yield self.skip_build('Pull request {} is already closed'.format(pr_number))
             return defer.returnValue(rc)
@@ -2033,7 +1977,7 @@ class ValidateChange(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
             email_text += '\n\nFull details are available at: {}\n\nChange author: {}'.format(build_url, change_author)
             email_text += '\n\nPlease contact one of the WebKit administrators on Slack or email admin@webkit.org to fix the issue.'
             yield self._addToLog('stdio', 'Sending email notification to {}.\nPlease contact an admin to fix the issue.\n'.format(change_author))
-            send_email_to_patch_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
+            send_email_to_change_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
         except Exception as e:
             yield self._addToLog('stdio', f'Error in sending email for github failure: {e}')
         return defer.returnValue(None)
@@ -2548,7 +2492,7 @@ class CheckStatusOfPR(buildstep.BuildStep, GitHubMixin, AddToLogMixin):
     name = 'check-status-of-pr'
     flunkOnFailure = False
     haltOnFailure = False
-    EMBEDDED_CHECKS = ['ios', 'ios-safer-cpp', 'ios-sim', 'ios-wk2', 'ios-wk2-wpt', 'api-ios', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
+    EMBEDDED_CHECKS = ['ios', 'ios-safer-cpp', 'ios-sim-cmake', 'ios-cmake-wk2', 'ios-cmake-wk2-wpt', 'api-ios-cmake', 'vision', 'vision-sim', 'vision-wk2', 'tv', 'tv-sim', 'watch', 'watch-sim']
     MACOS_CHECKS = ['mac', 'mac-cmake-debug', 'api-mac', 'api-mac-cmake-debug', 'mac-wk2', 'mac-cmake-debug-wk2', 'mac-wk2-stress', 'mac-safer-cpp', 'jsc-x86-64', 'jsc-debug-arm64']
     LINUX_CHECKS = ['gtk', 'gtk-wk2', 'api-gtk', 'wpe', 'gtk3-gcc', 'wpe-wk2', 'api-wpe', 'jsc-wpe']
     WINDOWS_CHECKS = ['win']
@@ -2835,7 +2779,7 @@ class RevertAppliedChanges(steps.ShellSequence):
 
         platform = self.getProperty('platform')
         if platform in ('gtk', 'wpe'):
-            # Force cmake reconfigure to ensure the recovery after patches breaking cmake configure step
+            # Force cmake reconfigure to ensure the recovery after changes breaking cmake configure step
             platform = platform.upper()
             config = self.getProperty('configuration').capitalize()
             target = os.path.join("WebKitBuild", platform, config, "build-webkit-options.txt")
@@ -3352,7 +3296,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
         steps_to_add = self.follow_up_steps()
 
         if cmd.didFail():
-            steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+            steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False)]
             platform = self.getProperty('platform')
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -3383,7 +3327,7 @@ class CompileWebKit(shell.Compile, AddToLogMixin, ShellMixin):
                     if self.getProperty('rebuild_without_change_on_builder', False):
                         steps_to_add.extend([
                             RevertAppliedChanges(),
-                            ValidateChange(verifyBugClosed=False, addURLs=False),
+                            ValidateChange(verifyPRClosed=False, addURLs=False),
                             CompileWebKitWithoutChange(),
                             ArchiveBuiltProduct(),
                             GenerateS3URL(f"{self.getProperty('fullPlatform')}-{self.getProperty('archForUpload')}-{self.getProperty('configuration')}{SUFFIX_WITHOUT_CHANGE}"),
@@ -3444,7 +3388,7 @@ class CompileWebKitWithoutChange(CompileWebKit):
             print(f'Error in sending email for unexpected build failure: {e}')
 
 
-class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixin):
+class AnalyzeCompileWebKitResults(buildstep.BuildStep, AddToLogMixin, GitHubMixin):
     name = 'analyze-compile-webkit-results'
     description = ['analyze-compile-webkit-results']
     descriptionDone = ['analyze-compile-webkit-results']
@@ -3461,14 +3405,14 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
 
     @defer.inlineCallbacks
     def analyzeResults(self):
-        compile_without_patch_step = CompileWebKitWithoutChange.name
+        compile_without_change_step = CompileWebKitWithoutChange.name
         if shouldBuildJSCOnly(self.getProperty('group'), self.getProperty('platform')):
-            compile_without_patch_step = CompileJSCWithoutChange.name
-        compile_without_patch_result = self.getStepResult(compile_without_patch_step)
+            compile_without_change_step = CompileJSCWithoutChange.name
+        compile_without_change_result = self.getStepResult(compile_without_change_step)
 
         pr_number = self.getProperty('github.number')
 
-        if compile_without_patch_result == FAILURE:
+        if compile_without_change_result == FAILURE:
             if pr_number and self.getProperty('github.base.ref') != 'main':
                 message = 'Unable to build WebKit without PR, please check manually'
                 self.descriptionDone = message
@@ -3580,7 +3524,7 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, BugzillaMixin, GitHubMixi
                 email_text += '\n\nError lines:\n\n<code>{}</code>'.format(logs)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
             yield self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
-            send_email_to_patch_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
+            send_email_to_change_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
         except Exception as e:
             yield self._addToLog('stdio', f'Error in sending email for new build failure: {e}')
 
@@ -3790,7 +3734,7 @@ class RunJavaScriptCoreTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, Sh
             steps_to_add += [
                 RevertAppliedChanges(),
                 CleanWorkingDirectory(),
-                ValidateChange(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyPRClosed=False, addURLs=False),
             ]
             if platform == 'wpe':
                 steps_to_add.append(InstallWpeDependencies())
@@ -3804,7 +3748,7 @@ class RunJavaScriptCoreTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, Sh
             else:
                 steps_to_add.append(CompileWebKitWithoutChange() if usesBuildWebKitForJSC(platform) else CompileJSCWithoutChange())
             steps_to_add += [
-                ValidateChange(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyPRClosed=False, addURLs=False),
                 KillOldProcesses(),
                 RunJSCTestsWithoutChange(),
                 AnalyzeJSCTestsResults()
@@ -4380,7 +4324,7 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
                 ArchiveTestResults(),
                 UploadTestResults(),
                 ExtractTestResults(),
-                ValidateChange(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyPRClosed=False, addURLs=False),
             ]
             if GitHub.NO_FAILURE_LIMITS_LABEL not in self.getProperty('github_labels', []):
                 steps_to_add += [
@@ -4391,7 +4335,7 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
                 steps_to_add += [
                     RevertAppliedChanges(),
                     CleanWorkingDirectory(),
-                    ValidateChange(verifyBugClosed=False, addURLs=False)
+                    ValidateChange(verifyPRClosed=False, addURLs=False)
                 ]
                 if self.getProperty('rebuild_without_change_on_builder', False):
                     steps_to_add.extend([DownloadBuiltProduct(suffix=SUFFIX_WITHOUT_CHANGE), ExtractBuiltProduct()])
@@ -4399,7 +4343,7 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
                     steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
 
                 steps_to_add += [
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    ValidateChange(verifyPRClosed=False, addURLs=False),
                     KillOldProcesses(),
                     RunWebKitTestsWithoutChange(),
                 ]
@@ -4606,7 +4550,7 @@ class ReRunWebKitTests(RunWebKitTests):
                     ExtractTestResults(identifier='rerun'),
                     RevertAppliedChanges(),
                     CleanWorkingDirectory(),
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    ValidateChange(verifyPRClosed=False, addURLs=False),
                 ]
                 if self.getProperty('rebuild_without_change_on_builder', False):
                     steps_to_add.extend([DownloadBuiltProduct(suffix=SUFFIX_WITHOUT_CHANGE), ExtractBuiltProduct()])
@@ -4614,7 +4558,7 @@ class ReRunWebKitTests(RunWebKitTests):
                     steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
 
                 steps_to_add += [
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    ValidateChange(verifyPRClosed=False, addURLs=False),
                     KillOldProcesses(),
                     RunWebKitTestsWithoutChange()
                 ]
@@ -4802,11 +4746,31 @@ class ReRunWebKitTestsEWSSiteIsolation(SiteIsolationResultsDBMixin, ReRunWebKitT
     name = 're-run-layout-tests-site-isolation'
 
 
-class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, BugzillaMixin, GitHubMixin):
+class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddToLogMixin, GitHubMixin):
     name = 'analyze-layout-tests-results'
     suite = 'layout-tests'
     description = ['analyze-layout-test-results']
     descriptionDone = ['analyze-layout-tests-results']
+
+    def send_email_for_infrastructure_issue(self, infrastructure_issue_text):
+        try:
+            builder_name = self.getProperty('buildername', '')
+            worker_name = self.getProperty('workername', '')
+            pr_number = self.getProperty('github.number')
+            sha = self.getProperty('github.head.sha', '')[:HASH_LENGTH_TO_DISPLAY]
+            owners = self.getProperty('owners', [])
+            author = owners[0] if owners else '?'
+            build_url = '{}#/builders/{}/builds/{}'.format(self.master.config.buildbotURL, self.build._builderid, self.build.number)
+            email_subject = f'Infrastructure issue at {builder_name}'
+            email_text = f'The following infrastructure issue happened at:\n\n'
+            email_text += f'    - Build : <a href="{build_url}">{build_url}</a>\n'
+            email_text += f'    - Builder : {builder_name}\n'
+            email_text += f'    - Worker : {worker_name}\n'
+            email_text += f'    - PR: {pr_number}, Hash: {sha}, By: {author}\n'
+            email_text += f'    - Issue: {infrastructure_issue_text}\n'
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, f'infrastructure-{builder_name}')
+        except Exception as e:
+            print(f'Error in sending email for infrastructure issue: {e}')
 
     @defer.inlineCallbacks
     def report_failure(self, new_failures=None, exceed_failure_limit=False, failure_message=''):
@@ -4814,7 +4778,7 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
         if not new_failures:
             message = 'Found unexpected failure with change' if not failure_message else failure_message
         else:
-            self.setProperty('new_failures_introduced_by_patch', sorted(new_failures))
+            self.setProperty('new_failures_introduced_by_change', sorted(new_failures))
             runs = {
                 'first-run': 'first_run_results',
                 'second-run': 'second_run_results',
@@ -4965,7 +4929,7 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
             email_text += '\n\nLayout test failure{}:\n{}'.format(pluralSuffix, test_names_string)
             email_text += '\n\nTo unsubscribe from these notifications or to provide any feedback please email aakash_jain@apple.com'
             yield self._addToLog('stdio', 'Sending email notification to {}'.format(change_author))
-            send_email_to_patch_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
+            send_email_to_change_author(change_author, email_subject, email_text, self.getProperty('github.head.sha', ''))
         except Exception as e:
             print('Error in sending email for new layout test failures: {}'.format(e))
 
@@ -4989,7 +4953,7 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
             if clean_tree_run_status in [SUCCESS, WARNINGS]:
                 rc = yield self.report_failure(set())
                 return defer.returnValue(rc)
-            self.send_email_for_infrastructure_issue('Both first and second layout-test runs with patch generated no list of results but exited with error, and the clean_tree without change retry also failed.')
+            self.send_email_for_infrastructure_issue('Both first and second layout-test runs with change generated no list of results but exited with error, and the clean_tree without change retry also failed.')
             if (self.getProperty('first_run_flakies', False) or self.getProperty('second_run_flakies', False)) and self.getProperty('clean_tree_run_flakies', False):
                 self.build.results = SUCCESS
                 message = 'Passed layout tests with flaky tests'
@@ -5013,7 +4977,7 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
 
         if first_results_did_exceed_test_failure_limit and second_results_did_exceed_test_failure_limit:
             if (len(first_results_failing_tests) - len(clean_tree_results_failing_tests)) <= 5:
-                # If we've made it here, then many tests are failing with the patch applied, but
+                # If we've made it here, then many tests are failing with the change applied, but
                 # if the clean tree is also failing many tests, even if it's not quite as many,
                 # then we can't be certain that the discrepancy isn't due to flakiness, and hence we must defer judgement.
                 return defer.returnValue(self.retry_build())
@@ -5023,18 +4987,18 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
         if second_results_did_exceed_test_failure_limit:
             if clean_tree_results_did_exceed_test_failure_limit:
                 return defer.returnValue(self.retry_build())
-            failures_introduced_by_patch = first_results_failing_tests - clean_tree_results_failing_tests
-            if failures_introduced_by_patch:
-                rc = yield self.report_failure(failures_introduced_by_patch)
+            failures_introduced_by_change = first_results_failing_tests - clean_tree_results_failing_tests
+            if failures_introduced_by_change:
+                rc = yield self.report_failure(failures_introduced_by_change)
                 return defer.returnValue(rc)
             return defer.returnValue(self.retry_build())
 
         if first_results_did_exceed_test_failure_limit:
             if clean_tree_results_did_exceed_test_failure_limit:
                 return defer.returnValue(self.retry_build())
-            failures_introduced_by_patch = second_results_failing_tests - clean_tree_results_failing_tests
-            if failures_introduced_by_patch:
-                rc = yield self.report_failure(failures_introduced_by_patch)
+            failures_introduced_by_change = second_results_failing_tests - clean_tree_results_failing_tests
+            if failures_introduced_by_change:
+                rc = yield self.report_failure(failures_introduced_by_change)
                 return defer.returnValue(rc)
             return defer.returnValue(self.retry_build())
 
@@ -5050,29 +5014,29 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, Bugzi
             if tests_that_consistently_failed:
                 if clean_tree_results_did_exceed_test_failure_limit:
                     return defer.returnValue(self.retry_build())
-                failures_introduced_by_patch = tests_that_consistently_failed - clean_tree_results_failing_tests
-                if failures_introduced_by_patch:
-                    rc = yield self.report_failure(failures_introduced_by_patch)
+                failures_introduced_by_change = tests_that_consistently_failed - clean_tree_results_failing_tests
+                if failures_introduced_by_change:
+                    rc = yield self.report_failure(failures_introduced_by_change)
                     return defer.returnValue(rc)
             elif num_flaky_failures > 10:
                 rc = yield self.report_failure(failure_message=f'Too many flaky failures: {flaky_failures_string}')
                 return defer.returnValue(rc)
 
             # At this point we know that at least one test flaked, but no consistent failures
-            # were introduced. This is a bit of a grey-zone. It's possible that the patch introduced some flakiness.
+            # were introduced. This is a bit of a grey-zone. It's possible that the change introduced some flakiness.
             # We still mark the build as SUCCESS.
             return defer.returnValue(self.report_pre_existing_failures(clean_tree_results_failing_tests, flaky_failures))
 
         if clean_tree_results_did_exceed_test_failure_limit:
             return defer.returnValue(self.retry_build())
-        failures_introduced_by_patch = first_results_failing_tests - clean_tree_results_failing_tests
-        if failures_introduced_by_patch:
-            rc = yield self.report_failure(failures_introduced_by_patch)
+        failures_introduced_by_change = first_results_failing_tests - clean_tree_results_failing_tests
+        if failures_introduced_by_change:
+            rc = yield self.report_failure(failures_introduced_by_change)
             return defer.returnValue(rc)
 
         # At this point, we know that the first and second runs had the exact same failures,
         # and that those failures are all present on the clean tree, so we can say with certainty
-        # that the patch is good.
+        # that the change is good.
         return defer.returnValue(self.report_pre_existing_failures(clean_tree_results_failing_tests, flaky_failures))
 
 
@@ -5094,7 +5058,7 @@ def results_db_pre_existing_failures(step):
 
 # This is a specialized class designed to cope with a tree that is not always green.
 # It tries hard to avoid reporting any false positive, so it will only report new
-# consistent failures (fail always with the patch and pass always without it).
+# consistent failures (fail always with the change and pass always without it).
 class RunWebKitTestsRedTree(RunWebKitTests):
     EXIT_AFTER_FAILURES = 500
 
@@ -5130,7 +5094,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
             ]
         steps_to_add += [ArchiveTestResults(), UploadTestResults(), ExtractTestResults()]
         if first_results_failing_tests:
-            steps_to_add.extend([ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), RunWebKitTestsRepeatFailuresRedTree()])
+            steps_to_add.extend([ValidateChange(verifyPRClosed=False, addURLs=False), KillOldProcesses(), RunWebKitTestsRepeatFailuresRedTree()])
         elif first_results_flaky_tests:
             steps_to_add.append(AnalyzeLayoutTestsResultsRedTree())
         elif first_run_failures:
@@ -5151,7 +5115,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
                 self.setProperty('build_summary', message)
         else:
             # We have a failure return code but not a list of failed or flaky tests, so we can't run the repeat steps.
-            # If we are on the last retry then run the whole layout tests without patch.
+            # If we are on the last retry then run the whole layout tests without change.
             # If not, then go to analyze-layout-tests-results where we will retry everything hoping this was a random failure.
             retry_count = int(self.getProperty('retry_count', 0))
             if retry_count < AnalyzeLayoutTestsResultsRedTree.MAX_RETRY:
@@ -5164,7 +5128,7 @@ class RunWebKitTestsRedTree(RunWebKitTests):
                     steps_to_add.append(InstallGtkDependencies())
                 steps_to_add.extend([
                     CompileWebKitWithoutChange(retry_build_on_failure=True),
-                    ValidateChange(verifyBugClosed=False, addURLs=False),
+                    ValidateChange(verifyPRClosed=False, addURLs=False),
                     RunWebKitTestsWithoutChangeRedTree(),
                 ])
         if steps_to_add:
@@ -5214,7 +5178,7 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
         steps_to_add += [ArchiveTestResults(), UploadTestResults(identifier='repeat-failures'), ExtractTestResults(identifier='repeat-failures')]
         if with_change_repeat_failures_results_nonflaky_failures or with_change_repeat_failures_timedout:
             steps_to_add.extend([
-                ValidateChange(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyPRClosed=False, addURLs=False),
                 KillOldProcesses(),
                 RevertAppliedChanges(),
                 CleanWorkingDirectory(),
@@ -5225,7 +5189,7 @@ class RunWebKitTestsRepeatFailuresRedTree(RunWebKitTestsRedTree):
                 steps_to_add.append(InstallGtkDependencies())
             steps_to_add.extend([
                 CompileWebKitWithoutChange(retry_build_on_failure=True),
-                ValidateChange(verifyBugClosed=False, addURLs=False),
+                ValidateChange(verifyPRClosed=False, addURLs=False),
                 RunWebKitTestsRepeatFailuresWithoutChangeRedTree(),
             ])
         else:
@@ -6060,7 +6024,7 @@ class RunAPITests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin):
 
     def doOnFailure(self):
         self.steps_to_add += [
-            ValidateChange(verifyBugClosed=False, addURLs=False),
+            ValidateChange(verifyPRClosed=False, addURLs=False),
             KillOldProcesses(),
             ReRunAPITests(),
         ]
@@ -6215,7 +6179,7 @@ class ReRunAPITests(RunAPITests):
                 yield self.report_to_results_db(results)
                 return
 
-        self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+        self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False)]
         platform = self.getProperty('platform')
         if platform == 'wpe':
             self.steps_to_add.append(InstallWpeDependencies())
@@ -6227,7 +6191,7 @@ class ReRunAPITests(RunAPITests):
         else:
             self.steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
 
-        self.steps_to_add.append(ValidateChange(verifyBugClosed=False, addURLs=False))
+        self.steps_to_add.append(ValidateChange(verifyPRClosed=False, addURLs=False))
         self.steps_to_add.append(KillOldProcesses())
         self.steps_to_add.append(RunAPITestsWithoutChange())
         self.steps_to_add.append(AnalyzeAPITestsResults())
@@ -6293,11 +6257,11 @@ class AnalyzeAPITestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddToLog
             flaky_failures_string = ''
             exceed_note = ' (failure limit exceeded)'
         else:
-            failures_with_patch = first_run_failures.intersection(second_run_failures)
-            flaky_failures = first_run_failures.union(second_run_failures) - failures_with_patch
+            failures_with_change = first_run_failures.intersection(second_run_failures)
+            flaky_failures = first_run_failures.union(second_run_failures) - failures_with_change
             flaky_failures = list(flaky_failures)[:self.NUM_FAILURES_TO_DISPLAY]
             flaky_failures_string = ', '.join(flaky_failures)
-            new_failures = failures_with_patch - clean_tree_failures
+            new_failures = failures_with_change - clean_tree_failures
             exceed_note = ''
 
         if new_failures:
@@ -6318,7 +6282,7 @@ class AnalyzeAPITestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddToLog
 
         if new_failures:
             yield self._addToLog('stderr', '\nNew failures: {}\n'.format(new_failures_string))
-            self.setProperty('new_api_failures_introduced_by_patch', sorted(new_failures))
+            self.setProperty('new_api_failures_introduced_by_change', sorted(new_failures))
             self.build.results = FAILURE
             pluralSuffix = 's' if len(new_failures) > 1 else ''
             message = 'Found {} new API test failure{}{}: {}'.format(len(new_failures), pluralSuffix, exceed_note, new_failures_string)
@@ -6485,7 +6449,7 @@ class RunWebDriverTests(shell.Test, AddToLogMixin, ShellMixin):
             self.set_build_summary('Passed WebDriver tests')
             return
         self.steps_to_add += [
-            ValidateChange(verifyBugClosed=False, addURLs=False),
+            ValidateChange(verifyPRClosed=False, addURLs=False),
             KillOldProcesses(),
             ReRunWebDriverTests(),
         ]
@@ -6513,13 +6477,13 @@ class ReRunWebDriverTests(RunWebDriverTests):
             self.set_build_summary(self.describe('Found flaky test', first_run_failures | self.failures), force_success=True)
             return
 
-        self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False)]
+        self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False)]
         if self.getProperty('rebuild_without_change_on_builder', False):
             self.steps_to_add += [DownloadBuiltProduct(suffix=SUFFIX_WITHOUT_CHANGE), ExtractBuiltProduct()]
         else:
             self.steps_to_add.append(CompileWebKitWithoutChange(retry_build_on_failure=True))
         self.steps_to_add += [
-            ValidateChange(verifyBugClosed=False, addURLs=False),
+            ValidateChange(verifyPRClosed=False, addURLs=False),
             KillOldProcesses(),
             RunWebDriverTestsWithoutChange(),
             AnalyzeWebDriverTestsResults(),
@@ -6616,9 +6580,9 @@ class FindModifiedAPITests(shell.ShellCommand, AnalyzeChange):
         self.log_observer = logobserver.BufferLogObserver()
         self.addLogObserver('stdio', self.log_observer)
 
-        patch = self._get_patch()
-        if not patch:
-            yield self._addToLog('stdio', 'No patch found, using git diff against base branch\n')
+        all_changed_files = self._get_changed_files()
+        if not all_changed_files:
+            yield self._addToLog('stdio', 'No changed files found, using git diff against base branch\n')
             remote = self.getProperty('remote', 'origin')
             base_ref = self.getProperty('github.base.ref', 'main')
             # Use triple-dot diff to compare merge-base with HEAD (only PR changes)
@@ -6631,18 +6595,15 @@ class FindModifiedAPITests(shell.ShellCommand, AnalyzeChange):
             log_text = self.log_observer.getStdout()
             changed_files = [f for f in log_text.splitlines() if any(f.startswith(path) for path in self.API_TEST_PATHS)]
         else:
-            yield self._addToLog('stdio', 'Found patch, analyzing for API test changes\n')
-            changed_files = self.find_test_names_from_patch(patch)
+            yield self._addToLog('stdio', 'Found changed files, analyzing for API test changes\n')
+            changed_files = self.find_test_names_from_changed_files(all_changed_files)
 
         if not changed_files:
             yield self._addToLog('stdio', 'No API test files were modified\n')
             self.setProperty('modified_api_tests', [])
             if self.skipBuildIfNoResult:
                 self.build.results = SKIPPED
-                self.build.buildFinished(['{} {} doesn\'t modify any API tests'.format(
-                    self.change_type,
-                    self.getProperty('github.number', ''),
-                )], SKIPPED)
+                self.build.buildFinished([f"Pull request {self.getProperty('github.number', '')} doesn't modify any API tests"], SKIPPED)
             return defer.returnValue(SKIPPED)
 
         yield self._addToLog('stdio', f'Found {len(changed_files)} modified API test file(s):\n')
@@ -6699,10 +6660,10 @@ class FindModifiedAPITests(shell.ShellCommand, AnalyzeChange):
         self.setProperty('modified_api_tests', all_tests)
         defer.returnValue(SUCCESS if all_tests else SKIPPED)
 
-    def find_test_names_from_patch(self, patch):
-        """Find modified API test files from patch"""
+    def find_test_names_from_changed_files(self, changed_files):
+        """Find modified API test files from changed files"""
         test_files = []
-        for line in patch.splitlines():
+        for line in changed_files.splitlines():
             match = re.search(self.RE_API_TEST, line, re.IGNORECASE)
             if match:
                 test_name = match.group(2).decode('utf-8')
@@ -6949,6 +6910,142 @@ class RunAPITestsParallelSafety(RunAPITests):
         return super().getResultSummary()
 
 
+class FindChangedAPITests(shell.ShellCommand):
+    name = 'find-changed-api-tests'
+    description = ['finding changed api tests']
+    descriptionDone = ['Found changed API tests']
+    RE_CHANGED_TEST = re.compile(r'^    (?P<test>\S+) \((?P<path>\S+)\)$')
+
+    def __init__(self, **kwargs):
+        super().__init__(logEnviron=False, timeout=5 * 60, **kwargs)
+
+    @defer.inlineCallbacks
+    def run(self):
+        self.log_observer = logobserver.BufferLogObserver()
+        self.addLogObserver('stdio', self.log_observer)
+
+        platform = self.getProperty('platform')
+        base = f"remotes/{self.getProperty('remote', 'origin')}/{self.getProperty('github.base.ref', DEFAULT_BRANCH)}"
+        self.command = ['python3', f'Tools/Scripts/run-{platform}-tests', f"--{self.getProperty('configuration')}", '--changed-since', base, '-l']
+
+        rc = yield super().run()
+        changed_tests = {}
+        if rc == SUCCESS:
+            for line in self.log_observer.getStdout().splitlines():
+                if match := self.RE_CHANGED_TEST.match(line):
+                    changed_tests[match.group('test')] = match.group('path')
+        self.setProperty('changed_api_tests', changed_tests)
+
+        if rc != SUCCESS:
+            return defer.returnValue(WARNINGS)
+        return defer.returnValue(SUCCESS if changed_tests else SKIPPED)
+
+    def hideStepIf(self, results, step):
+        return results == SKIPPED
+
+    def getResultSummary(self):
+        changed_tests = self.getProperty('changed_api_tests', {})
+        if self.results == SUCCESS:
+            return {'step': f'Found {len(changed_tests)} changed API test(s)'}
+        if self.results == SKIPPED:
+            return {'step': 'No API tests changed'}
+        if self.results == WARNINGS:
+            return {'step': 'Unable to find changed API tests'}
+        return super().getResultSummary()
+
+
+class RunAPITestsInStressMode(RunAPITests):
+    name = 'run-api-tests-in-stress-mode'
+    description = ['running changed API tests in stress mode']
+    suffix = 'api_stress_mode'
+    haltOnFailure = True
+    REPEAT_EACH = 20
+
+    def doStepIf(self, step):
+        return bool(self.getProperty('changed_api_tests', {}))
+
+    def hideStepIf(self, results, step):
+        return not self.doStepIf(step)
+
+    def changed_expectations(self):
+        tests = set()
+        for test, path in self.getProperty('changed_api_tests', {}).items():
+            if path.endswith('TestExpectations.json'):
+                program, separator, test_case = test.partition(':')
+                tests.add(f'{program}.{test_case}' if separator and not test_case.startswith('/') else test)
+        return tests
+
+    def has_changed_expectation(self, failure):
+        tests = self.changed_expectations()
+        return failure in tests or any(failure.startswith((f'{test}:', f'{test}.')) for test in tests)
+
+    @defer.inlineCallbacks
+    def run(self):
+        self.log_observer_json = logobserver.BufferLogObserver()
+        self.addLogObserver('json', self.log_observer_json)
+        self.log_observer = ParseByLineLogObserver(self.parseOutputLine)
+        self.addLogObserver('stdio', self.log_observer)
+
+        platform = self.getProperty('platform')
+        changed_tests = sorted(self.getProperty('changed_api_tests', {}))
+        self.command = ['python3', f'Tools/Scripts/run-{platform}-tests', f"--{self.getProperty('configuration')}",
+                        f'--json-output={self.jsonFileName}', '--repeat-each', str(self.REPEAT_EACH)] + [quote(test) for test in changed_tests]
+        if SHOULD_FILTER_LOGS is True:
+            self.command = self.shell_command(' '.join(self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs api')
+
+        rc = yield shell.Test.run(self)
+        failures = yield self.parse_and_set_failures()
+        if rc not in [SUCCESS, WARNINGS] and not failures:
+            message = f'{RunWebKitTestsInStressMode.FAILURE_MSG_IN_STRESS_MODE}, but its results could not be parsed'
+            self.descriptionDone = message
+            self.setProperty('build_summary', message)
+        elif failures:
+            yield self._addToLog(self.test_failures_log_name, '\n'.join(failures))
+            excusable = [failure for failure in failures if not self.has_changed_expectation(failure)]
+            excused_flakes = set()
+            if excusable:
+                yield self.filter_api_test_failures_using_results_db(excusable)
+                if remaining := set(self.failing_tests_filtered):
+                    excused_flakes = yield self.pre_existing_flakes_using_results_db(remaining)
+                    self.pre_existing_flakes_in_results_db = {test: self.pre_existing_flakes_in_results_db[test] for test in excused_flakes}
+            excused = set(self.pre_existing_failures_in_results_db) | excused_flakes
+            if blamed := sorted(set(failures) - excused):
+                message = f"{RunWebKitTestsInStressMode.FAILURE_MSG_IN_STRESS_MODE}: {', '.join(blamed[:self.NUM_FAILURES_TO_DISPLAY])}"
+                if len(blamed) > self.NUM_FAILURES_TO_DISPLAY:
+                    message += ' ...'
+                self.descriptionDone = message
+                self.setProperty('build_summary', message)
+                rc = FAILURE
+            else:
+                self.descriptionDone = self.results_db_ignore_message()
+                rc = SUCCESS
+        else:
+            self.descriptionDone = f'Passed {len(changed_tests)} changed API test(s) {self.REPEAT_EACH} times'
+
+        if SHOULD_FILTER_LOGS is True:
+            self.steps_to_add += [
+                GenerateS3URL(
+                    f"{self.getProperty('fullPlatform')}-{self.getProperty('archForUpload')}-{self.getProperty('configuration')}-{self.name}",
+                    extension='txt',
+                    additions=f'{self.build.number}',
+                    content_type='text/plain',
+                    alwaysRun=True,
+                ), UploadFileToS3(
+                    'logs.txt',
+                    links={self.name: 'Full logs'},
+                    content_type='text/plain',
+                    alwaysRun=True,
+                )
+            ]
+        self.build.addStepsAfterCurrentStep(self.steps_to_add)
+        defer.returnValue(rc)
+
+    def getResultSummary(self):
+        if self.cancelled_due_to_huge_logs:
+            return {'step': MSG_FOR_EXCESSIVE_LOGS, 'build': MSG_FOR_EXCESSIVE_LOGS}
+        return {'step': self.descriptionDone if isinstance(self.descriptionDone, str) else self.name}
+
+
 class ArchiveTestResults(shell.ShellCommand):
     command = ['python3', 'Tools/CISupport/test-result-archive',
                Interpolate('--platform=%(prop:platform)s'), Interpolate('--%(prop:configuration)s'), 'archive']
@@ -7161,7 +7258,6 @@ class PrintConfiguration(steps.ShellSequence, ShellMixin):
         return {'step': configuration}
 
 
-# FIXME: We should be able to remove this step once abandoning patch workflows
 class CleanGitRepo(steps.ShellSequence, ShellMixin):
     name = 'clean-up-git-repo'
     haltOnFailure = False
@@ -7187,7 +7283,6 @@ class CleanGitRepo(steps.ShellSequence, ShellMixin):
 
         for command in [
             self.shell_command('git rebase --abort || {}'.format(self.shell_exit_0())),
-            self.shell_command('git am --abort || {}'.format(self.shell_exit_0())),
             self.shell_command('git cherry-pick --abort || {}'.format(self.shell_exit_0())),
             ['git', 'clean', '-f', '-d'],  # Remove any left-over layout test results, added files, etc.
             self.shell_command(f'git switch --progress -d --discard-changes {self.git_remote}/{self.default_branch} || git switch --progress -d --discard-changes {self.default_branch} || git switch --progress -d --discard-changes'),  # Detach to either origin/main or main or HEAD
@@ -7405,7 +7500,7 @@ class DetermineLandedIdentifier(shell.ShellCommand):
         return comment
 
 
-class CheckStatusOnEWSQueues(buildstep.BuildStep, BugzillaMixin):
+class CheckStatusOnEWSQueues(buildstep.BuildStep, AddToLogMixin):
     name = 'check-status-on-other-ewses'
     descriptionDone = ['Checked change status on other queues']
 
@@ -7856,7 +7951,6 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
         'Unreviewed',
         'Versioning.',
     )
-    RE_CHANGELOG = br'^(\+\+\+)\s+(.*/ChangeLog.*)'
     BY_RE = re.compile(r'.+\s+by\s+(.+)$')
     SPLIT_RE = re.compile(r'\s+and\s+|,\s*and\s*|,\s*')
 
@@ -7886,13 +7980,6 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
         sourcestamp = self.build.getSourceStamp(self.getProperty('codebase', ''))
         if sourcestamp and sourcestamp.changes:
             return sourcestamp.changes[0].files
-        if sourcestamp and sourcestamp.patch:
-            files = []
-            for line in sourcestamp.patch[1].splitlines():
-                match = re.search(self.RE_CHANGELOG, line)
-                if match:
-                    files.append(match.group(1).decode('utf-8'))
-            return files
         return []
 
     @defer.inlineCallbacks
@@ -7925,7 +8012,7 @@ class ValidateCommitMessage(steps.ShellSequence, ShellMixin, AddToLogMixin):
         rc = yield super().run()
 
         if rc == SKIPPED:
-            self.summary = 'Patches have no commit message'
+            self.summary = 'Change has no commit message'
             defer.returnValue(rc)
             return
 
@@ -8374,7 +8461,7 @@ class ScanBuild(steps.ShellSequence, ShellMixin):
         if rc == SUCCESS:
             steps_to_add += self.addResultsSteps()
         else:
-            steps_to_add += [ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange(analyze_safercpp_results=False)]
+            steps_to_add += [ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange(analyze_safercpp_results=False)]
 
         self.build.addStepsAfterCurrentStep(steps_to_add)
 
@@ -8515,12 +8602,23 @@ class ParseStaticAnalyzerResultsWithoutChange(ParseStaticAnalyzerResults):
 
 class FindModifiedSaferCPPExpectations(shell.ShellCommand, AddToLogMixin):
     name = 'find-modified-safer-cpp-expectations'
-    RE_FILE = r'^(\+|-)(?P<file>[^/+/-].+(?:\.cpp|\.mm|\.h|\.m|\.c))$'
+    RE_FILE = r'^(?P<sign>\+|-)(\s*\[\s*(?P<platform>\w+)\s*\]\s*)?(?P<file>[^/+\-\[].+(?:\.cpp|\.mm|\.h|\.m|\.c))$'
     RE_EXPECTATIONS = r'^(\+\+\+|---).+(Source/(?P<project>.+)/SaferCPPExpectations/(?P<checker>.+)Expectations)$'
     command = ['git', 'diff', 'HEAD~1', '--', '*Expectations']
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, **kwargs)
+
+    @staticmethod
+    def normalize_platform(platform):
+        if not platform:
+            return None
+        platform = platform.lower()
+        if platform == 'mac' or platform == 'macos':
+            return 'macOS'
+        elif platform == 'ios':
+            return 'iOS'
+        return None
 
     @defer.inlineCallbacks
     def run(self):
@@ -8537,6 +8635,8 @@ class FindModifiedSaferCPPExpectations(shell.ShellCommand, AddToLogMixin):
             yield self._addToLog('stdio', 'This change does not modify Safer CPP expectations.\n')
             return defer.returnValue(rc)
 
+        builder_platform = self.normalize_platform(self.getProperty('platform', ''))
+
         yield self._addToLog('stdio', '\nLooking for changes to Safer CPP expectations...\n')
         removed_tests = []
         added_tests = []
@@ -8549,13 +8649,23 @@ class FindModifiedSaferCPPExpectations(shell.ShellCommand, AddToLogMixin):
                 yield self._addToLog('stdio', f'Changes for {project}/{checker}...\n')
             file_match = re.search(self.RE_FILE, line, re.IGNORECASE)
             if file_match and project and checker:
+                line_platform = self.normalize_platform(file_match.group('platform'))
+                if line_platform and builder_platform and line_platform != builder_platform:
+                    continue
                 test_name = f"{project}/{file_match.group('file')}/{checker}"
-                if file_match.group(1) == '+':
+                if file_match.group('sign') == '+':
                     added_tests.append(test_name)
                     yield self._addToLog('stdio', f'    {test_name} was added to {checker} expectations.\n')
-                elif file_match.group(1) == '-':
+                elif file_match.group('sign') == '-':
                     removed_tests.append(test_name)
                     yield self._addToLog('stdio', f'    {test_name} was removed from {checker} expectations.\n')
+
+        added_set, removed_set = set(added_tests), set(removed_tests)
+        cancelled = added_set & removed_set
+        if cancelled:
+            yield self._addToLog('stdio', f'\nThe following retagged tests had no net expectation change and will be ignored: {sorted(cancelled)}\n')
+        added_tests = [t for t in dict.fromkeys(added_tests) if t not in removed_set]
+        removed_tests = [t for t in dict.fromkeys(removed_tests) if t not in added_set]
 
         self.setProperty('user_removed_tests', removed_tests)
         self.setProperty('user_added_tests', added_tests)
@@ -8645,7 +8755,7 @@ class FindUnexpectedStaticAnalyzerResults(shell.ShellCommand, ResultsDBReportMix
                 if not successful_filter:
                     yield self._addToLog('stdio', f'\nFailed to consult results database. Falling back to tip-of-tree...\n')
                     # If results db failed, rebuild without changes to verify causation
-                    self.build.addStepsAfterCurrentStep([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()])
+                    self.build.addStepsAfterCurrentStep([ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()])
                     self.result_message = self.createResultMessage()
                     return defer.returnValue(rc)
 
@@ -9090,7 +9200,7 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
         if num_passes:
             pluralSuffix = 's' if num_passes > 1 else ''
             pluralCommand = 's' if len(commands_for_comment) > 1 else ''
-            comment += f'\n:warning: Found {num_passes} fixed file{pluralSuffix}! Please update expectations in `Source/[Project]/SaferCPPExpectations` by running the following command{pluralCommand} and update your {self.change_type}:\n'
+            comment += f'\n:warning: Found {num_passes} fixed file{pluralSuffix}! Please update expectations in `Source/[Project]/SaferCPPExpectations` by running the following command{pluralCommand} and update your pull request:\n'
             comment += '\n'.join([f"- `{c}`" for c in commands_for_comment])
         if not self.formattedPlatform:
             comment += '\nUnable to find associated platform. See build for details.'
@@ -9105,12 +9215,6 @@ class DisplaySaferCPPResults(buildstep.BuildStep, AddToLogMixin):
         elif self.getProperty('platform', '').lower() == 'mac':
             return 'macOS'
         return ''
-
-    @property
-    def change_type(self):
-        if self.getProperty('github.number', False):
-            return 'pull request'
-        return 'patch'
 
     def doStepIf(self, step):
         return self.getProperty('num_failing_files', 0) or self.getProperty('num_passing_files', 0) or self.getProperty('num_unexpected_issues', 0)

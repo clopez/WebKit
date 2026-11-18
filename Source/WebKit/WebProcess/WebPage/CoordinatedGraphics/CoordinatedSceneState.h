@@ -30,6 +30,7 @@
 #include <atomic>
 #include <wtf/HashSet.h>
 #include <wtf/Lock.h>
+#include <wtf/MainThread.h>
 #include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
@@ -54,7 +55,7 @@ public:
     void removeLayer(WebCore::CoordinatedPlatformLayer&);
 
     bool flush();
-    void flushPendingState();
+    void commitPendingScrollingPositions();
     enum class ChangedPreRenderedTiles : bool { No, Yes };
     ChangedPreRenderedTiles flushCompositingState(const OptionSet<WebCore::CompositionReason>&);
     void invalidate();
@@ -64,6 +65,8 @@ public:
     bool layersDidChange() const { return m_didChangeLayers; }
 
     void waitUntilPaintingFinished();
+
+    void didChangeLayerPendingScrollingPosition(WebCore::CoordinatedPlatformLayer&);
 
     void willPaintTile();
     void didPaintTile();
@@ -79,14 +82,15 @@ private:
     void commitPendingLayers();
 
     const Ref<WebCore::CoordinatedPlatformLayer> m_rootLayer;
-    Lock m_layersLock;
-    HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layers WTF_GUARDED_BY_LOCK(m_layersLock);
-    HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layersToRemove;
+    HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layers WTF_GUARDED_BY_CAPABILITY(mainThread);
+    HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layersToRemove WTF_GUARDED_BY_CAPABILITY(mainThread);
     Lock m_pendingLayersLock;
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_pendingLayers WTF_GUARDED_BY_LOCK(m_pendingLayersLock);
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_pendingLayersToRemove WTF_GUARDED_BY_LOCK(m_pendingLayersLock);
     std::atomic<bool> m_didChangeLayers { false };
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_committedLayers;
+    Lock m_layersWithPendingScrollingPositionLock;
+    Vector<Ref<WebCore::CoordinatedPlatformLayer>> m_layersWithPendingScrollingPosition WTF_GUARDED_BY_LOCK(m_layersWithPendingScrollingPositionLock);
 #if USE(SKIA)
     Lock m_layersWithPreRenderedTilesLock;
     HashSet<Ref<WebCore::CoordinatedPlatformLayer>> m_layersWithPreRenderedTiles WTF_GUARDED_BY_LOCK(m_layersWithPreRenderedTilesLock);

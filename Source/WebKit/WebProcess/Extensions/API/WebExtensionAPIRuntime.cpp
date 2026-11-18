@@ -175,8 +175,8 @@ void WebExtensionAPIRuntime::getPlatformInfo(Ref<WebExtensionCallbackHandler>&& 
 
 #if CPU(X86_64)
     static constexpr auto archValue = x86_64Key;
-#elif CPU(ARM) || CPU(ARM64)
-    static constexpr auto archValue = armKey;
+#elif CPU(ARM64)
+    static constexpr auto archValue = arm64Key;
 #else
     static constexpr auto archValue = "unknown"_s;
 #endif
@@ -296,17 +296,6 @@ JSValueRef WebExtensionAPIRuntime::lastError()
     return m_lastError.get();
 }
 
-static JSValueRef makeEnumObject(JSContextRef context, std::initializer_list<std::pair<ASCIILiteral, ASCIILiteral>> entries)
-{
-    auto globalContext = JSContextGetGlobalContext(context);
-
-    HashMap<String, Protected<JSValueRef>> object;
-    for (auto& [name, value] : entries)
-        object.add(String { name }, Protected(globalContext, JSValueMakeString(context, toJSString(value).get())));
-
-    return fromObject(context, WTF::move(object));
-}
-
 JSValueRef WebExtensionAPIRuntime::onInstalledReason(JSContextRef context)
 {
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/OnInstalledReason
@@ -323,7 +312,7 @@ JSValueRef WebExtensionAPIRuntime::platformArch(JSContextRef context)
     // Documentation: https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/PlatformArch
 
     return makeEnumObject(context, {
-        { "ARM"_s, armKey },
+        { "ARM64"_s, arm64Key },
         { "X86_64"_s, x86_64Key },
     });
 }

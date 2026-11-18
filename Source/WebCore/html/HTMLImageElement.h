@@ -46,6 +46,7 @@ class HTMLFormElement;
 class HTMLImageLoader;
 class HTMLMapElement;
 class Image;
+class ImageAnimationTimeline;
 class LayoutSize;
 class SecurityOrigin;
 
@@ -192,16 +193,16 @@ public:
     NODELETE bool allowsOrientationOverride() const;
 
     bool allowsAnimation() const;
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     WEBCORE_EXPORT void setAnimationOverride(ImageAnimationOverride);
-#endif
+    Ref<ImageAnimationTimeline> imageAnimationTimeline() const;
+    void clearImageAnimationTimeline();
 
     String fetchPriorityForBindings() const;
     RequestPriority fetchPriority() const;
 
     bool originClean(const SecurityOrigin&) const;
 
-    Image* image() const;
+    WEBCORE_EXPORT Image* image() const;
 
 #if ENABLE(IMAGE_ELEMENT_IMMERSIVE)
     void requestImmersive(DOMPromiseDeferred<void>&&);
@@ -237,14 +238,13 @@ private:
 
     bool isImmersiveEnabled() const final;
     void prepareImmersivePresentation(CompletionHandler<void(ExceptionOr<void>)>&&) final;
-    void presentImmersivePresentation(ChromeClient&, CompletionHandler<void(bool)>&&) final;
 
     std::optional<Exception> immersiveImageError() const;
     void exitImmersiveIfNeeded();
 #endif
 
     void didAttachRenderers() override;
-    RenderPtr<RenderElement> createElementRenderer(Style::ComputedStyle&&, const RenderTreePosition&) override;
+    RenderPtr<RenderElement> createElementRenderer(UniqueRef<Style::ComputedStyle>&&, const RenderTreePosition&) override;
     bool isReplaced(const Style::ComputedStyle* = nullptr) const final;
     void setBestFitURLAndDPRFromImageCandidate(const ImageCandidate&);
 
@@ -309,6 +309,7 @@ private:
     AtomString m_currentSrc;
     AtomString m_parsedUsemap;
     float m_currentPixelDensity;
+    RefPtr<ImageAnimationTimeline> m_imageAnimationTimeline;
 #if ENABLE(SERVICE_CONTROLS)
     bool m_isImageMenuEnabled { false };
 #endif

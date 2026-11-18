@@ -93,6 +93,7 @@
 #include "ScrollAnchoringController.h"
 #include "SelectionGeometry.h"
 #include "Settings.h"
+#include "StyleDocumentScope.h"
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleResolver.h"
 #include "StyleTransformResolver.h"
@@ -550,14 +551,12 @@ void RenderObject::clearNeedsLayout(HadSkippedLayout hadSkippedLayout)
 
     if (hasLayer())
         downcast<RenderLayerModelObject>(*this).layer()->setSelfAndChildrenNeedPositionUpdate();
-    m_stateBitfields.clearFlag(StateFlag::NeedsLayout);
-    setOutOfFlowChildNeedsLayoutBit(false);
-    setNeedsSimplifiedNormalFlowLayoutBit(false);
-    setNormalChildNeedsLayoutBit(false);
-    setOutOfFlowChildNeedsStaticPositionLayoutBit(false);
-    setNeedsOutOfFlowMovementLayoutBit(false);
+    m_stateBitfields.clearFlags(needsLayoutStateFlags);
 #if ASSERT_ENABLED
     auto checkIfOutOfFlowDescendantsNeedLayout = [&](auto& renderBlock) {
+        // Style-interleaved layout doesn't lay out the content of query containers with unresolved descendants (see RenderBlock::layout()).
+        if (document().styleScope().isQueryContainerWithUnresolvedDescendants(dynamicDowncast<Element>(node())))
+            return;
         if (auto* outOfFlowDescendants = renderBlock.outOfFlowBoxes()) {
             for (auto& renderer : *outOfFlowDescendants)
                 ASSERT(!renderer.needsLayout());
@@ -566,6 +565,18 @@ void RenderObject::clearNeedsLayout(HadSkippedLayout hadSkippedLayout)
     if (auto* renderBlock = dynamicDowncast<RenderBlock>(*this))
         checkIfOutOfFlowDescendantsNeedLayout(*renderBlock);
 #endif // ASSERT_ENABLED
+}
+
+auto RenderObject::needsLayoutState() const -> NeedsLayoutState
+{
+    return NeedsLayoutState { m_stateBitfields.flags() & needsLayoutStateFlags };
+}
+
+void RenderObject::restoreNeedsLayoutState(NeedsLayoutState state)
+{
+    if (state.m_flags.contains(StateFlag::NeedsLayout) && !selfNeedsLayout() && hasLayer())
+        setLayerNeedsFullRepaint();
+    m_stateBitfields.addFlags(state.m_flags);
 }
 
 void RenderObject::scheduleLayout(RenderElement* layoutRoot)
@@ -641,7 +652,7 @@ RenderElement* RenderObject::markContainingBlocksForLayout(RenderElement* layout
     return { };
 }
 
-void RenderObject::invalidateContentLogicalWidths(MarkingBehavior markParents, const RenderBlock* ancestorUpdateBoundary)
+void RenderObject::invalidateContentLogicalWidths(MarkingBehavior markParents, const RenderBoxModelObject* ancestorUpdateBoundary)
 {
     ASSERT_IMPLIES(ancestorUpdateBoundary, markParents == MarkingBehavior::ContainingBlockChain);
 
@@ -666,7 +677,7 @@ void RenderObject::invalidateContentLogicalWidths(MarkingBehavior markParents, c
         ensureRareData().contentLogicalWidthsInvalidationIsMarkOnlyThis = false;
 }
 
-void RenderObject::invalidateContainerContentLogicalWidths(const RenderBlock* ancestorUpdateBoundary)
+void RenderObject::invalidateContainerContentLogicalWidths(const RenderBoxModelObject* ancestorUpdateBoundary)
 {
     // In order to avoid pathological behavior when inlines are deeply nested, we do include them
     // in the chain that we mark dirty (even though they're kind of irrelevant).
@@ -839,7 +850,7 @@ void RenderObject::absoluteFocusRingQuads(Vector<FloatQuad>& quads)
     // implicitly assumes that. This doesn't work correctly with transformed
     // descendants.
     FloatPoint absolutePoint = localToAbsolute();
-    auto rects = OutlinePainter::collectFocusRingRects(*elementRenderer, flooredLayoutPoint(absolutePoint), nullptr);
+    auto rects = Paint::OutlinePainter::collectFocusRingRects(*elementRenderer, flooredLayoutPoint(absolutePoint), nullptr);
     float deviceScaleFactor = document().deviceScaleFactor();
     for (auto rect : rects) {
         rect.moveBy(LayoutPoint(-absolutePoint));
@@ -939,8 +950,7 @@ void RenderObject::propagateRepaintToParentWithOutlineAutoIfNeeded(const RenderL
         if (!repaintRectNeedsConverting)
             repaintContainer.repaintRectangle(adjustedRepaintRect);
         else if (CheckedPtr rendererWithOutline = dynamicDowncast<RenderLayerModelObject>(*originalRenderer)) {
-            // FIXME: Remove suppression once rdar://189998444 is fixed.
-            SUPPRESS_MEMORY_UNSAFE_CAST adjustedRepaintRect = LayoutRect(repaintContainer.localToContainerQuad(FloatRect(adjustedRepaintRect), rendererWithOutline.get()).boundingBox());
+            adjustedRepaintRect = LayoutRect(repaintContainer.localToContainerQuad(FloatRect(adjustedRepaintRect), rendererWithOutline.get()).boundingBox());
             rendererWithOutline->repaintRectangle(adjustedRepaintRect);
         }
         return;
@@ -1378,7 +1388,7 @@ static const RenderFragmentedFlow* enclosingFragmentedFlowFromRenderer(const Ren
     return nullptr;
 }
 
-void RenderObject::outputRegionsInformation(TextStream& stream) const
+void RenderObject::outputFragmentInformation(TextStream& stream) const
 {
     if (CheckedPtr renderFlagmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this)) {
         auto fragmentContainers = renderFlagmentedFlow->renderFragmentContainerList();
@@ -1397,7 +1407,7 @@ void RenderObject::outputRegionsInformation(TextStream& stream) const
     CheckedPtr fragmentedFlow = enclosingFragmentedFlowFromRenderer(this);
 
     if (!fragmentedFlow) {
-        // Only the boxes have region range information.
+        // Only boxes have fragment range information.
         // Try to get the flow thread containing block information
         // from the containing block of this box.
         if (is<RenderBox>(*this))
@@ -1560,7 +1570,7 @@ void RenderObject::outputRenderObject(TextStream& stream, bool mark, int depth) 
     if (auto* multicolSet = dynamicDowncast<RenderMultiColumnSet>(*this))
         stream << " (column count " << multicolSet->computedColumnCount() << ", size " << multicolSet->computedColumnWidth() << "x" << multicolSet->computedColumnHeight() << ", gap " << multicolSet->columnGap() << ")";
 
-    outputRegionsInformation(stream);
+    outputFragmentInformation(stream);
 
     if (needsLayout()) {
         stream << " layout->";
@@ -1647,7 +1657,7 @@ void RenderObject::mapLocalToContainer(const RenderLayerModelObject* ancestorCon
     if (auto* parentAsBox = dynamicDowncast<RenderBox>(*parent)) {
         if (mode.contains(MapCoordinatesMode::ApplyContainerFlip)) {
             if (parentAsBox->writingMode().isBlockFlipped())
-                transformState.move(parentAsBox->flipForWritingMode(LayoutPoint(transformState.mappedPoint())) - centerPoint);
+                transformState.move(parentAsBox->blockStartRelativeToPhysical(LayoutPoint(transformState.mappedPoint())) - centerPoint);
             mode.remove(MapCoordinatesMode::ApplyContainerFlip);
         }
         transformState.move(-toLayoutSize(parentAsBox->scrollPosition()));
@@ -3258,8 +3268,6 @@ bool RenderObject::isExcludedMarker() const
     // An excluded list marker is the direct child of its list item, never wrapped in an anonymous block, and no part of in-flow layout.
     auto* marker = dynamicDowncast<RenderListOutsideMarker>(*this);
     if (!marker)
-        return false;
-    if (!document().settings().listMarkerPositionedPostLayoutEnabled())
         return false;
     return parent() && parent() == marker->listItem();
 }

@@ -89,6 +89,8 @@ CSSParserContext::CSSParserContext(const Document& document, const URL& sheetBas
     isHTMLDocument = document.isHTMLDocument();
     hasDocumentSecurityOrigin = sheetBaseURL.isNull() || protect(document.securityOrigin())->canRequest(baseURL, OriginAccessPatternsForWebProcess::singleton());
     marginTrimInlineSupportsQuirkEnabled = document.quirks().needsMarginTrimInlineSupportsQuirk();
+    if (document.quirks().shouldDisableCSSSizeShorthandQuirk())
+        propertySettings.cssSizeShorthandEnabled = false;
 }
 
 CSSParserContext::CSSParserContext(const Settings& settings)
@@ -120,7 +122,8 @@ CSSParserContext::CSSParserContext(const Settings& settings)
     , cssRubyDisplayTypesEnabled { settings.cssRubyDisplayTypesInAuthorStylesEnabled() }
     , cssTreeCountingFunctionsEnabled { settings.cssTreeCountingFunctionsEnabled() }
     , cssCalcSizeFunctionEnabled { settings.cssCalcSizeFunctionEnabled() }
-    , cssURLModifiersEnabled { settings.cssURLModifiersEnabled() }
+    , cssFitContentFunctionEnabled { settings.cssFitContentFunctionEnabled() }
+    , cssStretchFunctionEnabled { settings.cssStretchFunctionEnabled() }
     , cssURLIntegrityModifierEnabled { settings.cssURLIntegrityModifierEnabled() }
     , cssLinkParametersEnabled { settings.cssLinkParametersEnabled() }
     , cssAxisRelativePositionKeywordsEnabled { settings.cssAxisRelativePositionKeywordsEnabled() }
@@ -139,6 +142,7 @@ CSSParserContext::CSSParserContext(const Settings& settings)
     , cssFontPaletteMixFunctionEnabled { settings.cssFontPaletteMixFunctionEnabled() }
     , cssSymbolsFunctionEnabled { settings.cssSymbolsFunctionEnabled() }
     , cssMeshGradientsEnabled { settings.cssMeshGradientsEnabled() }
+    , cssFreeformGradientsEnabled { settings.cssFreeformGradientsEnabled() }
     , viewportSegmentsAPIEnabled { settings.viewportSegmentsAPIEnabled() }
     , propertySettings { CSSPropertySettings { settings } }
 {
@@ -177,7 +181,8 @@ void add(Hasher& hasher, const CSSParserContext& context)
         context.cssRubyDisplayTypesEnabled,
         context.cssTreeCountingFunctionsEnabled,
         context.cssCalcSizeFunctionEnabled,
-        context.cssURLModifiersEnabled,
+        context.cssFitContentFunctionEnabled,
+        context.cssStretchFunctionEnabled,
         context.cssURLIntegrityModifierEnabled,
         context.cssLinkParametersEnabled,
         context.cssAxisRelativePositionKeywordsEnabled,
@@ -199,6 +204,7 @@ void add(Hasher& hasher, const CSSParserContext& context)
         context.cssFontPaletteMixFunctionEnabled,
         context.cssSymbolsFunctionEnabled,
         context.cssMeshGradientsEnabled,
+        context.cssFreeformGradientsEnabled,
         context.legacyFontFaceAttributeMode,
         context.viewportSegmentsAPIEnabled
     );

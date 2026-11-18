@@ -501,7 +501,7 @@ static bool shouldAllowExternalLoad(const URL& url)
 static void* openFunc(const char* uri)
 {
     ASSERT(XMLDocumentParserScope::currentCachedResourceLoader());
-    ASSERT(libxmlLoaderThread == &Thread::currentSingleton());
+    ASSERT_WITH_SECURITY_IMPLICATION(libxmlLoaderThread == &Thread::currentSingleton());
 
     RefPtr cachedResourceLoader = XMLDocumentParserScope::currentCachedResourceLoader().get();
     if (!cachedResourceLoader)
@@ -879,11 +879,16 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
 
     bool willConstructCustomElement = false;
     if (!m_parsingFragment) {
-        if (RefPtr window = document->window()) {
-            if (RefPtr registry = window->customElementRegistry(); registry) [[unlikely]]
-                willConstructCustomElement = registry->findInterface(qName);
-        }
+        if (RefPtr window = document->window())
+            willConstructCustomElement = protect(window->customElementRegistry())->findInterface(qName);
     }
+
+    // Copy every span libxml2 owns into WebKit-owned storage here, before any code that can
+    // run script such as performMicrotaskCheckpoint().
+    Vector<Attribute> prefixedAttributes;
+    bool shouldUseNullCustomElementRegistry = false;
+    bool handledAttributes = handleNamespaceAttributes(prefixedAttributes, namespaces, shouldUseNullCustomElementRegistry);
+    bool success = handledAttributes ? handleElementAttributes(prefixedAttributes, libxmlAttributes, numAttributes, shouldUseNullCustomElementRegistry) : false;
 
     std::optional<ThrowOnDynamicMarkupInsertionCountIncrementer> markupInsertionCountIncrementer;
     std::optional<CustomElementReactionStack> customElementReactionStack;
@@ -891,13 +896,12 @@ void XMLDocumentParser::startElementNs(const xmlChar* xmlLocalName, const xmlCha
     if (willConstructCustomElement) [[unlikely]] {
         markupInsertionCountIncrementer.emplace(*document);
         protect(document->eventLoop())->performMicrotaskCheckpoint(document->vm());
+        // Draining the microtask queue may have stopped or detached this parser, in which case we
+        // must not keep building the tree.
+        if (isStopped())
+            return;
         customElementReactionStack.emplace(document->globalObject());
     }
-
-    Vector<Attribute> prefixedAttributes;
-    bool shouldUseNullCustomElementRegistry = false;
-    bool handledAttributes = handleNamespaceAttributes(prefixedAttributes, namespaces, shouldUseNullCustomElementRegistry);
-    bool success = handledAttributes ? handleElementAttributes(prefixedAttributes, libxmlAttributes, numAttributes, shouldUseNullCustomElementRegistry) : false;
 
     RefPtr registry = shouldUseNullCustomElementRegistry ? nullptr : CustomElementRegistry::registryForNodeOrTreeScope(*currentNode, protect(currentNode->treeScope()));
     auto newElement = document->createElement(qName, true, registry.get());

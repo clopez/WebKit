@@ -29,7 +29,6 @@
 #import <limits>
 #import <type_traits>
 #import <utility>
-#import <wtf/GenericHashKey.h>
 #import <wtf/HashFunctions.h>
 #import <wtf/HashMap.h>
 #import <wtf/HashSet.h>
@@ -130,7 +129,7 @@ struct IndirectDrawData {
     uint64_t lastIndexGeneration { 0 };
 };
 
-using IndirectDrawForSlotContainer = HashMap<uint64_t, IndirectDrawData, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
+using IndirectDrawForSlotContainer = HashMap<uint64_t, IndirectDrawData>;
 
 // An indexed indirect draw whose baked ICB slot was reused rather than re-encoded, retained until commit so
 // its index buffer can be revalidated if those indices changed after the slot was baked.
@@ -185,10 +184,10 @@ struct DrawIndexValidationCacheEntry {
     uint64_t indexContentsGeneration { 0 };
 };
 
-using DrawIndexCacheContainer = HashMap<GenericHashKey<DrawIndexCacheContainerKey>, DrawIndexValidationCacheEntry>;
+using DrawIndexCacheContainer = HashMap<DrawIndexCacheContainerKey, DrawIndexValidationCacheEntry>;
 using DrawIndexCacheContainerIterator = DrawIndexCacheContainer::const_iterator;
 
-using TrackedResourceContainer = HashSet<uint64_t, DefaultHash<uint64_t>, WTF::UnsignedWithZeroKeyHashTraits<uint64_t>>;
+using TrackedResourceContainer = HashSet<uint64_t>;
 struct TrackedResource {
     mutable TrackedResourceContainer m_commandEncoders;
     void removeEncoder(uint64_t identifier) const

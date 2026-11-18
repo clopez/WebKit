@@ -54,6 +54,7 @@
 #include "WorkerThread.h"
 #include <cmath>
 #include <optional>
+#include <wtf/Borrow.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Function.h>
 #include <wtf/HashMap.h>
@@ -106,7 +107,7 @@ void CookieStore::MainThreadBridge::ensureOnMainThread(Function<void(ScriptExecu
     RefPtr context = m_cookieStore->scriptExecutionContext();
     if (!context)
         return;
-    ASSERT(context->isContextThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(context->isContextThread());
 
     if (is<Document>(*context)) {
         task(*context);
@@ -300,7 +301,7 @@ void CookieStore::getShared(GetType getType, CookieStoreGetOptions&& options, Re
                 return;
             }
 
-            promise->resolve<IDLDictionary<CookieListItem>>(CookieListItem::fromCookie(WTF::move(cookies[0])));
+            promise->resolve<IDLDictionary<CookieListItem>>(CookieListItem::fromCookie(WTF::move(borrow(cookies)[0])));
         } else {
             promise->resolve<IDLSequence<IDLDictionary<CookieListItem>>>(WTF::map(WTF::move(cookies), [](Cookie&& cookie) {
                 return CookieListItem::fromCookie(WTF::move(cookie));

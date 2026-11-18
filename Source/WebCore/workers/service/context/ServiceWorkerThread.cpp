@@ -105,6 +105,7 @@ static WorkerParameters generateWorkerParameters(const ServiceWorkerContextData&
         emptyString(),
         makeString("serviceworker:"_s, generateInspectorObjectIdentifierString()),
         WTF::move(userAgent),
+        { },
         platformStrategies()->loaderStrategy()->isOnLine(),
         contextData.contentSecurityPolicy,
         false,
@@ -518,7 +519,7 @@ void ServiceWorkerThread::queueTaskToFireBackgroundFetchClickEvent(BackgroundFet
 
 void ServiceWorkerThread::finishedEvaluatingScript()
 {
-    ASSERT(globalScope()->isContextThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(globalScope()->isContextThread());
 
     Ref scope = *dynamicDowncast<ServiceWorkerGlobalScope>(globalScope());
 

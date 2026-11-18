@@ -216,6 +216,20 @@ bool WebFullScreenManager::supportsFullScreenForElement(const WebCore::Element& 
 #endif
 }
 
+void WebFullScreenManager::beginRequestFullscreen()
+{
+#if PLATFORM(IOS_FAMILY)
+    m_page->send(Messages::WebFullScreenManagerProxy::BeginRequestFullscreen());
+#endif
+}
+
+void WebFullScreenManager::endRequestFullscreen()
+{
+#if PLATFORM(IOS_FAMILY)
+    m_page->send(Messages::WebFullScreenManagerProxy::EndRequestFullscreen());
+#endif
+}
+
 static auto& eventsToObserve()
 {
     static NeverDestroyed eventsToObserve = std::array {
@@ -980,6 +994,10 @@ void WebFullScreenManager::exitFullScreenInMainFrame(CompletionHandler<void()>&&
         return completionHandler();
 
     DocumentFullscreen::finishExitFullscreen(*mainFrame, DocumentFullscreen::ExitMode::Resize);
+    if (RefPtr localMainFrame = m_page->localMainFrame()) {
+        if (RefPtr document = localMainFrame->document())
+            document->updateLayout();
+    }
     completionHandler();
 }
 

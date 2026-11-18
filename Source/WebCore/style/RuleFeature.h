@@ -25,7 +25,6 @@
 #include "CommonAtomStrings.h"
 #include <wtf/CompactVariant.h>
 #include <wtf/Forward.h>
-#include <wtf/GenericHashKey.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Markable.h>
@@ -116,7 +115,6 @@ struct MatchElement {
     bool operator==(const MatchElement&) const = default;
     unsigned hash() const { return pairIntHash(static_cast<unsigned>(relation), hasRelation ? static_cast<unsigned>(*hasRelation) : 255u); }
 };
-constexpr unsigned matchRelationCount = static_cast<unsigned>(MatchElement::Relation::HostChild) + 1;
 
 enum class IsNegation : bool { No, Yes };
 
@@ -172,12 +170,9 @@ struct RuleFeatureSet {
     void shrinkToFit();
 
     struct CollectionContext {
-        HashSet<GenericHashKey<SelectorDeduplicationKey>> selectorDeduplicationSet;
+        HashSet<SelectorDeduplicationKey> selectorDeduplicationSet;
     };
     void collectFeatures(CollectionContext&, const RuleData&, const Vector<Ref<const StyleRuleScope>>& scopeRules = { });
-
-    bool usesRelation(MatchElement::Relation relation) const { return usedRelations[std::to_underlying(relation)]; }
-    void setUsesRelation(MatchElement::Relation relation) { usedRelations[std::to_underlying(relation)] = true; }
 
     HashSet<AtomString> idsInRules;
     HashSet<AtomString> idsMatchingAncestorsInRules;
@@ -192,10 +187,8 @@ struct RuleFeatureSet {
 
     HashSet<AtomString> classesAffectingHost;
     HashSet<AtomString> attributesAffectingHost;
-    HashSet<CSSSelector::PseudoClass, IntHash<CSSSelector::PseudoClass>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClass>> pseudoClassesAffectingHost;
-    HashSet<CSSSelector::PseudoClass, IntHash<CSSSelector::PseudoClass>, WTF::StrongEnumHashTraits<CSSSelector::PseudoClass>> pseudoClasses;
-
-    std::array<bool, matchRelationCount> usedRelations { };
+    HashSet<CSSSelector::PseudoClass, IntHash<CSSSelector::PseudoClass>> pseudoClassesAffectingHost;
+    HashSet<CSSSelector::PseudoClass, IntHash<CSSSelector::PseudoClass>> pseudoClasses;
 
     bool usesFirstLineRules { false };
     bool usesFirstLetterRules { false };

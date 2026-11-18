@@ -50,8 +50,8 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMultiColumnSet);
 
-RenderMultiColumnSet::RenderMultiColumnSet(RenderFragmentedFlow& fragmentedFlow, Style::ComputedStyle&& style)
-    : RenderFragmentContainerSet(Type::MultiColumnSet, protect(fragmentedFlow.document()), WTF::move(style), fragmentedFlow)
+RenderMultiColumnSet::RenderMultiColumnSet(RenderFragmentedFlow& fragmentedFlow, UniqueRef<Style::ComputedStyle>&& style)
+    : RenderFragmentContainer(Type::MultiColumnSet, protect(fragmentedFlow.document()), WTF::move(style), &fragmentedFlow)
     , m_maxColumnHeight(RenderFragmentedFlow::maxLogicalHeight())
     , m_minSpaceShortage(RenderFragmentedFlow::maxLogicalHeight())
 {
@@ -59,6 +59,25 @@ RenderMultiColumnSet::RenderMultiColumnSet(RenderFragmentedFlow& fragmentedFlow,
 }
 
 RenderMultiColumnSet::~RenderMultiColumnSet() = default;
+
+void RenderMultiColumnSet::expandToEncompassFragmentedFlowContentsIfNeeded()
+{
+    // Whenever the last fragment is a set, it always expands its fragment rect to consume all
+    // of the flow thread content. This is because it is always capable of generating an
+    // infinite number of boxes in order to hold all of the remaining content.
+    auto rect = fragmentedFlowPortionRect();
+
+    // Get the offset within the flow thread in its block progression direction. Then get the
+    // flow thread's remaining logical height including its overflow and expand our rect
+    // to encompass that remaining height and overflow. The idea is that we will generate
+    // additional columns and pages to hold that overflow, since people do write bad
+    // content like <body style="height:0px"> in multi-column layouts.
+    bool isHorizontal = fragmentedFlow()->isHorizontalWritingMode();
+    auto logicalTopOffset = isHorizontal ? rect.y() : rect.x();
+    auto overflowHeight = isHorizontal ? fragmentedFlow()->layoutOverflowRect().maxY() : fragmentedFlow()->layoutOverflowRect().maxX();
+    auto logicalHeightWithOverflow = logicalTopOffset == RenderFragmentedFlow::maxLogicalHeight() ? overflowHeight : overflowHeight - logicalTopOffset;
+    setFragmentedFlowPortionRect({ rect.x(), rect.y(), isHorizontal ? rect.width() : logicalHeightWithOverflow, isHorizontal ? logicalHeightWithOverflow : rect.height() });
+}
 
 RenderMultiColumnSet* RenderMultiColumnSet::nextSiblingMultiColumnSet() const
 {
@@ -777,7 +796,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
     auto ruleThickness = parent()->usedStyle().columnRuleWidth();
     auto colGap = columnGap();
 
-    bool antialias = BorderPainter::shouldAntialiasLines(paintInfo.context());
+    bool antialias = Paint::BorderPainter::shouldAntialiasLines(paintInfo.context());
 
     if (fragmentedFlow->progressionIsInline()) {
         bool isLogicalLeftInlineStart = writingMode().isLogicalLeftInlineStart() ^ fragmentedFlow->progressionIsReversed();
@@ -806,7 +825,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
                 LayoutUnit ruleTop = isHorizontalWritingMode() ? paintOffset.y() + borderTop() + paddingTop() : paintOffset.y() + ruleLogicalLeft - ruleThickness / 2 + ruleAdd;
                 LayoutUnit ruleBottom = isHorizontalWritingMode() ? ruleTop + contentBoxHeight() : ruleTop + ruleThickness;
                 IntRect pixelSnappedRuleRect = snappedIntRect(ruleLeft, ruleTop, ruleRight - ruleLeft, ruleBottom - ruleTop);
-                BorderPainter::drawLineForBoxSide(paintInfo.context(), protect(document()), pixelSnappedRuleRect, boxSide, ruleColor, ruleStyle, 0, 0, antialias);
+                Paint::BorderPainter::drawLineForBoxSide(paintInfo.context(), protect(document()), pixelSnappedRuleRect, boxSide, ruleColor, ruleStyle, 0, 0, antialias);
             }
             
             ruleLogicalLeft = currLogicalLeftOffset;
@@ -837,7 +856,7 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
         for (unsigned i = 1; i < colCount; i++) {
             ruleRect.move(step);
             IntRect pixelSnappedRuleRect = snappedIntRect(ruleRect);
-            BorderPainter::drawLineForBoxSide(paintInfo.context(), protect(document()), pixelSnappedRuleRect, boxSide, ruleColor, ruleStyle, 0, 0, antialias);
+            Paint::BorderPainter::drawLineForBoxSide(paintInfo.context(), protect(document()), pixelSnappedRuleRect, boxSide, ruleColor, ruleStyle, 0, 0, antialias);
         }
     }
 }
@@ -845,9 +864,9 @@ void RenderMultiColumnSet::paintColumnRules(PaintInfo& paintInfo, const LayoutPo
 void RenderMultiColumnSet::repaintFragmentedFlowContent(const LayoutRect& repaintRect) const
 {
     // Figure out the start and end columns and only check within that range so that we don't walk the
-    // entire column set. Put the repaint rect into flow thread coordinates by flipping it first.
+    // entire column set. Put the repaint rect into flow thread coordinates first.
     LayoutRect fragmentedFlowRepaintRect(repaintRect);
-    fragmentedFlow()->flipForWritingMode(fragmentedFlowRepaintRect);
+    fragmentedFlow()->physicalToBlockStartRelative(fragmentedFlowRepaintRect);
     
     // Now we can compare this rect with the flow thread portions owned by each column. First let's
     // just see if the repaint rect intersects our flow thread portion at all.
@@ -877,7 +896,7 @@ void RenderMultiColumnSet::repaintFragmentedFlowContent(const LayoutRect& repain
         LayoutRect fragmentedFlowOverflowPortion = fragmentedFlowPortionOverflowRect(fragmentedFlowPortion, i, colCount, colGap);
 
         // Do a repaint for this specific column.
-        flipForWritingMode(colRect);
+        blockStartRelativeToPhysical(colRect);
         repaintFragmentedFlowContentRectangle(repaintRect, fragmentedFlowPortion, colRect.location(), &fragmentedFlowOverflowPortion);
     }
 }
@@ -885,7 +904,7 @@ void RenderMultiColumnSet::repaintFragmentedFlowContent(const LayoutRect& repain
 Vector<LayoutRect> RenderMultiColumnSet::fragmentRectsForFlowContentRect(const LayoutRect& rect) const
 {
     auto fragmentedFlowRect = rect;
-    fragmentedFlow()->flipForWritingMode(fragmentedFlowRect);
+    fragmentedFlow()->physicalToBlockStartRelative(fragmentedFlowRect);
 
     auto logicalTop = isHorizontalWritingMode() ? fragmentedFlowRect.y() : fragmentedFlowRect.x();
     auto logicalBottom = isHorizontalWritingMode() ? fragmentedFlowRect.maxY() : fragmentedFlowRect.maxX();
@@ -898,13 +917,13 @@ Vector<LayoutRect> RenderMultiColumnSet::fragmentRectsForFlowContentRect(const L
     unsigned colCount = columnCount();
     for (unsigned i = startAndEndColumns.first; i <= startAndEndColumns.second; i++) {
         auto colRect = columnRectAt(i);
-        flipForWritingMode(colRect);
+        blockStartRelativeToPhysical(colRect);
         
         auto fragmentedFlowPortion = fragmentedFlowPortionRectAt(i);
         auto fragmentedFlowOverflowPortion = fragmentedFlowPortionOverflowRect(fragmentedFlowPortion, i, colCount, colGap);
 
         auto rectInColumn = fragmentedFlowContentRectangle(rect, fragmentedFlowPortion, colRect.location(), &fragmentedFlowOverflowPortion);
-        flipForWritingMode(rectInColumn);
+        blockStartRelativeToPhysical(rectInColumn);
         perColumnRects.append(rectInColumn);
     }
 
@@ -914,7 +933,7 @@ Vector<LayoutRect> RenderMultiColumnSet::fragmentRectsForFlowContentRect(const L
 bool RenderMultiColumnSet::contentRectSpansFragments(const LayoutRect& rect) const
 {
     auto fragmentedFlowRect = rect;
-    fragmentedFlow()->flipForWritingMode(fragmentedFlowRect);
+    fragmentedFlow()->physicalToBlockStartRelative(fragmentedFlowRect);
 
     auto logicalTop = isHorizontalWritingMode() ? fragmentedFlowRect.y() : fragmentedFlowRect.x();
     auto logicalBottom = isHorizontalWritingMode() ? fragmentedFlowRect.maxY() : fragmentedFlowRect.maxX();
@@ -964,10 +983,10 @@ void RenderMultiColumnSet::collectLayerFragments(LayerFragments& fragments, cons
     // points, while inside this method we mostly use the RenderObject-style rectangles (with the
     // block direction coordinate always being logical top).
 
-    // Put the layer bounds into flow thread-local coordinates by flipping it first. Since we're in
+    // Put the layer bounds into flow thread-local coordinates first. Since we're in
     // a renderer, most rectangles are represented this way.
     LayoutRect layerBoundsInFragmentedFlow(layerBoundingBox);
-    fragmentedFlow()->flipForWritingMode(layerBoundsInFragmentedFlow);
+    fragmentedFlow()->physicalToBlockStartRelative(layerBoundsInFragmentedFlow);
 
     // Now we can compare with the flow thread portions owned by each column. First let's
     // see if the rect intersects our flow thread portion at all.
@@ -1050,10 +1069,10 @@ void RenderMultiColumnSet::collectLayerFragments(LayerFragments& fragments, cons
         LayerFragment fragment;
         fragment.paginationOffset = translationOffset;
 
-        LayoutRect flippedFragmentedFlowOverflowPortion(fragmentedFlowOverflowPortion);
-        // Flip it into more a physical (RenderLayer-style) rectangle.
-        fragmentedFlow()->flipForWritingMode(flippedFragmentedFlowOverflowPortion);
-        fragment.paginationClip = flippedFragmentedFlowOverflowPortion;
+        LayoutRect physicalFragmentedFlowOverflowPortion(fragmentedFlowOverflowPortion);
+        // Convert it into a physical (RenderLayer-style) rectangle.
+        fragmentedFlow()->blockStartRelativeToPhysical(physicalFragmentedFlowOverflowPortion);
+        fragment.paginationClip = physicalFragmentedFlowOverflowPortion;
         if (fragments.size() < maximumNumberOfFragments)
             fragments.append(fragment);
         else

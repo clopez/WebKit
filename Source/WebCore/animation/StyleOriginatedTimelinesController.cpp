@@ -99,11 +99,12 @@ ScrollTimeline& StyleOriginatedTimelinesController::inactiveNamedTimeline(const 
 
 ScrollTimeline* StyleOriginatedTimelinesController::determineTreeOrder(const Vector<Ref<ScrollTimeline>>& ancestorTimelines, const Styleable& styleable, const Element* timelineScopeElement)
 {
-    RefPtr element = styleable.element;
+    RefPtr element = styleable.element.ptr();
     while (element) {
         Vector<Ref<ScrollTimeline>> matchedTimelines;
         for (auto& timeline : ancestorTimelines) {
-            if (element == originatingElementIncludingTimelineScope(timeline))
+            // A timeline hoisted by an ancestor's timeline-scope is still referenceable from its own declaring element's subtree.
+            if (element == originatingElementIncludingTimelineScope(timeline) || element == originatingElement(timeline))
                 matchedTimelines.append(timeline);
         }
         if (!matchedTimelines.isEmpty()) {
@@ -115,7 +116,7 @@ ScrollTimeline* StyleOriginatedTimelinesController::determineTreeOrder(const Vec
                 }
                 // Prefer the nearest timeline in hierarchy.
                 for (auto& matchedTimeline : matchedTimelines | std::views::reverse) {
-                    if (styleable.element.isComposedTreeDescendantOf(*originatingElement(matchedTimeline)))
+                    if (styleable.element->isComposedTreeDescendantOf(*originatingElement(matchedTimeline)))
                         return matchedTimeline.unsafePtr();
                 }
                 // Otherwise return the last of the matching timelines per https://github.com/w3c/csswg-drafts/issues/12581.
@@ -146,10 +147,13 @@ ScrollTimeline* StyleOriginatedTimelinesController::determineTreeOrder(const Vec
         ASSERT(lhsStyleable);
         ASSERT(rhsStyleable);
 
+        // https://drafts.csswg.org/scroll-animations-1/#timeline-scoping
+        // An element may only define one timeline per name: In case of a name conflict, names
+        // declared later in the naming property (scroll-timeline-name, view-timeline-name) take
+        // precedence, and scroll progress timelines take precedence over view progress timelines.
         if (lhsStyleable == rhsStyleable) {
             ASSERT(is<ViewTimeline>(lhs) != is<ViewTimeline>(rhs));
-            if (!is<ViewTimeline>(lhs))
-                return false;
+            return !is<ViewTimeline>(lhs);
         }
 
         return compareStyleablePositionsInDocumentTreeOrder(*lhsStyleable, *rhsStyleable);
@@ -232,7 +236,7 @@ void StyleOriginatedTimelinesController::updateTimelineForTimelineScope(const Re
     RefPtr element = timelineElement;
     while (element) {
         auto it = matchedTimelineScopeElements.findIf([element] (const Styleable& entry) {
-            return &entry.element == element;
+            return entry.element.ptr() == element;
         });
         if (it != notFound) {
             Ref protectedTimelineScopeElement { matchedTimelineScopeElements.at(it).element };
@@ -411,7 +415,7 @@ void StyleOriginatedTimelinesController::attachAnimation(CSSAnimation& animation
         if (timelineScopeElements.isEmpty())
             return nullptr;
         // Find the nearest parent within timelineScopeElements.
-        for (RefPtr currentParent = target->element.parentElementInComposedTree(); currentParent; currentParent = currentParent->parentElementInComposedTree()) {
+        for (RefPtr currentParent = target->element->parentElementInComposedTree(); currentParent; currentParent = currentParent->parentElementInComposedTree()) {
             for (auto& timelineScopeElement : timelineScopeElements) {
                 if (currentParent == timelineScopeElement.element())
                     return currentParent;
@@ -422,9 +426,12 @@ void StyleOriginatedTimelinesController::attachAnimation(CSSAnimation& animation
 
     auto it = m_nameToTimelineMap.find(timelineName->name);
     auto hasNamedTimeline = it != m_nameToTimelineMap.end() && it->value.containsIf([&](auto& timeline) {
-        auto* timelineScope = timeline->timelineScopeDeclaredElement();
-        if (timelineScope && timelineScope != relevantTimelineScopeElement)
-            return false;
+        RefPtr timelineScope = timeline->timelineScopeDeclaredElement();
+        if (timelineScope && timelineScope != relevantTimelineScopeElement) {
+            RefPtr timelineElement = originatingElement(timeline);
+            if (!timelineElement || !target->element->isComposedTreeInclusiveDescendantOf(*timelineElement))
+                return false;
+        }
         return !timeline->isInactiveStyleOriginatedTimeline();
     });
 
@@ -494,7 +501,7 @@ void StyleOriginatedTimelinesController::updateNamedTimelineMapForTimelineScope(
         HashSet<Ref<ScrollTimeline>> namedTimelinesToUpdate;
         for (auto& entry : m_nameToTimelineMap) {
             for (auto& timeline : entry.value) {
-                if (timeline->timelineScopeDeclaredElement() == &styleable.element)
+                if (timeline->timelineScopeDeclaredElement() == styleable.element.ptr())
                     timeline->clearTimelineScopeDeclaredElement();
                 // Make sure to track this timeline to be updated in a separate
                 // step since updating timeline relationships could affect m_nameToTimelineMap.

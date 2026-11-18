@@ -246,7 +246,8 @@ void WebInspectorBackendClient::highlightFrame(LocalFrame& frame)
         return;
 
     // Only a local root hosts its own compositing tree; a local subframe draws via the page overlay.
-    // FIXME: a nested local subframe's state lives on its own overlay, which nothing consults.
+    // FIXME: <https://webkit.org/b/331841> A nested local subframe's state lives on its own overlay,
+    // which nothing consults.
     if (!frame.isRootFrame()) {
         highlight();
         return;
@@ -413,6 +414,12 @@ void WebInspectorBackendClient::frameDebuggerDidPause(WebCore::FrameIdentifier f
 {
     if (RefPtr page = m_page.get())
         page->send(Messages::WebPageProxy::FrameDidPauseForDebugger(frameID));
+}
+
+void WebInspectorBackendClient::debuggerDidPause()
+{
+    if (RefPtr page = m_page)
+        page->send(Messages::WebPageProxy::DebuggerDidPause());
 }
 
 void WebInspectorBackendClient::frameDebuggerDidContinue(WebCore::FrameIdentifier frameID)

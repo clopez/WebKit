@@ -60,11 +60,17 @@ Ref<Scrollbar> Scrollbar::createNativeScrollbar(ScrollableArea& scrollableArea, 
 #endif
 }
 
+#if PLATFORM(GTK) || PLATFORM(WPE)
 static bool s_shouldUseFixedPixelsPerLineStepForTesting;
+#endif
 
 void Scrollbar::setShouldUseFixedPixelsPerLineStepForTesting(bool useFixedPixelsPerLineStep)
 {
+#if PLATFORM(GTK) || PLATFORM(WPE)
     s_shouldUseFixedPixelsPerLineStepForTesting = useFixedPixelsPerLineStep;
+#else
+    UNUSED_PARAM(useFixedPixelsPerLineStep);
+#endif
 }
 
 int Scrollbar::pixelsPerLineStep(int viewWidthOrHeight)
@@ -178,6 +184,11 @@ void Scrollbar::setFrameRect(const IntRect& rect)
 
 void Scrollbar::paint(GraphicsContext& context, const IntRect& damageRect, Widget::SecurityOriginPaintPolicy, RegionContext*)
 {
+    paint(context, damageRect, OptionSet<ScrollbarPaintBehavior> { });
+}
+
+void Scrollbar::paint(GraphicsContext& context, const IntRect& damageRect, OptionSet<ScrollbarPaintBehavior> paintBehavior)
+{
     if (context.invalidatingControlTints() && theme().supportsControlTints()) {
         invalidate();
         return;
@@ -186,7 +197,7 @@ void Scrollbar::paint(GraphicsContext& context, const IntRect& damageRect, Widge
     if (context.paintingDisabled() || !frameRect().intersects(damageRect))
         return;
 
-    if (!theme().paint(*this, context, damageRect))
+    if (!theme().paint(*this, context, damageRect, paintBehavior))
         Widget::paint(context, damageRect);
 }
 
@@ -420,7 +431,7 @@ bool Scrollbar::mouseUp(const PlatformMouseEvent& mouseEvent)
 
 bool Scrollbar::mouseDown(const PlatformMouseEvent& evt)
 {
-    const auto tolerance = evt.inputSource() == MouseEventInputSource::Automation ? ScrollbarHitTestTolerance::Expanded : ScrollbarHitTestTolerance::None;
+    const auto tolerance = evt.inputSource() == MouseEventInputSource::Touch ? ScrollbarHitTestTolerance::Expanded : ScrollbarHitTestTolerance::None;
     ScrollbarPart pressedPart = theme().hitTest(*this, flooredIntPoint(evt.position()), tolerance);
     auto action = theme().handleMousePressEvent(*this, evt, pressedPart);
     if (action == ScrollbarButtonPressAction::None)

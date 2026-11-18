@@ -105,7 +105,6 @@ public:
 
     // For RenderLayer only
     LayoutPoint topLeftLocationEquivalent() const { return currentSVGLayoutLocation(); }
-    LayoutRect borderBoxRectInFragmentEquivalent(RenderFragmentContainer*, RenderBox::RenderBoxFragmentInfoFlags = RenderBox::RenderBoxFragmentInfoFlags::CacheRenderBoxFragmentInfo) const { return borderBoxRectEquivalent(); }
     virtual LayoutRect overflowClipRect(const LayoutPoint& location, OverlayScrollbarSizeRelevancy = OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, PaintPhase = PaintPhase::BlockBackground) const;
     LayoutRect overflowClipRectForPainting(const LayoutPoint& location, OverlayScrollbarSizeRelevancy = OverlayScrollbarSizeRelevancy::IgnoreOverlayScrollbarSize, PaintPhase = PaintPhase::BlockBackground) const;
     LayoutRect overflowClipRectForChildLayers(const LayoutPoint& location, OverlayScrollbarSizeRelevancy relevancy) { return overflowClipRectForPainting(location, relevancy); }
@@ -120,8 +119,8 @@ public:
     void invalidateCachedTransformOrigin() const { m_cachedTransformOrigin = std::nullopt; }
 
 protected:
-    RenderSVGModelObject(Type, Document&, Style::ComputedStyle&&, OptionSet<SVGModelObjectFlag> = { });
-    RenderSVGModelObject(Type, SVGElement&, Style::ComputedStyle&&, OptionSet<SVGModelObjectFlag> = { });
+    RenderSVGModelObject(Type, Document&, UniqueRef<Style::ComputedStyle>&&, OptionSet<SVGModelObjectFlag> = { });
+    RenderSVGModelObject(Type, SVGElement&, UniqueRef<Style::ComputedStyle>&&, OptionSet<SVGModelObjectFlag> = { });
 
     void updateFromStyle() override;
 

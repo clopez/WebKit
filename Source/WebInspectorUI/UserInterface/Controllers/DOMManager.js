@@ -55,7 +55,7 @@ WI.DOMManager = class DOMManager extends WI.Object
         this._pendingInspectedFrameNode = null;
         this._frameOwnerRequestedDocuments = new WeakSet;
 
-        this._activeSearch = null;
+        this._activeSearches = new Map;
 
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.DisabledStateDidChange, this._handleEventBreakpointDisabledStateChanged, this);
         WI.EventBreakpoint.addEventListener(WI.Breakpoint.Event.ConditionDidChange, this._handleEventBreakpointEditablePropertyChanged, this);
@@ -96,10 +96,10 @@ WI.DOMManager = class DOMManager extends WI.Object
     {
         console.assert(target instanceof WI.FrameTarget);
 
-        // FIXME: <https://webkit.org/b/323034> The main frame has a frame target too, so this builds a
-        // second tree for it that can never splice into the page tree. Nodes resolved through that tree
-        // report an `owningTarget`, so they are treated as cross-origin frame nodes and lose highlighting,
-        // layout overlays, and revealing in the Elements tab.
+        // FIXME: The main frame and frames in its process also have frame targets, whose documents are already
+        // in the page tree, so this builds a duplicate tree that never splices in. pushNodeToFrontend() and
+        // Canvas resolve their nodes to the page tree's copy (see resolveNodeForIdInFrameTarget()), but other
+        // callers of nodeForIdInFrameTarget() still get nodes from this duplicate tree.
 
         let data = {document: null, target: target, attributeLoadNodeIds: {}, loadNodeAttributesTimeout: 0};
         this._frameTargetDOMData.set(target, data);
@@ -147,7 +147,7 @@ WI.DOMManager = class DOMManager extends WI.Object
     }
 
     // The hosting process in a frame ID can be stale. The FrameIdentifier is globally unique.
-    static _frameKey(frameIdentifier)
+    static frameKeyForFrameIdentifier(frameIdentifier)
     {
         let match = /^frame-\d+\.(\d+)$/.exec(frameIdentifier);
         return match ? match[1] : frameIdentifier;
@@ -155,13 +155,13 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     _registerFrameOwnerElement(node)
     {
-        this._frameOwnerElementsByFrameKey.add(DOMManager._frameKey(node.contentFrameIdentifier), node);
+        this._frameOwnerElementsByFrameKey.add(DOMManager.frameKeyForFrameIdentifier(node.contentFrameIdentifier), node);
     }
 
     _unregisterFrameOwnerElement(node)
     {
         if (node.contentFrameIdentifier)
-            this._frameOwnerElementsByFrameKey.delete(DOMManager._frameKey(node.contentFrameIdentifier), node);
+            this._frameOwnerElementsByFrameKey.delete(DOMManager.frameKeyForFrameIdentifier(node.contentFrameIdentifier), node);
     }
 
     _willDestroyFrameOwnerElement(node)
@@ -175,7 +175,7 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     _trySpliceFrameDocumentIntoNode(frameDocument)
     {
-        let ownerElements = this._frameOwnerElementsByFrameKey.get(DOMManager._frameKey(frameDocument.frameIdentifier));
+        let ownerElements = this._frameOwnerElementsByFrameKey.get(DOMManager.frameKeyForFrameIdentifier(frameDocument.frameIdentifier));
         if (!ownerElements)
             return false;
 
@@ -248,6 +248,93 @@ WI.DOMManager = class DOMManager extends WI.Object
         return !!this._document && this._rootNodeOf(node) === this._document;
     }
 
+    async _pageTreeNodeForFrameTargetNode(node)
+    {
+        let target = node?.owningTarget;
+        let frameDocument = target ? this.frameTargetDocumentForTarget(target) : null;
+        if (!frameDocument || frameDocument.parentNode)
+            return null;
+
+        let frameTreePath = [];
+        for (let current = node; current !== frameDocument; current = current.parentNode) {
+            if (!current.parentNode)
+                return null;
+            frameTreePath.push(current);
+        }
+
+        let pageTreeNode = await this._pageTreeDocumentForFrameDocument(frameDocument);
+        while (pageTreeNode && frameTreePath.length)
+            pageTreeNode = await this._pageTreeChildMatchingFrameTreeNode(pageTreeNode, frameTreePath.pop());
+        return pageTreeNode;
+    }
+
+    async _pageTreeDocumentForFrameDocument(frameDocument)
+    {
+        let frameIdentifier = frameDocument.frameIdentifier;
+        let pageTarget = WI.pageTarget;
+        if (!frameIdentifier || !pageTarget?.hasDomain("DOM"))
+            return null;
+
+        let pageDocument = await this.requestDocument();
+        if (!pageDocument || frameDocument.destroyed || frameDocument.parentNode)
+            return null;
+
+        let frameKey = DOMManager.frameKeyForFrameIdentifier(frameIdentifier);
+        let mainFrameIdentifier = pageDocument.frameIdentifier || WI.networkManager.mainFrame?.id;
+        if (mainFrameIdentifier && DOMManager.frameKeyForFrameIdentifier(mainFrameIdentifier) === frameKey)
+            return pageDocument;
+
+        for (let ownerElement of this._frameOwnerElementsByFrameKey.get(frameKey) ?? []) {
+            if (!this._isInPageTree(ownerElement))
+                continue;
+            let contentDocument = ownerElement.contentDocument;
+            return contentDocument && !contentDocument.owningTarget ? contentDocument : null;
+        }
+
+        if (!pageTarget.hasCommand("DOM.requestFrameOwner") || pageTarget.isDestroyed)
+            return null;
+
+        let result = await pageTarget.DOMAgent.requestFrameOwner.invoke({frameId: frameIdentifier}).catch(() => null);
+        let ownerElement = result ? this.nodeForId(result.nodeId) : null;
+        if (!ownerElement || !this._isInPageTree(ownerElement))
+            return null;
+
+        let contentDocument = ownerElement.contentDocument;
+        return contentDocument && !contentDocument.owningTarget ? contentDocument : null;
+    }
+
+    async _pageTreeChildMatchingFrameTreeNode(pageTreeParent, frameTreeNode)
+    {
+        let frameTreeParent = frameTreeNode.parentNode;
+        if (!frameTreeParent || frameTreeNode.destroyed || pageTreeParent.destroyed)
+            return null;
+
+        let pageTreeNode = null;
+        let shadowRootIndex = frameTreeParent.shadowRoots().indexOf(frameTreeNode);
+        if (shadowRootIndex !== -1)
+            pageTreeNode = pageTreeParent.shadowRoots()[shadowRootIndex];
+        else if (frameTreeNode === frameTreeParent.templateContent())
+            pageTreeNode = pageTreeParent.templateContent();
+        else if (frameTreeNode.isPseudoElement())
+            pageTreeNode = pageTreeParent.pseudoElements().get(frameTreeNode.pseudoType());
+        else if (frameTreeParent.children?.[frameTreeNode.index] === frameTreeNode) {
+            if (!pageTreeParent.children) {
+                let target = pageTreeParent.owningTarget || WI.assumingMainTarget();
+                if (!target || target.isDestroyed)
+                    return null;
+                await target.DOMAgent.requestChildNodes.invoke({nodeId: pageTreeParent.backendNodeId}).catch(() => {});
+            }
+
+            // Each tree is updated by its own agent, so one may not have seen a mutation yet.
+            if (!frameTreeNode.destroyed && frameTreeParent.children?.[frameTreeNode.index] === frameTreeNode && pageTreeParent.children?.length === frameTreeParent.children.length)
+                pageTreeNode = pageTreeParent.children[frameTreeNode.index];
+        }
+
+        if (!pageTreeNode || pageTreeNode.destroyed || pageTreeNode.nodeType() !== frameTreeNode.nodeType() || pageTreeNode.nodeName() !== frameTreeNode.nodeName())
+            return null;
+        return pageTreeNode;
+    }
+
     // A node inspected in a frame target can arrive before its frame document is spliced into the page tree.
     // Hold it until the owner elements above it have been requested, hop by hop, from the targets that
     // hold them; each owner that arrives splices the document below it and continues from there.
@@ -314,7 +401,7 @@ WI.DOMManager = class DOMManager extends WI.Object
 
             // An owner that is already in the page tree would have connected the node when it arrived, so the
             // node is still pending only because the splice did not happen.
-            let owner = target instanceof WI.FrameTarget ? this.nodeForIdInFrameTarget(ownerNodeId, target) : this.nodeForId(ownerNodeId);
+            let owner = this.nodeForIdInTarget(ownerNodeId, target);
             if (!owner || this._isInPageTree(owner)) {
                 revealAsIs();
                 return;
@@ -461,6 +548,31 @@ WI.DOMManager = class DOMManager extends WI.Object
     nodeForIdInFrameTarget(nodeId, target)
     {
         return this._idToDOMNode[DOMManager.keyForNodeId(nodeId, target)] || null;
+    }
+
+    nodeForIdInTarget(nodeId, target)
+    {
+        if (target instanceof WI.FrameTarget)
+            return this.nodeForIdInFrameTarget(nodeId, target);
+        return this.nodeForId(nodeId);
+    }
+
+    async resolveNodeForIdInFrameTarget(nodeId, target)
+    {
+        let node = this.nodeForIdInFrameTarget(nodeId, target);
+        try {
+            return (await this._pageTreeNodeForFrameTargetNode(node)) || node;
+        } catch (error) {
+            console.error(error);
+            return node;
+        }
+    }
+
+    async resolveNodeForIdInTarget(nodeId, target)
+    {
+        if (target instanceof WI.FrameTarget)
+            return this.resolveNodeForIdInFrameTarget(nodeId, target);
+        return this.nodeForId(nodeId);
     }
 
     _frameTargetSetChildNodes(target, parentId, payloads)
@@ -881,10 +993,19 @@ WI.DOMManager = class DOMManager extends WI.Object
         target ||= WI.assumingMainTarget();
 
         // `DOM.requestNode` answers an id in the responding agent's own id space, but callers look the
-        // node up in the manager-wide map, so hand back the scoped key instead.
+        // node up in the manager-wide map, so hand back the id of the resolved node instead.
         if (callback) {
             let clientCallback = callback;
-            callback = (rawNodeId) => clientCallback(rawNodeId ? DOMManager.keyForNodeId(rawNodeId, target) : rawNodeId);
+            callback = (rawNodeId) => {
+                if (!rawNodeId || !(target instanceof WI.FrameTarget)) {
+                    clientCallback(rawNodeId);
+                    return;
+                }
+
+                this.resolveNodeForIdInFrameTarget(rawNodeId, target).then((node) => {
+                    clientCallback(node ? node.id : DOMManager.keyForNodeId(rawNodeId, target));
+                });
+            };
         }
 
         let callbackWrapper = DOMManager.wrapClientCallback(callback);
@@ -918,14 +1039,14 @@ WI.DOMManager = class DOMManager extends WI.Object
         }, callback);
     }
 
-    async performSearch(query, {caseSensitive} = {})
+    async performSearch(query, {caseSensitive, root, owner = null} = {})
     {
-        // Resolves to null if a newer search starts first.
-        this.discardSearchResults();
+        // Resolves to null if the same owner starts a newer search first. Searches of different owners are independent.
+        this.discardSearchResults(owner);
 
         let search = {sessions: []};
-        this._activeSearch = search;
-        let isActive = () => this._activeSearch === search;
+        this._activeSearches.set(owner, search);
+        let isActive = () => this._activeSearches.get(owner) === search;
 
         let pageTarget = WI.assumingMainTarget();
         if (pageTarget && !pageTarget.hasDomain("DOM"))
@@ -958,12 +1079,17 @@ WI.DOMManager = class DOMManager extends WI.Object
         let send = (target, promise) => Promise.race([promise.catch(() => null), targetRemovedPromises.get(target).promise]);
 
         let startSearch = async (target) => {
-            let result = await send(target, target.DOMAgent.performSearch.invoke({query, caseSensitive}));
-            if (!result?.resultCount)
+            let commandArguments = {query, caseSensitive};
+            if (target === pageTarget && root && !root.owningTarget)
+                commandArguments.nodeIds = [root.id];
+
+            let result = await send(target, target.DOMAgent.performSearch.invoke(commandArguments));
+            if (!result)
                 return null;
 
-            if (!isActive()) {
-                target.DOMAgent.discardSearchResults(result.searchId);
+            // The backend keeps an entry even for zero results.
+            if (!result.resultCount || !isActive()) {
+                target.DOMAgent.discardSearchResults(result.searchId).catch(() => {});
                 return null;
             }
 
@@ -974,6 +1100,37 @@ WI.DOMManager = class DOMManager extends WI.Object
         let fetchNodeIds = async (target, {searchId, resultCount}) => {
             let response = await send(target, target.DOMAgent.getSearchResults(searchId, 0, resultCount));
             return response?.nodeIds || [];
+        };
+
+        // A frame document is spliced into the page tree once its owner element is loaded. Load the owners
+        // above it hop by hop, like for an inspected node: an owner that sits in another unspliced frame
+        // document needs that document's owner next.
+        let requestFrameOwners = async (frameDocument) => {
+            let requestedDocuments = new Set;
+            let topDocument = this._rootNodeOf(frameDocument);
+            while (topDocument !== this._document) {
+                if (!isActive() || requestedDocuments.has(topDocument) || !topDocument.frameIdentifier)
+                    return;
+                requestedDocuments.add(topDocument);
+
+                // The owner's events arrive before the reply, so a splice below it has already happened.
+                let frameId = topDocument.frameIdentifier;
+                let owner = null;
+                if (pageTarget?.hasCommand("DOM.requestFrameOwner")) {
+                    let result = await send(pageTarget, pageTarget.DOMAgent.requestFrameOwner.invoke({frameId}));
+                    if (result)
+                        owner = this.nodeForId(result.nodeId);
+                }
+                if (!owner) {
+                    let result = await this._requestFrameOwnerFromFrameTargets(frameId);
+                    if (result)
+                        owner = this.nodeForIdInFrameTarget(result.ownerNodeId, result.target);
+                }
+                if (!owner)
+                    return;
+
+                topDocument = this._rootNodeOf(owner);
+            }
         };
 
         WI.targetManager.addEventListener(WI.TargetManager.Event.TargetRemoved, handleTargetRemoved, this);
@@ -1022,29 +1179,61 @@ WI.DOMManager = class DOMManager extends WI.Object
                     if (node && node.ownerDocument === frameDocument)
                         frameNodes.push(node);
                 }
+
+                if (root && frameNodes.length)
+                    await requestFrameOwners(frameDocument);
                 return frameNodes;
             }));
 
             if (!isActive())
                 return null;
 
-            return nodes.concat(...frameTargetNodeLists);
+            let frameTargetNodes = frameTargetNodeLists.flat();
+            if (!root)
+                return nodes.concat(frameTargetNodes);
+
+            return DOMManager._nodesUnderRootInTreeOrder(root, nodes.concat(frameTargetNodes));
         } finally {
             WI.targetManager.removeEventListener(WI.TargetManager.Event.TargetRemoved, handleTargetRemoved, this);
         }
     }
 
-    discardSearchResults()
+    discardSearchResults(owner = null)
     {
-        let search = this._activeSearch;
-        this._activeSearch = null;
+        let search = this._activeSearches.get(owner);
         if (!search)
             return;
 
+        this._activeSearches.delete(owner);
         for (let {target, searchId} of search.sessions) {
             if (!target.isDestroyed)
-                target.DOMAgent.discardSearchResults(searchId);
+                target.DOMAgent.discardSearchResults(searchId).catch(() => {});
         }
+    }
+
+    // A tree outline can only reveal nodes under its root, and frame documents that are not spliced into the page
+    // tree are under no root. Results from every target are sorted in the order the outline shows them.
+    static _nodesUnderRootInTreeOrder(root, nodes)
+    {
+        let paths = new Map;
+        for (let node of nodes) {
+            let path = [];
+            let ancestor = node;
+            for (; ancestor && ancestor !== root; ancestor = ancestor.parentNode)
+                path.push(ancestor.index ?? -1);
+            if (ancestor)
+                paths.set(node, path.reverse());
+        }
+
+        return Array.from(paths.keys()).sort((a, b) => {
+            let pathA = paths.get(a);
+            let pathB = paths.get(b);
+            for (let i = 0; i < pathA.length && i < pathB.length; ++i) {
+                if (pathA[i] !== pathB[i])
+                    return pathA[i] - pathB[i];
+            }
+            return pathA.length - pathB.length;
+        });
     }
 
     // DOMObserver
@@ -1077,18 +1266,18 @@ WI.DOMManager = class DOMManager extends WI.Object
         node.dispatchEventToListeners(WI.DOMNode.Event.EventListenersChanged);
     }
 
-    didFireEvent(nodeId, eventName, timestamp, data)
+    didFireEvent(nodeId, eventName, timestamp, data, target)
     {
-        let node = this._idToDOMNode[nodeId];
+        let node = target instanceof WI.FrameTarget ? this.nodeForIdInFrameTarget(nodeId, target) : this._idToDOMNode[nodeId];
         if (!node)
             return;
 
         node.didFireEvent(eventName, timestamp, data);
     }
 
-    powerEfficientPlaybackStateChanged(nodeId, timestamp, isPowerEfficient)
+    powerEfficientPlaybackStateChanged(nodeId, timestamp, isPowerEfficient, target)
     {
-        let node = this._idToDOMNode[nodeId];
+        let node = target instanceof WI.FrameTarget ? this.nodeForIdInFrameTarget(nodeId, target) : this._idToDOMNode[nodeId];
         if (!node)
             return;
 
@@ -1099,7 +1288,7 @@ WI.DOMManager = class DOMManager extends WI.Object
 
     nodeLayoutFlagsChanged(nodeId, layoutFlags, target)
     {
-        let domNode = target instanceof WI.FrameTarget ? this.nodeForIdInFrameTarget(nodeId, target) : this._idToDOMNode[nodeId];
+        let domNode = this.nodeForIdInTarget(nodeId, target);
         console.assert(domNode instanceof WI.DOMNode, domNode, nodeId);
         if (!domNode)
             return;
@@ -1539,9 +1728,9 @@ WI.DOMManager = class DOMManager extends WI.Object
         });
     }
 
-    highlightRect(rect, usePageCoordinates)
+    highlightRect(rect, usePageCoordinates, target)
     {
-        let target = WI.assumingMainTarget();
+        target ||= WI.assumingMainTarget();
         target.DOMAgent.highlightRect.invoke({
             x: rect.x,
             y: rect.y,

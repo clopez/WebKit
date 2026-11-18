@@ -52,13 +52,21 @@ template<> struct CSSValueCreation<UnevaluatedCalcSize> {
 };
 
 // The computed value keeps the function whatever the basis, but switchOn() reports a keyword basis as
-// the keyword for layout's benefit. Intercept the calc-size() alternative before the generic
-// variant-like path sees it.
+// the keyword for layout's benefit, stretch() as its argument, and fit-content() as the fit-content keyword.
+// Intercept those alternatives before the generic variant-like path sees them.
 template<SizeOrKeywordDerived StyleType> struct Serialize<StyleType> {
     template<typename... Rest> void operator()(StringBuilder& builder, const CSS::SerializationContext& context, const ComputedStyle& style, const StyleType& value, Rest&&... rest)
     {
         if (value.isCalcSize()) {
             Serialize<UnevaluatedCalcSize> { }(builder, context, style, value.template get<UnevaluatedCalcSize>());
+            return;
+        }
+        if (value.isStretchFunction()) {
+            serializationForCSS(builder, context, style, value.template get<typename StyleType::StretchFunction>(), std::forward<Rest>(rest)...);
+            return;
+        }
+        if (value.isFitContentFunction()) {
+            serializationForCSS(builder, context, style, value.template get<typename StyleType::FitContentFunction>(), std::forward<Rest>(rest)...);
             return;
         }
         serializationForCSSOnVariantLike(builder, context, style, value, std::forward<Rest>(rest)...);
@@ -70,6 +78,10 @@ template<SizeOrKeywordDerived StyleType> struct CSSValueCreation<StyleType> {
     {
         if (value.isCalcSize())
             return CSSValueCreation<UnevaluatedCalcSize> { }(pool, style, value.template get<UnevaluatedCalcSize>());
+        if (value.isStretchFunction())
+            return createCSSValue(pool, style, value.template get<typename StyleType::StretchFunction>(), std::forward<Rest>(rest)...);
+        if (value.isFitContentFunction())
+            return createCSSValue(pool, style, value.template get<typename StyleType::FitContentFunction>(), std::forward<Rest>(rest)...);
         return WTF::switchOn(value, [&](const auto& alternative) -> Ref<CSSValue> {
             return createCSSValue(pool, style, alternative, std::forward<Rest>(rest)...);
         });

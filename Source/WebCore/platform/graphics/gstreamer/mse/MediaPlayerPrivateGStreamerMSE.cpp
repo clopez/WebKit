@@ -451,7 +451,11 @@ void MediaPlayerPrivateGStreamerMSE::didPreroll()
 
 void MediaPlayerPrivateGStreamerMSE::didEnd()
 {
+    bool wasSeeking = m_isSeeking;
     MediaPlayerPrivateGStreamer::didEnd();
+    // A seek sent just before EOS, or the loop seek sent from within didEnd(), still needs this pipeline.
+    if (wasSeeking || m_isSeeking)
+        return;
     tearDown(false);
 }
 
@@ -558,11 +562,8 @@ void MediaPlayerPrivateGStreamerMSE::startSource(const Vector<RefPtr<MediaSource
 
 void MediaPlayerPrivateGStreamerMSE::emitStreams(const Vector<RefPtr<MediaSourceTrackGStreamer>>& tracks)
 {
-    Vector<RefPtr<MediaSourceTrackGStreamer>> uniqueTracks;
-    Vector<RefPtr<MediaSourceTrackGStreamer>> playbackTracks;
-
-    uniqueTracks.reserveInitialCapacity(tracks.size());
-    playbackTracks.reserveInitialCapacity(tracks.size());
+    Vector<RefPtr<MediaSourceTrackGStreamer>> uniqueTracks(ReserveCapacityTag { }, tracks.size());
+    Vector<RefPtr<MediaSourceTrackGStreamer>> playbackTracks(ReserveCapacityTag { }, tracks.size());
 
     for (const auto& track : tracks) {
         if (!uniqueTracks.containsIf([&track](const auto& current) { return track->id() == current->id(); })) {

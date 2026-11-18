@@ -121,7 +121,7 @@ using WebCore::DashArray = FixedVector<float>
 
 [CustomHeader] class WebCore::DisplayList::DrawLinesForText {
     WebCore::FloatPoint point();
-    Vector<WebCore::FloatSegment> lineSegments();
+    [Const] Vector<WebCore::FloatSegment> lineSegments();
     float thickness();
     bool isPrinting();
     bool doubleLines();
@@ -172,12 +172,12 @@ using WebCore::DashArray = FixedVector<float>
 
 [CustomHeader] class WebCore::DisplayList::FillRectWithGradient {
     WebCore::FloatRect m_rect;
-    Ref<WebCore::Gradient> m_gradient;
+    Ref<const WebCore::Gradient> m_gradient;
 }
 
 [CustomHeader] class WebCore::DisplayList::FillRectWithGradientAndSpaceTransform {
     WebCore::FloatRect m_rect;
-    Ref<WebCore::Gradient> m_gradient;
+    Ref<const WebCore::Gradient> m_gradient;
     WebCore::AffineTransform m_gradientSpaceTransform;
     WebCore::RequiresClipToRect m_requiresClipToRect;
 }
@@ -200,11 +200,17 @@ using WebCore::DashArray = FixedVector<float>
 [CustomHeader] class WebCore::DisplayList::Restore {
 }
 
+[CustomHeader] class WebCore::DisplayList::RestoreTransform {
+}
+
 [CustomHeader] class WebCore::DisplayList::Rotate {
     float angle();
 }
 
 [CustomHeader] class WebCore::DisplayList::Save {
+}
+
+[CustomHeader] class WebCore::DisplayList::SaveTransform {
 }
 
 [CustomHeader] class WebCore::DisplayList::Scale {
@@ -259,14 +265,6 @@ using WebCore::DashArray = FixedVector<float>
     float y();
 }
 
-#if USE(CG)
-[CustomHeader] class WebCore::DisplayList::ApplyFillPattern {
-}
-
-[CustomHeader] class WebCore::DisplayList::ApplyStrokePattern {
-}
-#endif
-
 [CustomHeader] class WebCore::DisplayList::BeginPage {
     WebCore::FloatRect pageRect();
 }
@@ -281,7 +279,7 @@ using WebCore::DashArray = FixedVector<float>
 
 header: <WebCore/SourceBrushLogicalGradient.h>
 [CustomHeader] struct WebCore::SourceBrushLogicalGradient {
-    Ref<WebCore::Gradient> gradient;
+    Ref<const WebCore::Gradient> gradient;
     WebCore::AffineTransform spaceTransform;
 }
 
@@ -396,8 +394,10 @@ using WebKit::DisplayListDataItem = Variant<
     WebCore::DisplayList::FillRoundedRect,
     WebCore::DisplayList::ResetClip,
     WebCore::DisplayList::Restore,
+    WebCore::DisplayList::RestoreTransform,
     WebCore::DisplayList::Rotate,
     WebCore::DisplayList::Save,
+    WebCore::DisplayList::SaveTransform,
     WebCore::DisplayList::Scale,
     WebCore::DisplayList::SetCTM,
     WebCore::DisplayList::SetInlineFillColor,
@@ -411,10 +411,6 @@ using WebKit::DisplayListDataItem = Variant<
     WebCore::DisplayList::StrokePath,
     WebCore::DisplayList::StrokeRect,
     WebCore::DisplayList::Translate,
-#if USE(CG)
-    WebCore::DisplayList::ApplyFillPattern,
-    WebCore::DisplayList::ApplyStrokePattern,
-#endif
     WebCore::DisplayList::BeginPage,
     WebCore::DisplayList::EndPage,
     WebCore::DisplayList::SetURLForRect

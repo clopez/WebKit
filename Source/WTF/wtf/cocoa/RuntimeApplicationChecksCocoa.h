@@ -62,6 +62,7 @@ enum class SDKAlignedBehavior {
     ExceptionsForDuplicateCompletionHandlerCalls,
     ExceptionsForRelatedWebViewsUsingDifferentDataStores,
     ExpiredOnlyReloadBehavior,
+    ForbidCookieUseFromFileURLs,
     ForbidsDotPrefixedFonts,
     FullySuspendsBackgroundContent,
     FullySuspendsBackgroundContentImmediately,
@@ -154,6 +155,7 @@ enum class SDKAlignedBehavior {
     DeprecatedSystemColorsUseCSSColor4Mappings,
     CheckPageLocationDuringHardPocketEligibilityCheck,
     HideScrollPocketSeparatorAtTopOfPage,
+    NoUnloadEvent,
 
     NumberOfBehaviors
 };

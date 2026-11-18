@@ -30,22 +30,7 @@ class CSSRegisteredCounterStyle;
 class RenderBlockFlow;
 class RenderListItem;
 class StyleRuleCounterStyle;
-
-enum class ListMarkerIncludeSuffix : bool { No, Yes };
-
-struct ListMarkerTextContent {
-    String textWithSuffix;
-    uint32_t textWithoutSuffixLength { 0 };
-    bool isEmpty() const
-    {
-        return textWithSuffix.isEmpty();
-    }
-
-    StringView textWithoutSuffix() const LIFETIME_BOUND
-    {
-        return StringView { textWithSuffix }.left(textWithoutSuffixLength);
-    }
-};
+struct ListMarkerTextContent;
 
 // Used to render the list item's marker.
 // The RenderListOutsideMarker always has to be a child of a RenderListItem.
@@ -53,35 +38,18 @@ class RenderListOutsideMarker final : public RenderBox {
     WTF_MAKE_TZONE_ALLOCATED(RenderListOutsideMarker);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderListOutsideMarker);
 public:
-    RenderListOutsideMarker(RenderListItem&, Style::ComputedStyle&&);
+    RenderListOutsideMarker(RenderListItem&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderListOutsideMarker();
 
-    bool isDisclosureMarker() const;
-    bool synthesizesGlyph() const;
-
-    void updateInlineMarginsAndContent();
+    void updateContent();
 
     bool isImage() const final;
-
-    // True when the ::marker's `content` property generates the marker box contents (css-lists-3 §3.3),
-    // rather than list-style-image/type.
-    bool hasContentProperty() const;
 
     NODELETE RenderBlockFlow* contentContainer() const;
 
     NODELETE RenderListItem* listItem() const;
 
     std::pair<float, float> layoutBounds() const { return m_layoutBounds; }
-
-    struct ExcludedPosition {
-        SingleThreadWeakPtr<RenderBlockFlow> firstFormattedLineRoot;
-        FloatPoint topLeft;
-        bool isLineStartConstrainedByFloat { false };
-    };
-    void setExcludedPosition(ExcludedPosition);
-    std::optional<ExcludedPosition> excludedPosition() const { return m_excludedPosition; }
-
-    void invalidateExcludedMarkerContainer();
 
 private:
     void willBeDestroyed() final;
@@ -103,31 +71,16 @@ private:
 
     void element() const = delete;
 
-    void updateInlineMargins();
-    void updateInlineMargins(LayoutUnit logicalWidth);
-    void updateContent();
+    std::pair<LayoutUnit, LayoutUnit> inlineMargins() const;
     LayoutSize markerImageSize(const Style::Image&) const;
     void updateContentContainerText(const ListMarkerTextContent&);
     void setContentContainerImageSize(LayoutSize);
     void layoutContentContainer(RenderBlockFlow&);
 
-    NODELETE LayoutRect localSelectionRect();
-
 private:
     SingleThreadWeakPtr<RenderListItem> m_listItem;
     std::pair<float, float> m_layoutBounds;
-    std::optional<ExcludedPosition> m_excludedPosition;
 };
-
-// The room an image marker keeps between itself and the content it labels.
-constexpr int listMarkerImagePadding = 7;
-ListMarkerTextContent listMarkerTextContent(const Style::ComputedStyle& markerStyle, RenderListItem&);
-NODELETE bool listMarkerHasContent(const Style::ComputedStyle& markerStyle, Document&);
-bool listMarkerSynthesizesGlyph(const Style::ComputedStyle& markerStyle, Document&);
-RefPtr<Style::Image> listMarkerImage(const Style::ComputedStyle& markerStyle);
-bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document&);
-bool listMarkerIsDisclosure(const RenderElement*);
-void setListMarkerInlineMargins(Style::ComputedStyle& markerStyle, WritingMode listItemWritingMode, LayoutUnit marginStart, LayoutUnit marginEnd);
 
 } // namespace WebCore
 

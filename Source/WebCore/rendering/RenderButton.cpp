@@ -44,7 +44,7 @@ using namespace HTMLNames;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderButton);
 
-RenderButton::RenderButton(HTMLFormControlElement& element, Style::ComputedStyle&& style)
+RenderButton::RenderButton(HTMLFormControlElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderFlexibleBox(Type::Button, element, WTF::move(style))
 {
     ASSERT(isRenderButton());
@@ -129,9 +129,11 @@ void RenderButton::setText(const String& str)
         return;
     }
     if (RenderTreeBuilder::current())
-        RenderTreeBuilder::current()->destroy(*m_buttonText);
+        // The renderer is destroyed by this call, so it cannot be protected.
+        SUPPRESS_UNCHECKED_ARG RenderTreeBuilder::current()->destroy(*m_buttonText);
     else
-        RenderTreeBuilder(*document().renderView()).destroy(*m_buttonText);
+        // The renderer is destroyed by this call, so it cannot be protected.
+        SUPPRESS_UNCHECKED_ARG RenderTreeBuilder(*document().renderView()).destroy(*m_buttonText);
 }
 
 String RenderButton::text() const

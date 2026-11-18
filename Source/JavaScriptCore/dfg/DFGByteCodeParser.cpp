@@ -1554,7 +1554,7 @@ private:
     FrozenValue* const m_constantOne;
     Vector<Node*, 16> m_constants;
 
-    UncheckedKeyHashMap<InlineCallFrame*, Vector<ArgumentPosition*>, WTF::DefaultHash<InlineCallFrame*>, WTF::NullableHashTraits<InlineCallFrame*>> m_inlineCallFrameToArgumentPositions;
+    HashMap<InlineCallFrame*, Vector<ArgumentPosition*>> m_inlineCallFrameToArgumentPositions;
 
     InliningPlan m_inliningPlan;
 
@@ -1613,7 +1613,7 @@ private:
         // code block had gathered.
         LazyOperandValueProfileParser m_lazyOperands;
 
-        UncheckedKeyHashMap<BytecodeIndex, JSValue*> m_specFailValueProfileBuckets;
+        HashMap<BytecodeIndex, JSValue*> m_specFailValueProfileBuckets;
         
         // The plan node this frame was inlined for, so that call sites inside it can be found
         // by descending the plan in step with the parse. Null when planning is off, or when the
@@ -6254,6 +6254,13 @@ bool ByteCodeParser::handleIntrinsicGetter(Operand result, SpeculatedType predic
         return true;
     }
 
+    case TypedArrayBufferIntrinsic: {
+        insertChecks();
+        addToGraph(CheckStructure, OpInfo(m_graph.addStructureSet(variant.structureSet())), thisNode);
+        set(result, addToGraph(GetTypedArrayBuffer, Edge(thisNode, KnownCellUse)));
+        return true;
+    }
+
     case UnderscoreProtoIntrinsic: {
         insertChecks();
 
@@ -10287,7 +10294,7 @@ void ByteCodeParser::parseBlock(unsigned limit)
 
             Vector<SpeculatedType> argumentPredictions(m_numArguments);
             Vector<SpeculatedType> localPredictions;
-            UncheckedKeyHashSet<unsigned, WTF::IntHash<unsigned>, WTF::UnsignedWithZeroKeyHashTraits<unsigned>> seenArguments;
+            HashSet<unsigned> seenArguments;
 
             {
                 buffer->forEach([&](ValueProfileAndVirtualRegister& profile) {
@@ -11261,7 +11268,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
             Node* property = get(bytecode.m_property);
             bool compiledAsMatchStructure = false;
 
-            if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
+            if (!m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadCache)
+                && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadIdent)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadType)
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
 
@@ -11405,7 +11413,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
             }
 
             // FIXME: Checking for a BadConstantValue causes us to always use the Generic variant if we switched from IndexedMode -> IndexedMode + OwnStructureMode even though that might be fine.
-            if (!seenModes.containsAny({ JSPropertyNameEnumerator::GenericMode, JSPropertyNameEnumerator::HasSeenOwnStructureModeStructureMismatch })
+            if (seenModes.contains(JSPropertyNameEnumerator::IndexedMode)
+                && !seenModes.containsAny({ JSPropertyNameEnumerator::GenericMode, JSPropertyNameEnumerator::HasSeenOwnStructureModeStructureMismatch })
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
                 Node* modeTest = addToGraph(SameValue, mode, jsConstant(jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::GenericMode))));
                 addToGraph(CheckIsConstant, OpInfo(m_graph.freezeStrong(jsBoolean(false))), modeTest);
@@ -11539,7 +11548,8 @@ void ByteCodeParser::parseBlock(unsigned limit)
                 }
             }
 
-            if (!seenModes.containsAny({ JSPropertyNameEnumerator::GenericMode, JSPropertyNameEnumerator::HasSeenOwnStructureModeStructureMismatch })
+            if (seenModes.contains(JSPropertyNameEnumerator::IndexedMode)
+                && !seenModes.containsAny({ JSPropertyNameEnumerator::GenericMode, JSPropertyNameEnumerator::HasSeenOwnStructureModeStructureMismatch })
                 && !m_inlineStackTop->m_exitProfile.hasExitSite(m_currentIndex, BadConstantValue)) {
                 Node* modeTest = addToGraph(SameValue, mode, jsConstant(jsNumber(static_cast<uint8_t>(JSPropertyNameEnumerator::GenericMode))));
                 addToGraph(CheckIsConstant, OpInfo(m_graph.freezeStrong(jsBoolean(false))), modeTest);

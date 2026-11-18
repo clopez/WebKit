@@ -43,6 +43,7 @@
 #include "SQLiteFileSystem.h"
 #include "SQLiteStatement.h"
 #include "SQLiteTransaction.h"
+#include <wtf/Borrow.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/FileSystem.h>
 #include <wtf/MainThread.h>
@@ -103,7 +104,7 @@ String DatabaseTracker::trackerDatabasePath() const
 
 void DatabaseTracker::openTrackerDatabase(TrackerCreationAction createAction)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     if (m_database->isOpen())
         return;
@@ -142,7 +143,7 @@ void DatabaseTracker::openTrackerDatabase(TrackerCreationAction createAction)
 
 ExceptionOr<void> DatabaseTracker::hasAdequateQuotaForOrigin(const SecurityOriginData& origin, uint64_t estimatedSize)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     auto usage = this->usage(origin);
 
     // If the database will fit, allow its creation.
@@ -229,7 +230,7 @@ ExceptionOr<void> DatabaseTracker::retryCanEstablishDatabase(DatabaseContext& co
 
 bool DatabaseTracker::hasEntryForOriginNoLock(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     openTrackerDatabase(DontCreateIfDoesNotExist);
     if (!m_database->isOpen())
         return false;
@@ -247,7 +248,7 @@ bool DatabaseTracker::hasEntryForOriginNoLock(const SecurityOriginData& origin)
 
 bool DatabaseTracker::hasEntryForDatabase(const SecurityOriginData& origin, const String& databaseIdentifier)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     openTrackerDatabase(DontCreateIfDoesNotExist);
     if (!m_database->isOpen()) {
         // No "tracker database". Hence, no entry for the database of interest.
@@ -312,7 +313,7 @@ static String generateDatabaseFileName()
 
 String DatabaseTracker::fullPathForDatabaseNoLock(const SecurityOriginData& origin, const String& name, bool createIfNotExists)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     String originIdentifier = origin.databaseIdentifier();
     String originPath = this->originPath(origin);
@@ -393,7 +394,7 @@ Vector<SecurityOriginData> DatabaseTracker::origins()
 
 Vector<String> DatabaseTracker::databaseNamesNoLock(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     openTrackerDatabase(DontCreateIfDoesNotExist);
     if (!m_database->isOpen())
         return { };
@@ -569,7 +570,7 @@ void DatabaseTracker::removeOpenDatabase(Database& database)
 
     LOG_WITH_STREAM(StorageAPI, stream << "Removed open Database "_s << name << " ("_s << &database << ")"_s);
 
-    if (!innerIterator->value.isEmptyIgnoringNullReferences())
+    if (!innerIterator->value.computeIsEmpty())
         return;
 
     iterator->value.remove(innerIterator);
@@ -597,7 +598,7 @@ Ref<OriginLock> DatabaseTracker::originLockFor(const SecurityOriginData& origin)
 
 void DatabaseTracker::deleteOriginLockFor(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     // There is not always an instance of an OriginLock associated with an origin.
     // For example, if the OriginLock lock file was created by a previous run of
@@ -629,7 +630,7 @@ uint64_t DatabaseTracker::usage(const SecurityOriginData& origin)
 
 uint64_t DatabaseTracker::quotaNoLock(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     uint64_t quota = 0;
 
     openTrackerDatabase(DontCreateIfDoesNotExist);
@@ -705,7 +706,7 @@ void DatabaseTracker::setQuota(const SecurityOriginData& origin, uint64_t quota)
 
 bool DatabaseTracker::addDatabase(const SecurityOriginData& origin, const String& name, const String& path)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     openTrackerDatabase(CreateIfDoesNotExist);
     if (!m_database->isOpen())
         return false;
@@ -748,7 +749,7 @@ void DatabaseTracker::deleteDatabasesModifiedSince(WallTime time)
     for (auto& origin : origins()) {
         Vector<String> databaseNames = this->databaseNames(origin);
         Vector<String> databaseNamesToDelete(ReserveCapacityTag { }, databaseNames.size());
-        for (const auto& databaseName : databaseNames) {
+        for (const auto& databaseName : borrow(databaseNames)) {
             auto fullPath = fullPathForDatabase(origin, databaseName, false);
 
             // If the file doesn't exist, we previously deleted it but failed to remove the information
@@ -769,7 +770,7 @@ void DatabaseTracker::deleteDatabasesModifiedSince(WallTime time)
         if (databaseNames.size() == databaseNamesToDelete.size())
             deleteOrigin(origin);
         else {
-            for (const auto& databaseName : databaseNamesToDelete)
+            for (const auto& databaseName : borrow(databaseNamesToDelete))
                 deleteDatabase(origin, databaseName);
         }
     }
@@ -805,7 +806,7 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
 
     // We drop the lock here because holding locks during a call to deleteDatabaseFile will deadlock.
     bool failedToDeleteAnyDatabaseFile = false;
-    for (auto& name : databaseNames) {
+    for (auto& name : borrow(databaseNames)) {
         if (FileSystem::fileExists(fullPathForDatabase(origin, name, false)) && !deleteDatabaseFile(origin, name, deletionMode)) {
             // Even if the file can't be deleted, we want to try and delete the rest, don't return early here.
             LOG_ERROR("Unable to delete file for database %s in origin %s", name.utf8(), origin.databaseIdentifier().utf8());
@@ -899,7 +900,7 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
         if (RefPtr client = m_client.get()) {
             client->dispatchDidModifyOrigin(origin);
             client->dispatchDidDeleteDatabaseOrigin();
-            for (auto& name : databaseNames)
+            for (auto& name : borrow(databaseNames))
                 client->dispatchDidModifyDatabase(origin, name);
         }
     }
@@ -908,14 +909,14 @@ bool DatabaseTracker::deleteOrigin(const SecurityOriginData& origin, DeletionMod
 
 bool DatabaseTracker::isDeletingDatabaseOrOriginFor(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     // Can't create a database while someone else is deleting it; there's a risk of leaving untracked database debris on the disk.
     return isDeletingDatabase(origin, name) || isDeletingOrigin(origin);
 }
 
 void DatabaseTracker::recordCreatingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     // We don't use HashMap::ensure here to avoid making an isolated copy of the origin every time.
     auto it = m_beingCreated.find(origin);
@@ -926,7 +927,7 @@ void DatabaseTracker::recordCreatingDatabase(const SecurityOriginData& origin, c
 
 void DatabaseTracker::doneCreatingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     ASSERT(m_beingCreated.contains(origin));
 
@@ -943,7 +944,7 @@ void DatabaseTracker::doneCreatingDatabase(const SecurityOriginData& origin, con
 
 bool DatabaseTracker::creatingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
 
     auto iterator = m_beingCreated.find(origin);
     return iterator != m_beingCreated.end() && iterator->value.contains(name);
@@ -951,13 +952,13 @@ bool DatabaseTracker::creatingDatabase(const SecurityOriginData& origin, const S
 
 bool DatabaseTracker::canDeleteDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     return !creatingDatabase(origin, name) && !isDeletingDatabase(origin, name);
 }
 
 void DatabaseTracker::recordDeletingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     ASSERT(canDeleteDatabase(origin, name));
 
     // We don't use HashMap::ensure here to avoid making an isolated copy of the origin every time.
@@ -970,7 +971,7 @@ void DatabaseTracker::recordDeletingDatabase(const SecurityOriginData& origin, c
 
 void DatabaseTracker::doneDeletingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     ASSERT(m_beingDeleted.contains(origin));
 
     auto iterator = m_beingDeleted.find(origin);
@@ -985,33 +986,33 @@ void DatabaseTracker::doneDeletingDatabase(const SecurityOriginData& origin, con
 
 bool DatabaseTracker::isDeletingDatabase(const SecurityOriginData& origin, const String& name)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     auto it = m_beingDeleted.find(origin);
     return it != m_beingDeleted.end() && it->value.contains(name);
 }
 
 bool DatabaseTracker::canDeleteOrigin(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     return !(isDeletingOrigin(origin) || m_beingCreated.contains(origin));
 }
 
 bool DatabaseTracker::isDeletingOrigin(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     return m_originsBeingDeleted.contains(origin);
 }
 
 void DatabaseTracker::recordDeletingOrigin(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     ASSERT(!isDeletingOrigin(origin));
     m_originsBeingDeleted.add(origin.isolatedCopy());
 }
 
 void DatabaseTracker::doneDeletingOrigin(const SecurityOriginData& origin)
 {
-    ASSERT(m_databaseGuard.isHeld());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_databaseGuard.isHeld());
     ASSERT(isDeletingOrigin(origin));
     m_originsBeingDeleted.remove(origin);
 }
@@ -1097,7 +1098,7 @@ bool DatabaseTracker::deleteDatabaseFile(const SecurityOriginData& origin, const
         }
     }
 
-    for (auto& database : deletedDatabases)
+    for (auto& database : borrow(deletedDatabases))
         database->markAsDeletedAndClose();
 
 #if PLATFORM(IOS_FAMILY)
@@ -1185,14 +1186,14 @@ void DatabaseTracker::removeDeletedOpenedDatabases() WTF_IGNORES_THREAD_SAFETY_A
         }
     }
     
-    for (auto& deletedDatabase : deletedDatabases)
+    for (auto& deletedDatabase : borrow(deletedDatabases))
         deletedDatabase->markAsDeletedAndClose();
 
     RefPtr client = m_client.get();
-    for (auto& deletedDatabase : deletedDatabaseNames) {
+    for (auto& deletedDatabase : borrow(deletedDatabaseNames)) {
         auto& origin = deletedDatabase.first;
         client->dispatchDidModifyOrigin(origin);
-        for (auto& databaseName : deletedDatabase.second)
+        for (auto& databaseName : borrow(deletedDatabase.second))
             client->dispatchDidModifyDatabase(origin, databaseName);
     }
 }
@@ -1313,7 +1314,7 @@ void DatabaseTracker::notifyDatabasesChanged()
     if (!client)
         return;
 
-    for (auto& notification : notifications)
+    for (auto& notification : borrow(notifications))
         client->dispatchDidModifyDatabase(notification.first, notification.second);
 }
 

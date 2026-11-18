@@ -26,14 +26,14 @@
 ]
 messages -> WebAutomationSessionProxy {
     EvaluateJavaScriptFunction(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String function, Vector<String> arguments, bool expectsImplicitCallbackArgument, bool forceUserGesture, std::optional<double> callbackTimeout) -> (String result, String errorType)
-    EvaluateBidiScript(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String expression, bool awaitPromise, int maxObjectDepth, std::optional<double> callbackTimeout) -> (String result, String errorType)
+    EvaluateBidiScript(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String expression, bool awaitPromise, std::optional<double> maxObjectDepth, std::optional<double> maxDomDepth, String includeShadowTree, std::optional<double> callbackTimeout) -> (String result, String errorType)
 
     ResolveChildFrameWithOrdinal(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, uint32_t ordinal) -> (std::optional<String> errorType, std::optional<WebCore::FrameIdentifier> frameID)
     ResolveChildFrameWithNodeHandle(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle) -> (std::optional<String> errorType, std::optional<WebCore::FrameIdentifier> frameID)
     ResolveChildFrameWithName(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String name) -> (std::optional<String> errorType, std::optional<WebCore::FrameIdentifier> frameID)
     ResolveParentFrame(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID) -> (std::optional<String> errorType, std::optional<WebCore::FrameIdentifier> frameID)
     FocusFrame(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID) -> (std::expected<void, String> errorType)
-    ComputeElementLayout(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, bool scrollIntoViewIfNeeded, enum:uint8_t WebKit::CoordinateSystem coordinateSystem) -> (std::optional<String> errorType, WebCore::FloatRect rect, std::optional<WebCore::IntPoint> inViewCenterPoint, bool isObscured)
+    ComputeElementLayout(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle, bool scrollIntoViewIfNeeded, enum:uint8_t WebKit::CoordinateSystem coordinateSystem, bool isSharedReference) -> (std::optional<String> errorType, WebCore::FloatRect rect, std::optional<WebCore::IntPoint> inViewCenterPoint, bool isObscured)
     FrameViewportInLayoutViewport(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID) -> (std::optional<String> errorType, std::optional<WebCore::FloatRect> frameViewport)
 
     GetComputedRole(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String nodeHandle) -> (std::optional<String> role, std::optional<String> errorType)
@@ -54,6 +54,8 @@ messages -> WebAutomationSessionProxy {
     DeleteCookie(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID, String cookieName) -> (std::optional<String> errorType)
 
 #if ENABLE(WEBDRIVER_BIDI)
+    GetBidiRealmInfo(WebCore::PageIdentifier pageID, std::optional<WebCore::FrameIdentifier> frameID) -> (std::optional<WebKit::RealmIdentifier> realmIdentifier)
     EnsureRealmForInitialEmptyDocument(WebCore::PageIdentifier pageID)
+    ReloadFrame(WebCore::FrameIdentifier frameID, OptionSet<WebCore::ReloadOption> reloadOptions)
 #endif
 }

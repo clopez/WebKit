@@ -218,12 +218,26 @@ void ViewPlatform::requestExitFullScreen()
     if (auto* fullScreenManagerProxy = page().fullScreenManager())
         fullScreenManagerProxy->requestExitFullScreen();
 }
+
+void ViewPlatform::closeFullScreen()
+{
+    auto previousState = std::exchange(m_fullscreenState, WebFullScreenManagerProxy::FullscreenState::NotInFullscreen);
+    if (previousState != WebFullScreenManagerProxy::FullscreenState::EnteringFullscreen && previousState != WebFullScreenManagerProxy::FullscreenState::InFullscreen)
+        return;
+
+    if (m_client->exitFullScreen(*this))
+        return;
+
+    auto* toplevel = wpe_view_get_toplevel(m_wpeView.get());
+    if (viewToplevelIsFullScreen(toplevel) && !m_viewWasAlreadyInFullScreen)
+        wpe_toplevel_unfullscreen(toplevel);
+}
 #endif // ENABLE(FULLSCREEN_API)
 
 #if ENABLE(GAMEPAD)
 WebPageProxy* ViewPlatform::platformWebPageProxyForGamepadInput()
 {
-    // Find the visible view getting the input focus in the active toplevel.
+    // Find a mapped view in the active toplevel, preferring the one with the keyboard focus.
     GUniquePtr<GList> toplevels(wpe_toplevel_list());
     for (GList* iter = toplevels.get(); iter; iter = g_list_next(iter)) {
         auto* toplevel = WPE_TOPLEVEL(iter->data);
@@ -232,11 +246,15 @@ WebPageProxy* ViewPlatform::platformWebPageProxyForGamepadInput()
 
         WPEView* view = nullptr;
         wpe_toplevel_foreach_view(toplevel, +[](WPEToplevel* toplevel, WPEView* view, gpointer userData) -> gboolean {
-            if (wpe_view_get_visible(view) && wpe_view_get_has_focus(view)) {
-                *static_cast<WPEView**>(userData) = view;
-                return TRUE;
-            }
-            return FALSE;
+            if (!wpe_view_get_mapped(view))
+                return FALSE;
+
+            auto** candidate = static_cast<WPEView**>(userData);
+            auto hasFocus = wpe_view_get_has_focus(view);
+            if (!*candidate || hasFocus)
+                *candidate = view;
+
+            return hasFocus;
         }, &view);
 
         if (view) {
@@ -680,10 +698,13 @@ void ViewPlatform::setCursor(const WebCore::Cursor& cursor)
 }
 
 #if ENABLE(POINTER_LOCK)
-void ViewPlatform::requestPointerLock()
+bool ViewPlatform::requestPointerLock()
 {
-    if (wpe_view_lock_pointer(m_wpeView.get()))
-        setCursor(WebCore::noneCursor());
+    if (!wpe_view_lock_pointer(m_wpeView.get()))
+        return false;
+
+    setCursor(WebCore::noneCursor());
+    return true;
 }
 
 void ViewPlatform::didLosePointerLock()

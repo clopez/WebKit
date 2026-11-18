@@ -350,7 +350,7 @@ static std::optional<FloatRect> trailingEllipsisVisualRectAfterTruncation(LineEn
     auto& rootInlineBox = displayBoxes.front();
     // The ellipsis is not part of ::first-line, and it is painted with the root style too (see EllipsisBoxPainter).
     CheckedRef rootStyle = rootInlineBox.layoutBox().style();
-    auto ellipsisWidth = std::max(0.f, rootStyle->fontCascade().width(ellipsisText));
+    auto ellipsisWidth = std::max(0.f, protect(rootStyle->fontCascade())->width(ellipsisText));
 
     auto contentNeedsTruncation = [&] {
         switch (lineEndingTruncationPolicy) {
@@ -491,7 +491,7 @@ void InlineDisplayLineBuilder::addLegacyLineClampTrailingLinkBoxIfApplicable(con
         return;
     }
     auto& clampedLine = displayLines[*clampedLineIndex];
-    auto linkContentWidth = displayBoxes[displayBoxes.size() - 2].visualRectIgnoringBlockDirection().width();
+    auto linkContentWidth = displayBoxes[displayBoxes.size() - 2].blockStartRelativePhysicalRect().width();
     if (linkContentWidth >= clampedLine.lineBoxWidth()) {
         // Not enough space for "more info" content.
         return;
@@ -543,7 +543,8 @@ static AtomString textOverflowEllipsisText(const Style::ComputedStyle& style)
             return TextUtil::ellipsisText();
         },
         [&](const Style::String& string) -> AtomString {
-            return AtomString { string.value };
+            // https://drafts.csswg.org/css-overflow-4/#overflow-string
+            return TextUtil::ellipsisStringWithCollapsedForcedLineBreaks(string.value);
         }
     );
 }
@@ -609,12 +610,12 @@ static void truncateBlockEllipsisForTextOverflow(InlineDisplay::Line::Ellipsis& 
     if (!isLeftToRight)
         subruns.reverse();
     StringBuilder textBuilder;
-    for (CheckedRef subrun : subruns) {
-        auto hasLineDirection = subrun->direction() == lineDirection;
+    for (auto& subrun : subruns) {
+        auto hasLineDirection = subrun.direction() == lineDirection;
         auto subrunWidth = fontCascade.width(subrun);
         // "The first character or atomic inline-level element on a line must be clipped rather than ellipsed."
         auto canFullyTruncate = !isFirstContentOnLine || !textBuilder.isEmpty();
-        auto visibleText = subrunWidth <= availableWidth ? subrun->text() : visiblePartOfTextRun(subrun->text(), subrunWidth, hasLineDirection, std::max(0.f, availableWidth), canFullyTruncate, fontCascade);
+        auto visibleText = subrunWidth <= availableWidth ? subrun.text() : visiblePartOfTextRun(subrun.text(), subrunWidth, hasLineDirection, std::max(0.f, availableWidth), canFullyTruncate, fontCascade);
         if (hasLineDirection)
             textBuilder.append(visibleText);
         else if (!visibleText.isEmpty())
@@ -652,7 +653,7 @@ std::optional<InlineDisplay::Line::Ellipsis> InlineDisplayLineBuilder::placeTrai
             return displayBox.isInlineBox();
         });
         // The block ellipsis is measured and painted with the root style, not the ::first-line style (see InlineFormattingUtils::blockEllipsisForLine).
-        truncateBlockEllipsisForTextOverflow(ellipsis, blockEllipsis->hangingWidth, isFirstContentOnLine, displayLine, styleForTruncation, displayBoxes[0].layoutBox().style().fontCascade());
+        truncateBlockEllipsisForTextOverflow(ellipsis, blockEllipsis->hangingWidth, isFirstContentOnLine, displayLine, styleForTruncation, protect(displayBoxes[0].layoutBox().style().fontCascade()));
         return ellipsis;
     }
     if (truncationPolicy == LineEndingTruncationPolicy::NoTruncation)

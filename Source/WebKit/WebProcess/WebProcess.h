@@ -46,6 +46,7 @@
 #include <WebCore/ActivityState.h>
 #include <WebCore/BackForwardFrameItemIdentifier.h>
 #include <WebCore/CaptionUserPreferences.h>
+#include <WebCore/FourCC.h>
 #include <WebCore/FrameIdentifier.h>
 #include <WebCore/MediaSessionIdentifier.h>
 #include <WebCore/PageIdentifier.h>
@@ -311,6 +312,10 @@ public:
     const SharedPreferencesForWebProcess& sharedPreferencesForWebProcessValue() const LIFETIME_BOUND { return m_sharedPreferencesForWebProcess; }
     void updateSharedPreferencesForWebProcess(SharedPreferencesForWebProcess sharedPreferencesForWebProcess) { m_sharedPreferencesForWebProcess = WTF::move(sharedPreferencesForWebProcess); }
 
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
+    const Vector<WebCore::FourCC>& videoCodecsDecodedInContentProcess() const LIFETIME_BOUND { return m_videoCodecsDecodedInContentProcess; }
+#endif
+
 #if ENABLE(GPU_PROCESS)
     GPUProcessConnection& ensureGPUProcessConnection();
     // Resolves a frame of a snapshot that will not be recorded, so that the snapshot does not wait for it.
@@ -323,6 +328,7 @@ public:
     // Returns timeout duration for GPU process connections. Thread-safe.
     NODELETE Seconds gpuProcessTimeoutDuration() const;
     void gpuProcessConnectionClosed();
+    void gpuProcessConnectionDidClose(IPC::Connection&);
     void gpuProcessConnectionDidBecomeUnresponsive();
 
 #if PLATFORM(COCOA) && USE(LIBWEBRTC)
@@ -519,6 +525,7 @@ public:
     bool requiresConsistentPrivacyQuirkForDomain(const URL&) const;
 
     bool isLockdownModeEnabled() const { return m_isLockdownModeEnabled.value(); }
+    bool isPrintProcess() const { return m_isPrintProcess; }
     bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
     bool videoAutoplayPreviewsEnabled() const { return m_videoAutoplayPreviewsEnabled; }
 #if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
@@ -646,7 +653,7 @@ private:
     void bindAccessibilityFrameWithData(WebCore::FrameIdentifier, std::span<const uint8_t>);
 
 #if ENABLE(GPU_PROCESS)
-    void drawFrameToSnapshot(WebCore::FrameIdentifier, const WebCore::IntRect& rectRelativeToVisibleContent, RemoteSnapshotIdentifier, WebCore::RenderingMode);
+    void drawFrameToSnapshot(WebCore::FrameIdentifier, const WebCore::IntRect& rectRelativeToVisibleContent, RemoteSnapshotIdentifier, WebCore::RenderingMode, const WebCore::FloatSize& scale);
 #endif
 #if ENABLE(GPU_PROCESS) && PLATFORM(COCOA)
     void prepareForPrinting(CompletionHandler<void(bool)>&&);
@@ -1027,6 +1034,9 @@ private:
     bool m_mediaPlaybackEnabled { false };
 
     SharedPreferencesForWebProcess m_sharedPreferencesForWebProcess;
+#if ENABLE(GPU_PROCESS) && ENABLE(VIDEO)
+    Vector<WebCore::FourCC> m_videoCodecsDecodedInContentProcess;
+#endif
 
 #if ENABLE(NOTIFY_BLOCKING)
     HashMap<String, int> m_notifyTokens;

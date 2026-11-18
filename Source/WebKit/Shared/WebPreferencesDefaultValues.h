@@ -52,6 +52,12 @@
 #define Supporthdrdisplay_feature_status Testable
 #endif
 
+#if defined(ENABLE_HDR_2D_CANVAS_BY_DEFAULT) && ENABLE_HDR_2D_CANVAS_BY_DEFAULT && defined(HAVE_SUPPORT_HDR_DISPLAY) && HAVE_SUPPORT_HDR_DISPLAY
+#define Supporthdr2dcanvas_feature_status Stable
+#else
+#define Supporthdr2dcanvas_feature_status Testable
+#endif
+
 #if defined(ENABLE_WEBXR_LAYERS) && ENABLE_WEBXR_LAYERS && USE(OPENXR)
 #define Webxr_layers_feature_status Testable
 #else
@@ -60,8 +66,18 @@
 
 #if defined(ENABLE_WEBXR_WEBGPU) && ENABLE_WEBXR_WEBGPU && PLATFORM(VISION)
 #define Webgpu_webxr_feature_status Stable
+#elif defined(ENABLE_WEBXR_WEBGPU) && ENABLE_WEBXR_WEBGPU
+#define Webgpu_webxr_feature_status Testable
 #else
 #define Webgpu_webxr_feature_status Unstable
+#endif
+
+#if defined(ENABLE_WEBXR) && ENABLE_WEBXR && PLATFORM(MAC)
+#define Webxr_feature_status Preview
+#elif defined(ENABLE_WEBXR) && ENABLE_WEBXR
+#define Webxr_feature_status Stable
+#else
+#define Webxr_feature_status Unstable
 #endif
 
 #if defined(ENABLE_UNPREFIXED_BACKDROP_FILTER) && ENABLE_UNPREFIXED_BACKDROP_FILTER
@@ -100,7 +116,6 @@ bool defaultScrollAnimatorEnabled();
 bool defaultPassiveWheelListenersAsDefaultOnDocument();
 bool defaultWheelEventGesturesBecomeNonBlocking();
 bool defaultAppleMailPaginationQuirkEnabled();
-bool defaultUseAppKitGestures();
 bool defaultTextInputClientSelectionUpdatesEnabled();
 #endif
 
@@ -165,6 +180,7 @@ bool defaultShouldDropNearSuspendedAssertionAfterDelay();
 bool defaultShouldTakeNearSuspendedAssertion();
 bool defaultShowModalDialogEnabled();
 NODELETE bool defaultLinearMediaPlayerEnabled();
+bool defaultUnloadEventEnabled();
 
 NODELETE bool defaultShouldEnableScreenOrientationAPI();
 bool defaultPopoverAttributeEnabled();
@@ -204,6 +220,7 @@ bool defaultIFrameResourceMonitoringEnabled();
 #endif
 
 bool defaultSearchInputResultsAttributeEnabled();
+bool defaultSiteIsolationEnabled();
 
 #if HAVE(SPATIAL_AUDIO_EXPERIENCE)
 bool defaultPreferSpatialAudioExperience();

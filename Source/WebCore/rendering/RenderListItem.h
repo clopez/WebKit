@@ -29,11 +29,27 @@ namespace WebCore {
 
 class HTMLOListElement;
 
+enum class ListMarkerIncludeSuffix : bool { No, Yes };
+
+struct ListMarkerTextContent {
+    String textWithSuffix;
+    uint32_t textWithoutSuffixLength { 0 };
+    bool isEmpty() const
+    {
+        return textWithSuffix.isEmpty();
+    }
+
+    StringView textWithoutSuffix() const LIFETIME_BOUND
+    {
+        return StringView { textWithSuffix }.left(textWithoutSuffixLength);
+    }
+};
+
 class RenderListItem final : public RenderBlockFlow {
     WTF_MAKE_TZONE_ALLOCATED(RenderListItem);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderListItem);
 public:
-    RenderListItem(Element&, Style::ComputedStyle&&);
+    RenderListItem(Element&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderListItem();
 
     int value() const;
@@ -47,10 +63,14 @@ public:
     static unsigned itemCountForOrderedList(const HTMLOListElement&);
     static int startForReversedOrderedList(const HTMLOListElement&);
 
-    Style::ComputedStyle computeMarkerStyle() const;
+    UniqueRef<Style::ComputedStyle> computeMarkerStyle() const;
 
     RenderBoxModelObject* markerRenderer() const { return m_marker.get(); }
-    void setMarkerRenderer(RenderBoxModelObject& marker) { m_marker = marker; }
+    void setMarkerRenderer(RenderBoxModelObject& marker)
+    {
+        m_marker = marker;
+        m_excludedMarkerPosition = { };
+    }
     NODELETE RenderListOutsideMarker* markerBox() const;
 
     // Fills in what the marker shows, in whichever shape it was built.
@@ -63,8 +83,16 @@ public:
         CheckedPtr<RenderBlock> fallbackParent;
     };
     static FirstFormattedLineCandidate firstFormattedLineRootFor(RenderBlock& blockContainer, const RenderBoxModelObject& marker);
-    static Vector<CheckedPtr<RenderListOutsideMarker>> excludedMarkersForContainer(const RenderBlockFlow& lineContainer, const Vector<SingleThreadWeakPtr<RenderListOutsideMarker>>&);
-    static CheckedPtr<RenderListOutsideMarker> excludedMarkerAnchoredTo(const RenderBlockFlow& firstFormattedLineRoot);
+    static Vector<CheckedPtr<RenderListItem>> listItemsWithExcludedMarkerFor(const RenderBlockFlow& inlineRoot, const Vector<SingleThreadWeakPtr<RenderListItem>>&);
+
+    // Where the line our excluded marker is aligned with put it.
+    struct ExcludedMarkerPosition {
+        SingleThreadWeakPtr<RenderBlockFlow> firstFormattedLineRoot;
+        FloatPoint topLeft;
+        bool isLineStartConstrainedByFloat { false };
+    };
+    void setExcludedMarkerPosition(ExcludedMarkerPosition&&);
+    const std::optional<ExcludedMarkerPosition>& excludedMarkerPosition() const LIFETIME_BOUND { return m_excludedMarkerPosition; }
 
 private:
     ASCIILiteral renderName() const final { return "RenderListItem"_s; }
@@ -79,10 +107,10 @@ private:
 
     void placeExcludedMarker(RenderListOutsideMarker&);
     NODELETE RenderListOutsideMarker* excludedMarker() const;
+    void invalidateExcludedMarkerContainer();
 
     void styleDidChange(Style::Difference, const Style::ComputedStyle* oldStyle) final;
 
-    std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidthContributions() final;
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const final;
 
     void updateValueAndMarkerContent();
@@ -90,10 +118,21 @@ private:
     void usedCounterDirectivesChanged();
 
     SingleThreadWeakPtr<RenderBoxModelObject> m_marker;
+    std::optional<ExcludedMarkerPosition> m_excludedMarkerPosition;
     mutable std::optional<int> m_value;
 };
 
 NODELETE bool isHTMLListElement(const Node&);
+
+// The room an image marker keeps between itself and the content it labels.
+constexpr int listMarkerImagePadding = 7;
+ListMarkerTextContent listMarkerTextContent(const Style::ComputedStyle& markerStyle, RenderListItem&);
+NODELETE bool listMarkerHasContent(const Style::ComputedStyle& markerStyle, Document&);
+bool listMarkerSynthesizesGlyph(const Style::ComputedStyle& markerStyle, Document&);
+RefPtr<Style::Image> listMarkerImage(const Style::ComputedStyle& markerStyle);
+bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document&);
+bool listMarkerIsDisclosure(const RenderElement*);
+void setListMarkerInlineMargins(Style::ComputedStyle& markerStyle, WritingMode listItemWritingMode, LayoutUnit marginStart, LayoutUnit marginEnd);
 
 inline int RenderListItem::value() const
 {

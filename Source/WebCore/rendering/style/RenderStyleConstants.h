@@ -138,7 +138,7 @@ constexpr auto allInternalPseudoElementTypes = EnumSet {
 
 constexpr auto allPseudoElementTypes = allPublicPseudoElementTypes | allInternalPseudoElementTypes;
 
-enum class PseudoElementBoxGeneration : bool { Normal, NotForBeforeOrAfter };
+enum class PseudoElementBoxGeneration : bool { Normal, NoGeneratedContent };
 
 inline std::optional<PseudoElementType> parentPseudoElement(PseudoElementType pseudoElementType)
 {
@@ -275,6 +275,13 @@ constexpr bool isNonVisibleOverflow(Overflow overflow)
         || overflow == Overflow::Clip;
 }
 
+// Whether this value makes its axis a scrollable axis of a scroll container.
+// https://drafts.csswg.org/css-overflow-3/#scrollable
+constexpr bool isScrollableOverflow(Overflow overflow)
+{
+    return overflow != Overflow::Visible && overflow != Overflow::Clip;
+}
+
 enum class Clear : uint8_t {
     None,
     Left,
@@ -328,6 +335,7 @@ enum class FillBox : uint8_t {
     ContentBox,
     BorderArea,
     Text,
+    BorderAreaText,
     NoClip
 };
 
@@ -937,6 +945,7 @@ enum class CSSBoxType : uint8_t {
     BoxMissing = 0,
     MarginBox,
     BorderBox,
+    HalfBorderBox,
     PaddingBox,
     ContentBox,
     FillBox,
@@ -1142,7 +1151,9 @@ enum class AlignmentBaseline : uint8_t {
     Ideographic,
     Alphabetic,
     Hanging,
-    Mathematical
+    Mathematical,
+    TextTop,
+    TextBottom
 };
 
 enum class DominantBaseline : uint8_t {

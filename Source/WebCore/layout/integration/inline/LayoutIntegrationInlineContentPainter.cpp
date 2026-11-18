@@ -29,6 +29,9 @@
 #include "EllipsisBoxPainter.h"
 #include "InlineBoxPainter.h"
 #include "InlineDisplayBoxInlines.h"
+#include "InlineIteratorBoxInlines.h"
+#include "InlineIteratorLineBoxInlines.h"
+#include "LineSelection.h"
 #include "OutlinePainter.h"
 #include "PaintInfo.h"
 #include "PaintInfoInlines.h"
@@ -64,14 +67,14 @@ void InlineContentPainter::paintEllipsis(size_t lineIndex)
     auto lineBox = InlineIterator::LineBox { m_inlineContent, lineIndex };
     if (!lineBox.hasEllipsis())
         return;
-    EllipsisBoxPainter { lineBox, m_paintInfo, m_paintOffset, root().selectionForegroundColor(), root().selectionBackgroundColor() }.paint();
+    Paint::EllipsisBoxPainter { lineBox, m_paintInfo, m_paintOffset, root().selectionForegroundColor(), root().selectionBackgroundColor() }.paint();
 }
 
 void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
 {
     auto hasDamage = [&](auto& box) {
         auto rect = enclosingLayoutRect(box.inkOverflow());
-        root().flipForWritingMode(rect);
+        root().blockStartRelativeToPhysical(rect);
         // FIXME: This should test for intersection but horizontal ink overflow is miscomputed in a few cases (like with negative letter-spacing).
         return m_damageRect.maxY() > rect.y() && m_damageRect.y() < rect.maxY();
     };
@@ -84,7 +87,7 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
     if (box.isLineBreak()) {
         if (m_paintInfo.phase == PaintPhase::Accessibility) {
             CheckedPtr renderLineBreak = dynamicDowncast<RenderLineBreak>(box.layoutBox().rendererForIntegration());
-            m_paintInfo.accessibilityRegionContext()->takeBounds(renderLineBreak.get(), m_paintOffset);
+            protect(m_paintInfo.accessibilityRegionContext())->takeBounds(renderLineBreak.get(), m_paintOffset);
         }
         return;
     }
@@ -115,12 +118,20 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
         inlineBoxPaintInfo.phase = m_paintInfo.phase == PaintPhase::ChildOutlines ? PaintPhase::Outline : m_paintInfo.phase;
         inlineBoxPaintInfo.outlineObjects = &m_outlineObjects;
 
-        InlineBoxPainter { m_inlineContent, box, inlineBoxPaintInfo, m_paintOffset }.paint();
+        Paint::InlineBoxPainter { m_inlineContent, box, inlineBoxPaintInfo, m_paintOffset }.paint();
         return;
     }
 
     if (box.isText()) {
-        auto hasVisibleDamage = box.text().length() && box.isVisible() && hasDamage(box);
+        // A selected box paints its selection over the line's selection extent, which can reach past its glyphs.
+        auto hasSelectionDamage = [&] {
+            CheckedPtr renderer = box.layoutBox().rendererForIntegration();
+            if (renderer->selectionState() == RenderObject::HighlightState::None)
+                return false;
+            auto selectionRect = enclosingLayoutRect(LineSelection::physicalRect(InlineIterator::LineBox { m_inlineContent, box.lineIndex() }));
+            return m_damageRect.maxY() > selectionRect.y() && m_damageRect.y() < selectionRect.maxY();
+        };
+        auto hasVisibleDamage = box.text().length() && box.isVisible() && (hasDamage(box) || hasSelectionDamage());
         if (!hasVisibleDamage)
             return;
 
@@ -130,7 +141,7 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
                 return;
         }
 
-        TextBoxPainter { m_inlineContent, box, box.style(), m_paintInfo, m_paintOffset }.paint();
+        Paint::TextBoxPainter { m_inlineContent, box, protect(box.style()), m_paintInfo, m_paintOffset }.paint();
         return;
     }
 
@@ -138,13 +149,13 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
         if (m_paintInfo.shouldPaintWithinRoot(*renderer)) {
             // FIXME: Painting should not require a non-const renderer.
             CheckedRef paintRenderer = const_cast<RenderBox&>(*renderer);
-            auto flippedOffset = flippedContentOffsetIfNeeded(*renderer);
+            auto childPaintOffset = paintOffsetForChild(*renderer);
             if (box.isBlockLevelBox()) {
                 // Blocks-in-inline.
-                auto paintInfoForChild = m_root.paintInfoForBlockChildren(m_paintInfo);
-                paintRenderer->paint(paintInfoForChild, flippedOffset);
+                auto paintInfoForChild = m_root->paintInfoForBlockChildren(m_paintInfo);
+                paintRenderer->paint(paintInfoForChild, childPaintOffset);
             } else
-                paintRenderer->paintAsInlineBlock(m_paintInfo, flippedOffset);
+                paintRenderer->paintAsInlineBlock(m_paintInfo, childPaintOffset);
         }
     }
 }
@@ -202,15 +213,15 @@ void InlineContentPainter::paint()
     }
     paintLineEndingEllipsisIfApplicable({ });
 
-    OutlinePainter outlinePainter { m_paintInfo };
+    Paint::OutlinePainter outlinePainter { m_paintInfo };
     for (CheckedRef inlineBox : m_outlineObjects)
         outlinePainter.paintOutline(inlineBox, m_paintOffset);
 }
 
-LayoutPoint InlineContentPainter::flippedContentOffsetIfNeeded(const RenderBox& childRenderer) const
+LayoutPoint InlineContentPainter::paintOffsetForChild(const RenderBox& childRenderer) const
 {
     if (root().writingMode().isBlockFlipped())
-        return root().flipForWritingModeForChild(childRenderer, m_paintOffset);
+        return root().blockStartRelativeToPhysicalForChild(childRenderer, m_paintOffset);
     return m_paintOffset;
 }
 

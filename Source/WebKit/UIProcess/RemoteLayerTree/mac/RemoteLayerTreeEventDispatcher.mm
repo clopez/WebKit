@@ -135,7 +135,7 @@ RemoteLayerTreeEventDispatcher::~RemoteLayerTreeEventDispatcher()
 // This must be called to break the cycle between RemoteLayerTreeEventDispatcherDisplayLinkClient and this.
 void RemoteLayerTreeEventDispatcher::invalidate()
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
 
     protect(m_displayLinkClient)->invalidate();
 
@@ -229,7 +229,7 @@ void RemoteLayerTreeEventDispatcher::cacheWheelEventScrollingAccelerationCurve(c
 
 void RemoteLayerTreeEventDispatcher::willHandleWheelEvent(Ref<WebWheelEvent>&& wheelEvent)
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
     
     m_wheelEventActivityHysteresis.impulse();
     m_wheelEventsBeingProcessed.append(WTF::move(wheelEvent));
@@ -306,7 +306,7 @@ void RemoteLayerTreeEventDispatcher::scrollingThreadHandleWheelEvent(const WebWh
 
 void RemoteLayerTreeEventDispatcher::continueWheelEventHandling(WheelEventHandlingResult handlingResult)
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
     RefPtr scrollingCoordinator = m_scrollingCoordinator;
     if (!scrollingCoordinator)
         return;
@@ -332,7 +332,7 @@ OptionSet<WheelEventProcessingSteps> RemoteLayerTreeEventDispatcher::determineWh
 
 WheelEventHandlingResult RemoteLayerTreeEventDispatcher::internalHandleWheelEvent(const PlatformWheelEvent& wheelEvent, OptionSet<WheelEventProcessingSteps> processingSteps)
 {
-    ASSERT(ScrollingThread::isCurrentThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(ScrollingThread::isCurrentThread());
     ASSERT(processingSteps.contains(WheelEventProcessingSteps::AsyncScrolling));
 
     auto scrollingTree = this->scrollingTree();
@@ -345,7 +345,7 @@ WheelEventHandlingResult RemoteLayerTreeEventDispatcher::internalHandleWheelEven
     return scrollingTree->handleWheelEvent(filteredEvent, processingSteps);
 }
 
-void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, std::optional<ScrollingNodeID> scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
+void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformWheelEvent& wheelEvent, std::optional<FrameIdentifier> defaultHandlingFrameID, std::optional<ScrollingNodeID> scrollingNodeID, std::optional<WheelScrollGestureState> gestureState, bool wasHandled)
 {
     ASSERT(isMainRunLoop());
 
@@ -354,12 +354,12 @@ void RemoteLayerTreeEventDispatcher::wheelEventHandlingCompleted(const PlatformW
     if (auto scrollingTree = this->scrollingTree())
         scrollingTree->receivedEventAfterDefaultHandling(wheelEvent, gestureState);
 
-    ScrollingThread::dispatch([protectedThis = Ref { *this }, wheelEvent, scrollingNodeID, gestureState, wasHandled] {
+    ScrollingThread::dispatch([protectedThis = Ref { *this }, wheelEvent, defaultHandlingFrameID, scrollingNodeID, gestureState, wasHandled] {
         auto scrollingTree = protectedThis->scrollingTree();
         if (!scrollingTree)
             return;
 
-        auto result = scrollingTree->handleWheelEventAfterDefaultHandling(wheelEvent, scrollingNodeID, gestureState);
+        auto result = scrollingTree->handleWheelEventAfterDefaultHandling(wheelEvent, defaultHandlingFrameID, scrollingNodeID, gestureState, wasHandled);
         RunLoop::mainSingleton().dispatch([protectedThis, wasHandled, result]() {
             if (RefPtr scrollingCoordinator = protectedThis->m_scrollingCoordinator)
                 protect(scrollingCoordinator->webPageProxy())->wheelEventHandlingCompleted(wasHandled || result.wasHandled);
@@ -389,7 +389,7 @@ RemoteLayerTreeDrawingAreaProxyMac& RemoteLayerTreeEventDispatcher::drawingAreaM
 
 DisplayLink* RemoteLayerTreeEventDispatcher::displayLink() const
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
 
     if (!m_scrollingCoordinator)
         return nullptr;
@@ -399,7 +399,7 @@ DisplayLink* RemoteLayerTreeEventDispatcher::displayLink() const
 
 DisplayLink* RemoteLayerTreeEventDispatcher::existingDisplayLink() const
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
 
     if (!m_scrollingCoordinator)
         return nullptr;
@@ -578,7 +578,7 @@ void RemoteLayerTreeEventDispatcher::delayedRenderingUpdateDetectionTimerFired()
 void RemoteLayerTreeEventDispatcher::waitForRenderingUpdateCompletionOrTimeout()
 {
     ASSERT(ScrollingThread::isCurrentThread());
-    ASSERT(m_scrollingTreeLock.isLocked());
+    ASSERT_WITH_SECURITY_IMPLICATION(m_scrollingTreeLock.isLocked());
 
     m_needsMainThreadFlush = m_delayedRenderingUpdateDetectionTimer && m_delayedRenderingUpdateDetectionTimer->isActive();
     if (m_delayedRenderingUpdateDetectionTimer)

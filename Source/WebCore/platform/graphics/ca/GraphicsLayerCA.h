@@ -70,7 +70,7 @@ public:
     WEBCORE_EXPORT void setName(const String&) override;
     WEBCORE_EXPORT String debugName() const override;
 
-    WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
+    NODELETE WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> primaryLayerID() const override;
     WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> backdropLayerID() const override;
     WEBCORE_EXPORT std::optional<PlatformLayerIdentifier> layerIDIgnoringStructuralLayer() const final;
 
@@ -222,6 +222,9 @@ public:
         bool ancestorWithTransformAnimationIntersectsCoverageRect { false };
         bool ancestorIsNonAxisAligned { false };
         bool backdropRootIsOpaque { false };
+#if ENABLE(THREADED_ANIMATIONS)
+        std::optional<MonotonicTime> renderingUpdateTimestamp;
+#endif
     };
     bool needsCommit(const CommitState&);
     void recursiveCommitChanges(CommitState&, const TransformState&, float pageScaleFactor = 1, const FloatPoint& positionRelativeToBase = FloatPoint(), bool affectedByPageScale = false);
@@ -248,6 +251,12 @@ public:
     WEBCORE_EXPORT void purgeBackBufferForTesting() override;
 
     WEBCORE_EXPORT void setShadowPath(const Path&) override;
+
+    WEBCORE_EXPORT void setHidesFromScreenCapture(bool) override;
+
+#if ENABLE(SPATIAL_PORTAL)
+    WEBCORE_EXPORT void setIsHostedInSpatialPortalScene(bool) override;
+#endif
 
 private:
     friend class FrameProcessIndicators;
@@ -418,8 +427,11 @@ private:
         TransformationMatrix animatingTransform;
     };
     
-    VisibleAndCoverageRects computeVisibleAndCoverageRect(TransformState&, bool accumulateTransform, ComputeVisibleRectFlags = RespectAnimatingTransforms) const;
+    VisibleAndCoverageRects computeVisibleAndCoverageRect(TransformState&, bool accumulateTransform, ComputeVisibleRectFlags = RespectAnimatingTransforms, const TransformationMatrix* animatingTransform = nullptr) const;
     bool adjustCoverageRect(VisibleAndCoverageRects&, const FloatRect& oldVisibleRect) const;
+#if ENABLE(THREADED_ANIMATIONS)
+    bool adjustCoverageRectForTransformAnimations(VisibleAndCoverageRects&, const TransformState&, bool accumulateTransform, const CommitState&);
+#endif
 
     const FloatRect& visibleRect() const LIFETIME_BOUND { return m_visibleRect; }
     const FloatRect& coverageRect() const LIFETIME_BOUND { return m_coverageRect; }
@@ -509,6 +521,7 @@ private:
     void updateChildrenTransform();
     void updateMasksToBounds();
     void updateContentsVisibility();
+    void updatePrimaryLayerHidden();
     void updateContentsOpaque(float pageScaleFactor);
     void updateBackfaceVisibility();
     bool updateStructuralLayer();
@@ -545,6 +558,8 @@ private:
     void updateBackdropFiltersRect();
     void updateBackdropRoot();
     void updateShadowPath();
+
+    void updateHidesFromScreenCapture();
 
     void updateBlendMode();
 
@@ -689,6 +704,10 @@ private:
         TonemappingEnabledChanged               = 1LLU << 48,
 #endif
         ShadowPathChanged                       = 1LLU << 49,
+        HidesFromScreenCaptureChanged           = 1LLU << 50,
+#if ENABLE(SPATIAL_PORTAL)
+        HostedInSpatialPortalSceneChanged       = 1LLU << 51,
+#endif
     };
     typedef uint64_t LayerChangeFlags;
     static ASCIILiteral layerChangeAsString(LayerChange);
@@ -741,6 +760,9 @@ private:
     FloatRect m_visibleRect;
     FloatRect m_previousCommittedVisibleRect;
     FloatRect m_coverageRect; // Area for which we should maintain backing store, in the coordinate space of this layer.
+#if ENABLE(THREADED_ANIMATIONS)
+    Vector<FloatRect> m_rectsForTransformAnimationTileCoverage; // Areas for which we should have tiles converage, in the coordinate space of this layer.
+#endif
     FloatSize m_sizeAtLastCoverageRectUpdate;
     FloatSize m_pixelAlignmentOffset;
 

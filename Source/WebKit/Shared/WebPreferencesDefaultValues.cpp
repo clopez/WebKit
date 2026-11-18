@@ -246,6 +246,16 @@ bool defaultShowModalDialogEnabled()
 #endif
 }
 
+bool defaultUnloadEventEnabled()
+{
+#if PLATFORM(COCOA)
+    static bool newSDK = linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::NoUnloadEvent);
+    return !newSDK;
+#else
+    return true;
+#endif
+}
+
 #if ENABLE(GAMEPAD)
 bool defaultGamepadVibrationActuatorEnabled()
 {
@@ -383,6 +393,22 @@ bool defaultSearchInputResultsAttributeEnabled()
     static bool result = !isFullWebBrowserOrRunningTest()
         && !linkedOnOrAfterSDKWithBehavior(SDKAlignedBehavior::DisableNonStandardSearchInputResultsAttribute);
     return result;
+#else
+    return false;
+#endif
+}
+
+bool defaultSiteIsolationEnabled()
+{
+#if ENABLE(SITE_ISOLATION_BY_DEFAULT)
+#if PLATFORM(MAC)
+    if (WTF::MacApplication::isSafariWebApp())
+        return true;
+#elif PLATFORM(IOS_FAMILY)
+    if (WTF::IOSApplication::isAppleWebApp())
+        return true;
+#endif
+    return isFullWebBrowserOrRunningTest();
 #else
     return false;
 #endif

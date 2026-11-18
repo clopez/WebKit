@@ -72,6 +72,22 @@ public:
     void dump(TextStream&, OptionSet<AsTextFlag>) const { }
 };
 
+class SaveTransform {
+public:
+    static constexpr ASCIILiteral name = "save-transform"_s;
+
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
+};
+
+class RestoreTransform {
+public:
+    static constexpr ASCIILiteral name = "restore-transform"_s;
+
+    WEBCORE_EXPORT void apply(GraphicsContext&) const;
+    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
+};
+
 class Translate {
 public:
     static constexpr ASCIILiteral name = "translate"_s;
@@ -385,24 +401,24 @@ private:
     FloatRoundedRect m_rect;
 };
 
-class ClipToImageBuffer {
+class ClipToNativeImage {
 public:
-    static constexpr ASCIILiteral name = "clip-to-image-buffer"_s;
+    static constexpr ASCIILiteral name = "clip-to-native-image"_s;
 
-    ClipToImageBuffer(Ref<ImageBuffer>&& imageBuffer, const FloatRect& destinationRect)
-        : m_imageBuffer(WTF::move(imageBuffer))
+    ClipToNativeImage(const NativeImage& image, const FloatRect& destinationRect)
+        : m_image(image)
         , m_destinationRect(destinationRect)
     {
     }
 
-    ImageBuffer& imageBuffer() const { return m_imageBuffer; }
-    FloatRect destinationRect() const { return m_destinationRect; }
+    const NativeImage& nativeImage() const { return m_image; }
+    const FloatRect& destinationRect() const LIFETIME_BOUND { return m_destinationRect; }
 
     void apply(GraphicsContext&) const;
     void dump(TextStream&, OptionSet<AsTextFlag>) const;
 
 private:
-    const Ref<ImageBuffer> m_imageBuffer;
+    const Ref<const NativeImage> m_image;
     FloatRect m_destinationRect;
 };
 
@@ -1124,8 +1140,8 @@ class FillRectWithGradient {
 public:
     static constexpr ASCIILiteral name = "fill-rect-with-gradient"_s;
 
-    WEBCORE_EXPORT FillRectWithGradient(const FloatRect&, Gradient&);
-    WEBCORE_EXPORT FillRectWithGradient(FloatRect&&, Ref<Gradient>&&);
+    WEBCORE_EXPORT FillRectWithGradient(const FloatRect&, const Gradient&);
+    WEBCORE_EXPORT FillRectWithGradient(FloatRect&&, Ref<const Gradient>&&);
 
     const FloatRect& rect() const LIFETIME_BOUND { return m_rect; }
     const Gradient& gradient() const { return m_gradient; }
@@ -1137,15 +1153,15 @@ private:
     friend struct IPC::ArgumentCoder<FillRectWithGradient>;
 
     FloatRect m_rect;
-    const Ref<Gradient> m_gradient;
+    const Ref<const Gradient> m_gradient;
 };
 
 class FillRectWithGradientAndSpaceTransform {
 public:
     static constexpr ASCIILiteral name = "fill-rect-with-gradient-and-space-transform"_s;
 
-    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(const FloatRect&, Gradient&, const AffineTransform&, GraphicsContext::RequiresClipToRect);
-    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(FloatRect&&, Ref<Gradient>&&, AffineTransform&&, GraphicsContext::RequiresClipToRect);
+    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(const FloatRect&, const Gradient&, const AffineTransform&, GraphicsContext::RequiresClipToRect);
+    WEBCORE_EXPORT FillRectWithGradientAndSpaceTransform(FloatRect&&, Ref<const Gradient>&&, AffineTransform&&, GraphicsContext::RequiresClipToRect);
 
     const FloatRect& rect() const LIFETIME_BOUND { return m_rect; }
     const Gradient& gradient() const { return m_gradient; }
@@ -1159,7 +1175,7 @@ private:
     friend struct IPC::ArgumentCoder<FillRectWithGradientAndSpaceTransform>;
 
     FloatRect m_rect;
-    const Ref<Gradient> m_gradient;
+    const Ref<const Gradient> m_gradient;
     AffineTransform m_gradientSpaceTransform;
     GraphicsContext::RequiresClipToRect m_requiresClipToRect;
 };
@@ -1381,26 +1397,6 @@ private:
     float m_deviceScaleFactor;
     ControlStyle m_style;
 };
-
-#if USE(CG)
-
-class ApplyStrokePattern {
-public:
-    static constexpr ASCIILiteral name = "apply-stroke-pattern"_s;
-
-    WEBCORE_EXPORT void apply(GraphicsContext&) const;
-    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
-};
-
-class ApplyFillPattern {
-public:
-    static constexpr ASCIILiteral name = "apply-fill-pattern"_s;
-
-    WEBCORE_EXPORT void apply(GraphicsContext&) const;
-    void dump(TextStream&, OptionSet<AsTextFlag>) const { }
-};
-
-#endif
 
 class ApplyDeviceScaleFactor {
 public:

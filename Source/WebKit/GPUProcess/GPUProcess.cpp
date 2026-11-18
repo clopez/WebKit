@@ -42,6 +42,7 @@
 #include "Logging.h"
 #include "RemoteMediaPlayerManagerProxy.h"
 #include "RemoteSnapshot.h"
+#include "RemoteSnapshotPDFDrawingTask.h"
 #include "SandboxExtension.h"
 #include "WebPageProxyMessages.h"
 #include "WebProcessPoolMessages.h"
@@ -187,7 +188,7 @@ bool GPUProcess::shouldTerminate()
 
 bool GPUProcess::canExitUnderMemoryPressure() const
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
 #if ENABLE(MEDIA_STREAM) && PLATFORM(COCOA)
     if (m_capturePreviewManager)
         return false;
@@ -210,7 +211,7 @@ void GPUProcess::tryExitIfUnusedAndUnderMemoryPressure()
 
 void GPUProcess::tryExitIfUnused()
 {
-    ASSERT(isMainRunLoop());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
     if (!canExitUnderMemoryPressure()) {
         m_idleExitTimer.stop();
         return;
@@ -754,20 +755,14 @@ void GPUProcess::takeSnapshotWhenComplete(RemoteSnapshotIdentifier identifier, F
 
 #if PLATFORM(COCOA)
 
-void GPUProcess::sinkCompletedSnapshotToPDF(RemoteSnapshotIdentifier identifier, FrameIdentifier rootFrameIdentifier, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
+void GPUProcess::sinkCompletedSnapshotToPDF(RemoteSnapshotIdentifier identifier, FrameIdentifier rootFrameIdentifier, std::optional<ProcessIdentifier> printProcessIdentifier, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&& completionHandler)
 {
-    takeSnapshotWhenComplete(identifier, rootFrameIdentifier, [rootFrameIdentifier, completionHandler = WTF::move(completionHandler)](RefPtr<RemoteSnapshot>&& snapshot) mutable {
+    takeSnapshotWhenComplete(identifier, rootFrameIdentifier, [rootFrameIdentifier, printProcessIdentifier, completionHandler = WTF::move(completionHandler)](RefPtr<RemoteSnapshot>&& snapshot) mutable {
         if (!snapshot) {
             completionHandler({ });
             return;
         }
-        auto result = snapshot->drawToPDF(snapshot->size(), rootFrameIdentifier);
-        if (!result) {
-            ASSERT_NOT_REACHED();
-            completionHandler({ });
-            return;
-        }
-        completionHandler(WTF::move(*result));
+        RemoteSnapshotPDFDrawingTask::create(snapshot.releaseNonNull(), rootFrameIdentifier, WTF::move(completionHandler))->start(printProcessIdentifier);
     });
 }
 
@@ -906,7 +901,7 @@ void GPUProcess::startCapturePreview(std::optional<WebCore::CaptureDevice>&& vid
 
     // Do not consumePermanently(): the preview's extensions are revoked when the prompt is dismissed. If the user
     // gives permission to capture the sandbox will be extended as necessary.
-    for (auto& handle : sandboxExtensions) {
+    for (auto& handle : borrow(sandboxExtensions)) {
         if (RefPtr extension = SandboxExtension::create(WTF::move(handle)); extension && extension->consume())
             m_capturePreviewSandboxExtensions.append(extension.releaseNonNull());
     }
@@ -1129,6 +1124,11 @@ void GPUProcess::promptForGetDisplayMedia(WebCore::DisplayCapturePromptType type
     WebCore::ScreenCaptureKitSharingSessionManager::singleton().promptForGetDisplayMedia(type, WTF::move(completionHandler));
 }
 
+void GPUProcess::selectWindowForCapture(uint32_t windowID, CompletionHandler<void(std::optional<WebCore::CaptureDevice>)>&& completionHandler)
+{
+    WebCore::ScreenCaptureKitSharingSessionManager::singleton().selectWindowForCapture(windowID, WTF::move(completionHandler));
+}
+
 void GPUProcess::cancelGetDisplayMediaPrompt()
 {
     WebCore::ScreenCaptureKitSharingSessionManager::singleton().cancelGetDisplayMediaPrompt();
@@ -1227,6 +1227,13 @@ void GPUProcess::runDisplayListDataTestsForTesting(Vector<Ref<WebCore::SharedBuf
 {
     completionHandler(testDisplayListData(webFonts));
 }
+
+#if PLATFORM(COCOA)
+void GPUProcess::printProcessDrawingCountsForTesting(CompletionHandler<void(uint64_t, uint64_t)>&& completionHandler)
+{
+    completionHandler(RemoteSnapshotPDFDrawingTask::drawnInPrintProcessCountForTesting(), RemoteSnapshotPDFDrawingTask::drawnAfterPrintProcessFailedCountForTesting());
+}
+#endif
 
 void GPUProcess::terminateWebProcess(WebCore::ProcessIdentifier identifier, IPC::MessageName invalidMessageName)
 {

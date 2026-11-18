@@ -29,6 +29,7 @@
 #include "AV1Utilities.h"
 #include "AudioDecoder.h"
 #include "AudioSampleFormat.h"
+#include "Logging.h"
 #include "PlatformRawAudioData.h"
 #include "SharedBuffer.h"
 #include "SharedMemory.h"
@@ -50,6 +51,7 @@
 namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MediaSamplesDecoder);
+WTF_MAKE_STRUCT_TZONE_ALLOCATED_IMPL(MediaSamplesDecoder::InFlightFrame);
 
 static constexpr uint32_t microsecondsTimeScale = 1000000;
 
@@ -134,14 +136,16 @@ static bool isSoftwareDecodableAV1(const VideoInfo& info)
 #endif
 
 // FIXME: ask the GPU process which codecs it decodes in hardware instead of using a static list.
-static bool isHardwareDecodable(const VideoInfo& info)
+bool MediaSamplesDecoder::isHardwareDecodable(const TrackInfo& info)
 {
+    if (!info.isVideo())
+        return false;
     auto codecName = info.codecName();
     if (codecName == avc1CodecName || codecName == avc3CodecName)
         return true;
 #if PLATFORM(COCOA) && ENABLE(VP9)
     if (codecName == vp9CodecName)
-        return vp9Profile(info) == 0u && vp9HardwareDecoderAvailable();
+        return vp9HardwareDecoderAvailable();
 #endif
 #if PLATFORM(COCOA) && ENABLE(AV1)
     if (codecName == av1CodecName)
@@ -195,7 +199,9 @@ static std::optional<VideoDecoderConfiguration> decoderConfiguration(const Video
         return { };
 
     auto configuration = videoDecoderConfiguration(info);
-    if (!configuration || !VideoDecoder::isVPXSupported() || isHardwareDecodable(info))
+    if (!configuration || !VideoDecoder::isVPXSupported())
+        return { };
+    if (!filters.contains(MediaSamplesDecoder::Filter::ForceSoftware) && MediaSamplesDecoder::isHardwareDecodable(info))
         return { };
     return configuration;
 }
@@ -211,7 +217,7 @@ static Ref<VideoInfo> outputVideoInfo(const VideoInfo& inputInfo, FloatSize size
             .displaySize = inputInfo.displaySize(),
             .bitDepth = 8,
             .colorSpace = inputInfo.colorSpace(),
-            .pixelFormat = VideoPixelFormat::I420
+            .pixelFormat = inputInfo.hasSeparateAlphaStream() ? VideoPixelFormat::I420A : VideoPixelFormat::I420
         }
     });
 }
@@ -223,46 +229,17 @@ static std::optional<uint64_t> durationInMicroseconds(const MediaSamplesBlock::M
     return std::nullopt;
 }
 
-static std::expected<Ref<SharedBuffer>, PlatformMediaError> copyToI420Buffer(VideoFrame& frame, bool useSharedMemory)
+#if PLATFORM(COCOA) && ENABLE(VP9)
+static bool isAlphaKeyframe(const VideoInfo& info, std::span<const uint8_t> alphaData)
 {
-    auto size = frame.presentationSize();
-    size_t width = size.width();
-    size_t height = size.height();
-    ASSERT(width && height);
-
-    size_t chromaWidth = (width + 1) / 2;
-    size_t chromaHeight = (height + 1) / 2;
-    size_t lumaSize = width * height;
-    size_t chromaSize = chromaWidth * chromaHeight;
-    size_t byteSize = lumaSize + 2 * chromaSize;
-
-    // VideoFrame::copyTo on Cocoa calls back before returning.
-    auto copy = [&](std::span<uint8_t> destination) {
-        Vector<ComputedPlaneLayout> layouts {
-            { .destinationOffset = 0, .destinationStride = width, .sourceHeight = height, .sourceWidthBytes = width },
-            { .destinationOffset = lumaSize, .destinationStride = chromaWidth, .sourceHeight = chromaHeight, .sourceWidthBytes = chromaWidth },
-            { .destinationOffset = lumaSize + chromaSize, .destinationStride = chromaWidth, .sourceHeight = chromaHeight, .sourceWidthBytes = chromaWidth }
-        };
-        bool succeeded = false;
-        frame.copyTo(destination, VideoPixelFormat::I420, ColorSpace::SRGB(), WTF::move(layouts), [&](std::optional<Vector<PlaneLayout>>&& planeLayouts) {
-            succeeded = planeLayouts && !planeLayouts->isEmpty();
-        });
-        return succeeded;
-    };
-
-    if (useSharedMemory) {
-        RefPtr memory = SharedMemory::allocate(byteSize);
-        if (!memory)
-            return makeUnexpected(PlatformMediaError::MemoryError);
-        if (!copy(memory->mutableSpan()))
-            return makeUnexpected(PlatformMediaError::VideoDecodingError);
-        return memory->createSharedBuffer(byteSize);
-    }
-    Vector<uint8_t> bytes(byteSize);
-    if (!copy(bytes.mutableSpan()))
-        return makeUnexpected(PlatformMediaError::VideoDecodingError);
-    return SharedBuffer::create(WTF::move(bytes));
+    return vpxFrameIsKeyframe(info.codecName().value, alphaData);
 }
+#else
+static bool isAlphaKeyframe(const VideoInfo&, std::span<const uint8_t>)
+{
+    return false;
+}
+#endif
 
 MediaSamplesDecoder::MediaSamplesDecoder(Ref<const TrackInfo>&& inputInfo, Ref<const TrackInfo>&& outputInfo, Filters filters)
     : m_queue(WorkQueue::create("MediaSamplesDecoder queue"_s))
@@ -278,6 +255,8 @@ MediaSamplesDecoder::~MediaSamplesDecoder()
         audioDecoder->close();
     if (RefPtr videoDecoder = std::exchange(m_videoDecoder, { }))
         videoDecoder->close();
+    if (RefPtr alphaDecoder = std::exchange(m_alphaDecoder, { }))
+        alphaDecoder->close();
 }
 
 bool MediaSamplesDecoder::canDecode(const TrackInfo& info, Filters filters)
@@ -361,20 +340,39 @@ Ref<MediaSamplesDecoder::CreatePromise> MediaSamplesDecoder::createVideo(const V
         });
     };
 
-    CreatePromise::Producer producer;
-    Ref promise = producer.promise();
-    VideoDecoder::createLocalDecoder(configuration->codec, configuration->config, [decoder, producer = WTF::move(producer)](VideoDecoder::CreateResult&& result) mutable {
-        if (!result) {
-            producer.reject(PlatformMediaError::DecoderCreationError);
+    auto alphaOutputCallback = [weakDecoder = ThreadSafeWeakPtr { decoder.get() }](std::expected<VideoDecoder::DecodedFrame, String>&& result) {
+        RefPtr protectedDecoder = weakDecoder;
+        if (!protectedDecoder || !result)
             return;
-        }
-        decoder->m_queue->dispatch([decoder, videoDecoder = WTF::move(*result), producer = WTF::move(producer)] mutable {
-            assertIsCurrent(decoder->m_queue.get());
-            decoder->m_videoDecoder = WTF::move(videoDecoder);
-            producer.resolve(WTF::move(decoder));
+        protectedDecoder->m_queue->dispatch([protectedDecoder, frame = WTF::move(result->frame), timestamp = result->timestamp] mutable {
+            protectedDecoder->didDecodeAlpha(WTF::move(frame), timestamp);
         });
-    }, WTF::move(outputCallback));
-    return promise;
+    };
+
+    auto createDecoder = [](const VideoDecoderConfiguration& configuration, VideoDecoder::OutputCallback&& callback) {
+        VideoDecoder::CreatePromise::Producer producer;
+        Ref promise = producer.promise();
+        VideoDecoder::createLocalDecoder(configuration.codec, configuration.config, [producer = WTF::move(producer)](VideoDecoder::CreateResult&& result) mutable {
+            producer.settle(WTF::move(result));
+        }, WTF::move(callback));
+        return promise;
+    };
+
+    Vector<Ref<VideoDecoder::CreatePromise>> promises;
+    promises.append(createDecoder(*configuration, WTF::move(outputCallback)));
+    if (videoInfo.hasSeparateAlphaStream())
+        promises.append(createDecoder(*configuration, WTF::move(alphaOutputCallback)));
+
+    // Only the colour decoder is required; without an alpha decoder, the decoded frames are output opaque.
+    return VideoDecoder::CreatePromise::allSettled(promises)->whenSettled(decoder->m_queue.get(), [decoder](auto&& settled) -> Ref<CreatePromise> {
+        assertIsCurrent(decoder->m_queue.get());
+        if (!settled || !settled->at(0))
+            return CreatePromise::createAndReject(PlatformMediaError::DecoderCreationError);
+        decoder->m_videoDecoder = settled->at(0)->ptr();
+        if (settled->size() > 1 && settled->at(1))
+            decoder->m_alphaDecoder = settled->at(1)->ptr();
+        return CreatePromise::createAndResolve(decoder);
+    });
 }
 
 bool MediaSamplesDecoder::canContinueWith(const TrackInfo& info) const
@@ -390,6 +388,7 @@ bool MediaSamplesDecoder::canContinueWith(const TrackInfo& info) const
             && videoInfo->displaySize() == currentInfo->displaySize()
             && videoInfo->bitDepth() == currentInfo->bitDepth()
             && videoInfo->colorSpace() == currentInfo->colorSpace()
+            && videoInfo->hasSeparateAlphaStream() == currentInfo->hasSeparateAlphaStream()
             && arePointingToEqualData(extensionAtom(*videoInfo, vpcCAtomType), extensionAtom(*currentInfo, vpcCAtomType));
     }
 
@@ -472,29 +471,62 @@ Ref<MediaSamplesDecoder::DecodePromise> MediaSamplesDecoder::decodeOnQueue(Media
 
     if (block.isProtected())
         return DecodePromise::createAndReject(PlatformMediaError::ProtectedContent);
-    if (!block.isEmpty()) {
-        if (m_needsSyncSample && !block.isSync())
-            return DecodePromise::createAndReject(PlatformMediaError::InvalidState);
-        m_needsSyncSample = false;
-    }
 
     if (block.discontinuity().value_or(false))
         m_discontinuity = true;
 
+    // Items before the first sync item can't be decoded; a block without one produces no output.
+    if (m_needsSyncSample && !block.isEmpty()) {
+        auto sync = std::ranges::find_if(block, [](auto& item) {
+            return item.isSync();
+        });
+        if (sync == block.end())
+            return settleWithPendingOutput(true, m_generation);
+        if (size_t skipped = sync - block.begin()) {
+            auto samples = block.takeSamples();
+            samples.removeAt(0, skipped);
+            block.append(WTF::move(samples));
+        }
+        m_needsSyncSample = false;
+    }
+
     if (RefPtr videoDecoder = m_videoDecoder) {
+        RefPtr alphaDecoder = m_alphaDecoder;
+        Ref inputInfo = downcast<VideoInfo>(m_inputInfo);
         int64_t firstSequence = m_nextSequence;
         Vector<Ref<VideoDecoder::DecodePromise>> promises(ReserveCapacityTag { }, block.size());
         for (auto& item : block) {
             int64_t sequence = m_nextSequence++;
-            auto metadata = item;
-            metadata.data = nullptr;
-            metadata.flags = MediaSample::IsSync | (item.flags & MediaSample::IsNonDisplaying);
-            m_inFlight.add(sequence, InFlightFrame { WTF::move(metadata), firstSequence });
+            RefPtr alphaData = item.alphaData;
+            MediaSamplesBlock::MediaSampleItem metadata {
+                .presentationTime = item.presentationTime,
+                .decodeTime = item.decodeTime,
+                .duration = item.duration,
+                .trimInterval = item.trimInterval,
+                .hdrMetadata = item.hdrMetadata,
+                .hdrMetadataType = item.hdrMetadataType,
+                .flags = MediaSample::IsSync | (item.flags & MediaSample::IsNonDisplaying)
+            };
+            m_inFlight.add(sequence, makeUniqueRef<InFlightFrame>(WTF::move(metadata)));
             promises.append(videoDecoder->decode({ protect(item.data)->makeContiguous(), item.isSync(), sequence, durationInMicroseconds(item) }));
+
+            if (!alphaDecoder || !alphaData)
+                continue;
+            // The alpha stream's keyframes need not align with the colour stream's; its frames are opaque until its first keyframe.
+            Ref alpha = alphaData->makeContiguous();
+            bool isKeyframe = isAlphaKeyframe(inputInfo, alpha->span());
+            if (m_needsAlphaKeyframe && !isKeyframe)
+                continue;
+            m_needsAlphaKeyframe = false;
+            // An alpha decoding error doesn't fail the block, its frames are output opaque.
+            promises.append(alphaDecoder->decode({ WTF::move(alpha), isKeyframe, sequence, durationInMicroseconds(item) })->whenSettled(m_queue.get(), [](auto&&) {
+                return VideoDecoder::DecodePromise::createAndResolve();
+            }));
         }
 
         return VideoDecoder::DecodePromise::all(promises)->whenSettled(m_queue.get(), [protectedThis = Ref { *this }, generation = m_generation, firstSequence, endSequence = m_nextSequence](auto&& result) {
             assertIsCurrent(protectedThis->m_queue.get());
+            protectedThis->emitDecodedVideo(firstSequence, endSequence);
             for (int64_t sequence = firstSequence; sequence < endSequence; ++sequence)
                 protectedThis->m_inFlight.remove(sequence);
             return protectedThis->settleWithPendingOutput(!!result, generation);
@@ -520,6 +552,11 @@ Ref<MediaSamplesDecoder::DecodePromise> MediaSamplesDecoder::decodeOnQueue(Media
     }
 
     return AudioDecoder::DecodePromise::all(promises)->whenSettled(m_queue.get(), [protectedThis = Ref { *this }, generation = m_generation](auto&& result) {
+        assertIsCurrent(protectedThis->m_queue.get());
+        if (!result && protectedThis->m_filters.contains(Filter::IgnoreAudioDecodingErrors)) {
+            RELEASE_LOG_ERROR(Media, "MediaSamplesDecoder ignoring audio decoding error: %s", result.error().utf8());
+            return protectedThis->settleWithPendingOutput(true, generation);
+        }
         return protectedThis->settleWithPendingOutput(!!result, generation);
     });
 }
@@ -535,7 +572,7 @@ Ref<MediaSamplesDecoder::DecodePromise> MediaSamplesDecoder::drainOnQueue()
         return DecodePromise::createAndReject(PlatformMediaError::InvalidState);
 
     m_needsSyncSample = true;
-    return (m_videoDecoder ? protect(m_videoDecoder)->flush() : protect(m_audioDecoder)->flush())->whenSettled(m_queue.get(), [protectedThis = Ref { *this }, generation = m_generation](auto&& result) {
+    return flushDecoders()->whenSettled(m_queue.get(), [protectedThis = Ref { *this }, generation = m_generation](auto&& result) {
         assertIsCurrent(protectedThis->m_queue.get());
         if (generation == protectedThis->m_generation)
             protectedThis->m_trimmedRanges.clear();
@@ -558,8 +595,25 @@ Ref<MediaPromise> MediaSamplesDecoder::flushOnQueue()
     if (!m_audioDecoder && !m_videoDecoder)
         return MediaPromise::createAndResolve();
 
-    return (m_videoDecoder ? protect(m_videoDecoder)->flush() : protect(m_audioDecoder)->flush())->whenSettled(m_queue.get(), [protectedThis = Ref { *this }](auto&& result) {
+    return flushDecoders()->whenSettled(m_queue.get(), [protectedThis = Ref { *this }](auto&& result) {
         return protectedThis->finishFlush(!!result);
+    });
+}
+
+Ref<GenericPromise> MediaSamplesDecoder::flushDecoders()
+{
+    assertIsCurrent(m_queue.get());
+
+    if (RefPtr audioDecoder = m_audioDecoder)
+        return audioDecoder->flush();
+
+    Ref videoFlush = protect(m_videoDecoder)->flush();
+    RefPtr alphaDecoder = m_alphaDecoder;
+    if (!alphaDecoder)
+        return videoFlush;
+    m_needsAlphaKeyframe = true;
+    return alphaDecoder->flush()->whenSettled(m_queue.get(), [videoFlush = WTF::move(videoFlush)](auto&&) {
+        return videoFlush;
     });
 }
 
@@ -568,7 +622,6 @@ Ref<MediaPromise> MediaSamplesDecoder::finishFlush(bool succeeded)
     assertIsCurrent(m_queue.get());
 
     m_completedOutput.clear();
-    m_lastOutputBlockSequence.reset();
     m_pendingOutput.clear();
     m_trimmedRanges.clear();
     m_discontinuity = std::nullopt;
@@ -592,7 +645,6 @@ Ref<MediaSamplesDecoder::DecodePromise> MediaSamplesDecoder::settleWithPendingOu
         return DecodePromise::createAndReject(*m_error);
 
     auto blocks = std::exchange(m_completedOutput, { });
-    m_lastOutputBlockSequence.reset();
     if (!m_pendingOutput.isEmpty())
         blocks.append({ m_outputInfo.ptr(), std::exchange(m_pendingOutput, { }) });
     if (m_discontinuity && !blocks.isEmpty())
@@ -695,41 +747,81 @@ void MediaSamplesDecoder::didDecodeVideo(Ref<VideoFrame>&& frame, int64_t sequen
     assertIsCurrent(m_queue.get());
 
     auto iterator = m_inFlight.find(sequence);
-    if (iterator == m_inFlight.end())
-        return;
-    auto [metadata, blockSequence] = WTF::move(iterator->value);
-    m_inFlight.remove(iterator);
+    if (iterator != m_inFlight.end())
+        iterator->value->colorFrame = WTF::move(frame);
+}
 
-    if (metadata.flags & MediaSample::IsNonDisplaying)
-        return;
+void MediaSamplesDecoder::didDecodeAlpha(Ref<VideoFrame>&& frame, int64_t sequence)
+{
+    assertIsCurrent(m_queue.get());
 
-    auto size = frame->presentationSize();
-    if (!size.width() || !size.height()) {
-        didFailDecoding();
+    auto iterator = m_inFlight.find(sequence);
+    if (iterator != m_inFlight.end())
+        iterator->value->alphaFrame = WTF::move(frame);
+}
+
+// A block outputs only the last frame decoded from it.
+void MediaSamplesDecoder::emitDecodedVideo(int64_t firstSequence, int64_t endSequence)
+{
+    assertIsCurrent(m_queue.get());
+
+    for (int64_t sequence = endSequence - 1; sequence >= firstSequence; --sequence) {
+        auto iterator = m_inFlight.find(sequence);
+        if (iterator == m_inFlight.end())
+            continue;
+        auto& [metadata, colorFrame, alphaFrame] = iterator->value.get();
+        if (!colorFrame || (metadata.flags & MediaSample::IsNonDisplaying))
+            continue;
+
+        Ref color = *colorFrame;
+        auto size = color->presentationSize();
+        if (!size.width() || !size.height()) {
+            didFailDecoding();
+            return;
+        }
+
+        Ref inputInfo = downcast<VideoInfo>(m_inputInfo);
+        if (FloatSize { size } != downcast<VideoInfo>(m_outputInfo).size())
+            m_outputInfo = outputVideoInfo(inputInfo, size);
+
+        RefPtr alpha = alphaFrame;
+        if (alpha && alpha->presentationSize() != size)
+            alpha = nullptr;
+        // FIXME: add vp9 profile greater than 0 support
+        ASSERT(inputInfo->bitDepth() == 8);
+        auto pixelFormat = downcast<VideoInfo>(m_outputInfo).pixelFormat();
+        auto byteSize = pixelFormat ? VideoFrame::planarBufferSize(size, *pixelFormat) : std::nullopt;
+        if (!byteSize) {
+            didFailDecoding();
+            return;
+        }
+        RefPtr<SharedBuffer> buffer;
+        if (m_filters.contains(Filter::UseSharedMemory)) {
+            RefPtr memory = SharedMemory::allocate(*byteSize);
+            if (!memory) {
+                if (!m_error)
+                    m_error = PlatformMediaError::MemoryError;
+                return;
+            }
+            if (color->copyToPlanarBuffer(memory->mutableSpan(), *pixelFormat, alpha.get()))
+                buffer = memory->createSharedBuffer(*byteSize);
+        } else {
+            Vector<uint8_t> bytes(*byteSize);
+            if (color->copyToPlanarBuffer(bytes.mutableSpan(), *pixelFormat, alpha.get()))
+                buffer = SharedBuffer::create(WTF::move(bytes));
+        }
+        if (!buffer) {
+            didFailDecoding();
+            return;
+        }
+
+        auto item = WTF::move(metadata);
+        item.data = WTF::move(buffer);
+        MediaSamplesBlock::SamplesVector items;
+        items.append(WTF::move(item));
+        m_completedOutput.append({ m_outputInfo.ptr(), WTF::move(items) });
         return;
     }
-
-    Ref outputInfo = downcast<VideoInfo>(m_outputInfo);
-    if (FloatSize { size } != outputInfo->size())
-        m_outputInfo = outputVideoInfo(downcast<VideoInfo>(m_inputInfo), size);
-
-    auto buffer = copyToI420Buffer(frame, m_filters.contains(Filter::UseSharedMemory));
-    if (!buffer) {
-        if (!m_error)
-            m_error = buffer.error();
-        return;
-    }
-
-    metadata.data = WTF::move(*buffer);
-    MediaSamplesBlock::SamplesVector items;
-    items.append(WTF::move(metadata));
-    MediaSamplesBlock output { m_outputInfo.ptr(), WTF::move(items) };
-    // A frame is immediately replaced by the next one decoded from the same block.
-    if (m_lastOutputBlockSequence == blockSequence)
-        m_completedOutput.last() = WTF::move(output);
-    else
-        m_completedOutput.append(WTF::move(output));
-    m_lastOutputBlockSequence = blockSequence;
 }
 
 } // namespace WebCore

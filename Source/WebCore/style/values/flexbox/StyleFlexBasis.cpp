@@ -37,8 +37,10 @@ std::optional<PreferredSize> FlexBasis::tryPreferredSize() const
 
     if (isCalcSize())
         return PreferredSize { get<typename NumericOrKeyword::CalcSize>() };
+    if (isFitContentFunction())
+        return PreferredSize { get<FitContentFunction>() };
 
-    return WTF::switchOn(*this,
+    return switchOnUsingNumeric(
         [&](const CSS::Keyword::Content&) -> std::optional<PreferredSize> {
             return { };
         },

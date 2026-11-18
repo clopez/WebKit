@@ -54,10 +54,10 @@ enum class SVGReferencingMode : uint8_t {
 class CachedImage final : public Image {
     WTF_MAKE_TZONE_ALLOCATED(CachedImage);
 public:
-    NODELETE static Ref<CachedImage> create(URL&&, Ref<CSSImageValue>&&, float scaleFactor = 1);
-    static Ref<CachedImage> create(const URL&, const Ref<CSSImageValue>&, float scaleFactor = 1);
-    static Ref<CachedImage> create(WebCore::CachedImage&, WTF::URL&& authoredURL, OptionSet<SVGReferencingMode>, float scaleFactor = 1);
-    static Ref<CachedImage> copyOverridingScaleFactor(CachedImage&, float scaleFactor);
+    NODELETE static Ref<CachedImage> create(URL&&, Ref<CSSImageValue>&&, Resolution<> = 1);
+    static Ref<CachedImage> create(const URL&, const Ref<CSSImageValue>&, Resolution<> = 1);
+    static Ref<CachedImage> create(WebCore::CachedImage&, WTF::URL&& authoredURL, OptionSet<SVGReferencingMode>, Resolution<> = 1);
+    static Ref<CachedImage> copyOverridingResolution(CachedImage&, Resolution<>);
     virtual ~CachedImage();
 
     bool operator==(const Image&) const final;
@@ -65,7 +65,7 @@ public:
 
     NODELETE WebCore::CachedImage* cachedImage() const final;
 
-    WrappedImagePtr data() const final { return m_cachedImage.get(); }
+    NODELETE WrappedImagePtr data() const final { return m_cachedImage.get(); }
 
     Ref<CSSValue> computedStyleValue(const Style::ComputedStyle&) const final;
     Ref<DeprecatedCSSOMValue> computedStyleDeprecatedCSSOMValue(CSSValuePool&, const Style::ComputedStyle&, CSSStyleDeclaration&) const final;
@@ -74,7 +74,7 @@ public:
     bool isPending() const final;
     void load(CachedResourceLoader&, const ResourceLoaderOptions&) final;
     bool isLoaded(const RenderElement*) const final;
-    bool errorOccurred() const final;
+    NODELETE bool errorOccurred() const final;
     NaturalDimensions naturalDimensions(const RenderElement&, const ImageSizingContext&) const final;
     ImageRenditionOptions renditionOptionsForRenderer(const RenderElement&, ImageRenditionOptions) const final;
     void addClient(RenderElement&) final;
@@ -89,7 +89,8 @@ public:
     RefPtr<NativeImage> nativeImage(const RenderElement&, const ImageDrawDescriptor&, float resolutionScale) const final;
     bool currentFrameIsComplete(const RenderElement*) const final;
     std::optional<IntPoint> hotSpot() const final;
-    float imageScaleFactor() const final;
+    ColorSpace colorSpace(const ColorSpace& defaultColorSpace = ColorSpace::SRGB()) const final;
+    Resolution<> imageResolution() const final;
     bool knownToBeOpaque(const RenderElement&) const final;
     bool canDraw(const RenderElement&) const final;
     bool containsCurrentColor() const final { return false; }
@@ -109,8 +110,8 @@ public:
     URL url() const final;
 
 private:
-    CachedImage(URL&&, Ref<CSSImageValue>&&, float);
-    CachedImage(URL&&, Ref<CSSImageValue>&&, float, OptionSet<SVGReferencingMode>);
+    CachedImage(URL&&, Ref<CSSImageValue>&&, Resolution<>);
+    CachedImage(URL&&, Ref<CSSImageValue>&&, Resolution<>, OptionSet<SVGReferencingMode>);
 
     RefPtr<WebCore::Image> resolvedImage() const;
     WebCore::ImageOrientation usedOrientation(WebCore::ImageOrientation) const;
@@ -138,7 +139,7 @@ private:
     const Ref<CSSImageValue> m_cssValue;
     const OptionSet<SVGReferencingMode> m_referencingModes;
     bool m_isPending { true };
-    mutable float m_scaleFactor { 1 };
+    Resolution<> m_resolution { 1 };
     mutable CachedResourceHandle<WebCore::CachedImage> m_cachedImage;
     mutable std::optional<bool> m_isRenderSVGResource;
 };

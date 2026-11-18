@@ -1190,6 +1190,8 @@ static InlineCacheAction tryCachePutBy(JSGlobalObject* globalObject, CodeBlock* 
                 case PutByKind::DefinePrivateNameById:
                 case PutByKind::DefinePrivateNameByVal:
                     ASSERT(ident.isPrivateName());
+                    if (!oldStructure->privateElementAdditionsAreCacheable())
+                        return RetryCacheLater;
                     break;
                 case PutByKind::ByIdDirectStrict:
                 case PutByKind::ByIdDirectSloppy:
@@ -1760,8 +1762,8 @@ void repatchInBy(JSGlobalObject* globalObject, CodeBlock* codeBlock, JSObject* b
         case InByKind::ByVal:
             repatchSlowPathCall(codeBlock, propertyCache, operationInByValMegamorphic);
             break;
-        default:
-            RELEASE_ASSERT_NOT_REACHED();
+        case InByKind::PrivateName:
+            repatchSlowPathCall(codeBlock, propertyCache, operationHasPrivateNameMegamorphic);
             break;
         }
         break;
@@ -1876,6 +1878,9 @@ static InlineCacheAction tryCacheSetPrivateBrand(
         if (oldStructure->isDictionary())
             return RetryCacheLater;
 
+        if (!oldStructure->privateElementAdditionsAreCacheable())
+            return RetryCacheLater;
+
         InlineCacheAction action = actionForCell(vm, base);
         if (action != AttemptToCache)
             return action;
@@ -1884,6 +1889,8 @@ static InlineCacheAction tryCacheSetPrivateBrand(
         if (!newStructure)
             return RetryCacheLater;
         if (newStructure->isDictionary())
+            return GiveUpOnCache;
+        if (base->structureID() != newStructure->id())
             return GiveUpOnCache;
         ASSERT(newStructure->previousID() == oldStructure);
         ASSERT(newStructure->transitionKind() == TransitionKind::SetBrand);

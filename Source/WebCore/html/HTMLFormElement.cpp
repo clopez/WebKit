@@ -644,7 +644,7 @@ void HTMLFormElement::addInvalidFormControl(const HTMLElement& formControlElemen
     ASSERT(static_cast<const Element&>(formControlElement).matchesInvalidPseudoClass());
 
     std::optional<Style::PseudoClassChangeInvalidation> styleInvalidation;
-    if (m_invalidFormControls.isEmptyIgnoringNullReferences())
+    if (m_invalidFormControls.computeIsEmpty())
         emplace(styleInvalidation, *this, { { CSSSelector::PseudoClass::Valid, false }, { CSSSelector::PseudoClass::Invalid, true } });
 
     m_invalidFormControls.add(formControlElement);
@@ -884,7 +884,7 @@ void HTMLFormElement::removeFromPastNamesMap(FormAssociatedElement& item)
 
 bool HTMLFormElement::matchesValidPseudoClass() const
 {
-    return m_invalidFormControls.isEmptyIgnoringNullReferences();
+    return m_invalidFormControls.computeIsEmpty();
 }
 
 bool HTMLFormElement::matchesInvalidPseudoClass() const
@@ -950,7 +950,7 @@ void HTMLFormElement::finishParsingChildren()
 
 const Vector<WeakPtr<HTMLElement, WeakPtrImplWithEventTargetData>>& HTMLFormElement::unsafeListedElements() const
 {
-    ASSERT(ScriptDisallowedScope::InMainThread::hasDisallowedScope());
+    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::hasDisallowedScope());
     return m_listedElements;
 }
 
@@ -984,7 +984,7 @@ const AtomString& HTMLFormElement::autocomplete() const
 RefPtr<DOMFormData> HTMLFormElement::constructEntryList(RefPtr<HTMLFormControlElement>&& submitter, Ref<DOMFormData>&& domFormData, StringPairVector* formValues)
 {
     // https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#constructing-form-data-set
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     
     if (m_isConstructingEntryList)
         return nullptr;

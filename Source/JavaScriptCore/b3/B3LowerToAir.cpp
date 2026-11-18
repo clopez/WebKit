@@ -5295,7 +5295,11 @@ private:
         }
 
         case MemoryMove:
-        case MemoryFill: {
+        case MemoryFill8:
+        case MemoryFill16:
+        case MemoryFill32:
+        case MemoryFill64:
+        case MemoryFill128: {
             // They should be lowered already.
             RELEASE_ASSERT_NOT_REACHED();
             return;
@@ -5896,6 +5900,8 @@ private:
                 case SIMDLane::f32x4:
                     if (value->signMode() == SIMDSignMode::Signed)
                         append(Air::VectorTruncSat, Arg::simdInfo(value->simdInfo()), v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
+                    else if (value->opcode() == B3::VectorRelaxedTruncSat)
+                        append(VectorRelaxedTruncUnsignedFloat32, v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
                     else
                         append(VectorTruncSatUnsignedFloat32, v, result, m_code.newTmp(B3::GP), m_code.newTmp(B3::FP), m_code.newTmp(B3::FP));
                     return;
@@ -7076,8 +7082,8 @@ private:
     IndexSet<Value*> m_locked; // These are values that will have no Tmp in Air.
     IndexMap<Value*, Tmp> m_valueToTmp; // These are values that must have a Tmp in Air. We say that a Value* with a non-null Tmp is "pinned".
     IndexMap<Value*, Tmp> m_phiToTmp; // Each Phi gets its own Tmp.
-    UncheckedKeyHashMap<Value*, Vector<Tmp>> m_tupleValueToTmps; // This is the same as m_valueToTmp for Values that are Tuples.
-    UncheckedKeyHashMap<Value*, Vector<Tmp>> m_tuplePhiToTmps; // This is the same as m_phiToTmp for Phis that are Tuples.
+    HashMap<Value*, Vector<Tmp>> m_tupleValueToTmps; // This is the same as m_valueToTmp for Values that are Tuples.
+    HashMap<Value*, Vector<Tmp>> m_tuplePhiToTmps; // This is the same as m_phiToTmp for Phis that are Tuples.
     IndexMap<B3::BasicBlock*, Air::BasicBlock*> m_blockToBlock;
 
     UseCounts m_useCounts;
@@ -7094,7 +7100,7 @@ private:
     Value* m_value;
 
     PatchpointSpecial* m_patchpointSpecial { nullptr };
-    UncheckedKeyHashMap<CheckSpecial::Key, CheckSpecial*> m_checkSpecials;
+    HashMap<CheckSpecial::Key, CheckSpecial*> m_checkSpecials;
 
     Procedure& m_procedure;
     Code& m_code;

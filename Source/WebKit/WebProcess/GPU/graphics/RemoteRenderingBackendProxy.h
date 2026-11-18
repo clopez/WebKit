@@ -111,6 +111,8 @@ public:
 
     void transferImageBuffer(std::unique_ptr<RemoteSerializedImageBufferProxy>, WebCore::ImageBuffer&);
     std::unique_ptr<RemoteSerializedImageBufferProxy> moveToSerializedBuffer(RemoteImageBufferProxy&);
+    // The GPU process turns the buffer into the returned NativeImage without copying the pixels.
+    Ref<RemoteNativeImageProxy> sinkIntoNativeImage(RemoteImageBufferProxy&);
     RefPtr<RemoteImageBufferProxy> moveToImageBuffer(RemoteSerializedImageBufferProxy&);
     std::optional<WebCore::ImageBufferTransferIdentifier> moveSerializedBufferToTransferHeap(RemoteSerializedImageBufferProxy&);
     RefPtr<RemoteImageBufferProxy> takeTransferredBuffer(const WebCore::ImageBufferTransferHandle&);
@@ -133,7 +135,7 @@ public:
     void releaseFont(WebCore::RenderingResourceIdentifier);
     void cacheFontCustomPlatformData(Ref<const WebCore::FontCustomPlatformData>&&);
     void releaseFontCustomPlatformData(WebCore::RenderingResourceIdentifier);
-    void cacheGradient(Ref<WebCore::Gradient>&&, RemoteGradientIdentifier);
+    void cacheGradient(Ref<const WebCore::Gradient>&&, RemoteGradientIdentifier);
     void releaseGradient(RemoteGradientIdentifier);
     void cacheMeshGradient(Ref<WebCore::MeshGradient>&&, RemoteMeshGradientIdentifier);
     void releaseMeshGradient(RemoteMeshGradientIdentifier);
@@ -148,7 +150,7 @@ public:
     void getImageBufferResourceLimitsForTesting(CompletionHandler<void(WebCore::ImageBufferResourceLimits)>&&);
 
     void createSnapshot(RemoteSnapshotIdentifier, WebCore::FrameIdentifier rootFrameIdentifier, const WebCore::FloatSize&);
-    UniqueRef<RemoteSnapshotRecorderProxy> createSnapshotRecorder(const WebCore::FloatRect& initialClip, RemoteSnapshotIdentifier, WebCore::RenderingMode);
+    UniqueRef<RemoteSnapshotRecorderProxy> createSnapshotRecorder(const WebCore::FloatRect& initialClip, const WebCore::FloatSize& scale, RemoteSnapshotIdentifier, WebCore::RenderingMode);
     void sinkSnapshotRecorderIntoSnapshotFrame(UniqueRef<RemoteSnapshotRecorderProxy>&&, WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
 
     Ref<ShapeDetection::RemoteBarcodeDetectorProxy> createBarcodeDetector(const WebCore::ShapeDetection::BarcodeDetectorOptions&);
@@ -199,6 +201,7 @@ public:
     RefPtr<IPC::StreamClientConnection> connection();
     // The connection of the GPU process connection that connection() was created on.
     RefPtr<IPC::Connection> gpuProcessIPCConnection();
+    void gpuProcessConnectionDidClose(IPC::Connection&);
 
     bool isCurrent() const final;
     Ref<WorkQueue> workQueue() { return m_queue; }
@@ -225,6 +228,7 @@ private:
     // Connection::Client
     void didClose(IPC::Connection&) final;
     void didReceiveInvalidMessage(IPC::Connection&, IPC::MessageName, const Vector<uint32_t>& indicesOfObjectsFailingDecoding) final { }
+    void gpuProcessConnectionDidClose();
     void disconnectGPUProcess();
     void ensureGPUProcessConnection();
 

@@ -48,6 +48,7 @@
 #include <WebCore/SVGFilterRenderer.h>
 #include <WebCore/SVGUnitTypes.h>
 #include <WebCore/SharedBuffer.h>
+#include <wtf/Borrow.h>
 #include <wtf/text/MakeString.h>
 
 #if ENABLE(APPLE_PAY)
@@ -183,7 +184,7 @@ static void testValueItems(Tester& tester)
     items.append(DisplayList::DrawFocusRingPath { testPath(), 2, Color::blue, 1.5 });
     items.append(DisplayList::DrawFocusRingRects { Vector<FloatRect> { rect, { 5, 6, 7, 8 } }, 3, Color::red, 2 });
     items.append(DisplayList::DrawLine { { 1, 2 }, { 3, 4 } });
-    items.append(DisplayList::DrawLinesForText { { 1, 2 }, lineSegments.span(), 3, true, true, StrokeStyle::DashedStroke });
+    items.append(DisplayList::DrawLinesForText { { 1, 2 }, borrow(lineSegments)->span(), 3, true, true, StrokeStyle::DashedStroke });
     items.append(DisplayList::DrawPath { testPath() });
     items.append(DisplayList::DrawRect { rect, 3 });
     items.constructAndAppend(WTF::InPlaceType<DisplayList::EndTransparencyLayer>);
@@ -196,8 +197,10 @@ static void testValueItems(Tester& tester)
     items.append(DisplayList::FillRoundedRect { roundedRect, Color::black, BlendMode::Darken });
     items.constructAndAppend(WTF::InPlaceType<DisplayList::ResetClip>);
     items.constructAndAppend(WTF::InPlaceType<DisplayList::Restore>);
+    items.constructAndAppend(WTF::InPlaceType<DisplayList::RestoreTransform>);
     items.append(DisplayList::Rotate { 0.5 });
     items.constructAndAppend(WTF::InPlaceType<DisplayList::Save>);
+    items.constructAndAppend(WTF::InPlaceType<DisplayList::SaveTransform>);
     items.append(DisplayList::Scale { { 2, 3 } });
     items.append(DisplayList::SetCTM { transform });
     items.append(DisplayList::SetInlineFillColor { SRGBA<uint8_t> { 1, 2, 3, 4 } });
@@ -211,10 +214,6 @@ static void testValueItems(Tester& tester)
     items.append(DisplayList::StrokePath { testPath() });
     items.append(DisplayList::StrokeRect { rect, 2 });
     items.append(DisplayList::Translate { 3, 4 });
-#if USE(CG)
-    items.constructAndAppend(WTF::InPlaceType<DisplayList::ApplyFillPattern>);
-    items.constructAndAppend(WTF::InPlaceType<DisplayList::ApplyStrokePattern>);
-#endif
     items.append(DisplayList::BeginPage { rect });
     items.constructAndAppend(WTF::InPlaceType<DisplayList::EndPage>);
     items.append(DisplayList::SetURLForRect { URL { "https://webkit.org/"_s }, rect });
@@ -314,10 +313,10 @@ static DisplayList::DrawGlyphs drawGlyphs(const FontBase& font, const String& te
     auto characters = upconvertedCharacters.span();
     RetainPtr ctFont = font.ctFont();
     Vector<GlyphBufferGlyph> glyphs(FillWith { }, characters.size(), 0);
-    CTFontGetGlyphsForCharacters(ctFont.get(), reinterpret_cast<const UniChar*>(characters.data()), glyphs.mutableSpan().data(), glyphs.size());
+    CTFontGetGlyphsForCharacters(ctFont.get(), reinterpret_cast<const UniChar*>(characters.data()), borrow(glyphs)->mutableSpan().data(), glyphs.size());
     glyphs.removeAll(0);
     Vector<GlyphBufferAdvance> advances(FillWith { }, glyphs.size(), makeGlyphBufferAdvance());
-    CTFontGetAdvancesForGlyphs(ctFont.get(), kCTFontOrientationHorizontal, glyphs.span().data(), advances.mutableSpan().data(), glyphs.size());
+    CTFontGetAdvancesForGlyphs(ctFont.get(), kCTFontOrientationHorizontal, borrow(glyphs)->span().data(), borrow(advances)->mutableSpan().data(), glyphs.size());
     return DisplayList::DrawGlyphs { Ref { font }, WTF::move(glyphs), WTF::move(advances), localAnchor, FontSmoothingMode::Antialiased };
 }
 
@@ -389,7 +388,7 @@ static Ref<SharedFont> createWebFont(FontCustomPlatformData& customFont, float s
 static void testWebFonts(Tester& tester, const Vector<Ref<SharedBuffer>>& webFonts)
 {
     tester.expect(!webFonts.isEmpty(), "Web fonts are given"_s);
-    for (auto& webFont : webFonts) {
+    for (auto& webFont : borrow(webFonts)) {
         RefPtr customFont = createCustomFont(webFont);
         tester.expect(!!customFont, "Web fonts are created"_s);
         if (!customFont)
@@ -455,13 +454,9 @@ static void testInvalidFonts(Tester& tester, const Vector<Ref<SharedBuffer>>& we
 }
 #endif // USE(CORE_TEXT)
 
-static Ref<Gradient> testGradient(Gradient::Data&& data)
+static Ref<const Gradient> testGradient(Gradient::Data&& data)
 {
-    Ref gradient = Gradient::create(WTF::move(data), { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
-    gradient->addColorStop({ 0, Color::red });
-    gradient->addColorStop({ 0.5, Color::green });
-    gradient->addColorStop({ 1, Color::blue });
-    return gradient;
+    return Gradient::create(WTF::move(data), { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied }, GradientSpreadMethod::Pad, GradientColorStops { std::array { Color::red, Color::green, Color::blue } });
 }
 
 static void testGradients(Tester& tester)

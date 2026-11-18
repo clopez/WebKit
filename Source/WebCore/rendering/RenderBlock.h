@@ -63,8 +63,8 @@ public:
     virtual ~RenderBlock();
 
 protected:
-    RenderBlock(Type, Element&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags = { });
-    RenderBlock(Type, Document&, Style::ComputedStyle&&, OptionSet<TypeFlag>, TypeSpecificFlags = { });
+    RenderBlock(Type, Element&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags = { });
+    RenderBlock(Type, Document&, UniqueRef<Style::ComputedStyle>&&, OptionSet<TypeFlag>, TypeSpecificFlags = { });
 
 public:
     String debugDescription() const override;
@@ -76,13 +76,12 @@ public:
     NODELETE TrackedRendererListHashSet* percentHeightDescendants() const LIFETIME_BOUND;
     bool hasPercentHeightDescendants() const
     {
-        auto* renderers = percentHeightDescendants();
-        return renderers && !renderers->isEmptyIgnoringNullReferences();
+        const auto* renderers = percentHeightDescendants();
+        return renderers && !renderers->computeIsEmpty();
     }
     NODELETE static bool hasPercentHeightContainerMap();
     static void clearPercentHeightDescendantsFrom(RenderBox&);
 
-    virtual bool willStretchItem(const RenderBox& item, LogicalBoxAxis containingAxis, StretchingMode = StretchingMode::Normal) const;
     bool isContainingBlockAncestorFor(RenderObject&) const;
 
     void setHasMarginBeforeQuirk(bool b) { setRenderBlockHasMarginBeforeQuirk(b); }
@@ -117,7 +116,7 @@ public:
     NODELETE void getSelectionGapInfo(HighlightState, bool& leftGap, bool& rightGap);
     bool isSelectionRoot() const;
 
-    NODELETE LayoutRect logicalRectToPhysicalRect(const LayoutPoint& physicalPosition, const LayoutRect& logicalRect);
+    NODELETE LayoutRect logicalRectToPhysicalRect(const LayoutPoint& physicalPosition, const LayoutRect& logicalRect) const;
 
     bool establishesIndependentFormattingContext() const;
     bool createsNewFormattingContext() const;
@@ -166,6 +165,8 @@ public:
 
     LayoutUnit marginBefore(WritingMode) const override;
 
+    using RenderBox::adjustBorderBoxLogicalHeightForBoxSizing;
+    using RenderBox::adjustContentBoxLogicalHeightForBoxSizing;
     LayoutUnit adjustBorderBoxLogicalHeightForBoxSizing(LayoutUnit height) const override;
     LayoutUnit adjustContentBoxLogicalHeightForBoxSizing(std::optional<LayoutUnit> height) const override;
     LayoutUnit adjustIntrinsicLogicalHeightForBoxSizing(LayoutUnit height) const override;
@@ -250,6 +251,10 @@ public:
     void layoutOutOfFlowBoxes(RelayoutChildren, bool fixedPositionObjectsOnly = false);
 
     static void relayoutRenderBlockForScrollbarChange(RenderBlock&);
+
+    // Gives the query containers that a style-interleaved layout sized without laying out their content back their
+    // layout bits, so the layout after style resolution lays them out.
+    static void restoreLayoutBitsAfterInterleavedLayout();
 
     enum PaintBlockType { PaintAsBlock, PaintAsInlineBlock };
     bool paintChild(RenderBox&, PaintInfo& forSelf, const LayoutPoint&, PaintInfo& forChild, bool usePrintRect, PaintBlockType paintType = PaintAsBlock);

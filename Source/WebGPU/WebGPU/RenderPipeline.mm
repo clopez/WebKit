@@ -35,6 +35,7 @@
 #import "RenderBundleEncoder.h"
 #import "TextureOrTextureView.h"
 #import "WGSLShaderModule.h"
+#import <wtf/Borrow.h>
 #import <wtf/IndexedRange.h>
 #import <wtf/Scope.h>
 #import <wtf/TZoneMallocInlines.h>
@@ -948,10 +949,10 @@ NSString* Device::addPipelineLayouts(Vector<Vector<ResolvedBindGroupLayoutEntry>
     if (pipelineEntries.size() < bindGroupLayoutCount)
         pipelineEntries.grow(bindGroupLayoutCount);
 
-    for (auto& bindGroupLayout : pipelineLayout.bindGroupLayouts) {
+    for (auto& bindGroupLayout : borrow(pipelineLayout.bindGroupLayouts)) {
         auto& entries = pipelineEntries[bindGroupLayout.group];
         HashMap<String, uint64_t> entryMap;
-        for (auto& entry : bindGroupLayout.entries) {
+        for (auto& entry : borrow(bindGroupLayout.entries)) {
             auto visibility = convertVisibility(entry.visibility);
             // The entries of a shader have the visibility of its stage.
             auto stage = static_cast<size_t>(shaderStage(visibility));
@@ -1002,7 +1003,7 @@ NSString* Device::addPipelineLayouts(Vector<Vector<ResolvedBindGroupLayoutEntry>
 Ref<PipelineLayout> Device::generatePipelineLayout(const Vector<Vector<ResolvedBindGroupLayoutEntry>>& bindGroupEntries)
 {
     Vector<Ref<WebGPU::BindGroupLayout>> bindGroupLayouts(ReserveCapacityTag { }, bindGroupEntries.size());
-    for (auto& entries : bindGroupEntries) {
+    for (auto& entries : borrow(bindGroupEntries)) {
         auto layoutEntries = entries;
         auto bindGroupLayout = createBindGroupLayout("getBindGroup() generated layout"_s, WTF::move(layoutEntries), true);
         if (!bindGroupLayout->isValid())
@@ -1455,7 +1456,7 @@ static NSString* errorValidatingVertexStageIn(const ShaderModule::VertexStageIn*
         return nil;
 
     auto maxVertexAttributeLocation = device.limits().maxVertexAttributes;
-    HashSet<uint32_t, DefaultHash<uint32_t>, WTF::UnsignedWithZeroKeyHashTraits<uint32_t>> shaderLocations;
+    HashSet<uint32_t> shaderLocations;
     for (auto shaderLocation : stageIn->keys()) {
         if (shaderLocation >= maxVertexAttributeLocation)
             return [NSString stringWithFormat:@"Shader location %u exceeds the maximum allowed value of %u", shaderLocation, maxVertexAttributeLocation];

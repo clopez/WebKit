@@ -51,6 +51,7 @@
 #include "InlineIteratorBoxInlines.h"
 #include "InlineIteratorInlineBox.h"
 #include "InlineIteratorLineBox.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "LogicalSelectionOffsetCachesInlines.h"
@@ -146,9 +147,11 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
         imageRect = IntRect { 0,  selectionTop, logicalWidth(), selectionHeight };
         isFirstOnLine = !run->nextLineLeftwardOnLine();
         isLastOnLine = !run->nextLineRightwardOnLine();
-        LogicalSelectionOffsetCaches cache(*containingBlock);
-        LayoutUnit leftOffset = containingBlock->logicalLeftSelectionOffset(*containingBlock, LayoutUnit(run->logicalTop()), cache);
-        LayoutUnit rightOffset = containingBlock->logicalRightSelectionOffset(*containingBlock, LayoutUnit(run->logicalTop()), cache);
+        // An image on a line is laid out by the block that establishes its inline formatting context.
+        CheckedRef formattingContextRoot = *LayoutIntegration::LineLayout::blockContainer(*this);
+        LogicalSelectionOffsetCaches cache(formattingContextRoot);
+        LayoutUnit leftOffset = formattingContextRoot->logicalLeftSelectionOffset(formattingContextRoot, LayoutUnit(run->logicalTop()), cache);
+        LayoutUnit rightOffset = formattingContextRoot->logicalRightSelectionOffset(formattingContextRoot, LayoutUnit(run->logicalTop()), cache);
         lineExtentRect = IntRect(leftOffset - logicalLeft(), imageRect.y(), rightOffset - leftOffset, imageRect.height());
         if (!run->isHorizontal()) {
             imageRect = imageRect.transposedRect();
@@ -169,7 +172,7 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
 
 using namespace HTMLNames;
 
-RenderImage::RenderImage(Type type, Element& element, Style::ComputedStyle&& style, OptionSet<ReplacedFlag> flags, Style::Image* styleImage, float currentPixelDensity)
+RenderImage::RenderImage(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style, OptionSet<ReplacedFlag> flags, Style::Image* styleImage, float currentPixelDensity)
     : RenderReplaced(type, element, WTF::move(style), IntSize(), flags | ReplacedFlag::IsImage)
     , m_imageResource(makeUnique<RenderImageResource>(styleImage))
     , m_hasImageOverlay([&] {
@@ -189,12 +192,12 @@ RenderImage::RenderImage(Type type, Element& element, Style::ComputedStyle&& sty
 #endif
 }
 
-RenderImage::RenderImage(Type type, Element& element, Style::ComputedStyle&& style, Style::Image* styleImage, float currentPixelDensity)
+RenderImage::RenderImage(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style, Style::Image* styleImage, float currentPixelDensity)
     : RenderImage(type, element, WTF::move(style), ReplacedFlag::IsImage, styleImage, currentPixelDensity)
 {
 }
 
-RenderImage::RenderImage(Type type, Document& document, Style::ComputedStyle&& style, Style::Image* styleImage)
+RenderImage::RenderImage(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style, Style::Image* styleImage)
     : RenderReplaced(type, document, WTF::move(style), IntSize(), ReplacedFlag::IsImage)
     , m_imageResource(makeUnique<RenderImageResource>(styleImage))
 {
@@ -252,16 +255,16 @@ ImageSizeChangeType RenderImage::setImageSizeForAltText(CachedImage* newImage /*
     if (!imageRepresentsNothing()) {
         if (newImage && newImage->image())
             imageSize = imageSizeForError(newImage);
-        else if (!m_altText.isEmpty() || newImage) {
+        else if (!altText().isEmpty() || newImage) {
             // If we'll be displaying either text or an image, add a little padding.
             imageSize = IntSize(paddingWidth, paddingHeight);
         }
     }
 
     // we have an alt and the user meant it (its not a text we invented)
-    if (!m_altText.isEmpty()) {
+    if (auto alt = altText(); !alt.isEmpty()) {
         const FontCascade& font = style().fontCascade();
-        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font.width(RenderBlock::constructTextRun(m_altText, style()))), maxAltTextWidth), paddingHeight + std::min(font.metricsOfPrimaryFont().intHeight(), maxAltTextHeight));
+        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font.width(RenderBlock::constructTextRun(alt, style()))), maxAltTextWidth), paddingHeight + std::min(font.metricsOfPrimaryFont().intHeight(), maxAltTextHeight));
         imageSize = imageSize.expandedTo(paddedTextSize);
     }
 
@@ -283,7 +286,7 @@ void RenderImage::styleDidChange(Style::Difference diff, const Style::ComputedSt
 {
     RenderReplaced::styleDidChange(diff, oldStyle);
     if (m_needsToSetSizeForAltText) {
-        if (!m_altText.isEmpty() && setImageSizeForAltText(protect(cachedImage())))
+        if (!altText().isEmpty() && setImageSizeForAltText(protect(cachedImage())))
             repaintOrMarkForLayout(ImageSizeChangeForAltText);
         m_needsToSetSizeForAltText = false;
     }
@@ -309,7 +312,7 @@ bool RenderImage::imageRepresentsNothing() const
         return false;
     if (!imageElement->hasAttribute(HTMLNames::altAttr))
         return false;
-    if (!imageResource().errorOccurred() || !m_altText.isEmpty())
+    if (!imageResource().errorOccurred() || !altText().isEmpty())
         return false;
     return document().inNoQuirksMode() || (style().logicalWidth().isAuto() && style().logicalHeight().isAuto());
 }
@@ -344,12 +347,9 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     // Set image dimensions, taking into account the size of the alt text.
     if (imageResource().errorOccurred()) {
-        if (!m_altText.isEmpty() && document().hasPendingStyleRecalc()) {
-            ASSERT(element());
-            if (element()) {
-                m_needsToSetSizeForAltText = true;
-                protect(element())->invalidateStyle();
-            }
+        if (element() && !altText().isEmpty() && document().hasPendingStyleRecalc()) {
+            m_needsToSetSizeForAltText = true;
+            protect(element())->invalidateStyle();
             return;
         }
         imageSizeChange = setImageSizeForAltText(protect(cachedImage()));
@@ -360,7 +360,7 @@ void RenderImage::imageChanged(WrappedImagePtr newImage, const IntRect* rect)
 
     if (RefPtr image = cachedImage(); image && image->currentFrameIsComplete()) {
         if (auto styleable = Styleable::fromRenderer(*this))
-            protect(document())->didLoadImage(protect(styleable->element).get(), image);
+            protect(document())->didLoadImage(styleable->element, image);
     }
 }
 
@@ -496,6 +496,9 @@ RefPtr<ShareableBitmap> RenderImage::createShareableBitmap(const CreateShareable
         bitmapSize = scaledSize.width() < bitmapSize.width() ? scaledSize : bitmapSize;
     }
 
+    if (options.resultColorSpace == CreateShareableBitmapFromImageOptions::ResultColorSpace::FromImage)
+        colorSpaceForBitmap = styleImage->colorSpace().asRGBModelMayBeExtended().value_or(ColorSpace::SRGB());
+
     // FIXME: Only select ExtendedColor on images known to need wide gamut.
     auto sharedBitmap = ShareableBitmap::create({ IntSize(bitmapSize), WTF::move(colorSpaceForBitmap) });
     if (!sharedBitmap)
@@ -533,7 +536,9 @@ RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForImageBitmapRequest(
 
 RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForFullScreen() const
 {
-    return createShareableBitmap();
+    CreateShareableBitmapFromImageOptions options;
+    options.resultColorSpace = CreateShareableBitmapFromImageOptions::ResultColorSpace::FromImage;
+    return createShareableBitmap(options);
 }
 
 RefPtr<ShareableBitmap> RenderImage::createShareableBitmapForImageServices() const
@@ -617,7 +622,7 @@ bool RenderImage::isShowingMissingOrImageError() const
 
 bool RenderImage::isShowingAltText() const
 {
-    return isShowingMissingOrImageError() && !m_altText.isEmpty();
+    return isShowingMissingOrImageError() && !altText().isEmpty();
 }
 
 String RenderImage::accessibilityDescription() const
@@ -713,14 +718,15 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
         }
     }
 
-    if (m_altText.isEmpty())
+    auto altText = this->altText();
+    if (altText.isEmpty())
         return;
 
     auto& style = this->style();
     auto& fontCascade = style.fontCascade();
     auto& fontMetrics = fontCascade.metricsOfPrimaryFont();
     auto isHorizontal = writingMode().isHorizontal();
-    auto encodedDisplayString = protect(document())->displayStringModifiedByEncoding(m_altText);
+    auto encodedDisplayString = protect(document())->displayStringModifiedByEncoding(altText);
     auto textRun = RenderBlock::constructTextRun(encodedDisplayString, style, ExpansionBehavior::defaultBehavior(), RespectDirection | RespectDirectionOverride);
     auto textWidth = LayoutUnit { fontCascade.width(textRun) };
 
@@ -764,10 +770,10 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
         adjustedPaintOffset.setY(roundToDevicePixel(adjustedPaintOffset.y(), document().deviceScaleFactor()));
 
         auto rotationRect = LayoutRect { visualLeft, adjustedPaintOffset.y(), textWidth, contentLogicalHeight };
-        context.concatCTM(rotation(rotationRect, RotationDirection::Clockwise));
+        context.concatCTM(Paint::rotation(rotationRect, RotationDirection::Clockwise));
         auto textOrigin = LayoutPoint { visualLeft, adjustedPaintOffset.y() + fontCascade.metricsOfPrimaryFont().ascent() };
         context.drawBidiText(fontCascade, textRun, roundPointToDevicePixels(textOrigin, document().deviceScaleFactor()));
-        context.concatCTM(rotation(rotationRect, RotationDirection::Counterclockwise));
+        context.concatCTM(Paint::rotation(rotationRect, RotationDirection::Counterclockwise));
     }
 }
 
@@ -847,7 +853,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
             if (auto styleable = Styleable::fromRenderer(*this)) {
                 auto localVisibleRect = visibleRect;
                 localVisibleRect.moveBy(-paintOffset);
-                protect(document())->didPaintImage(protect(styleable->element), protect(cachedImage()), localVisibleRect);
+                protect(document())->didPaintImage(styleable->element, protect(cachedImage()), localVisibleRect);
             }
         }
     }
@@ -1097,6 +1103,20 @@ void RenderImage::updateAltText()
         // alt text provided by either of the above branches.
         m_altText = style().content().altText();
     }
+}
+
+String RenderImage::altText() const
+{
+    if (!isAnonymous())
+        return m_altText;
+
+    for (CheckedPtr ancestor = parent(); ancestor; ancestor = ancestor->parent()) {
+        if (ancestor->style().pseudoElementType())
+            return ancestor->style().content().altText();
+        if (!ancestor->isAnonymous())
+            break;
+    }
+    return nullString();
 }
 
 bool RenderImage::canHaveChildren() const

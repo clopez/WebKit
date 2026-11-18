@@ -221,7 +221,7 @@ void RenderTreeBuilder::updateListMarkerContents()
 {
     // A marker's text is made of its list item's list-item counter value, which is only settled once the tree is done
     // changing: inserting or removing a list item renumbers every item after it.
-    while (!m_listItemsNeedingMarkerUpdate.isEmptyIgnoringNullReferences()) {
+    while (!m_listItemsNeedingMarkerUpdate.computeIsEmpty()) {
         for (auto& listItem : std::exchange(m_listItemsNeedingMarkerUpdate, { }))
             listItem.updateMarkerContent();
     }
@@ -244,7 +244,7 @@ void RenderTreeBuilder::destroy(RenderObject& renderer, CanCollapseAnonymousBloc
 {
     RELEASE_ASSERT(RenderTreeMutationDisallowedScope::isMutationAllowed());
     ASSERT(renderer.parent());
-    ASSERT(!renderer.beingDestroyed());
+    ASSERT_WITH_SECURITY_IMPLICATION(!renderer.beingDestroyed());
 
     auto notifyDescendantRenderersBeforeSubtreeTearDownIfApplicable = [&] {
         if (renderer.renderTreeBeingDestroyed())
@@ -295,7 +295,7 @@ void RenderTreeBuilder::destroy(RenderObject& renderer, CanCollapseAnonymousBloc
 void RenderTreeBuilder::attach(RenderElement& parent, RenderPtr<RenderObject> child, RenderObject* beforeChild)
 {
     reportVisuallyNonEmptyContent(parent, *child);
-    ASSERT(!parent.beingDestroyed());
+    ASSERT_WITH_SECURITY_IMPLICATION(!parent.beingDestroyed());
     ASSERT(child);
     attachInternal(parent, WTF::move(child), beforeChild);
 }
@@ -437,8 +437,8 @@ void RenderTreeBuilder::attachInternal(RenderElement& parent, RenderPtr<RenderOb
 
 RenderPtr<RenderObject> RenderTreeBuilder::detach(RenderElement& parent, RenderObject& child, WillBeDestroyed willBeDestroyed, CanCollapseAnonymousBlock canCollapseAnonymousBlock)
 {
-    ASSERT(!parent.beingDestroyed());
-    ASSERT(!child.beingDestroyed());
+    ASSERT_WITH_SECURITY_IMPLICATION(!parent.beingDestroyed());
+    ASSERT_WITH_SECURITY_IMPLICATION(!child.beingDestroyed());
 
     if (auto* text = dynamicDowncast<RenderSVGText>(parent))
         return svgBuilder().detach(*text, child, willBeDestroyed);
@@ -504,7 +504,7 @@ void RenderTreeBuilder::attachToRenderElementInternal(RenderElement& parent, Ren
         beforeChild = nullptr;
     }
 
-    ASSERT(!beforeChild || beforeChild->parent() == &parent);
+    ASSERT_WITH_SECURITY_IMPLICATION(!beforeChild || beforeChild->parent() == &parent);
 
     // Take the ownership.
     auto* newChild = parent.attachRendererInternal(WTF::move(child), beforeChild);
@@ -992,7 +992,8 @@ void RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers(RenderObject& rendere
 
     if (destroyRoot) {
         auto anonymousDestroyRoot = SetForScope { m_anonymousDestroyRoot, destroyRoot.get() != &rendererToDestroy ? destroyRoot : nullptr };
-        destroy(*destroyRoot);
+        // The renderer is destroyed by this call, so it cannot be protected.
+        SUPPRESS_UNCHECKED_ARG destroy(*destroyRoot);
     }
 
     if (!destroyRootParent)
@@ -1003,7 +1004,8 @@ void RenderTreeBuilder::destroyAndCleanUpAnonymousWrappers(RenderObject& rendere
 
     // Anonymous parent might have become empty, try to delete it too.
     if (isAnonymousAndSafeToDelete(*destroyRootParent) && !destroyRootParent->firstChild())
-        destroyAndCleanUpAnonymousWrappers(*destroyRootParent, destroyRootParent.get());
+        // Both arguments refer to the renderer this call destroys, so it cannot be protected.
+        SUPPRESS_UNCHECKED_ARG destroyAndCleanUpAnonymousWrappers(*destroyRootParent, destroyRootParent.get());
     // WARNING: rendererToDestroy is deleted here.
 }
 
@@ -1057,7 +1059,7 @@ RenderPtr<RenderObject> RenderTreeBuilder::detachFromRenderElement(RenderElement
 {
     RELEASE_ASSERT_WITH_MESSAGE(!parent.view().frameView().layoutContext().layoutState(), "Layout must not mutate render tree");
     ASSERT(parent.canHaveChildren() || parent.canHaveGeneratedChildren());
-    ASSERT(child.parent() == &parent);
+    ASSERT_WITH_SECURITY_IMPLICATION(child.parent() == &parent);
 
     // A line layout reads its content through the render tree, so it goes before its root leaves the tree for good.
     if (willBeDestroyed == WillBeDestroyed::Yes) {

@@ -38,7 +38,6 @@
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/Pagination.h>
 #include <WebCore/PlaybackTargetClientContextIdentifier.h>
-#include <WebCore/ProcessSwapDisposition.h>
 #include <WebCore/RegistrableDomain.h>
 #include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <WebCore/ScriptTrackingPrivacyCategory.h>
@@ -150,6 +149,7 @@ class HistoryItem;
 class HistoryItemClient;
 class OpportunisticTaskScheduler;
 class ImageAnalysisQueue;
+class ImageAnimationTimeline;
 class ImageOverlayController;
 class InspectorBackendClient;
 class IntSize;
@@ -497,6 +497,12 @@ public:
 
     bool openedByDOMWithOpener() const { return m_openedByDOMWithOpener; }
     void setOpenedByDOMWithOpener(bool value) { m_openedByDOMWithOpener = value; }
+
+    // https://wicg.github.io/document-picture-in-picture/#is-document-picture-in-picture
+#if ENABLE(DOCUMENT_PIP)
+    bool isDocumentPictureInPicture() const { return m_isDocumentPictureInPicture; }
+    void setIsDocumentPictureInPicture(bool value) { m_isDocumentPictureInPicture = value; }
+#endif
 
     const RegistrableDomain& openedByScriptDomain() const LIFETIME_BOUND { return m_openedByScriptDomain; }
     void setOpenedByScriptDomain(RegistrableDomain&& domain) { m_openedByScriptDomain = WTF::move(domain); }
@@ -909,13 +915,15 @@ public:
     WEBCORE_EXPORT void resumeScriptedAnimations();
     bool scriptedAnimationsSuspended() const { return m_scriptedAnimationsSuspended; }
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
+    bool systemImageAnimationEnabled() const { return m_systemImageAnimationEnabled; }
+    void setSystemImageAnimationEnabled(bool enabled) { m_systemImageAnimationEnabled = enabled; }
+
     void updatePlayStateForAllAnimations();
     WEBCORE_EXPORT void setImageAnimationEnabled(bool);
     void addIndividuallyPlayingAnimationElement(HTMLImageElement&);
     void removeIndividuallyPlayingAnimationElement(HTMLImageElement&);
-#endif
-    bool imageAnimationEnabled() const { return m_imageAnimationEnabled; }
+    NODELETE WEBCORE_EXPORT bool imageAnimationEnabled() const;
+    ImageAnimationTimeline& imageAnimationTimeline() const { return m_imageAnimationTimeline; }
 
 #if ENABLE(ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL)
     NODELETE WEBCORE_EXPORT void setVideoAutoplayPreviewsEnabled(bool);
@@ -1194,8 +1202,8 @@ public:
     OptionSet<ThrottlingReason> throttlingReasons() const { return m_throttlingReasons; }
 
     WEBCORE_EXPORT void applicationWillResignActive();
-    NODELETE WEBCORE_EXPORT void applicationDidEnterBackground();
-    NODELETE WEBCORE_EXPORT void applicationWillEnterForeground();
+    WEBCORE_EXPORT void applicationDidEnterBackground();
+    WEBCORE_EXPORT void applicationWillEnterForeground();
     WEBCORE_EXPORT void applicationDidBecomeActive();
 
     PerformanceLogging& performanceLogging() const LIFETIME_BOUND { return m_performanceLogging; }
@@ -1318,7 +1326,7 @@ public:
     void opportunisticallyRunIdleCallbacks(MonotonicTime deadline);
     WEBCORE_EXPORT void performOpportunisticallyScheduledTasks(MonotonicTime deadline);
     void deleteRemovedNodesAndDetachedRenderers();
-    String ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData&);
+    String ensureMediaKeysStorageDirectoryForOrigin(const SecurityOriginData&, std::optional<FrameIdentifier>);
     WEBCORE_EXPORT void setMediaKeysStorageDirectory(const String&);
 
     bool isWaitingForLoadToFinish() const { return m_isWaitingForLoadToFinish; }
@@ -1614,6 +1622,9 @@ private:
 
     bool m_openedByDOM { false };
     bool m_openedByDOMWithOpener { false };
+#if ENABLE(DOCUMENT_PIP)
+    bool m_isDocumentPictureInPicture { false };
+#endif
 
     bool m_tabKeyCyclesThroughElements { true };
     bool m_defersLoading { false };
@@ -1676,9 +1687,10 @@ private:
     JSC::Debugger* m_debugger { nullptr }; // FIXME: Use a smart pointer.
 
     bool m_canStartMedia { true };
-    bool m_imageAnimationEnabled { true };
+    bool m_systemImageAnimationEnabled { true };
+    Ref<ImageAnimationTimeline> m_imageAnimationTimeline;
     bool m_videoAutoplayPreviewsEnabled { true };
-    // Elements containing animations that are individually playing (potentially overriding the page-wide m_imageAnimationEnabled state).
+    // Elements containing animations that are individually playing (potentially overriding the page-wide imageAnimationEnabled() state).
     WeakHashSet<HTMLImageElement, WeakPtrImplWithEventTargetData> m_individuallyPlayingAnimationElements;
 #if ENABLE(ACCESSIBILITY_NON_BLINKING_CURSOR)
     bool m_prefersNonBlinkingCursor { false };

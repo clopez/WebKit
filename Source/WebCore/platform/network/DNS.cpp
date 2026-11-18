@@ -38,11 +38,8 @@
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
 
-#if OS(UNIX)
+#if OS(UNIX) || OS(QNX)
 #include <arpa/inet.h>
-#endif
-
-#if OS(QNX)
 #include <sys/socket.h>
 #endif
 
@@ -50,7 +47,7 @@ namespace WebCore {
 
 void prefetchDNS(const String& hostname)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     if (hostname.isEmpty())
         return;
 
@@ -59,7 +56,7 @@ void prefetchDNS(const String& hostname)
 
 void resolveDNS(const String& hostname, uint64_t identifier, DNSCompletionHandler&& completionHandler)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     if (hostname.isEmpty())
         return completionHandler(makeUnexpected(DNSError::CannotResolve));
 

@@ -254,8 +254,9 @@ header: <WebCore/MediaPlayer.h>
     UseDecompressionSessionForProtectedContent,
     UseStereoDecoding,
 #if PLATFORM(IOS_FAMILY)
-    CanShowWhileLocked
+    CanShowWhileLocked,
 #endif
+    RequiresHardwareDecoder
 };
 
 header: <WebCore/MediaPlayer.h>
@@ -1063,7 +1064,7 @@ class WebCore::SerializedPlatformDataCueValue {
 #endif
 
 #if ENABLE(VIDEO)
-using WebCore::MediaPlayer::VideoFullscreenMode = uint32_t
+using WebCore::MediaPlayerEnums::VideoFullscreenMode = uint32_t
 using WebCore::TrackID = uint64_t
 #endif
 
@@ -1088,6 +1089,7 @@ enum class WebCore::PlatformMediaError : uint8_t {
     CDMInstanceKeyNeeded,
     Shutdown,
     ProtectedContent,
+    HardwareDecoderUnavailable,
 };
 #endif
 

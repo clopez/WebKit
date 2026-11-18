@@ -1263,12 +1263,12 @@ static const String& macOSFullscreenMediaControlsStyleSheet()
 }
 #endif // HAVE(MATERIAL_HOSTING)
 
-Vector<String, 2> RenderThemeCocoa::mediaControlsStyleSheets(const HTMLMediaElement& mediaElement)
+Vector<String, 4> RenderThemeCocoa::mediaControlsStyleSheets(const HTMLMediaElement& mediaElement)
 {
     if (m_mediaControlsStyleSheet.isEmpty())
         m_mediaControlsStyleSheet = StringImpl::createWithoutCopying(ModernMediaControlsUserAgentStyleSheet);
 
-    auto mediaControlsStyleSheets = Vector<String, 2>::from(m_mediaControlsStyleSheet);
+    auto mediaControlsStyleSheets = Vector<String, 4>::from(m_mediaControlsStyleSheet);
 
 #if HAVE(MATERIAL_HOSTING)
     // FIXME (153018199): Glass material styles can be added directly to ModernMediaControlsUserAgentStyleSheet
@@ -1451,7 +1451,7 @@ void RenderThemeCocoa::adjustRepaintRect(const RenderBox& renderer, FloatRect& r
 {
     auto repaintRect = rect;
     inflateRectForControlRenderer(renderer, repaintRect);
-    renderer.flipForWritingMode(repaintRect);
+    renderer.physicalToBlockStartRelative(repaintRect);
     rect = repaintRect;
 }
 
@@ -1644,7 +1644,7 @@ static void drawShapeWithBorder(GraphicsContext& context, float deviceScaleFacto
     // Despite the border and background being painted with the same clip, the background
     // may bleed past the border unless we scale it down slightly.
 
-    const auto shrunkRect = shrinkRectByOneDevicePixel(context, LayoutRect(boundingRect), deviceScaleFactor);
+    const auto shrunkRect = Paint::shrinkRectByOneDevicePixel(context, LayoutRect(boundingRect), deviceScaleFactor);
     const auto backgroundScale = shrunkRect.size() / boundingRect.size();
 
     context.clipPath(path);
@@ -1662,7 +1662,7 @@ static void drawShapeWithBorder(GraphicsContext& context, float deviceScaleFacto
     context.strokePath(path);
 }
 
-static RefPtr<Gradient> checkboxRadioBackgroundGradientForVectorBasedControls(const FloatRect& rect, OptionSet<ControlStyle::State> states)
+static RefPtr<const Gradient> checkboxRadioBackgroundGradientForVectorBasedControls(const FloatRect& rect, OptionSet<ControlStyle::State> states)
 {
     // FIXME: This is just a copy of RenderThemeIOS::checkboxRadioBackgroundGradient(...). Refactor to remove this duplicate code.
     bool isPressed = states.contains(ControlStyle::State::Pressed);
@@ -1670,10 +1670,11 @@ static RefPtr<Gradient> checkboxRadioBackgroundGradientForVectorBasedControls(co
         return nullptr;
 
     bool isEmpty = !states.containsAny({ ControlStyle::State::Checked, ControlStyle::State::Indeterminate });
-    auto gradient = Gradient::create(Gradient::LinearData { rect.minXMinYCorner(), rect.maxXMaxYCorner() }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
-    gradient->addColorStop({ 0.0f, DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.125f } });
-    gradient->addColorStop({ 1.0f, DisplayP3<float> { 0, 0, 0, 0 } });
-    return gradient;
+    GradientColorStops stops { std::array {
+        DisplayP3<float> { 0, 0, 0, isEmpty ? 0.05f : 0.125f },
+        DisplayP3<float> { 0, 0, 0, 0 },
+    } };
+    return Gradient::create(Gradient::LinearData { rect.minXMinYCorner(), rect.maxXMaxYCorner() }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied }, GradientSpreadMethod::Pad, WTF::move(stops));
 }
 
 constexpr auto checkboxCornerRadiusRatio = 5.5f / checkboxRadioSizeForVectorBasedControls;
@@ -2420,11 +2421,8 @@ bool RenderThemeCocoa::paintColorWellDecorationsForVectorBasedControls(const Ren
         DisplayP3<float> { 1.00, 0.96, 0.00, 1 },
         DisplayP3<float> { 1.00, 0.00, 0.00, 1 },
     };
-    constexpr int numColorStops = std::size(colorStops);
 
-    Ref gradient = Gradient::create(Gradient::ConicData { rect.center(), 0 }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied });
-    for (int i = 0; i < numColorStops; ++i)
-        gradient->addColorStop({ i * 1.0f / (numColorStops - 1), colorStops[i] });
+    Ref gradient = Gradient::create(Gradient::ConicData { rect.center(), 0 }, { ColorInterpolationMethod::SRGB { }, AlphaPremultiplication::Unpremultiplied }, GradientSpreadMethod::Pad, GradientColorStops { colorStops });
 
     FloatRect strokeRect = rect;
     strokeRect.inflate(-strokeThickness / 2.0f);
@@ -2455,7 +2453,7 @@ bool RenderThemeCocoa::adjustInnerSpinButtonStyleForVectorBasedControls(Style::C
     // change according to the height of the inner container.
 
     const auto logicalWidthEm = style.writingMode().isVertical() ? 1.5f : 1.f;
-    const auto pixelsPerEm = Style::emToPx<float>(logicalWidthEm, style);
+    const auto pixelsPerEm = Style::emToPx<float>(logicalWidthEm, style, protect(element->document()));
 
     style.setLogicalWidth(Style::PreferredSize::Fixed { pixelsPerEm });
     style.setLogicalHeight(CSS::Keyword::Auto { });
@@ -3206,18 +3204,16 @@ static void adjustInputElementButtonStyleForVectorBasedControls(Style::ComputedS
     }
 }
 
-#endif
-
 static void adjustSelectListButtonStyleForVectorBasedControls(Style::ComputedStyle& style)
 {
     // FIXME: This is a copy of adjustSelectListButtonStyle(...) from RenderThemeIOS. Refactor to remove duplicate code.
-#if PLATFORM(IOS_FAMILY)
     applyCommonButtonPaddingToStyleForVectorBasedControls(style);
-#endif
 
     style.setLineHeight(Style::ComputedStyle::initialLineHeight());
     style.setTextAutosizingAdjustedLineHeight(Style::ComputedStyle::initialLineHeight());
 }
+
+#endif
 
 bool RenderThemeCocoa::adjustMenuListStyleForVectorBasedControls(Style::ComputedStyle& style, const Element* element) const
 {
@@ -3393,10 +3389,6 @@ bool RenderThemeCocoa::adjustMenuListButtonStyleForVectorBasedControls(Style::Co
 #endif
     }
 
-    const auto isNonMultipleSelectElement = is<HTMLSelectElement>(*element) && !element->hasAttributeWithoutSynchronization(HTMLNames::multipleAttr);
-    if (isNonMultipleSelectElement)
-        adjustSelectListButtonStyleForVectorBasedControls(style);
-
 #if PLATFORM(IOS_FAMILY)
     const int menuListMinHeight = 15;
     const float menuListBaseHeight = 20;
@@ -3409,8 +3401,10 @@ bool RenderThemeCocoa::adjustMenuListButtonStyleForVectorBasedControls(Style::Co
     else
         style.setLogicalMinHeight(Style::MinimumSize::Fixed { static_cast<float>(menuListMinHeight) });
 
-    if (isNonMultipleSelectElement)
+    if (is<HTMLSelectElement>(*element)) {
+        adjustSelectListButtonStyleForVectorBasedControls(style);
         return true;
+    }
 
     if (RefPtr input = dynamicDowncast<HTMLInputElement>(*element))
         adjustInputElementButtonStyleForVectorBasedControls(style, *input);
@@ -4300,7 +4294,7 @@ bool RenderThemeCocoa::adjustSearchFieldCancelButtonStyleForVectorBasedControls(
     if (!formControlRefreshEnabled(element))
         return false;
 
-    auto pixelsPerEm = Style::emToPx<float>(1, style);
+    auto pixelsPerEm = Style::emToPx<float>(1, style, protect(element->document()));
     style.setWidth(Style::PreferredSize::Fixed { searchFieldDecorationEmSize * pixelsPerEm });
     style.setHeight(Style::PreferredSize::Fixed { searchFieldDecorationEmSize * pixelsPerEm });
     return true;
@@ -4393,7 +4387,7 @@ bool RenderThemeCocoa::adjustSearchFieldDecorationPartStyleForVectorBasedControl
     if (!formControlRefreshEnabled(element))
         return false;
 
-    auto pixelsPerEm = Style::emToPx<float>(1, style);
+    auto pixelsPerEm = Style::emToPx<float>(1, style, protect(element->document()));
 
 #if PLATFORM(MAC)
     RefPtr input = dynamicDowncast<HTMLInputElement>(element->shadowHost());

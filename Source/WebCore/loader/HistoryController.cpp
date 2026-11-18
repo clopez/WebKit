@@ -52,7 +52,6 @@
 #include "Navigation.h"
 #include "NavigationScheduler.h"
 #include "Page.h"
-#include "ProcessSwapDisposition.h"
 #include "ScrollingCoordinator.h"
 #include "SerializedScriptValue.h"
 #include "Settings.h"
@@ -60,6 +59,7 @@
 #include "ShouldTreatAsContinuingLoad.h"
 #include "VisitedLinkStore.h"
 #include <WebCore/HTTPStatusCodes.h>
+#include <wtf/Borrow.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/TextStream.h>
 
@@ -435,7 +435,7 @@ void HistoryController::goToItemForNavigationAPI(HistoryItem& targetItem, FrameL
         // all frames have provisional items set before the commit.
         protectedThis->recursiveSetProvisionalItem(targetItem, currentItem.get(), ForNavigationAPI::Yes);
 
-        for (auto& frameToNavigate : framesToNavigate) {
+        for (auto& frameToNavigate : borrow(framesToNavigate)) {
             Ref abortHandler = protect(protect(frameToNavigate.frame->window())->navigation())->registerAbortHandler();
             frameToNavigate.frame->loader().loadItem(frameToNavigate.toItem, frameToNavigate.fromItem.get(), frameLoadType, ShouldTreatAsContinuingLoad::No);
             // If the navigation was aborted (by the JS called preventDefault() on the navigate event), then

@@ -78,6 +78,7 @@
 #include "StylePrimitiveNumericTypes+Evaluation.h"
 #include "StyleSelfAlignmentData.h"
 #include "StyleTextDecorationLine.h"
+#include "StyleTouchAction.h"
 #include "StyleUpdate.h"
 #include "Styleable.h"
 #include "Text.h"
@@ -88,6 +89,7 @@
 #include "VisibilityAdjustment.h"
 #include "WebAnimationTypes.h"
 #include <wtf/RobinHoodHashSet.h>
+#include <wtf/WeakHashMap.h>
 
 #if PLATFORM(COCOA)
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
@@ -99,13 +101,6 @@
 
 #if USE(APPLE_INTERNAL_SDK)
 #include <WebKitAdditions/StyleAdjusterAdditions.cpp>
-#else
-namespace WebCore {
-namespace Style {
-NODELETE static inline void adjustForManipulationSurfaceQuirk(ComputedStyle&) { }
-NODELETE static inline void adjustForBoxAnnotationQuirk(ComputedStyle&) { }
-} // namespace Style
-} // namespace WebCore
 #endif
 
 namespace WebCore {
@@ -187,7 +182,7 @@ static bool shouldInheritTextDecorationsInEffect(const Style::ComputedStyle& sty
     return true;
 }
 
-NODELETE static bool isScrollableOverflow(Overflow overflow)
+NODELETE static bool isUserScrollableOverflow(Overflow overflow)
 {
     return overflow == Overflow::Scroll || overflow == Overflow::Auto;
 }
@@ -199,7 +194,7 @@ static TouchAction computeUsedTouchAction(const Style::ComputedStyle& style, Tou
     // the hit tested element and its nearest ancestor with the default touch behavior (including both the
     // hit tested element and the element with the default touch behavior)."
 
-    bool hasDefaultTouchBehavior = isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY());
+    bool hasDefaultTouchBehavior = isUserScrollableOverflow(style.overflowX()) || isUserScrollableOverflow(style.overflowY());
     if (hasDefaultTouchBehavior)
         usedTouchAction = ComputedStyle::initialTouchAction();
 
@@ -389,7 +384,7 @@ NODELETE static UnicodeBidi forceBidiIsolationForRuby(UnicodeBidi unicodeBidi)
     return UnicodeBidi::Isolate;
 }
 
-static bool shouldTreatAutoZIndexAsZero(const Style::ComputedStyle& style)
+bool Adjuster::shouldTreatAutoZIndexAsZero(const Style::ComputedStyle& style)
 {
     return !style.opacity().isOpaque()
         || style.hasTransformRelatedProperty()
@@ -449,6 +444,22 @@ void Adjuster::adjustFirstLineStyle(Style::ComputedStyle& style)
 
     // Force inline display.
     style.setDisplayMaintainingOriginalDisplay(DisplayType::InlineFlow);
+}
+
+static WeakHashMap<Element, WebCore::Color, WeakPtrImplWithEventTargetData>& overrideBackgroundColorsForTesting()
+{
+    static MainThreadNeverDestroyed<WeakHashMap<Element, WebCore::Color, WeakPtrImplWithEventTargetData>> colors;
+    return colors;
+}
+
+void Adjuster::setOverrideBackgroundColorForTesting(Element& element, std::optional<WebCore::Color>&& color)
+{
+    if (color)
+        overrideBackgroundColorsForTesting().set(element, WTF::move(*color));
+    else
+        overrideBackgroundColorsForTesting().remove(element);
+
+    element.invalidateStyle();
 }
 
 void Adjuster::adjust(Style::ComputedStyle& style) const
@@ -570,7 +581,7 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
         // must be positioned for z-index to apply to them.
         if (element && element->document().settings().layerBasedSVGEngineEnabled()) {
             if (auto* svgElement = dynamicDowncast<SVGElement>(*element); svgElement && svgElement->isOutermostSVGSVGElement())
-                return style.position() == PositionType::Static;
+                return style.position() == PositionType::Static && !parentBoxStyle.display().isFlexibleBoxIncludingDeprecatedOrGridFormattingContextBox();
 
             return false;
         }
@@ -684,18 +695,18 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
         // FIXME: Once we implement pagination controls, overflow-x should default to hidden
         // if overflow-y is set to -webkit-paged-x or -webkit-page-y. For now, we'll let it
         // default to auto so we can at least scroll through the pages.
-        // Values of 'clip' and 'visible' can only be used with 'clip' and 'visible'.
-        // If they aren't, 'clip' and 'visible' is reset.
+        // 'visible' computes to 'auto' if the other axis is scrollable. 'clip' is preserved
+        // when single-axis scroll containers are enabled, making a scroll container that only
+        // scrolls in the other axis; otherwise it computes to 'hidden'.
+        // https://drafts.csswg.org/css-overflow-3/#overflow-control
         if (style.overflowX() == Overflow::Visible)
             style.setOverflowX(Overflow::Auto);
-        else if (style.overflowX() == Overflow::Clip)
+        else if (style.overflowX() == Overflow::Clip && !m_document->settings().cssSingleAxisScrollContainersEnabled())
             style.setOverflowX(Overflow::Hidden);
     } else if (!isOverflowClipOrVisible(style.overflowX())) {
-        // Values of 'clip' and 'visible' can only be used with 'clip' and 'visible'.
-        // If they aren't, 'clip' and 'visible' is reset.
         if (style.overflowY() == Overflow::Visible)
             style.setOverflowY(Overflow::Auto);
-        else if (style.overflowY() == Overflow::Clip)
+        else if (style.overflowY() == Overflow::Clip && !m_document->settings().cssSingleAxisScrollContainersEnabled())
             style.setOverflowY(Overflow::Hidden);
     }
 
@@ -707,7 +718,7 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
 
 #if ENABLE(WEBKIT_OVERFLOW_SCROLLING_CSS_PROPERTY)
     // Touch overflow scrolling creates a stacking context.
-    if (style.usedZIndex().isAuto() && style.overflowScrolling() == WebkitOverflowScrolling::Touch && (isScrollableOverflow(style.overflowX()) || isScrollableOverflow(style.overflowY())))
+    if (style.usedZIndex().isAuto() && style.overflowScrolling() == WebkitOverflowScrolling::Touch && (isUserScrollableOverflow(style.overflowX()) || isUserScrollableOverflow(style.overflowY())))
         style.setUsedZIndex(0);
 #endif
 
@@ -835,6 +846,11 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
 #endif
 
     adjustForSiteSpecificQuirks(style);
+
+    if (m_element) {
+        if (auto overrideBackgroundColor = overrideBackgroundColorsForTesting().getOptional(*m_element)) [[unlikely]]
+            style.setOverrideBackgroundColor({ WTF::move(*overrideBackgroundColor) });
+    }
 
     adjustUsedUserSelect(style);
     // Don't allow selecting individual glyphs on text recognized inside an image:
@@ -1110,73 +1126,22 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
             style.setVisibility(Visibility::Visible);
     }
 
-    if (documentQuirks.needsWebExScrollabilityQuirk()) {
-        // Ignore overflow: hidden on the body and #wrapper so the page remains
-        // scrollable, and drop the width constraints on #wrapper so the desktop
-        // layout fits the viewport.
-        static MainThreadNeverDestroyed<const AtomString> wrapperID("wrapper"_s);
-        bool isWrapper = m_element->idForStyleResolution() == wrapperID;
-        if (m_element->hasTagName(bodyTag) || isWrapper) {
-            if (style.overflowX() == Overflow::Hidden)
-                style.setOverflowX(Overflow::Auto);
-            if (style.overflowY() == Overflow::Hidden)
-                style.setOverflowY(Overflow::Auto);
-        }
-        if (isWrapper) {
-            style.setMinWidth(CSS::Keyword::Auto { });
-            style.setMaxWidth(CSS::Keyword::None { });
-        }
-    }
-
-    // yahoo.com rdar://170502516
-    if (documentQuirks.needsYahooVolumeSliderQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("vjs-volume-control"_s);
-        if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className)) {
-            style.setMinHeight(100_css_percentage);
-            style.setAlignItems(Style::AlignItems { CSS::Keyword::Center { } });
-        }
-    }
-
+#if HAVE(APPKIT_GESTURES_SUPPORT)
     // google.com/maps/embed rdar://184166392
-    if (documentQuirks.needsGoogleMapsEmbedManipulationSurfaceQuirk())
-        adjustForManipulationSurfaceQuirk(style);
+    if (documentQuirks.needsGoogleMapsEmbedManipulationSurfaceQuirk()) {
+        if (toPlatform(style.usedTouchAction()) == OptionSet { WebCore::TouchAction::PanX, WebCore::TouchAction::PanY })
+            style.setUsedTouchAction(CSS::Keyword::None { });
+    }
 
     // box.com rdar://187475153
     if (documentQuirks.needsBoxAnnotationQuirk(protect(*m_element)))
-        adjustForBoxAnnotationQuirk(style);
+        style.setUsedTouchAction(CSS::Keyword::Auto { });
+#endif // HAVE(APPKIT_GESTURES_SUPPORT)
 
 #if PLATFORM(IOS_FAMILY)
-    if (documentQuirks.needsGoogleMapsScrollingQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("PUtLdf"_s);
-        if (is<HTMLBodyElement>(*m_element) && m_element->hasClassName(className))
-            style.setUsedTouchAction(CSS::Keyword::Auto { });
-    }
-    // netflix.com rdar://178545839
-    if (documentQuirks.needsNetflixVolumeSliderQuirk()) {
-        static MainThreadNeverDestroyed<const QualifiedName> dataUiaAttr(nullAtom(), "data-uia"_s, nullAtom());
-        static MainThreadNeverDestroyed<const AtomString> scrubberValue("scrubber"_s);
-        static MainThreadNeverDestroyed<const AtomString> verticalValue("vertical"_s);
-        if (is<HTMLDivElement>(*m_element)
-            && m_element->attributeWithoutSynchronization(dataUiaAttr) == scrubberValue
-            && m_element->attributeWithoutSynchronization(HTMLNames::aria_orientationAttr) == verticalValue)
-            style.setUsedTouchAction(CSS::Keyword::None { });
-    }
     if (documentQuirks.needsFacebookStoriesCreationFormQuirk(*m_element, style))
         style.setDisplayMaintainingOriginalDisplay(DisplayType::BlockFlex);
 #endif // PLATFORM(IOS_FAMILY)
-
-    if (documentQuirks.needsFacebookRemoveNotSupportedQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("xnw9j1v"_s);
-        if (is<HTMLDivElement>(*m_element) && m_element->hasClassName(className))
-            style.setDisplayMaintainingOriginalDisplay(DisplayType::None);
-    }
-
-    // airindiaexpress.com https://webkit.org/b/317375
-    if (documentQuirks.needsAirIndiaExpressLayeringQuirk()) {
-        static MainThreadNeverDestroyed<const AtomString> className("new-trip-type-and-guest-selection-container"_s);
-        if (m_element->hasClassName(className))
-            style.setUsedZIndex(2);
-    }
 
     if (auto tikTokOverflowingContentQuery = documentQuirks.needsTikTokOverflowingContentQuirk(protect(*m_element), m_parentStyle)) {
         if (*tikTokOverflowingContentQuery == Quirks::TikTokOverflowingContentQuirkType::CommentsSectionQuirk)  {
@@ -1188,10 +1153,6 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
         }
     }
 
-    // tiktok.com rdar://problem/183445905
-    if (documentQuirks.needsTikTokCaptchaSliderTouchActionQuirk(protect(*m_element)))
-        style.setUsedTouchAction(CSS::Keyword::None { });
-
 #if ENABLE(VIDEO)
     if (documentQuirks.needsFullscreenDisplayNoneQuirk()) {
         if (is<HTMLDivElement>(*m_element) && style.display() == DisplayType::None) {
@@ -1199,7 +1160,7 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
             static MainThreadNeverDestroyed<const AtomString> videoElementID("vjs_video_3_html5_api"_s);
 
             if (m_element->hasClassName(instreamNativeVideoDivClass)) {
-                RefPtr video = dynamicDowncast<HTMLVideoElement>(m_element->treeScope().getElementById(videoElementID));
+                RefPtr video = dynamicDowncast<HTMLVideoElement>(protect(m_element->treeScope())->getElementById(videoElementID));
                 if (video && video->isFullscreen())
                     style.setDisplayMaintainingOriginalDisplay(DisplayType::BlockFlow);
             }
@@ -1215,30 +1176,9 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
 #endif
 #endif
 
-    if (documentQuirks.needsExpediaGroupAnimationQuirk(protect(*m_element))) {
-        // We need to reset animation styles that are mistakenly overridden:
-        //     animation-delay: 0s, 0.06s;
-        //     animation-duration: 0.18s, 0.06s;
-        //     animation-fill-mode: none, both;
-        //     animation-name: menu-grow-left, menu-fade-in;
-        auto menuGrowLeftAnimation = Style::Animation { { ScopedName { "menu-grow-left"_s } } };
-        menuGrowLeftAnimation.setDelay(0_css_s);
-        menuGrowLeftAnimation.setDuration(.18_css_s);
-        menuGrowLeftAnimation.setFillMode(AnimationFillMode::None);
-
-        auto menuFadeInAnimation = Style::Animation { { ScopedName { "menu-fade-in"_s } } };
-        menuFadeInAnimation.setDelay(.06_css_s);
-        menuFadeInAnimation.setDuration(.06_css_s);
-        menuFadeInAnimation.setFillMode(AnimationFillMode::Both);
-
-        auto& animations = style.ensureAnimations();
-        animations = Style::Animations { WTF::move(menuGrowLeftAnimation), WTF::move(menuFadeInAnimation) };
-        animations.prepareForUse();
-    }
-
 #if PLATFORM(IOS_FAMILY)
     if (documentQuirks.needsClaudeSidebarViewportUnitQuirk(protect(*m_element), style))
-        style.setHeight(PreferredSize::Fixed { m_document->renderView()->sizeForCSSDynamicViewportUnits().height() });
+        style.setHeight(PreferredSize::Fixed { protect(m_document->renderView())->sizeForCSSDynamicViewportUnits().height() });
 
     if (auto openRiceAdPopupHeight = documentQuirks.needsOpenRiceAdPopupHeightQuirk(protect(*m_element), style)) {
         style.setUsesViewportUnits();
@@ -1250,8 +1190,9 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
     if (documentQuirks.needsAmazonDesignMenuViewportUnitQuirk(style, m_parentStyle)) {
         if (auto fixedHeight = style.height().tryFixed()) {
             auto resolvedHeight = fixedHeight->resolveZoom(ZoomFactor::none());
-            auto defaultViewportHeight = m_document->renderView()->sizeForCSSDefaultViewportUnits().height();
-            auto dynamicViewportHeight = m_document->renderView()->sizeForCSSDynamicViewportUnits().height();
+            CheckedPtr renderView = m_document->renderView();
+            auto defaultViewportHeight = renderView->sizeForCSSDefaultViewportUnits().height();
+            auto dynamicViewportHeight = renderView->sizeForCSSDynamicViewportUnits().height();
             style.setHeight(PreferredSize::Fixed { resolvedHeight - (defaultViewportHeight - dynamicViewportHeight) });
         }
     }
@@ -1318,8 +1259,8 @@ void Adjuster::adjustColumnStylesForPaginationMode(Style::ComputedStyle& style, 
 void Adjuster::propagateToDocumentElementAndInitialContainingBlock(Update& update, const Document& document)
 {
     RefPtr body = document.body();
-    auto* bodyStyle = body ? update.elementStyle(*body) : nullptr;
-    auto* documentElementStyle = update.elementStyle(*document.documentElement());
+    CheckedPtr bodyStyle = body ? update.elementStyle(*body) : nullptr;
+    CheckedPtr documentElementStyle = update.elementStyle(*document.documentElement());
 
     if (!documentElementStyle)
         return;
@@ -1352,7 +1293,7 @@ void Adjuster::propagateToDocumentElementAndInitialContainingBlock(Update& updat
     // https://drafts.csswg.org/css-writing-modes-3/#icb
     WritingMode viewWritingMode = document.renderView()->writingMode();
     if (writingMode != viewWritingMode.computedWritingMode() || direction != viewWritingMode.computedTextDirection()) {
-        auto newRootStyle = Style::ComputedStyle::clonePtr(document.renderView()->style());
+        auto newRootStyle = Style::ComputedStyle::clonePtr(protect(document.renderView()->style()));
         newRootStyle->setWritingMode(writingMode);
         newRootStyle->setDirection(direction);
         adjustColumnStylesForPaginationMode(*newRootStyle, document.view()->pagination().mode);

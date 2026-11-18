@@ -186,7 +186,7 @@ RenderBlockFlow::MarginInfo::MarginInfo(bool canCollapseWithChildren, bool canCo
 {
 }
 
-RenderBlockFlow::RenderBlockFlow(Type type, Element& element, Style::ComputedStyle&& style, OptionSet<BlockFlowFlag> flags)
+RenderBlockFlow::RenderBlockFlow(Type type, Element& element, UniqueRef<Style::ComputedStyle>&& style, OptionSet<BlockFlowFlag> flags)
     : RenderBlock(type, element, WTF::move(style), { }, flags)
     , m_widthForTextAutosizing(-1)
     , m_lineCountForTextAutosizing(NOT_SET)
@@ -195,7 +195,7 @@ RenderBlockFlow::RenderBlockFlow(Type type, Element& element, Style::ComputedSty
     setChildrenInline(true);
 }
 
-RenderBlockFlow::RenderBlockFlow(Type type, Document& document, Style::ComputedStyle&& style, OptionSet<BlockFlowFlag> flags)
+RenderBlockFlow::RenderBlockFlow(Type type, Document& document, UniqueRef<Style::ComputedStyle>&& style, OptionSet<BlockFlowFlag> flags)
     : RenderBlock(type, document, WTF::move(style), { }, flags)
     , m_widthForTextAutosizing(-1)
     , m_lineCountForTextAutosizing(NOT_SET)
@@ -387,7 +387,7 @@ std::pair<LayoutUnit, LayoutUnit> RenderBlockFlow::computeIntrinsicLogicalWidths
     if (auto* cell = dynamicDowncast<RenderTableCell>(*this)) {
         auto [tableCellWidth, usedZoom] = cell->styleOrColLogicalWidth();
         if (auto fixedTableCellWidth = tableCellWidth.tryFixed(); fixedTableCellWidth && fixedTableCellWidth->isPositive())
-            maxLogicalWidth = std::max(minLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(*fixedTableCellWidth));
+            maxLogicalWidth = std::max(minLogicalWidth, adjustContentBoxLogicalWidthForBoxSizing(tableCellWidth, LayoutUnit { fixedTableCellWidth->resolveZoom(style().usedZoomForLength()) }, 0_lu));
     }
 
     auto scrollbarWidth = intrinsicScrollbarLogicalWidthIncludingGutter();
@@ -640,11 +640,6 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
     LayoutUnit oldHeight = logicalHeight();
     auto afterPaddingEdge = paddingBoxLogicalBottom();
 
-    // Before updating the final size of the flow thread make sure a forced break is applied after the content.
-    // This ensures the size information is correctly computed for the last auto-height fragment receiving content.
-    if (CheckedPtr fragmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this))
-        fragmentedFlow->applyBreakAfterContent(afterPaddingEdge);
-
     updateLogicalHeight();
     LayoutUnit newHeight = logicalHeight();
 
@@ -697,7 +692,7 @@ void RenderBlockFlow::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit 
         }
 
         // Add overflow from children (unless we're multi-column, since in that case all our child overflow is clipped anyway).
-        auto contentArea = flippedContentBoxRect();
+        auto contentArea = blockStartRelativeContentBoxRect();
         if (writingMode().isHorizontal())
             contentArea.shiftMaxYEdgeTo(afterPaddingEdge - paddingAfter());
         else
@@ -980,6 +975,8 @@ void RenderBlockFlow::layoutInFlowChildren(RelayoutChildren relayoutChildren, La
         return;
     }
 
+    // With line-clamp, trim-end applies to the last line before the clamp point (see LineBoxBuilder::applyTextBoxTrimOnLineBoxIfNeeded).
+    auto didTrimEndAtClampPoint = false;
     {
         auto textBoxTrimmer = TextBoxTrimmer { *this };
         auto lineClampUpdater = LineClampUpdater { *this };
@@ -1021,16 +1018,21 @@ void RenderBlockFlow::layoutInFlowChildren(RelayoutChildren relayoutChildren, La
             lineClampUpdater.resetLineClamp();
             relayoutContent();
         }
+        auto lineClamp = layoutState ? layoutState->lineClamp() : std::nullopt;
+        didTrimEndAtClampPoint = lineClamp && lineClamp->shouldTrimEndAtClampPoint && !lineClamp->maximumLines;
     }
 
     {
         auto applyTextBoxTrimEndIfNeeded = [&] {
+            // The content after the clamp point is not rendered, and laying it out again here would not clamp it.
+            if (didTrimEndAtClampPoint)
+                return;
             // With block children and blocks-inside-inline, there's no way to tell what the last formatted line is until after we finished laying out the subtree.
             // Dirty the last formatted line (in the last IFC) and issue relayout with forcing trimming the last line if applicable.
             if (CheckedPtr rootForLastFormattedLine = TextBoxTrimmer::lastInlineFormattingContextRootForTrimEnd(*this)) {
                 ASSERT(rootForLastFormattedLine != this);
                 // FIXME: We should be able to damage the last line only.
-                for (CheckedPtr<RenderBlock> ancestor = rootForLastFormattedLine; ancestor && ancestor != this; ancestor = ancestor->containingBlock())
+                for (CheckedPtr<RenderBoxModelObject> ancestor = rootForLastFormattedLine; ancestor && ancestor != this; ancestor = ancestor->containingBlock())
                     ancestor->setNeedsLayout(MarkingBehavior::OnlyThis);
 
                 auto textBoxTrimmer = TextBoxTrimmer { *this, *rootForLastFormattedLine };
@@ -1138,7 +1140,7 @@ void RenderBlockFlow::layoutBlockChildren(RelayoutChildren relayoutChildren, Lay
 
         // What follows this child is after the clamp point.
         if (auto* layoutState = view().frameView().layoutContext().layoutState(); layoutState && layoutState->lineClamp() && layoutState->lineClamp()->clampAfterBox == &child)
-            layoutState->setLineClamp(RenderLayoutState::LineClamp { 0, layoutState->lineClamp()->shouldDiscardOverflow, { } });
+            layoutState->setLineClamp(RenderLayoutState::LineClamp { 0, layoutState->lineClamp()->shouldDiscardOverflow, { }, false, false, layoutState->lineClamp()->shouldTrimEndAtClampPoint });
     }
     
     if (style().marginTrim().contains(Style::MarginTrimSide::BlockEnd))
@@ -2100,7 +2102,7 @@ void RenderBlockFlow::setMaxMarginAfterValues(LayoutUnit pos, LayoutUnit neg)
 
 static bool inNormalFlow(RenderBox& child)
 {
-    RenderBlock* curr = child.containingBlock();
+    RenderBoxModelObject* curr = child.containingBlock();
     while (curr && curr != &child.view()) {
         if (curr->isRenderFragmentedFlow())
             return true;
@@ -2121,7 +2123,7 @@ LayoutUnit RenderBlockFlow::applyBeforeBreak(RenderBox& child, LayoutUnit logica
     bool checkFragmentBreaks = false;
     bool checkBeforeAlways = (checkColumnBreaks && child.style().breakBefore() == BreakBetween::Column)
         || (checkPageBreaks && alwaysPageBreak(child.style().breakBefore()));
-    if (checkBeforeAlways && inNormalFlow(child) && hasNextPage(logicalOffset, IncludePageBoundary)) {
+    if (checkBeforeAlways && inNormalFlow(child) && hasNextPage(logicalOffset)) {
         if (checkColumnBreaks) {
             if (isInsideMulticolFlow)
                 checkFragmentBreaks = true;
@@ -2146,7 +2148,7 @@ LayoutUnit RenderBlockFlow::applyAfterBreak(RenderBox& child, LayoutUnit logical
     bool checkFragmentBreaks = false;
     bool checkAfterAlways = (checkColumnBreaks && child.style().breakAfter() == BreakBetween::Column)
         || (checkPageBreaks && alwaysPageBreak(child.style().breakAfter()));
-    if (checkAfterAlways && inNormalFlow(child) && hasNextPage(logicalOffset, IncludePageBoundary)) {
+    if (checkAfterAlways && inNormalFlow(child) && hasNextPage(logicalOffset)) {
 
         // So our margin doesn't participate in the next collapsing steps.
         marginInfo.clearMargin();
@@ -2440,7 +2442,7 @@ void RenderBlockFlow::clearShouldBreakAtLineToAvoidWidow() const
     rareBlockFlowData()->m_lineBreakToAvoidWidow = -1;
 }
 
-bool RenderBlockFlow::hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule pageBoundaryRule) const
+bool RenderBlockFlow::hasNextPage(LayoutUnit logicalOffset) const
 {
     ASSERT(view().frameView().layoutContext().layoutState() && view().frameView().layoutContext().layoutState()->isPaginated());
 
@@ -2454,8 +2456,9 @@ bool RenderBlockFlow::hasNextPage(LayoutUnit logicalOffset, PageBoundaryRule pag
     if (!fragment)
         return false;
 
+    // The last column set makes new columns to accommodate content.
     if (fragment->isLastFragment())
-        return fragment->isRenderFragmentContainerSet() || (pageBoundaryRule == IncludePageBoundary && pageOffset == fragment->logicalTopForFragmentedFlowContent());
+        return true;
 
     RenderFragmentContainer* startFragment = nullptr;
     RenderFragmentContainer* endFragment = nullptr;
@@ -2818,7 +2821,7 @@ void RenderBlockFlow::paintColumnRules(PaintInfo& paintInfo, const LayoutPoint& 
 
     // Iterate over our children and paint the column rules as needed.
     for (auto& columnSet : childrenOfType<RenderMultiColumnSet>(*this)) {
-        LayoutPoint childPoint = columnSet.location() + flipForWritingModeForChild(columnSet, point);
+        LayoutPoint childPoint = columnSet.location() + blockStartRelativeToPhysicalForChild(columnSet, point);
         columnSet.paintColumnRules(paintInfo, childPoint);
     }
 }
@@ -2834,7 +2837,7 @@ void RenderBlockFlow::paintFloats(PaintInfo& paintInfo, const LayoutPoint& paint
         if (!floatingObject->shouldPaint())
             continue;
 
-        auto floatBoxLocation = flipFloatForWritingModeForChild(*floatingObject, paintOffset + floatingObject->translationOffsetToAncestor());
+        auto floatBoxLocation = blockStartRelativeToPhysicalForFloat(*floatingObject, paintOffset + floatingObject->translationOffsetToAncestor());
         auto& renderer = *floatingObject->renderer();
         GraphicsContextStateSaver stateSaver(paintInfo.context(), false);
 
@@ -2884,7 +2887,7 @@ void RenderBlockFlow::clipOutFloatingBoxes(RenderBlock& rootBlock, const PaintIn
             continue;
         LayoutRect floatBox(offsetFromRootBlock.width(), offsetFromRootBlock.height(), floatingObject->renderer()->borderBoxWidth(), floatingObject->renderer()->borderBoxHeight());
         floatBox.move(floatingObject->locationOffsetOfBorderBox());
-        rootBlock.flipForWritingMode(floatBox);
+        rootBlock.blockStartRelativeToPhysical(floatBox);
         floatBox.move(rootBlockPhysicalPosition.x(), rootBlockPhysicalPosition.y());
         paintInfo->context().clipOut(snappedIntRect(floatBox));
     }
@@ -3464,7 +3467,7 @@ void RenderBlockFlow::markSiblingsWithFloatsForLayout(RenderBox* floatToRemove)
     }
 }
 
-LayoutPoint RenderBlockFlow::flipFloatForWritingModeForChild(const FloatingObject& child, const LayoutPoint& point) const
+LayoutPoint RenderBlockFlow::blockStartRelativeToPhysicalForFloat(const FloatingObject& child, const LayoutPoint& point) const
 {
     if (!child.renderer())
         return point;
@@ -3472,9 +3475,9 @@ LayoutPoint RenderBlockFlow::flipFloatForWritingModeForChild(const FloatingObjec
     if (!writingMode().isBlockFlipped())
         return point;
     
-    // This is similar to RenderBox::flipForWritingModeForChild. We have to subtract out our left/top offsets twice, since
-    // it's going to get added back in. We hide this complication here so that the calling code looks normal for the unflipped
-    // case.
+    // This is similar to RenderBox::blockStartRelativeToPhysicalForChild. We have to subtract out our left/top offsets twice, since
+    // it's going to get added back in. We hide this complication here so that the calling code looks the same as when no
+    // conversion is needed.
     if (isHorizontalWritingMode())
         return LayoutPoint(point.x(), point.y() + borderBoxHeight() - child.renderer()->borderBoxHeight() - 2 * child.locationOffsetOfBorderBox().height());
     return LayoutPoint(point.x() + borderBoxWidth() - child.renderer()->borderBoxWidth() - 2 * child.locationOffsetOfBorderBox().width(), point.y());
@@ -3589,7 +3592,7 @@ bool RenderBlockFlow::hitTestFloats(const HitTestRequest& request, HitTestResult
         if (!renderer)
             continue;
         if (floatingObject->shouldPaint()) {
-            LayoutPoint childPoint = flipFloatForWritingModeForChild(*floatingObject, adjustedLocation + floatingObject->translationOffsetToAncestor());
+            LayoutPoint childPoint = blockStartRelativeToPhysicalForFloat(*floatingObject, adjustedLocation + floatingObject->translationOffsetToAncestor());
             if (renderer->hitTest(request, result, locationInContainer, childPoint)) {
                 updateHitTestResult(result, locationInContainer.point() - toLayoutSize(childPoint));
                 return true;
@@ -3792,12 +3795,17 @@ GapRects RenderBlockFlow::inlineSelectionGaps(RenderBlock& rootBlock, const Layo
             return { };
         }();
 
+        // The selected text's own background meets these gaps at the box edges, so take them the same way TextBoxPainter does.
+        auto boxLogicalRect = [](const InlineIterator::LeafBoxIterator& box) {
+            return LineSelection::logicalRectForPainting(box->logicalRectIgnoringInlineDirection());
+        };
+
         if (leftGap) {
-            result.uniteLeft(logicalLeftSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, firstSelectedBox->renderer().parent(), LayoutUnit(firstSelectedBox->logicalLeftIgnoringInlineDirection()),
+            result.uniteLeft(logicalLeftSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, firstSelectedBox->renderer().parent(), boxLogicalRect(firstSelectedBox).x(),
                 selTop, selHeight, cache, paintInfo));
         }
         if (rightGap) {
-            result.uniteRight(logicalRightSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, lastSelectedBox->renderer().parent(), LayoutUnit(lastSelectedBox->logicalRightIgnoringInlineDirection()),
+            result.uniteRight(logicalRightSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, lastSelectedBox->renderer().parent(), boxLogicalRect(lastSelectedBox).maxX(),
                 selTop, selHeight, cache, paintInfo));
         }
 
@@ -3810,20 +3818,21 @@ GapRects RenderBlockFlow::inlineSelectionGaps(RenderBlock& rootBlock, const Layo
         // We can see that the |bbb| run is not part of the selection while the runs around it are.
         if (firstSelectedBox && firstSelectedBox != lastSelectedBox) {
             // Now fill in any gaps on the line that occurred between two selected elements.
-            LayoutUnit lastLogicalLeft { firstSelectedBox->logicalRightIgnoringInlineDirection() };
+            auto lastLogicalLeft = boxLogicalRect(firstSelectedBox).maxX();
             bool isPreviousBoxSelected = firstSelectedBox->selectionState() != RenderObject::HighlightState::None;
             for (auto box = firstSelectedBox; box; box.traverseLineRightwardOnLine()) {
                 if (box->selectionState() != RenderObject::HighlightState::None) {
-                    LayoutRect logicalRect { lastLogicalLeft, selTop, LayoutUnit(box->logicalLeftIgnoringInlineDirection() - lastLogicalLeft), selHeight };
+                    auto selectedBoxLogicalRect = boxLogicalRect(box);
+                    LayoutRect logicalRect { lastLogicalLeft, selTop, selectedBoxLogicalRect.x() - lastLogicalLeft, selHeight };
                     logicalRect.move(isHorizontalWritingMode() ? offsetFromRootBlock : LayoutSize(offsetFromRootBlock.height(), offsetFromRootBlock.width()));
                     LayoutRect gapRect = rootBlock.logicalRectToPhysicalRect(rootBlockPhysicalPosition, logicalRect);
                     if (isPreviousBoxSelected && gapRect.width() > 0 && gapRect.height() > 0) {
                         if (paintInfo && box->renderer().parent()->usedStyle().visibility() == UsedVisibility::Visible)
-                            paintInfo->context().fillRect(gapRect, box->renderer().parent()->selectionBackgroundColor());
+                            paintInfo->context().fillRect(snapRectToDevicePixels(gapRect, document().deviceScaleFactor()), box->renderer().parent()->selectionBackgroundColor());
                         // VisibleSelection may be non-contiguous, see comment above.
                         result.uniteCenter(gapRect);
                     }
-                    lastLogicalLeft = box->logicalRightIgnoringInlineDirection();
+                    lastLogicalLeft = selectedBoxLogicalRect.maxX();
                 }
                 if (box == lastSelectedBox)
                     break;
@@ -3844,8 +3853,10 @@ GapRects RenderBlockFlow::inlineSelectionGaps(RenderBlock& rootBlock, const Layo
 
     // Now paint the gaps for the lines.
     for (; lineBox && hasSelectedChildren(lineBox); lineBox.traverseNext()) {
-        auto selectionTop = LayoutUnit { LineSelection::logicalTopAdjustedForPrecedingBlock(*lineBox) };
-        auto selectionHeight = LayoutUnit { std::max(0.f, LineSelection::logicalBottom(*lineBox) - selectionTop) };
+        auto lineSelectionRect = LineSelection::logicalRectForPainting({ FloatPoint { lineBox->contentLogicalLeft(), LineSelection::logicalTopAdjustedForPrecedingBlock(*lineBox) },
+            FloatPoint { lineBox->contentLogicalRight(), LineSelection::logicalBottom(*lineBox) } });
+        auto selectionTop = lineSelectionRect.y();
+        auto selectionHeight = lineSelectionRect.height();
 
         auto lineState = LineSelection::selectionState(*lineBox);
 
@@ -3874,7 +3885,7 @@ GapRects RenderBlockFlow::inlineSelectionGaps(RenderBlock& rootBlock, const Layo
         if (fillGapAboveLine())
             result.uniteCenter(blockSelectionGap(rootBlock, rootBlockPhysicalPosition, offsetFromRootBlock, lastLogicalTop, lastLogicalLeft, lastLogicalRight, selectionTop, cache, paintInfo));
 
-        LayoutRect logicalRect { LayoutUnit(lineBox->contentLogicalLeft()), selectionTop, LayoutUnit(lineBox->contentLogicalWidth()), selectionHeight };
+        auto logicalRect = lineSelectionRect;
         logicalRect.move(isHorizontalWritingMode() ? offsetFromRootBlock : offsetFromRootBlock.transposedSize());
         LayoutRect physicalRect = rootBlock.logicalRectToPhysicalRect(rootBlockPhysicalPosition, logicalRect);
         if (blockContainerWithOwnGaps) {
@@ -4049,7 +4060,8 @@ PositionWithAffinity RenderBlockFlow::positionForPointWithInlineChildren(const L
         return createPositionWithAffinity(0, Affinity::Downstream);
 
     bool linesAreFlipped = writingMode().isLineInverted();
-    bool blocksAreFlipped = writingMode().isBlockFlipped();
+    // Hit testing includes a box's physical top and left edges, which are its block-end edges in vertical-rl and horizontal-bt.
+    bool boxesIncludeBlockEndEdge = writingMode().isBlockFlipped();
 
     // look for the closest line box in the root box which is at the passed-in y coordinate
     InlineIterator::LeafBoxIterator closestBox;
@@ -4062,21 +4074,21 @@ PositionWithAffinity RenderBlockFlow::positionForPointWithInlineChildren(const L
             firstLineBoxWithChildren = lineBox;
 
         if (!linesAreFlipped && lineBox->isFirstAfterPageBreak()
-            && (pointInLogicalContents.y() < lineBox->logicalTop() || (blocksAreFlipped && pointInLogicalContents.y() == lineBox->logicalTop())))
+            && (pointInLogicalContents.y() < lineBox->logicalTop() || (boxesIncludeBlockEndEdge && pointInLogicalContents.y() == lineBox->logicalTop())))
             break;
 
         lastLineBoxWithChildren = lineBox;
 
         // check if this root line box is located at this y coordinate
         auto lineBottom = lineBox->contentLogicalBottomAdjustedForFollowingLineBox();
-        if (pointInLogicalContents.y() < lineBottom || (blocksAreFlipped && pointInLogicalContents.y() == lineBottom)) {
+        if (pointInLogicalContents.y() < lineBottom || (boxesIncludeBlockEndEdge && pointInLogicalContents.y() == lineBottom)) {
             if (linesAreFlipped) {
                 auto nextLineBoxWithChildren = lineBox->next();
                 while (nextLineBoxWithChildren && !nextLineBoxWithChildren->lineLeftmostLeafBox())
                     nextLineBoxWithChildren.traverseNext();
 
                 if (nextLineBoxWithChildren && nextLineBoxWithChildren->isFirstAfterPageBreak()
-                    && (pointInLogicalContents.y() > nextLineBoxWithChildren->logicalTop() || (!blocksAreFlipped && pointInLogicalContents.y() == nextLineBoxWithChildren->logicalTop())))
+                    && (pointInLogicalContents.y() > nextLineBoxWithChildren->logicalTop() || (!boxesIncludeBlockEndEdge && pointInLogicalContents.y() == nextLineBoxWithChildren->logicalTop())))
                     continue;
             }
             closestBox = closestBoxForHorizontalPosition(*lineBox, pointInLogicalContents.x());
@@ -4096,7 +4108,7 @@ PositionWithAffinity RenderBlockFlow::positionForPointWithInlineChildren(const L
         if (moveCaretToBoundary) {
             auto firstLineWithChildrenTop = LayoutUnit { std::min(previousLineBoxContentBottomOrBorderAndPadding(*firstLineBoxWithChildren), firstLineBoxWithChildren->contentLogicalTop()) };
             if (pointInLogicalContents.y() < firstLineWithChildrenTop
-                || (blocksAreFlipped && pointInLogicalContents.y() == firstLineWithChildrenTop)) {
+                || (boxesIncludeBlockEndEdge && pointInLogicalContents.y() == firstLineWithChildrenTop)) {
                 auto box = firstLineBoxWithChildren->lineLeftmostLeafBox();
                 if (box->isLineBreak()) {
                     if (auto next = box->nextLineRightwardOnLineIgnoringLineBreak())

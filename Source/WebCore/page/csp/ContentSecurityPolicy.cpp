@@ -403,10 +403,7 @@ bool ContentSecurityPolicy::allPoliciesAllow(NOESCAPE const ViolatedDirectiveCal
 static Vector<ResourceCryptographicDigest> parseSubResourceIntegrityIntoDigests(const String& subResourceIntegrity)
 {
     auto encodedDigests = parseIntegrityMetadata(subResourceIntegrity);
-    if (!encodedDigests)
-        return { };
-
-    return WTF::compactMap(*encodedDigests, [](auto& encodedDigest) {
+    return WTF::compactMap(encodedDigests, [](auto& encodedDigest) {
         return decodeEncodedResourceCryptographicDigest(encodedDigest);
     });
 }
@@ -873,8 +870,7 @@ String ContentSecurityPolicy::createURLForReporting(const URL& url, const String
     bool directiveIsSafe = violatedDirective != ContentSecurityPolicyDirectiveNames::frameSrc
         && violatedDirective != ContentSecurityPolicyDirectiveNames::objectSrc
         && violatedDirective != ContentSecurityPolicyDirectiveNames::blockAllMixedContent;
-    // FIXME: Remove suppression once rdar://189998444 is fixed.
-    SUPPRESS_MEMORY_UNSAFE_CAST auto securityOrigin = static_cast<SecurityOriginData>(*m_selfSource).securityOrigin();
+    auto securityOrigin = static_cast<SecurityOriginData>(*m_selfSource).securityOrigin();
 
     if (!url.isValid())
         return { };

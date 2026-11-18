@@ -173,6 +173,9 @@
 #if !defined(HAVE_PTHREAD_MAIN_NP)
 #define HAVE_PTHREAD_MAIN_NP 1
 #endif
+#if !defined(HAVE_MKOSTEMPS)
+#define HAVE_MKOSTEMPS 1
+#endif
 #endif // OS(DARWIN)
 
 /* watchOS (ARM64_32) must not use int128_t because of wrong behavior. */
@@ -429,10 +432,6 @@
 #define HAVE_HSTS_STORAGE_PATH 1
 #endif
 
-#if PLATFORM(MAC) || PLATFORM(IOS) || PLATFORM(MACCATALYST) || PLATFORM(VISION)
-#define HAVE_URL_FORMATTING 1
-#endif
-
 #if !OS(WINDOWS) && !OS(QNX)
 #define HAVE_STACK_BOUNDS_FOR_NEW_THREAD 1
 #endif
@@ -514,8 +513,12 @@
 #define HAVE_ARKIT_QUICK_LOOK_PREVIEW_ITEM 1
 #endif
 
-#if PLATFORM(VISION)
+#if PLATFORM(VISION) || (PLATFORM(MAC) && __MAC_OS_X_VERSION_MIN_REQUIRED >= 270000)
 #define HAVE_COMPOSITOR_SERVICES 1
+#endif
+
+#if PLATFORM(MAC) && HAVE(COMPOSITOR_SERVICES)
+#define HAVE_CP_REMOTE_COMPOSITOR 1
 #endif
 
 #if PLATFORM(IOS) || PLATFORM(MACCATALYST)
@@ -1017,10 +1020,6 @@
 
 #if PLATFORM(COCOA)
 #define HAVE_WEBGPU_IMPLEMENTATION 1
-// FIXME: PlatformHave.h should not depend or defined ENABLE macros.
-#if !defined(ENABLE_WEBGPU_SWIFT)
-#define ENABLE_WEBGPU_SWIFT 0
-#endif
 #endif
 
 #if PLATFORM(COCOA) && !PLATFORM(WATCHOS)
@@ -1907,6 +1906,10 @@
     || PLATFORM(WATCHOS) \
     || PLATFORM(APPLETV))
 #define HAVE_UISCROLLVIEW_DECELERATION_TRACKING_BEHAVIOR 1
+#endif
+
+#if !defined(HAVE_UI_VIEW) && __has_include(<UIKit/UIView.h>)
+#define HAVE_UI_VIEW 1
 #endif
 
 #if !defined(HAVE_UI_HINGE_INTERACTION) && PLATFORM(IOS) && __has_include(<UIKit/UIHingeInteraction.h>)

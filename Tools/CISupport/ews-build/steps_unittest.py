@@ -64,7 +64,6 @@ REAL_FILTER_RESULTS_USING_RESULTS_DB = FindUnexpectedStaticAnalyzerResults.filte
 REAL_WRITE_UNEXPECTED_RESULTS_FILE_TO_MASTER = FindUnexpectedStaticAnalyzerResults.write_unexpected_results_file_to_master
 
 # Prevent unit-tests from talking to live bugzilla and github servers
-BugzillaMixin.fetch_data_from_url_with_authentication_bugzilla = lambda x, y: None
 GitHubMixin.fetch_data_from_url_with_authentication_github = lambda x, y: None
 
 # Prevent unit tests from having huge amounts of logging from alembic.
@@ -3342,14 +3341,14 @@ Failed to upload test results to https://results.webkit.org/ (1 failed), exiting
         self.configureStep()
         self.setProperty('fullPlatform', 'ios-simulator')
         self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
-        self.setProperty('second_run_failures', ['test-was-skipped-patch-removed-expectation-but-still-fails.html'])
+        self.setProperty('first_run_failures', ['test-was-skipped-change-removed-expectation-but-still-fails.html'])
+        self.setProperty('second_run_failures', ['test-was-skipped-change-removed-expectation-but-still-fails.html'])
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
                         log_environ=False,
                         timeout=19800,
-                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', f'python3 Tools/Scripts/run-webkit-tests --no-build --no-show-results --no-new-test-results --clobber-old-results --release --results-directory layout-test-results --debug-rwt-logging --exit-after-n-failures 60 --skip-failing-tests --builder-name iOS-13-Simulator-WK2-Tests-EWS --build-number 123 --buildbot-worker ews126 --buildbot-master {EWS_BUILD_HOSTNAMES[0]} --report https://results.webkit.org/ --skipped=always test-was-skipped-patch-removed-expectation-but-still-fails.html 2>&1 | Tools/Scripts/filter-test-logs layout'],
+                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', f'python3 Tools/Scripts/run-webkit-tests --no-build --no-show-results --no-new-test-results --clobber-old-results --release --results-directory layout-test-results --debug-rwt-logging --exit-after-n-failures 60 --skip-failing-tests --builder-name iOS-13-Simulator-WK2-Tests-EWS --build-number 123 --buildbot-worker ews126 --buildbot-master {EWS_BUILD_HOSTNAMES[0]} --report https://results.webkit.org/ --skipped=always test-was-skipped-change-removed-expectation-but-still-fails.html 2>&1 | Tools/Scripts/filter-test-logs layout'],
                         env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             .exit(0),
@@ -3362,14 +3361,14 @@ Failed to upload test results to https://results.webkit.org/ (1 failed), exiting
         self.configureStep()
         self.setProperty('fullPlatform', 'ios-simulator')
         self.setProperty('configuration', 'release')
-        self.setProperty('first_run_failures', ['test-fails-withpatch1.html', 'test-pre-existent-failure1.html'])
-        self.setProperty('second_run_failures', ['test-fails-withpatch2.html', 'test-pre-existent-failure2.html'])
+        self.setProperty('first_run_failures', ['test-fails-withchange1.html', 'test-pre-existent-failure1.html'])
+        self.setProperty('second_run_failures', ['test-fails-withchange2.html', 'test-pre-existent-failure2.html'])
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir',
                         logfiles={'json': self.jsonFileName},
                         log_environ=False,
                         timeout=19800,
-                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', f'python3 Tools/Scripts/run-webkit-tests --no-build --no-show-results --no-new-test-results --clobber-old-results --release --results-directory layout-test-results --debug-rwt-logging --exit-after-n-failures 60 --skip-failing-tests --builder-name iOS-13-Simulator-WK2-Tests-EWS --build-number 123 --buildbot-worker ews126 --buildbot-master {EWS_BUILD_HOSTNAMES[0]} --report https://results.webkit.org/ --skipped=always test-fails-withpatch1.html test-fails-withpatch2.html test-pre-existent-failure1.html test-pre-existent-failure2.html 2>&1 | Tools/Scripts/filter-test-logs layout'],
+                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', f'python3 Tools/Scripts/run-webkit-tests --no-build --no-show-results --no-new-test-results --clobber-old-results --release --results-directory layout-test-results --debug-rwt-logging --exit-after-n-failures 60 --skip-failing-tests --builder-name iOS-13-Simulator-WK2-Tests-EWS --build-number 123 --buildbot-worker ews126 --buildbot-master {EWS_BUILD_HOSTNAMES[0]} --report https://results.webkit.org/ --skipped=always test-fails-withchange1.html test-fails-withchange2.html test-pre-existent-failure1.html test-pre-existent-failure2.html 2>&1 | Tools/Scripts/filter-test-logs layout'],
                         env={'RESULTS_SERVER_API_KEY': 'test-api-key'},
                         )
             .log('stdio', stdout='2 failures found.')
@@ -4329,7 +4328,7 @@ class TestRunWebKitTestsRedTree(BuildStepMixinAdditions, unittest.TestCase):
         self.assertFalse(self.getProperty('first_results_exceed_failure_limit'))
         return rc
 
-    def test_last_try_unexpected_failure_without_list_of_failing_tests_then_schedule_update_libs_and_test_without_patch(self):
+    def test_last_try_unexpected_failure_without_list_of_failing_tests_then_schedule_update_libs_and_test_without_change(self):
         self.configureStep()
         self.setProperty('first_run_failures', [])
         self.setProperty('first_run_flakies', [])
@@ -4717,7 +4716,7 @@ class TestAPITestFlakinessReadUsingResultsDB(BuildStepMixinAdditions, unittest.T
 
         self.assertEqual(result, FAILURE)
         self.assertEqual(self.build.text, ['Found 1 new API test failure: suite.flaky'])
-        self.assertEqual(self.getProperty('new_api_failures_introduced_by_patch'), ['suite.flaky'])
+        self.assertEqual(self.getProperty('new_api_failures_introduced_by_change'), ['suite.flaky'])
         self.assertEqual(self.getProperty('results-db_api_flaky'), {'suite.flaky': 'BetweenBuilds'})
         self.assertEqual([sorted(report['results']) for report in self.results_db_reports], [['suite.flaky']])
 
@@ -4730,7 +4729,7 @@ class TestAPITestFlakinessReadUsingResultsDB(BuildStepMixinAdditions, unittest.T
         result = yield step.run()
 
         self.assertEqual(result, SUCCESS)
-        self.assertIsNone(self.getProperty('new_api_failures_introduced_by_patch'))
+        self.assertIsNone(self.getProperty('new_api_failures_introduced_by_change'))
         self.assertEqual([sorted(report['results']) for report in self.results_db_reports], [['suite.flaky']])
 
     @defer.inlineCallbacks
@@ -4779,7 +4778,7 @@ class TestAPITestFlakinessReadUsingResultsDB(BuildStepMixinAdditions, unittest.T
 
         self.assertEqual(self.getProperty('results-db_api_flaky_unsupported'), ['suite.a'])
         self.assertEqual(result, FAILURE)
-        self.assertEqual(self.getProperty('new_api_failures_introduced_by_patch'), ['suite.a'])
+        self.assertEqual(self.getProperty('new_api_failures_introduced_by_change'), ['suite.a'])
 
     @defer.inlineCallbacks
     def test_a_failed_request_is_recorded_as_unknown(self) -> Generator[Any, Any, None]:
@@ -4824,8 +4823,8 @@ class TestReRunAPITestsExcusesKnownFlakes(BuildStepMixinAdditions, unittest.Test
     makes all four unnecessary."""
 
     LADDER = [
-        RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False),
-        CompileWebKitWithoutChange(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False),
+        RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False),
+        CompileWebKitWithoutChange(retry_build_on_failure=True), ValidateChange(verifyPRClosed=False, addURLs=False),
         KillOldProcesses(), RunAPITestsWithoutChange(), AnalyzeAPITestsResults(),
     ]
 
@@ -4974,8 +4973,8 @@ class TestReRunAPITestsExcusesKnownFlakes(BuildStepMixinAdditions, unittest.Test
         yield step.doOnFailure()
 
         self.assertEqual(step.steps_to_add, [
-            RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyBugClosed=False, addURLs=False), InstallGtkDependencies(),
-            CompileWebKitWithoutChange(retry_build_on_failure=True), ValidateChange(verifyBugClosed=False, addURLs=False), KillOldProcesses(), RunAPITestsWithoutChange(),
+            RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False), InstallGtkDependencies(),
+            CompileWebKitWithoutChange(retry_build_on_failure=True), ValidateChange(verifyPRClosed=False, addURLs=False), KillOldProcesses(), RunAPITestsWithoutChange(),
             AnalyzeAPITestsResults(),
         ])
 
@@ -5755,7 +5754,7 @@ class TestRunWebKitTestsRepeatFailuresRedTree(BuildStepMixinAdditions, unittest.
         self.assertTrue(self.getProperty('with_change_repeat_failures_results_exceed_failure_limit'))
         return rc
 
-    def test_last_run_with_patch_ends_with_list_of_failing_tests_then_schedule_update_libs_and_test_without_patch(self):
+    def test_last_run_with_change_ends_with_list_of_failing_tests_then_schedule_update_libs_and_test_without_change(self):
         self.configureStep()
         self.setProperty('with_change_repeat_failures_results_nonflaky_failures', ['fake/should/not/happen/failure1.html', 'imported/fake/failure2.html'])
         self.setProperty('with_change_repeat_failures_results_flakies', [])
@@ -5769,7 +5768,7 @@ class TestRunWebKitTestsRepeatFailuresRedTree(BuildStepMixinAdditions, unittest.
         self.assertTrue(RunWebKitTestsRepeatFailuresWithoutChangeRedTree() in next_steps)
         self.assertFalse(AnalyzeLayoutTestsResultsRedTree() in next_steps)
 
-    def test_last_run_with_patch_ends_with_no_failing_tests_then_go_to_analyze(self):
+    def test_last_run_with_change_ends_with_no_failing_tests_then_go_to_analyze(self):
         self.configureStep()
         self.setProperty('with_change_repeat_failures_results_nonflaky_failures', [])
         self.setProperty('with_change_repeat_failures_results_flakies', ['fake/should/not/happen/flaky1.html', 'imported/fake/flaky2.html'])
@@ -6891,27 +6890,6 @@ class TestRevertAppliedChanges(BuildStepMixinAdditions, unittest.TestCase):
         self.expect_outcome(result=FAILURE, state_string='Reverted applied changes (failure)')
         return self.run_step()
 
-    def test_patch(self):
-        self.setup_step(RevertAppliedChanges())
-        self.setProperty('got_revision', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
-        self.expect_hidden(False)
-        self.expectRemoteCommands(
-            ExpectShell(
-                workdir='wkdir',
-                log_environ=False,
-                timeout=5 * 60,
-                command=['git', 'clean', '-f', '-d'],
-            ).exit(0),
-            ExpectShell(
-                workdir='wkdir',
-                log_environ=False,
-                timeout=5 * 60,
-                command=['git', 'checkout', '--progress', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c'],
-            ).exit(0),
-        )
-        self.expect_outcome(result=SUCCESS, state_string='Reverted applied changes')
-        return self.run_step()
-
     def test_glib_cleanup(self):
         self.setup_step(RevertAppliedChanges())
         self.setProperty('got_revision', 'b2db8d1da7b74b5ddf075e301370e64d914eef7c')
@@ -6952,7 +6930,7 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         return self.tear_down_test_build_step()
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
-    def test_relevant_jsc_patch(self):
+    def test_relevant_jsc_change(self):
         file_names = ['JSTests/', 'Source/JavaScriptCore/', 'Source/WTF/', 'Source/bmalloc/', 'Makefile', 'Makefile.shared',
                       'Source/Makefile', 'Source/Makefile.shared', 'Tools/Scripts/build-webkit', 'Tools/Scripts/build-jsc',
                       'Tools/Scripts/jsc-stress-test-helpers/', 'Tools/Scripts/run-jsc', 'Tools/Scripts/run-jsc-benchmarks',
@@ -6965,13 +6943,13 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.assertEqual(CheckChangeRelevance.haltOnFailure, True)
         self.assertEqual(CheckChangeRelevance.flunkOnFailure, True)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
-    def test_relevant_jsc_arm64_patch(self):
+    def test_relevant_jsc_arm64_change(self):
         file_names = ['JSTests/', 'Source/JavaScriptCore/', 'Source/WTF/', 'Source/bmalloc/', 'Makefile', 'Makefile.shared',
                       'Source/Makefile', 'Source/Makefile.shared', 'Tools/Scripts/build-webkit', 'Tools/Scripts/build-jsc',
                       'Tools/Scripts/jsc-stress-test-helpers/', 'Tools/Scripts/run-jsc', 'Tools/Scripts/run-jsc-benchmarks',
@@ -6984,61 +6962,62 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.assertEqual(CheckChangeRelevance.haltOnFailure, True)
         self.assertEqual(CheckChangeRelevance.flunkOnFailure, True)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
-    def test_relevant_wk1_patch(self):
+    @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
+    def test_relevant_wk1_change_multiple_files(self):
         file_names = ['Source/WebKitLegacy', 'Source/WebCore', 'Source/WebInspectorUI', 'Source/WebDriver', 'Source/WTF',
                       'Source/bmalloc', 'Source/JavaScriptCore', 'Source/ThirdParty', 'LayoutTests', 'Tools']
 
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'macOS-Catalina-Release-WK1-Tests-EWS')
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @expectedFailure
-    def test_relevant_monterey_builder_patch(self):
+    def test_relevant_monterey_builder_change(self):
         file_names = ['Source/xyz', 'Tools/abc']
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'macOS-Monterey-Release-Build-EWS')
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
-    def test_relevant_wk1_patch(self):
-        CheckChangeRelevance._get_patch = lambda x: b'Sample patch; file: Source/WebKitLegacy'
+    def test_relevant_wk1_change(self):
+        CheckChangeRelevance._get_changed_files = lambda x: b'Sample change; file: Source/WebKitLegacy'
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'macOS-Monterey-Release-WK1-Tests-EWS')
-        self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+        self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
         return self.run_step()
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
-    def test_relevant_webkitpy_patch(self):
+    def test_relevant_webkitpy_change(self):
         file_names = ['Tools/Scripts/webkitpy', 'Tools/Scripts/libraries', 'Tools/Scripts/commit-log-editor']
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'WebKitPy-Tests-EWS')
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
-    def test_relevant_services_patch(self):
+    def test_relevant_services_change(self):
         file_names = ['Tools/CISupport/build-webkit-org', 'Tools/CISupport/ews-build', 'Tools/CISupport/Shared',
                       'Tools/Scripts/libraries/resultsdbpy', 'Tools/Scripts/libraries/webkitcorepy', 'Tools/Scripts/libraries/webkitscmpy']
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'Services-EWS')
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
@@ -7050,7 +7029,7 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Services-EWS')
         self.setProperty('github.number', 1234)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: file_name
+            CheckChangeRelevance._get_changed_files = lambda x: file_name
             self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
@@ -7062,7 +7041,7 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Safer-CPP-Checks-EWS')
         self.setProperty('github.number', 1234)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: file_name
+            CheckChangeRelevance._get_changed_files = lambda x: file_name
             self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
@@ -7073,19 +7052,19 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Safer-CPP-Checks-EWS')
         self.setProperty('github.number', 1234)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: file_name
+            CheckChangeRelevance._get_changed_files = lambda x: file_name
             self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @expectedFailure
-    def test_relevant_bindings_tests_patch(self):
+    def test_relevant_bindings_tests_change(self):
         file_names = ['Source/WebCore', 'Tools']
         self.setup_step(CheckChangeRelevance())
         self.setProperty('buildername', 'Bindings-Tests-EWS')
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: f'Sample patch; file: {file_name}'
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            CheckChangeRelevance._get_changed_files = lambda x: f'Sample change; file: {file_name}'
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
@@ -7096,14 +7075,14 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         self.setProperty('buildername', 'Bindings-Tests-EWS')
         self.setProperty('github.number', 1234)
         for file_name in file_names:
-            CheckChangeRelevance._get_patch = lambda x: file_name
+            CheckChangeRelevance._get_changed_files = lambda x: file_name
             self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
     def test_queues_without_relevance_info(self):
-        CheckChangeRelevance._get_patch = lambda x: 'Sample patch'
+        CheckChangeRelevance._get_changed_files = lambda x: 'Sample change'
         queues = ['Commit-Queue', 'Style-EWS', 'GTK-Build-EWS', 'GTK-WK2-Tests-EWS',
                   'iOS-13-Build-EWS', 'iOS-13-Simulator-Build-EWS', 'iOS-13-Simulator-WK2-Tests-EWS',
                   'macOS-Catalina-Release-Build-EWS', 'macOS-Catalina-Release-WK2-Tests-EWS', 'macOS-Catalina-Debug-Build-EWS',
@@ -7111,25 +7090,25 @@ class TestCheckChangeRelevance(BuildStepMixinAdditions, unittest.TestCase):
         for queue in queues:
             self.setup_step(CheckChangeRelevance())
             self.setProperty('buildername', queue)
-            self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+            self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
             rc = self.run_step()
         return rc
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
-    def test_non_relevant_patch_on_various_queues(self):
-        CheckChangeRelevance._get_patch = lambda x: 'Sample patch'
+    def test_non_relevant_change_on_various_queues(self):
+        CheckChangeRelevance._get_changed_files = lambda x: 'Sample change'
         queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-Monterey-Release-Build-EWS',
                   'macOS-Catalina-Debug-WK1-Tests-EWS', 'macOS-Safer-CPP-Checks-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
         for queue in queues:
             self.setup_step(CheckChangeRelevance())
             self.setProperty('buildername', queue)
-            self.expect_outcome(result=FAILURE, state_string='Patch doesn\'t have relevant changes')
+            self.expect_outcome(result=FAILURE, state_string='Pull request doesn\'t have relevant changes')
             rc = self.run_step()
         return rc
 
     @skipTest("This should be expectedFailure, except https://github.com/twisted/twisted/issues/10969")
     def test_non_relevant_pull_request_on_various_queues(self):
-        CheckChangeRelevance._get_patch = lambda x: '\n'
+        CheckChangeRelevance._get_changed_files = lambda x: '\n'
         queues = ['Bindings-Tests-EWS', 'JSC-Tests-EWS', 'macOS-Monterey-Release-Build-EWS',
                   'macOS-Catalina-Debug-WK1-Tests-EWS', 'macOS-Safer-CPP-Checks-EWS', 'Services-EWS', 'WebKitPy-Tests-EWS']
         for queue in queues:
@@ -7147,6 +7126,7 @@ class TestCheckChangeRelevanceForWebDriver(unittest.TestCase):
     def test_relevant_files(self):
         for file_name in [
             'Source/WebDriver/Session.cpp',
+            'Tools/minidriver/minidriver.xcodeproj/project.pbxproj',
             'Source/WebKit/UIProcess/Automation/WebAutomationSession.cpp',
             'Source/WebKit/WebProcess/Automation/WebAutomationSessionProxy.cpp',
             'Source/WebKit/Shared/Automation/AutomationProtocolObjects.h',
@@ -7158,7 +7138,7 @@ class TestCheckChangeRelevanceForWebDriver(unittest.TestCase):
             'Tools/Scripts/webkitpy/webdriver_tests/webdriver_test_runner.py',
             'Tools/Scripts/run-webdriver-tests',
         ]:
-            self.assertTrue(CheckChangeRelevance()._patch_is_relevant(f'Tools/ChangeLog\n{file_name}', self.BUILDER_NAME), file_name)
+            self.assertTrue(CheckChangeRelevance()._change_is_relevant(f'Tools/ChangeLog\n{file_name}', self.BUILDER_NAME), file_name)
 
     def test_irrelevant_files(self):
         for file_name in [
@@ -7168,10 +7148,10 @@ class TestCheckChangeRelevanceForWebDriver(unittest.TestCase):
             'Tools/Scripts/run-webkit-tests',
             'LayoutTests/imported/w3c/web-platform-tests/webdriver/tests/support/helpers.py',
         ]:
-            self.assertFalse(CheckChangeRelevance()._patch_is_relevant(file_name, self.BUILDER_NAME), file_name)
+            self.assertFalse(CheckChangeRelevance()._change_is_relevant(file_name, self.BUILDER_NAME), file_name)
 
     def test_queues_without_a_group_still_run_on_every_change(self):
-        self.assertTrue(CheckChangeRelevance()._patch_is_relevant('Source/WebCore/dom/Document.cpp', 'macOS-Tahoe-Debug-API-Tests-EWS'))
+        self.assertTrue(CheckChangeRelevance()._change_is_relevant('Source/WebCore/dom/Document.cpp', 'macOS-Tahoe-Debug-API-Tests-EWS'))
 
 
 class TestGetTestExpectationsBaseline(BuildStepMixinAdditions, unittest.TestCase):
@@ -7256,8 +7236,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         self.setup_step(FindModifiedLayoutTests())
         self.assertEqual(FindModifiedLayoutTests.haltOnFailure, True)
         self.assertEqual(FindModifiedLayoutTests.flunkOnFailure, True)
-        FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/http/tests/events/device-orientation-motion-insecure-context.html'
-        self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: b'+++ LayoutTests/http/tests/events/device-orientation-motion-insecure-context.html'
+        self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7269,8 +7249,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         self.setup_step(FindModifiedLayoutTests())
         self.assertEqual(FindModifiedLayoutTests.haltOnFailure, True)
         self.assertEqual(FindModifiedLayoutTests.flunkOnFailure, True)
-        FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/svg/filters/feConvolveMatrix-clipped.svg'
-        self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: b'+++ LayoutTests/svg/filters/feConvolveMatrix-clipped.svg'
+        self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7282,8 +7262,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         self.setup_step(FindModifiedLayoutTests())
         self.assertEqual(FindModifiedLayoutTests.haltOnFailure, True)
         self.assertEqual(FindModifiedLayoutTests.flunkOnFailure, True)
-        FindModifiedLayoutTests._get_patch = lambda x: b'+++ LayoutTests/fast/table/037.xml'
-        self.expect_outcome(result=SUCCESS, state_string='Patch contains relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: b'+++ LayoutTests/fast/table/037.xml'
+        self.expect_outcome(result=SUCCESS, state_string='Pull request contains relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7295,8 +7275,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
     def test_ignore_certain_directories(self):
         self.setup_step(FindModifiedLayoutTests())
         dir_names = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
-        FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.html'.encode('utf-8')
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: f'+++ LayoutTests/reference/test-name.html'.encode('utf-8')
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7308,8 +7288,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
     def test_ignore_certain_directories_svg(self):
         self.setup_step(FindModifiedLayoutTests())
         dir_names = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
-        FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.svg'.encode('utf-8')
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: f'+++ LayoutTests/reference/test-name.svg'.encode('utf-8')
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7321,8 +7301,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
     def test_ignore_certain_directories_xml(self):
         self.setup_step(FindModifiedLayoutTests())
         dir_names = ['reference', 'reftest', 'resources', 'support', 'script-tests', 'tools']
-        FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/reference/test-name.xml'.encode('utf-8')
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: f'+++ LayoutTests/reference/test-name.xml'.encode('utf-8')
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7333,8 +7313,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
     @expectedFailure
     def test_ignore_certain_suffixes(self):
         self.setup_step(FindModifiedLayoutTests())
-        FindModifiedLayoutTests._get_patch = lambda x: f'+++ LayoutTests/http/tests/events/device-motion-expected-mismatch.html'.encode('utf-8')
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: f'+++ LayoutTests/http/tests/events/device-motion-expected-mismatch.html'.encode('utf-8')
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7345,8 +7325,8 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
     @expectedFailure
     def test_ignore_non_layout_test_in_html_directory(self):
         self.setup_step(FindModifiedLayoutTests())
-        FindModifiedLayoutTests._get_patch = lambda x: '+++ LayoutTests/html/test.txt'.encode('utf-8')
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: '+++ LayoutTests/html/test.txt'.encode('utf-8')
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7355,10 +7335,10 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     @expectedFailure
-    def test_non_relevant_patch(self):
+    def test_non_relevant_change(self):
         self.setup_step(FindModifiedLayoutTests())
-        FindModifiedLayoutTests._get_patch = lambda x: b'Sample patch which does not modify any layout test'
-        self.expect_outcome(result=SKIPPED, state_string='Patch doesn\'t have relevant changes')
+        FindModifiedLayoutTests._get_changed_files = lambda x: b'Sample change which does not modify any layout test'
+        self.expect_outcome(result=SKIPPED, state_string='Pull request doesn\'t have relevant changes')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -7367,10 +7347,10 @@ class TestFindModifiedLayoutTests(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     @expectedFailure
-    def test_non_accessible_patch(self):
+    def test_non_accessible_change(self):
         self.setup_step(FindModifiedLayoutTests())
-        FindModifiedLayoutTests._get_patch = lambda x: b''
-        self.expect_outcome(result=WARNINGS, state_string='Patch could not be accessed')
+        FindModifiedLayoutTests._get_changed_files = lambda x: b''
+        self.expect_outcome(result=WARNINGS, state_string='Pull request could not be accessed')
         self.expectRemoteCommands(
             ExpectShell(workdir='wkdir', log_environ=False, command=['bash', '-c', 'diff -u -w base-expectations.txt new-expectations.txt | grep "^+[^+]" | grep -v "\\[.SKIP.\\]" | head -n 1000 || true']).exit(0)
         )
@@ -9055,6 +9035,156 @@ All tests successfully passed!
         return self.run_step()
 
 
+class TestFindChangedAPITests(BuildStepMixinAdditions, unittest.TestCase):
+    def setUp(self):
+        self.longMessage = True
+        return self.setup_test_build_step()
+
+    def tearDown(self):
+        return self.tear_down_test_build_step()
+
+    def configureStep(self, stdout, exit_code=0):
+        self.setup_step(FindChangedAPITests())
+        self.setProperty('platform', 'gtk')
+        self.setProperty('configuration', 'release')
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['python3', 'Tools/Scripts/run-gtk-tests', '--release', '--changed-since', 'remotes/origin/main', '-l'],
+                        timeout=5 * 60,
+                        )
+            .log('stdio', stdout=stdout)
+            .exit(exit_code),
+        )
+
+    def test_changed_tests(self):
+        self.configureStep('''Tests changed since remotes/origin/main:
+    TestLoaderClient (Tools/TestWebKitAPI/Tests/WebKit/WKWebView/glib/TestLoaderClient.cpp)
+    TestWTF:WTF_Vector.Basic (Tools/TestWebKitAPI/glib/TestExpectations.json)
+''')
+        self.expect_outcome(result=SUCCESS, state_string='Found 2 changed API test(s)')
+        self.expect_property('changed_api_tests', {
+            'TestLoaderClient': 'Tools/TestWebKitAPI/Tests/WebKit/WKWebView/glib/TestLoaderClient.cpp',
+            'TestWTF:WTF_Vector.Basic': 'Tools/TestWebKitAPI/glib/TestExpectations.json',
+        })
+        return self.run_step()
+
+    def test_no_changed_tests(self):
+        self.configureStep('No tests changed since remotes/origin/main.\n')
+        self.expect_outcome(result=SKIPPED, state_string='No API tests changed')
+        self.expect_property('changed_api_tests', {})
+        return self.run_step()
+
+    def test_failure_does_not_select_tests(self):
+        self.configureStep('Traceback (most recent call last):\n', exit_code=1)
+        self.expect_outcome(result=WARNINGS, state_string='Unable to find changed API tests')
+        self.expect_property('changed_api_tests', {})
+        return self.run_step()
+
+
+class TestRunAPITestsInStressMode(BuildStepMixinAdditions, unittest.TestCase):
+    EXPECTATIONS = 'Tools/TestWebKitAPI/glib/TestExpectations.json'
+    SOURCE = 'Tools/TestWebKitAPI/Tests/WebKit/WKWebView/glib/TestLoaderClient.cpp'
+
+    def setUp(self):
+        self.longMessage = True
+        self.jsonFileName = 'api_test_results.json'
+        return self.setup_test_build_step()
+
+    def tearDown(self):
+        return self.tear_down_test_build_step()
+
+    def configureStep(self, changed_tests, failures=None, pre_existing=(), flaky=(), flaky_verdict=FlakyVerdict(flaky_type='DirtyTree', build_urls={'https://ews-build.webkit.org/#/builders/21/builds/1'}), queried=None):
+        self.setup_step(RunAPITestsInStressMode())
+        self.setProperty('platform', 'gtk')
+        self.setProperty('configuration', 'release')
+        self.setProperty('changed_api_tests', changed_tests)
+
+        def fake_is_pre_existing(cls, test, **kwargs):
+            if queried is not None:
+                queried.append(test)
+            return defer.succeed({'is_existing_failure': test in pre_existing, 'pass_rate': 0 if test in pre_existing else 100, 'raw_data': {}, 'logs': '', 'request_failed': False})
+
+        self.patch(ResultsDatabase, 'is_test_pre_existing_failure', classmethod(fake_is_pre_existing))
+        self.patch(ResultsDatabase, 'has_commit', classmethod(lambda cls, commit=None: defer.succeed(False)))
+        self.patch(ResultsDatabase, 'flaky_verdicts_for', TestAPITestFlakinessReadUsingResultsDB.fake_verdicts(
+            {test: flaky_verdict for test in flaky}, queried))
+
+        tests = ' '.join(sorted(changed_tests))
+        json_output = json.dumps({'Failed': [{'name': failure, 'output': None} for failure in failures or []], 'Crashed': [], 'Timedout': []}) if failures is not None else ''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['/bin/bash', '--posix', '-o', 'pipefail', '-c', f'python3 Tools/Scripts/run-gtk-tests --release --json-output={self.jsonFileName} --repeat-each 20 {tests} 2>&1 | Tools/Scripts/filter-test-logs api'],
+                        logfiles={'json': self.jsonFileName},
+                        timeout=20 * 60,
+                        )
+            .log('json', stdout=json_output)
+            .exit(1 if failures or failures is None else 0),
+        )
+
+    def test_skipped_without_changed_tests(self):
+        self.setup_step(RunAPITestsInStressMode())
+        self.setProperty('platform', 'gtk')
+        self.setProperty('configuration', 'release')
+        self.expect_outcome(result=SKIPPED)
+        return self.run_step()
+
+    def test_passing_changed_tests(self):
+        self.configureStep({'TestLoaderClient': self.SOURCE, 'TestWTF:WTF_Vector.Basic': self.EXPECTATIONS}, failures=[])
+        self.expect_outcome(result=SUCCESS, state_string='Passed 2 changed API test(s) 20 times')
+        return self.run_step()
+
+    def test_a_new_failure_fails_the_build(self):
+        self.configureStep({'TestLoaderClient': self.SOURCE}, failures=['TestLoaderClient:/webkit/WebKitWebView/title'])
+        self.expect_outcome(result=FAILURE, state_string='Found test failures in stress mode: TestLoaderClient:/webkit/WebKitWebView/title')
+        self.expect_property('build_summary', 'Found test failures in stress mode: TestLoaderClient:/webkit/WebKitWebView/title')
+        return self.run_step()
+
+    def test_a_known_flake_in_a_changed_test_program_is_excused(self):
+        self.configureStep({'TestLoaderClient': self.SOURCE}, failures=['TestLoaderClient:/webkit/WebKitWebView/title'], flaky=['TestLoaderClient:/webkit/WebKitWebView/title'])
+        self.expect_outcome(result=SUCCESS, state_string='Ignored pre-existing flakes: TestLoaderClient:/webkit/WebKitWebView/title')
+        d = self.run_step()
+        d.addCallback(lambda _: self.assertIsNone(self.getProperty('build_summary')))
+        return d
+
+    def test_a_flake_without_within_build_evidence_is_not_excused(self):
+        test = 'TestLoaderClient:/webkit/WebKitWebView/title'
+        self.configureStep({'TestLoaderClient': self.SOURCE}, failures=[test], flaky=[test], flaky_verdict=FlakyVerdict(flaky_type='BetweenBuilds', build_urls={'https://ews-build.webkit.org/#/builders/21/builds/1'}))
+        self.expect_outcome(result=FAILURE, state_string=f'Found test failures in stress mode: {test}')
+        return self.run_step()
+
+    def test_a_pre_existing_failure_in_a_changed_test_program_is_excused(self):
+        self.configureStep({'TestLoaderClient': self.SOURCE}, failures=['TestLoaderClient:/webkit/WebKitWebView/title'], pre_existing=['TestLoaderClient:/webkit/WebKitWebView/title'])
+        self.expect_outcome(result=SUCCESS, state_string='Ignored pre-existing failures: TestLoaderClient:/webkit/WebKitWebView/title')
+        return self.run_step()
+
+    def test_a_test_with_a_changed_expectation_is_never_excused(self):
+        queried = []
+        test = 'TestLoaderClient:/webkit/WebKitWebView/title'
+        self.configureStep({test: self.EXPECTATIONS}, failures=[test], pre_existing=[test], flaky=[test], queried=queried)
+        self.expect_outcome(result=FAILURE, state_string=f'Found test failures in stress mode: {test}')
+        d = self.run_step()
+        d.addCallback(lambda _: self.assertEqual(queried, []))
+        return d
+
+    def test_a_google_test_with_a_changed_expectation_is_never_excused(self):
+        self.configureStep({'TestWTF:WTF_Vector.Basic': self.EXPECTATIONS}, failures=['TestWTF.WTF_Vector.Basic'], flaky=['TestWTF.WTF_Vector.Basic'])
+        self.expect_outcome(result=FAILURE, state_string='Found test failures in stress mode: TestWTF.WTF_Vector.Basic')
+        return self.run_step()
+
+    def test_a_changed_test_program_expectation_covers_its_test_cases(self):
+        self.configureStep({'TestLoaderClient': self.EXPECTATIONS}, failures=['TestLoaderClient:/webkit/WebKitWebView/title'], flaky=['TestLoaderClient:/webkit/WebKitWebView/title'])
+        self.expect_outcome(result=FAILURE, state_string='Found test failures in stress mode: TestLoaderClient:/webkit/WebKitWebView/title')
+        return self.run_step()
+
+    def test_a_run_without_results_fails_the_build(self):
+        self.configureStep({'TestLoaderClient': self.SOURCE}, failures=None)
+        self.expect_outcome(result=FAILURE, state_string='Found test failures in stress mode, but its results could not be parsed')
+        self.expect_property('build_summary', 'Found test failures in stress mode, but its results could not be parsed')
+        return self.run_step()
+
+
 class TestArchiveTestResults(BuildStepMixinAdditions, unittest.TestCase):
     def setUp(self):
         self.longMessage = True
@@ -9525,7 +9655,6 @@ class TestCleanGitRepo(BuildStepMixinAdditions, unittest.TestCase):
         return [
             *stale_commands,
             ExpectShell(command=[shell, '--posix', '-o', 'pipefail', '-c', f'git rebase --abort || {exit_0}'], workdir='wkdir', timeout=300, log_environ=False).exit(0).log('stdio', stdout=''),
-            ExpectShell(command=[shell, '--posix', '-o', 'pipefail', '-c', f'git am --abort || {exit_0}'], workdir='wkdir', timeout=300, log_environ=False).exit(0).log('stdio', stdout=''),
             ExpectShell(command=[shell, '--posix', '-o', 'pipefail', '-c', f'git cherry-pick --abort || {exit_0}'], workdir='wkdir', timeout=300, log_environ=False).exit(0).log('stdio', stdout=''),
             ExpectShell(command=['git', 'clean', '-f', '-d'], workdir='wkdir', timeout=300, log_environ=False).exit(0).log('stdio', stdout=''),
             ExpectShell(command=[shell, '--posix', '-o', 'pipefail', '-c', f'git switch --progress -d --discard-changes {remote}/{branch} || git switch --progress -d --discard-changes {branch} || git switch --progress -d --discard-changes'], workdir='wkdir', timeout=300, log_environ=False).exit(switch_exit).log('stdio', stdout='' if switch_exit else 'HEAD is now at 57015967fef9'),
@@ -9624,17 +9753,6 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
     def tearDown(self):
         return self.tear_down_test_build_step()
 
-    def get_patch(self, title='Patch', obsolete=0):
-        return json.loads('''{{"bug_id": 224460,
-                     "creator":"reviewer@apple.com",
-                     "data": "patch-contents",
-                     "file_name":"bug-224460-20210412192105.patch",
-                     "flags": [{{"creation_date" : "2021-04-12T23:21:06Z", "id": 445872, "modification_date": "2021-04-12T23:55:36Z", "name": "review", "setter": "ap@webkit.org", "status": "+", "type_id": 1}}],
-                     "id": 425806,
-                     "is_obsolete": {},
-                     "is_patch": 1,
-                     "summary": "{}"}}'''.format(obsolete, title))
-
     def get_pr(self, pr_number, title='Sample pull request', closed=False, labels=None, draft=False):
         return dict(
             number=pr_number,
@@ -9670,7 +9788,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
 
 
     def test_success_pr(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False))
+        self.setup_step(ValidateChange(verifyPRClosed=False))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request)
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9680,7 +9798,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     def test_success_pr_blocked(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False))
+        self.setup_step(ValidateChange(verifyPRClosed=False))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request, labels=['merging-blocked'])
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9691,7 +9809,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
 
 
     def test_obsolete_pr(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False))
+        self.setup_step(ValidateChange(verifyPRClosed=False))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request)
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9701,7 +9819,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     def test_deleted_pr(self):
-        self.setup_step(ValidateChange(verifyBugClosed=True))
+        self.setup_step(ValidateChange(verifyPRClosed=True))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: False
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9763,7 +9881,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
 
 
     def test_skipped_branch(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False, branches=[r'main']))
+        self.setup_step(ValidateChange(verifyPRClosed=False, branches=[r'main']))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request)
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9775,7 +9893,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     def test_excluded_branch(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False, excluded_branches=[r'webkitglib/\d+\.\d+']))
+        self.setup_step(ValidateChange(verifyPRClosed=False, excluded_branches=[r'webkitglib/\d+\.\d+']))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request)
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9787,7 +9905,7 @@ class TestValidateChange(BuildStepMixinAdditions, unittest.TestCase):
         return rc
 
     def test_allowed_branch_not_in_excluded(self):
-        self.setup_step(ValidateChange(verifyBugClosed=False, excluded_branches=[r'webkitglib/\d+\.\d+']))
+        self.setup_step(ValidateChange(verifyPRClosed=False, excluded_branches=[r'webkitglib/\d+\.\d+']))
         ValidateChange.get_pr_json = lambda x, pull_request, repository_url=None, retry=None: self.get_pr(pr_number=pull_request)
         self.setProperty('github.number', '1234')
         self.setProperty('repository', 'https://github.com/WebKit/WebKit')
@@ -9814,16 +9932,16 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                 {'title': 'Fix `test-webkitpy webkitflaskpy`', 'number': 17412, 'commits':
                     {'nodes': [{'commit': {'commitUrl': 'https://github.com/WebKit/WebKit/commit/582fb8b4f85cc9f385c0e0809170cadc48c7fed5', 'status': {'state': 'SUCCESS', 'contexts': [
                         {'context': 'api-gtk', 'state': 'SUCCESS'},
-                        {'context': 'api-ios', 'state': 'SUCCESS'},
+                        {'context': 'api-ios-cmake', 'state': 'SUCCESS'},
                         {'context': 'api-mac', 'state': 'SUCCESS'},
                         {'context': 'api-mac-cmake-debug', 'state': 'SUCCESS'},
                         {'context': 'bindings', 'state': 'SUCCESS'},
                         {'context': 'gtk', 'state': 'SUCCESS'},
                         {'context': 'gtk-wk2', 'state': 'SUCCESS'},
                         {'context': 'ios', 'state': 'SUCCESS'},
-                        {'context': 'ios-sim', 'state': 'SUCCESS'},
-                        {'context': 'ios-wk2', 'state': 'SUCCESS'},
-                        {'context': 'ios-wk2-wpt', 'state': 'SUCCESS'},
+                        {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
+                        {'context': 'ios-cmake-wk2', 'state': 'SUCCESS'},
+                        {'context': 'ios-cmake-wk2-wpt', 'state': 'SUCCESS'},
                         {'context': 'jsc-x86-64', 'state': 'SUCCESS'},
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
@@ -9867,13 +9985,13 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                     {'nodes': [{'commit': {'commitUrl': 'https://github.com/WebKit/WebKit/commit/b12b5ee6709e3ce6a9019342a12eded04975af18', 'status': {'state': 'FAILURE', 'contexts': [
                         {'context': 'style', 'state': 'FAILURE'},
                         {'context': 'api-gtk', 'state': 'SUCCESS'},
-                        {'context': 'api-ios', 'state': 'SUCCESS'},
+                        {'context': 'api-ios-cmake', 'state': 'SUCCESS'},
                         {'context': 'api-mac', 'state': 'SUCCESS'},
                         {'context': 'bindings', 'state': 'SUCCESS'},
                         {'context': 'gtk', 'state': 'SUCCESS'},
                         {'context': 'ios', 'state': 'SUCCESS'},
-                        {'context': 'ios-sim', 'state': 'SUCCESS'},
-                        {'context': 'ios-wk2', 'state': 'SUCCESS'},
+                        {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
+                        {'context': 'ios-cmake-wk2', 'state': 'SUCCESS'},
                         {'context': 'jsc-x86-64', 'state': 'SUCCESS'},
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
@@ -9898,7 +10016,7 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'bindings', 'state': 'SUCCESS'},
                         {'context': 'gtk', 'state': 'SUCCESS'},
                         {'context': 'ios', 'state': 'SUCCESS'},
-                        {'context': 'ios-sim', 'state': 'SUCCESS'},
+                        {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
@@ -9927,15 +10045,15 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                     {'nodes': [{'commit': {'commitUrl': 'https://github.com/WebKit/WebKit/commit/582fb8b4f85cc9f385c0e0809170cadc48c7fed5',
                         'status': {'state': 'SUCCESS', 'contexts': [
                             {'context': 'api-gtk', 'state': 'SUCCESS'},
-                            {'context': 'api-ios', 'state': 'SUCCESS'},
+                            {'context': 'api-ios-cmake', 'state': 'SUCCESS'},
                             {'context': 'api-mac', 'state': 'SUCCESS'},
                             {'context': 'bindings', 'state': 'SUCCESS'},
                             {'context': 'gtk', 'state': 'SUCCESS'},
                             {'context': 'gtk-wk2', 'state': 'SUCCESS'},
                             {'context': 'ios', 'state': 'SUCCESS'},
-                            {'context': 'ios-sim', 'state': 'SUCCESS'},
-                            {'context': 'ios-wk2', 'state': 'SUCCESS'},
-                            {'context': 'ios-wk2-wpt', 'state': 'SUCCESS'},
+                            {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
+                            {'context': 'ios-cmake-wk2', 'state': 'SUCCESS'},
+                            {'context': 'ios-cmake-wk2-wpt', 'state': 'SUCCESS'},
                             {'context': 'jsc-x86-64', 'state': 'SUCCESS'},
                             {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                             {'context': 'jsc-armv7', 'state': 'SUCCESS'},
@@ -9977,13 +10095,13 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                     {'nodes': [{'commit': {'commitUrl': 'https://github.com/WebKit/WebKit/commit/b12b5ee6709e3ce6a9019342a12eded04975af18', 'status': {'state': 'FAILURE', 'contexts': [
                         {'context': 'style', 'state': 'FAILURE'},
                         {'context': 'api-gtk', 'state': 'SUCCESS'},
-                        {'context': 'api-ios', 'state': 'SUCCESS'},
+                        {'context': 'api-ios-cmake', 'state': 'SUCCESS'},
                         {'context': 'api-mac', 'state': 'SUCCESS'},
                         {'context': 'bindings', 'state': 'SUCCESS'},
                         {'context': 'gtk', 'state': 'SUCCESS'},
                         {'context': 'ios', 'state': 'SUCCESS'},
-                        {'context': 'ios-sim', 'state': 'SUCCESS'},
-                        {'context': 'ios-wk2', 'state': 'SUCCESS'},
+                        {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
+                        {'context': 'ios-cmake-wk2', 'state': 'SUCCESS'},
                         {'context': 'jsc-x86-64', 'state': 'SUCCESS'},
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
@@ -10008,7 +10126,7 @@ class TestRetrievePRDataFromLabel(BuildStepMixinAdditions, unittest.TestCase):
                         {'context': 'bindings', 'state': 'SUCCESS'},
                         {'context': 'gtk', 'state': 'SUCCESS'},
                         {'context': 'ios', 'state': 'SUCCESS'},
-                        {'context': 'ios-sim', 'state': 'SUCCESS'},
+                        {'context': 'ios-sim-cmake', 'state': 'SUCCESS'},
                         {'context': 'jsc-arm64', 'state': 'SUCCESS'},
                         {'context': 'jsc-armv7', 'state': 'SUCCESS'},
                         {'context': 'jsc-i386', 'state': 'SUCCESS'},
@@ -13636,7 +13754,7 @@ class TestScanBuild(BuildStepMixinAdditions, unittest.TestCase):
         expected_steps = [
             GenerateS3URL('mac-tahoe-arm64-release-scan-build', extension='txt', content_type='text/plain'),
             UploadFileToS3('build-log.txt', links={'scan-build': 'Full build log'}, content_type='text/plain'),
-            ValidateChange(verifyBugClosed=False, addURLs=False),
+            ValidateChange(verifyPRClosed=False, addURLs=False),
             RevertAppliedChanges(exclude=['new*', 'scan-build-output*']),
             ScanBuildWithoutChange(analyze_safercpp_results=False)
         ]
@@ -13967,6 +14085,112 @@ index 8a2d2375b8d2..000000000000
         ])
         return rc
 
+    def test_retag_to_other_platform_on_macos(self):
+        self.configureStep()
+        self.setProperty('builddir', 'wkdir')
+        self.setProperty('buildnumber', 1234)
+        self.setProperty('platform', 'mac')
+
+        commit_diff = '''
+diff --git a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+--- a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
++++ b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+-Modules/cache/DOMCache.cpp
++[ macOS ] Modules/cache/DOMCache.cpp
+-workers/WorkerOrWorkletThread.cpp
++[ macOS ] workers/WorkerOrWorkletThread.cpp
+'''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['git', 'diff', 'HEAD~1', '--', '*Expectations'])
+            .log('stdio', stdout=commit_diff)
+            .exit(0),
+        )
+        self.expect_outcome(result=SUCCESS, state_string='No modified expectations')
+        rc = self.run_step()
+        self.expect_property('user_added_tests', [])
+        self.expect_property('user_removed_tests', [])
+        return rc
+
+    def test_retag_to_other_platform_on_ios(self):
+        self.configureStep()
+        self.setProperty('builddir', 'wkdir')
+        self.setProperty('buildnumber', 1234)
+        self.setProperty('platform', 'ios')
+
+        commit_diff = '''
+diff --git a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+--- a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
++++ b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+-Modules/cache/DOMCache.cpp
++[ macOS ] Modules/cache/DOMCache.cpp
+-workers/WorkerOrWorkletThread.cpp
++[ macOS ] workers/WorkerOrWorkletThread.cpp
+'''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['git', 'diff', 'HEAD~1', '--', '*Expectations'])
+            .log('stdio', stdout=commit_diff)
+            .exit(0),
+        )
+        self.expect_outcome(result=SUCCESS, state_string='Found modified expectations')
+        rc = self.run_step()
+        self.expect_property('user_added_tests', [])
+        self.expect_property('user_removed_tests', ['WebCore/Modules/cache/DOMCache.cpp/UncountedLambdaCapturesChecker', 'WebCore/workers/WorkerOrWorkletThread.cpp/UncountedLambdaCapturesChecker'])
+        return rc
+
+    def test_tagged_removal(self):
+        self.configureStep()
+        self.setProperty('builddir', 'wkdir')
+        self.setProperty('buildnumber', 1234)
+        self.setProperty('platform', 'mac')
+
+        commit_diff = '''
+diff --git a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+--- a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
++++ b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+-[ Mac ] testing/MockMediaSessionCoordinator.cpp
+'''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['git', 'diff', 'HEAD~1', '--', '*Expectations'])
+            .log('stdio', stdout=commit_diff)
+            .exit(0),
+        )
+        self.expect_outcome(result=SUCCESS, state_string='Found modified expectations')
+        rc = self.run_step()
+        self.expect_property('user_added_tests', [])
+        self.expect_property('user_removed_tests', ['WebCore/testing/MockMediaSessionCoordinator.cpp/UncountedLambdaCapturesChecker'])
+        return rc
+
+    def test_other_platform_tag_ignored(self):
+        self.configureStep()
+        self.setProperty('builddir', 'wkdir')
+        self.setProperty('buildnumber', 1234)
+        self.setProperty('platform', 'mac')
+
+        commit_diff = '''
+diff --git a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+--- a/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
++++ b/Source/WebCore/SaferCPPExpectations/UncountedLambdaCapturesCheckerExpectations
+-[ iOS ] loader/ios/LegacyPreviewLoader.mm
+'''
+        self.expectRemoteCommands(
+            ExpectShell(workdir='wkdir',
+                        log_environ=False,
+                        command=['git', 'diff', 'HEAD~1', '--', '*Expectations'])
+            .log('stdio', stdout=commit_diff)
+            .exit(0),
+        )
+        self.expect_outcome(result=SUCCESS, state_string='No modified expectations')
+        rc = self.run_step()
+        self.expect_property('user_added_tests', [])
+        self.expect_property('user_removed_tests', [])
+        return rc
+
     @expectedFailure
     def test_unmodified(self):
         self.configureStep()
@@ -14025,7 +14249,7 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
             self.setup_step(FindUnexpectedStaticAnalyzerResults(was_filtered=was_filtered))
         else:
             self.setup_step(FindUnexpectedStaticAnalyzerResultsWithoutChange(was_filtered=was_filtered))
-        FindUnexpectedStaticAnalyzerResults._get_patch = lambda x: b'Test patch 123'
+        FindUnexpectedStaticAnalyzerResults._get_changed_files = lambda x: b'Test change 123'
         FindUnexpectedStaticAnalyzerResults.decode_results_data = lambda self: {'passes': {'project': {'checker': ['filename']}}, 'failures': {'project': {'checker': ['filename2']}}}
         self.setProperty('builddir', 'wkdir')
         self.setProperty('buildnumber', 1234)
@@ -14096,7 +14320,7 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
         self.expect_outcome(result=SUCCESS, state_string='19 new issues 3 fixed files')
         with current_hostname(EWS_BUILD_HOSTNAMES[0]):
             rc = self.run_step()
-        self.assertEqual([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
+        self.assertEqual([ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
         return rc
 
     @expectedFailure
@@ -14185,7 +14409,7 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
         self.expect_outcome(result=SUCCESS, state_string='1 new issue 2 fixed files')
         with current_hostname(EWS_BUILD_HOSTNAMES[0]):
             return self.run_step()
-        self.assertEqual([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
+        self.assertEqual([ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
         return rc
 
     @expectedFailure
@@ -14270,7 +14494,7 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
         self.expect_outcome(result=SUCCESS, state_string='1 new issue 1 failing file ')
         with current_hostname(EWS_BUILD_HOSTNAMES[0]):
             yield self.run_step()
-        self.assertEqual([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
+        self.assertEqual([ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
 
     @defer.inlineCallbacks
     def test_no_results_db_data_for_failures_escalates_despite_empty_passes(self):
@@ -14283,7 +14507,7 @@ class TestFindUnexpectedStaticAnalyzerResults(BuildStepMixinAdditions, unittest.
         self.expect_outcome(result=SUCCESS, state_string='1 new issue 1 failing file ')
         with current_hostname(EWS_BUILD_HOSTNAMES[0]):
             yield self.run_step()
-        self.assertEqual([ValidateChange(verifyBugClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
+        self.assertEqual([ValidateChange(verifyPRClosed=False, addURLs=False), RevertAppliedChanges(exclude=['new*', 'scan-build-output*']), ScanBuildWithoutChange()], next_steps)
 
     @defer.inlineCallbacks
     def test_pre_existing_failure_is_filtered_without_rebuilding(self):

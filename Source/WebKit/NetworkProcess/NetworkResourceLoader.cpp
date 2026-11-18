@@ -81,6 +81,7 @@
 #include <WebCore/LinkHeader.h>
 #include <WebCore/LinkRelAttribute.h>
 #include <WebCore/LocalNetworkAccess.h>
+#include <WebCore/MIMETypeRegistry.h>
 #include <WebCore/NetworkLoadMetrics.h>
 #include <WebCore/OriginAccessPatterns.h>
 #include <WebCore/PendingStreamState.h>
@@ -124,6 +125,7 @@
 #endif
 
 #if PLATFORM(COCOA)
+#include "NetworkDataTaskCocoa.h"
 #include "PathsBlockedForSandboxExtensions.h"
 #include <wtf/cocoa/RuntimeApplicationChecksCocoa.h>
 #endif
@@ -192,7 +194,7 @@ NetworkResourceLoader::NetworkResourceLoader(NetworkResourceLoadParameters&& par
         m_cache = session->cache();
 
     NetworkLoadChecker::LoadType requestLoadType = isMainFrameLoad() ? NetworkLoadChecker::LoadType::MainFrame : NetworkLoadChecker::LoadType::Other;
-    lazyInitialize(m_networkLoadChecker, NetworkLoadChecker::create(Ref { NetworkProcess::singleton() }.get(), this,  &connection.schemeRegistry(), FetchOptions { m_parameters.options },
+    lazyInitialize(m_networkLoadChecker, NetworkLoadChecker::create(this,  &connection.schemeRegistry(), FetchOptions { m_parameters.options },
         sessionID(), webPageProxyID(), HTTPHeaderMap { m_parameters.originalRequestHeaders }, URL { m_parameters.request.url() },
         URL { m_parameters.documentURL }, m_parameters.sourceOrigin.copyRef(), m_parameters.topOrigin.copyRef(), m_parameters.parentOrigin(),
         m_parameters.preflightPolicy, originalRequest().httpReferrer(), m_parameters.allowPrivacyProxy, m_parameters.advancedPrivacyProtections,
@@ -221,6 +223,7 @@ NetworkResourceLoader::~NetworkResourceLoader()
 {
     ASSERT(RunLoop::isMain());
     ASSERT(!m_networkLoad);
+    ASSERT(!m_serviceWorkerFetchTask);
     ASSERT(!isSynchronous() || !m_synchronousLoadData->delayedReply);
     ASSERT(m_fileReferences.isEmpty());
 #if HAVE(BROKEN_MULTIPART_RESPONSE_FLOW_CONTROL)
@@ -244,6 +247,11 @@ bool NetworkResourceLoader::canUseCache(const ResourceRequest& request) const
         return false;
 
     return true;
+}
+
+bool NetworkResourceLoader::isAllowedToAskUserForCredentials() const
+{
+    return m_isAllowedToAskUserForCredentials && (!m_networkLoadChecker || m_networkLoadChecker->crossOriginEmbedderPolicyAllowsCredentials());
 }
 
 bool NetworkResourceLoader::canUseCachedRedirect(const ResourceRequest& request) const
@@ -326,7 +334,7 @@ void NetworkResourceLoader::startContentFiltering(ResourceRequest&& request, Com
         completionHandler(WTF::move(request));
         return;
     }
-#if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER) && !HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI)
+#if HAVE(BROWSERENGINEKIT_WEBCONTENTFILTER) && !HAVE(WEBCONTENTRESTRICTIONS_PATH_SPI) && PLATFORM(IOS)
     WebParentalControlsURLFilter::setSharedParentalControlsURLFilterIfNecessary();
 #endif
     m_contentFilter = ContentFilter::create(*this, isMainFrameLoad() ? IsMainFrameLoad::Yes : IsMainFrameLoad::No);
@@ -473,6 +481,14 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
     parameters.networkActivityTracker = m_networkActivityTracker;
     if (parameters.storedCredentialsPolicy == WebCore::StoredCredentialsPolicy::Use && m_networkLoadChecker)
         parameters.storedCredentialsPolicy = m_networkLoadChecker->storedCredentialsPolicy();
+    // NetworkLoadChecker::check() normally turns cookies off, but it doesn't run when
+    // serviceWorkerDidNotHandle() restarts a load because its service worker didn't respond.
+    // FIXME: Restart those loads through NetworkLoadChecker::check() instead, so that their
+    // credentials are handled as for any other load.
+    if (m_networkLoadChecker && !m_networkLoadChecker->crossOriginEmbedderPolicyAllowsCredentials())
+        request.setAllowCookies(false);
+
+    parameters.siteIsolationEnabled = connectionToWebProcess().sharedPreferencesForWebProcess()->siteIsolationEnabled;
 
     CheckedPtr networkSession = protect(connectionToWebProcess())->networkSession();
     if (!networkSession) {
@@ -503,6 +519,7 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
         parameters.compressionDictionary = CompressionDictionaryParameters { destination, { } };
 
         // https://fetch.spec.whatwg.org/#http-network-compression-dictionary-fetch
+        // To be added with https://github.com/whatwg/fetch/pull/1854
         // 8. Let bestMatch be the result of finding the best matching dictionary in
         //    compressionDictionaryCache for request.
         // 9. If bestMatch is null, then return the result of running fallback.
@@ -516,9 +533,10 @@ void NetworkResourceLoader::startNetworkLoad(ResourceRequest&& request, FirstLoa
 }
 
 // https://fetch.spec.whatwg.org/#http-network-compression-dictionary-fetch
+// To be added with https://github.com/whatwg/fetch/pull/1854
 bool NetworkResourceLoader::shouldFetchWithCompressionDictionary(const ResourceRequest& request) const
 {
-    if (!connectionToWebProcess().compressionDictionaryEnabled() || !canUseCache(request))
+    if (!protect(connectionToWebProcess())->compressionDictionaryEnabled() || !canUseCache(request))
         return false;
 
     // 3. If request's mode is "no-cors", then return the result of running fallback.
@@ -685,8 +703,10 @@ ResourceLoadInfo NetworkResourceLoader::resourceLoadInfo()
 
 void NetworkResourceLoader::cleanup(LoadResult result)
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
     LOADER_RELEASE_LOG("cleanup: (result=%u)", static_cast<unsigned>(result));
+
+    m_isDone = true;
 
     NetworkActivityTracker::CompletionCode code { };
     switch (result) {
@@ -714,6 +734,9 @@ void NetworkResourceLoader::cleanup(LoadResult result)
     if (RefPtr networkLoad = std::exchange(m_networkLoad, nullptr))
         networkLoad->clearClient();
 
+    if (RefPtr task = std::exchange(m_serviceWorkerFetchTask, { }))
+        task->cancelFromClient();
+
     // This will cause NetworkResourceLoader to be destroyed and therefore we do it last.
     connection->didCleanupResourceLoader(*this);
 }
@@ -722,9 +745,11 @@ void NetworkResourceLoader::convertToDownload(DownloadID downloadID, const Resou
 {
     LOADER_RELEASE_LOG("convertToDownload: (downloadID=%" PRIu64 ", hasNetworkLoad=%d, pendingResponseCompletionHandlers=%zu)", downloadID.toUInt64(), !!m_networkLoad, m_responseCompletionHandlers.size());
 
-    RefPtr task = m_serviceWorkerFetchTask;
-    if (task && task->convertToDownload(protect(protect(NetworkProcess::singleton())->downloadManager()), downloadID, request, response))
-        return;
+    if (RefPtr task = std::exchange(m_serviceWorkerFetchTask, { })) {
+        if (task->convertToDownload(protect(protect(NetworkProcess::singleton())->downloadManager()), downloadID, request, response))
+            return;
+        task->cancelFromClient();
+    }
 
     // This can happen if the resource came from the disk cache.
     if (!m_networkLoad) {
@@ -758,7 +783,7 @@ void NetworkResourceLoader::abort()
         return;
     }
 
-    if (auto task = WTF::move(m_serviceWorkerFetchTask)) {
+    if (RefPtr task = std::exchange(m_serviceWorkerFetchTask, { })) {
         LOADER_RELEASE_LOG("abort: Cancelling pending service worker fetch task (fetchIdentifier=%" PRIu64 ")", task->fetchIdentifier().toUInt64());
         task->cancelFromClient();
     }
@@ -869,15 +894,15 @@ bool NetworkResourceLoader::shouldInterruptLoadForCSPFrameAncestorsOrXFrameOptio
 #endif
 
     auto url = response.url();
-    ContentSecurityPolicy contentSecurityPolicy { URL { url }, this, this };
-    contentSecurityPolicy.didReceiveHeaders(ContentSecurityPolicyResponseHeaders { response }, originalRequest().httpReferrer());
-    if (!contentSecurityPolicy.allowFrameAncestors(m_parameters.frameAncestorOrigins, url))
+    auto contentSecurityPolicy = makeUnique<ContentSecurityPolicy>(URL { url }, this, this);
+    contentSecurityPolicy->didReceiveHeaders(ContentSecurityPolicyResponseHeaders { response }, originalRequest().httpReferrer());
+    if (!contentSecurityPolicy->allowFrameAncestors(m_parameters.frameAncestorOrigins, url))
         return true;
 
     if (shouldInterruptNavigationForCrossOriginEmbedderPolicy(response))
         return true;
 
-    if (!contentSecurityPolicy.overridesXFrameOptions()) {
+    if (!contentSecurityPolicy->overridesXFrameOptions()) {
         String xFrameOptions = response.httpHeaderField(HTTPHeaderName::XFrameOptions);
         if (!xFrameOptions.isNull() && shouldInterruptLoadForXFrameOptions(xFrameOptions, response.url())) {
             String errorMessage = makeString("Refused to display '"_s, response.url().stringCenterEllipsizedToLength(), "' in a frame because it set 'X-Frame-Options' to '"_s, xFrameOptions, "'."_s);
@@ -894,14 +919,14 @@ bool NetworkResourceLoader::shouldInterruptNavigationForCrossOriginEmbedderPolic
     ASSERT(isMainResource());
 
     // https://html.spec.whatwg.org/multipage/origin.html#check-a-navigation-response's-adherence-to-its-embedder-policy
-    if (m_parameters.parentCrossOriginEmbedderPolicy.value == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP || m_parameters.parentCrossOriginEmbedderPolicy.reportOnlyValue == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
-        // A parent can only require CORP in a secure context, so only the response URL matters.
+    if (isCompatibleWithCrossOriginIsolation(m_parameters.parentCrossOriginEmbedderPolicy.value) || isCompatibleWithCrossOriginIsolation(m_parameters.parentCrossOriginEmbedderPolicy.reportOnlyValue)) {
+        // A parent can only have an embedder policy in a secure context, so only the response URL matters.
         auto isSecureContext = WebCore::SecurityOrigin::create(response.url())->isPotentiallyTrustworthy() ? WebCore::IsSecureContext::Yes : WebCore::IsSecureContext::No;
-        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, isSecureContext, nullptr);
-        if (m_parameters.parentCrossOriginEmbedderPolicy.reportOnlyValue == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP && responseCOEP.value != WebCore::CrossOriginEmbedderPolicyValue::RequireCORP)
+        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, isSecureContext, connectionToWebProcess().credentiallessSupport(), nullptr);
+        if (isCompatibleWithCrossOriginIsolation(m_parameters.parentCrossOriginEmbedderPolicy.reportOnlyValue) && !isCompatibleWithCrossOriginIsolation(responseCOEP.value))
             sendCOEPInheritenceViolation(*this, m_parameters.parentFrameURL.isValid() ? m_parameters.parentFrameURL : aboutBlankURL(), m_parameters.parentCrossOriginEmbedderPolicy.reportOnlyReportingEndpoint, COEPDisposition::Reporting, "navigation"_s, m_firstResponseURL);
 
-        if (m_parameters.parentCrossOriginEmbedderPolicy.value != WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone && responseCOEP.value != WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
+        if (isCompatibleWithCrossOriginIsolation(m_parameters.parentCrossOriginEmbedderPolicy.value) && !isCompatibleWithCrossOriginIsolation(responseCOEP.value)) {
             String errorMessage = makeString("Refused to display '"_s, response.url().stringCenterEllipsizedToLength(), "' in a frame because of Cross-Origin-Embedder-Policy."_s);
             send(Messages::WebPage::AddConsoleMessage { frameID(),  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
             sendCOEPInheritenceViolation(*this, m_parameters.parentFrameURL.isValid() ? m_parameters.parentFrameURL : aboutBlankURL(), m_parameters.parentCrossOriginEmbedderPolicy.reportingEndpoint, COEPDisposition::Enforce, "navigation"_s, m_firstResponseURL);
@@ -918,13 +943,13 @@ bool NetworkResourceLoader::shouldInterruptWorkerLoadForCrossOriginEmbedderPolic
     if (m_parameters.options.destination != FetchOptions::Destination::Worker)
         return false;
 
-    if (m_parameters.crossOriginEmbedderPolicy.value == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP || m_parameters.crossOriginEmbedderPolicy.reportOnlyValue == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP) {
-        // An owner can only require CORP in a secure context, which its worker inherits.
-        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, WebCore::IsSecureContext::Yes, nullptr);
-        if (m_parameters.crossOriginEmbedderPolicy.reportOnlyValue == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP && responseCOEP.value == WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone)
+    if (isCompatibleWithCrossOriginIsolation(m_parameters.crossOriginEmbedderPolicy.value) || isCompatibleWithCrossOriginIsolation(m_parameters.crossOriginEmbedderPolicy.reportOnlyValue)) {
+        // An owner can only have an embedder policy in a secure context, which its worker inherits.
+        auto responseCOEP = WebCore::obtainCrossOriginEmbedderPolicy(response, WebCore::IsSecureContext::Yes, connectionToWebProcess().credentiallessSupport(), nullptr);
+        if (isCompatibleWithCrossOriginIsolation(m_parameters.crossOriginEmbedderPolicy.reportOnlyValue) && !isCompatibleWithCrossOriginIsolation(responseCOEP.value))
             sendCOEPInheritenceViolation(*this, contextURLForReport(), m_parameters.crossOriginEmbedderPolicy.reportOnlyReportingEndpoint, COEPDisposition::Reporting, "worker initialization"_s, m_firstResponseURL);
 
-        if (m_parameters.crossOriginEmbedderPolicy.value == WebCore::CrossOriginEmbedderPolicyValue::RequireCORP && responseCOEP.value == WebCore::CrossOriginEmbedderPolicyValue::UnsafeNone) {
+        if (isCompatibleWithCrossOriginIsolation(m_parameters.crossOriginEmbedderPolicy.value) && !isCompatibleWithCrossOriginIsolation(responseCOEP.value)) {
             String errorMessage = makeString("Refused to load '"_s, response.url().stringCenterEllipsizedToLength(), "' worker because of Cross-Origin-Embedder-Policy."_s);
             send(Messages::WebPage::AddConsoleMessage { frameID(),  MessageSource::Security, MessageLevel::Error, errorMessage, coreIdentifier() }, pageID());
             sendCOEPInheritenceViolation(*this, contextURLForReport(), m_parameters.crossOriginEmbedderPolicy.reportingEndpoint, COEPDisposition::Enforce, "worker initialization"_s, m_firstResponseURL);
@@ -963,7 +988,7 @@ std::optional<ResourceError> NetworkResourceLoader::doCrossOriginOpenerHandlingO
         m_currentCoopEnforcementResult = CrossOriginOpenerPolicyEnforcementResult::from(m_parameters.documentURL, WTF::move(sourceOrigin), m_parameters.sourceCrossOriginOpenerPolicy, m_parameters.navigationRequester, m_parameters.openerURL);
     }
 
-    m_currentCoopEnforcementResult = WebCore::doCrossOriginOpenerHandlingOfResponse(*this, response, m_parameters.navigationRequester, CheckedPtr { contentSecurityPolicy.get() }, m_parameters.effectiveSandboxFlags, originalRequest().httpReferrer(), m_parameters.isDisplayingInitialEmptyDocument, *m_currentCoopEnforcementResult);
+    m_currentCoopEnforcementResult = WebCore::doCrossOriginOpenerHandlingOfResponse(*this, response, m_parameters.navigationRequester, CheckedPtr { contentSecurityPolicy }, m_parameters.effectiveSandboxFlags, originalRequest().httpReferrer(), m_parameters.isDisplayingInitialEmptyDocument, *m_currentCoopEnforcementResult, connectionToWebProcess().credentiallessSupport());
     if (!m_currentCoopEnforcementResult)
         return ResourceError { errorDomainWebKitInternal, 0, response.url(), "Navigation was blocked by Cross-Origin-Opener-Policy"_s, ResourceError::Type::AccessControl };
     return std::nullopt;
@@ -1035,7 +1060,8 @@ void NetworkResourceLoader::checkLocalNetworkAccess(const ResourceRequest& reque
     if (isLessPublicThan(clientAddressSpace, recordedAddressSpace))
         clientAddressSpace = recordedAddressSpace;
 
-    bool topOriginIsAllowed = !topOrigin.isOpaque() && NetworkProcess::singleton().allowsFirstPartyForCookies(connection->webProcessIdentifier(), RegistrableDomain::uncheckedCreateFromHost(topOrigin.host())) == NetworkProcess::AllowCookieAccess::Allow;
+    auto topOriginDomain = RegistrableDomain::uncheckedCreateFromHost(topOrigin.host());
+    bool topOriginIsAllowed = !topOrigin.isOpaque() && !topOriginDomain.isEmpty() && NetworkProcess::singleton().allowsFirstPartyForCookies(connection->webProcessIdentifier(), topOriginDomain);
     clientIsSecureContext = clientIsSecureContext && topOriginIsAllowed && shouldTreatAsPotentiallyTrustworthy(sourceOrigin.toURL());
 
     auto clientOrigin = ClientOrigin { topOrigin, sourceOrigin };
@@ -1118,6 +1144,7 @@ static const String* stringBareItem(const RFC8941::ItemOrInnerList& value)
 }
 
 // https://fetch.spec.whatwg.org/#http-network-compression-dictionary-fetch step 14-15.
+// To be added with https://github.com/whatwg/fetch/pull/1854
 static bool isCompressionDictionaryEncoded(const ResourceResponse& response)
 {
     auto contentEncoding = response.httpHeaderField(HTTPHeaderName::ContentEncoding);
@@ -1258,8 +1285,8 @@ void NetworkResourceLoader::handleEarlyHintsResponse(ResourceResponse&& response
         return;
 
     auto url = response.url();
-    ContentSecurityPolicy contentSecurityPolicy { URL { url }, this, nullptr };
-    contentSecurityPolicy.didReceiveHeaders(ContentSecurityPolicyResponseHeaders { response }, originalRequest().httpReferrer());
+    auto contentSecurityPolicy = makeUnique<ContentSecurityPolicy>(URL { url }, this, nullptr);
+    contentSecurityPolicy->didReceiveHeaders(ContentSecurityPolicyResponseHeaders { response }, originalRequest().httpReferrer());
 
     LinkHeaderSet headerSet(headerValue);
     for (const auto& header : headerSet) {
@@ -1267,7 +1294,7 @@ void NetworkResourceLoader::handleEarlyHintsResponse(ResourceResponse&& response
             continue;
 
         if (equalLettersIgnoringASCIICase(header.rel(), "preconnect"_s))
-            startPreconnectTask(url, header, contentSecurityPolicy);
+            startPreconnectTask(url, header, *contentSecurityPolicy);
     }
 }
 
@@ -1300,17 +1327,15 @@ void NetworkResourceLoader::startPreconnectTask(const URL& baseURL, const LinkHe
     if (!contentSecurityPolicy.allowConnectToSource(url, { }, ContentSecurityPolicy::RedirectResponseReceived::No, originalRequest().url()))
         return;
 
-    NetworkLoadParameters parameters;
-    auto globalFrameID = this->globalFrameID();
-    parameters.webPageProxyID = globalFrameID.webPageProxyID;
-    parameters.webPageID = globalFrameID.webPageID;
-    parameters.webFrameID = globalFrameID.frameID;
+    auto parameters = this->parameters().networkLoadParameters();
+    parameters.request = constructPreconnectRequest(originalRequest(), url);
     parameters.storedCredentialsPolicy = equalLettersIgnoringASCIICase(header.crossOrigin(), "anonymous"_s) ? StoredCredentialsPolicy::DoNotUse : StoredCredentialsPolicy::Use;
     parameters.contentSniffingPolicy = ContentSniffingPolicy::DoNotSniffContent;
     parameters.contentEncodingSniffingPolicy = ContentEncodingSniffingPolicy::Default;
     parameters.shouldPreconnectOnly = PreconnectOnly::Yes;
-    parameters.request = constructPreconnectRequest(originalRequest(), url);
-    parameters.isNavigatingToAppBoundDomain = this->parameters().isNavigatingToAppBoundDomain;
+    parameters.isMainFrameNavigation = false;
+    parameters.mainResourceNavigationDataForAnyFrame = std::nullopt;
+    parameters.needsCertificateInfo = false;
 
     startPreconnectTaskAfterContentRuleListCheck(WTF::move(parameters), baseURL);
 #else
@@ -1456,7 +1481,7 @@ void NetworkResourceLoader::didReceiveResponse(ResourceResponse&& receivedRespon
         LOADER_RELEASE_LOG("didReceiveResponse: Received revalidation response (validationSucceeded=%d, wasOriginalRequestConditional=%d)", validationSucceeded, originalRequest().isConditional());
         if (validationSucceeded) {
             m_cacheEntryForValidation = protect(m_cache)->update(originalRequest(), *m_cacheEntryForValidation, m_response, m_privateRelayed);
-            if (connectionToWebProcess().compressionDictionaryEnabled()) {
+            if (protect(connectionToWebProcess())->compressionDictionaryEnabled()) {
                 processUseAsDictionaryHeader(m_cacheEntryForValidation->response());
                 storeCompressionDictionaryIfNeeded(m_cacheEntryForValidation->response(), m_cacheEntryForValidation->buffer());
             }
@@ -1537,6 +1562,8 @@ void NetworkResourceLoader::continueDidReceiveResponseAfterLocalNetworkAccessChe
     }
 
     // https://fetch.spec.whatwg.org/#http-network-compression-dictionary-fetch
+    // To be added with https://github.com/whatwg/fetch/pull/1854
+    //
     // 15. If codings is null or does not contain `dcb` or `dcz`, then return response.
     // A load that was never eligible handed the network layer no dictionary, so it decoded nothing
     // and the codings have to be left alone for the consumer to reject.
@@ -1559,7 +1586,7 @@ void NetworkResourceLoader::continueDidReceiveResponseAfterLocalNetworkAccessChe
     }
 
     processClearSiteDataHeader(m_response, [this, protectedThis = Ref { *this }, privateRelayed, resourceLoadInfo = WTF::move(resourceLoadInfo), completionHandler = WTF::move(completionHandler)] () mutable {
-        if (connectionToWebProcess().compressionDictionaryEnabled())
+        if (protect(connectionToWebProcess())->compressionDictionaryEnabled())
             processUseAsDictionaryHeader(m_response);
 
         auto response = sanitizeResponseIfPossible(ResourceResponse { m_response }, ResourceResponse::SanitizationType::CrossOriginSafe);
@@ -1630,7 +1657,7 @@ bool NetworkResourceLoader::shouldConsiderProcessSwapForDocumentIsolationPolicy(
 
     // This ignores the top-level creation URL, which the UI process takes into account when it decides.
     auto isSecureContext = SecurityOrigin::create(url)->isPotentiallyTrustworthy() ? IsSecureContext::Yes : IsSecureContext::No;
-    bool needsIsolation = obtainDocumentIsolationPolicy(response, isSecureContext).value != DocumentIsolationPolicyValue::None;
+    bool needsIsolation = obtainDocumentIsolationPolicy(response, isSecureContext, connection->credentiallessSupport()).value != DocumentIsolationPolicyValue::None;
     return needsIsolation != (crossOriginIsolation == ProcessCrossOriginIsolation::DocumentIsolationPolicy);
 }
 
@@ -1816,6 +1843,16 @@ void NetworkResourceLoader::didFinishLoading(const NetworkLoadMetrics& originalN
     Ref connection = m_connection;
     if (shouldCaptureExtraNetworkLoadMetrics())
         connection->addNetworkLoadInformationMetrics(coreIdentifier(), networkLoadMetrics);
+
+#if USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
+    if (isMainResource() && PreviewConverter::supportsMIMEType(m_response.mimeType())) {
+        URL temporaryQuickLookFileURL = URL::fileURLWithFileSystemPath(m_temporaryQuickLookFilename);
+        m_temporaryQuickLookFileHandle = { };
+        auto handle = SandboxExtension::createHandle(m_temporaryQuickLookFilename, SandboxExtension::Type::ReadOnly);
+        if (handle)
+            send(Messages::WebResourceLoader::DidFinishQuickLookResourceLoad(temporaryQuickLookFileURL, WTF::move(*handle)));
+    }
+#endif // USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
 
     if (m_cacheEntryForValidation) {
         ASSERT(m_response.httpStatusCode() == httpStatus304NotModified);
@@ -2006,11 +2043,6 @@ void NetworkResourceLoader::continueWillSendRedirectedRequestAfterLocalNetworkAc
             protect(m_cache)->storeRedirect(request, redirectResponse, redirectRequest, maxAgeCap);
     }
 
-    if (isMainResource() && shouldInterruptNavigationForCrossOriginEmbedderPolicy(redirectResponse)) {
-        this->didFailLoading(ResourceError { errorDomainWebKitInternal, 0, redirectRequest.url(), "Redirection was blocked by Cross-Origin-Embedder-Policy"_s, ResourceError::Type::AccessControl });
-        return completionHandler({ });
-    }
-
     if (auto error = doCrossOriginOpenerHandlingOfResponse(redirectResponse)) {
         didFailLoading(*error);
         return completionHandler({ });
@@ -2121,8 +2153,7 @@ void NetworkResourceLoader::continueWillSendRedirectedRequest(ResourceRequest&& 
             return completionHandler({ });
 
         if (newRequest.firstPartyForCookies() != firstPartyForCookiesFromRedirectRequest) {
-            auto allowCookieAccess = NetworkProcess::singleton().allowsFirstPartyForCookies(connection->webProcessIdentifier(), newRequest.firstPartyForCookies());
-            MESSAGE_CHECK_COMPLETION_BASE(allowCookieAccess == NetworkProcess::AllowCookieAccess::Allow, connection->connection(), completionHandler({ }));
+            MESSAGE_CHECK_COMPLETION_BASE(NetworkProcess::singleton().allowsFirstPartyForCookies(connection->webProcessIdentifier(), newRequest.firstPartyForCookies()), connection->connection(), completionHandler({ }));
 
             if (RegistrableDomain { newRequest.firstPartyForCookies() } != RegistrableDomain { firstPartyForCookiesFromRedirectRequest })
                 protectedThis->m_shouldRestartLoad = true;
@@ -2225,6 +2256,10 @@ void NetworkResourceLoader::continueWillSendRequest(ResourceRequest&& newRequest
         if (CheckedPtr session = protect(connectionToWebProcess())->networkSession()) {
             if (RefPtr server = session->swServer(); server && !server->isImportCompletedForOrigin(topOrigin)) {
                 server->importRegistrationsForOrigin(topOrigin, [this, protectedThis = Ref { *this }, newRequest = WTF::move(newRequest), isAllowedToAskUserForCredentials, completionHandler = WTF::move(completionHandler)]() mutable {
+                    if (m_isDone) {
+                        LOADER_RELEASE_LOG("continueWillSendRequest: Load was cleaned up while importing registrations");
+                        return completionHandler({ });
+                    }
                     continueWillSendRequest(WTF::move(newRequest), isAllowedToAskUserForCredentials, WTF::move(completionHandler));
                 });
                 return;
@@ -2544,7 +2579,7 @@ void NetworkResourceLoader::didRetrieveCacheEntry(std::unique_ptr<NetworkCache::
 
     // A cached response still carries Use-As-Dictionary, and re-fetching a dictionary is how a page
     // renews its registration, so a cache hit has to register it just as a network response does.
-    if (connectionToWebProcess().compressionDictionaryEnabled()) {
+    if (protect(connectionToWebProcess())->compressionDictionaryEnabled()) {
         processUseAsDictionaryHeader(response);
         storeCompressionDictionaryIfNeeded(response, RefPtr { entry->buffer() });
     }
@@ -2986,6 +3021,11 @@ void NetworkResourceLoader::startWithServiceWorker()
         if (request.isNull())
             return;
 
+        if (protectedThis->m_isDone) {
+            LOADER_RELEASE_LOG_WITH_THIS(protectedThis, "startWithServiceWorker: Load was cleaned up while waiting, not starting");
+            return;
+        }
+
         ASSERT(!protectedThis->m_serviceWorkerFetchTask);
         protectedThis->m_serviceWorkerFetchTask = protect(protectedThis->connectionToWebProcess())->createFetchTask(protectedThis, request);
         if (protectedThis->m_serviceWorkerFetchTask) {
@@ -3168,7 +3208,7 @@ void NetworkResourceLoader::cancelMainResourceLoadForContentFilter(const WebCore
 
 void NetworkResourceLoader::handleProvisionalLoadFailureFromContentFilter(const URL& blockedPageURL, WebCore::SubstituteData&& substituteData)
 {
-    protect(NetworkProcess::singleton())->addAllowedFirstPartyForCookies(m_connection->webProcessIdentifier(), RegistrableDomain { WebCore::ContentFilter::blockedPageURL() }, LoadedWebArchive::No, [] { });
+    protect(NetworkProcess::singleton())->addAllowedFirstPartyDomainForCookies(m_connection->webProcessIdentifier(), RegistrableDomain { WebCore::ContentFilter::blockedPageURL() }, LoadedWebArchive::No, [] { });
     send(Messages::WebResourceLoader::ContentFilterDidBlockLoad(m_unblockHandler, m_unblockRequestDeniedScript, m_contentFilter->blockedError(), blockedPageURL, substituteData));
 }
 
@@ -3201,6 +3241,25 @@ void NetworkResourceLoader::sendDidReceiveDataMessage(const FragmentedSharedBuff
 #if ENABLE(CONTENT_EXTENSIONS)
     updateBytesTransferredOverNetwork(bytesTransferredOverNetwork);
 #endif
+
+#if USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
+    if (isMainResource() && PreviewConverter::supportsMIMEType(m_response.mimeType())) {
+        if (m_temporaryQuickLookFilename.isEmpty()) {
+            String extension = MIMETypeRegistry::preferredExtensionForMIMEType(m_response.mimeType());
+            String uniqueTemporaryDirectory = FileSystem::createTemporaryDirectory("QuickLook"_s);
+            removeQuickLookTemporaryFilesIfNeeded(FileSystem::parentPath(uniqueTemporaryDirectory));
+            m_temporaryQuickLookFilename = FileSystem::pathByAppendingComponent(uniqueTemporaryDirectory, m_response.url().lastPathComponent().toString());
+            m_temporaryQuickLookFileHandle = FileSystem::openFile(m_temporaryQuickLookFilename, FileSystem::FileOpenMode::ReadWrite, FileSystem::FileAccessPermission::User);
+        }
+        constexpr uint64_t maxFileSize = 1024 * 1024 * 1024;
+        auto currentSize = FileSystem::fileSize(m_temporaryQuickLookFilename);
+        if (currentSize && *currentSize > maxFileSize) {
+            m_temporaryQuickLookFileHandle = { };
+            FileSystem::deleteFile(m_temporaryQuickLookFilename);
+        } else
+            m_temporaryQuickLookFileHandle.write(buffer.copyData().span());
+    }
+#endif // USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
 
     // Transfer memory footprint of the buffer to the receiving WebProcess. We have to use the
     // default ledger rather than the network ledger here since the latter requires an entitlement.
@@ -3250,6 +3309,35 @@ void NetworkResourceLoader::reportNetworkUsageToAllServiceWorkerClients(WebCore:
     }
 }
 #endif
+
+#if USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
+void NetworkResourceLoader::removeQuickLookTemporaryFilesIfNeeded(const String& path)
+{
+    uint64_t totalSize = 0;
+    FileSystem::traverseDirectory(path, [&](const String& fileName, FileSystem::FileType fileType) {
+        if (fileType == FileSystem::FileType::Directory && fileName.startsWith("QuickLook"_s)) {
+            auto size = FileSystem::directorySize(FileSystem::pathByAppendingComponent(path, fileName));
+            if (size)
+                totalSize += *size;
+        }
+    });
+
+    constexpr uint64_t maxDirectorySize = 1024 * 1024 * 1024;
+
+    if (totalSize < maxDirectorySize)
+        return;
+
+    FileSystem::traverseDirectory(path, [&](const String& fileName, FileSystem::FileType fileType) {
+        if (fileType == FileSystem::FileType::Directory && fileName.startsWith("QuickLook"_s)) {
+            String tempQuickLookDirectory = FileSystem::pathByAppendingComponent(path, fileName);
+            FileSystem::traverseDirectory(tempQuickLookDirectory, [&](const String& fileName, FileSystem::FileType fileType) {
+                FileSystem::deleteFile(FileSystem::pathByAppendingComponent(tempQuickLookDirectory, fileName));
+            });
+            FileSystem::deleteEmptyDirectory(tempQuickLookDirectory);
+        }
+    });
+}
+#endif // USE(QUICK_LOOK) && ENABLE(BLOCKING_OF_WEBCONTENT_FILE_WRITE)
 
 } // namespace WebKit
 

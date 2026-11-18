@@ -51,14 +51,14 @@ using namespace HTMLNames;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderTableRow);
 
-RenderTableRow::RenderTableRow(Element& element, Style::ComputedStyle&& style)
+RenderTableRow::RenderTableRow(Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(Type::TableRow, element, WTF::move(style), { })
 {
     setInline(false);
     ASSERT(isRenderTableRow());
 }
 
-RenderTableRow::RenderTableRow(Document& document, Style::ComputedStyle&& style)
+RenderTableRow::RenderTableRow(Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(Type::TableRow, document, WTF::move(style), { })
 {
     setInline(false);
@@ -222,7 +222,7 @@ bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
         // table-specific hit-test method (which we should do for performance reasons anyway),
         // then we can remove this check.
         if (!cell->hasSelfPaintingLayer()) {
-            auto cellPoint = flipForWritingModeForChild(*cell, adjustedOffset);
+            auto cellPoint = blockStartRelativeToPhysicalForChild(*cell, adjustedOffset);
             if (cell->nodeAtPoint(request, result, locationInContainer, cellPoint, action)) {
                 updateHitTestResult(result, locationInContainer.point() - toLayoutSize(cellPoint));
                 return true;
@@ -251,7 +251,7 @@ void RenderTableRow::paintShadowForRowIfNeeded(PaintInfo& paintInfo, const Layou
     LayoutRect rect(adjustedPaintOffset, borderBoxSize());
     adjustBorderBoxRectForPainting(rect);
 
-    BackgroundPainter backgroundPainter { *this, paintInfo };
+    Paint::BackgroundPainter backgroundPainter { *this, paintInfo };
     backgroundPainter.paintBoxShadow(rect, usedStyle(), Style::ShadowStyle::Normal);
 }
 

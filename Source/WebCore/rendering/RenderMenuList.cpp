@@ -54,7 +54,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMenuList);
 
-RenderMenuList::RenderMenuList(HTMLSelectElement& element, Style::ComputedStyle&& style)
+RenderMenuList::RenderMenuList(HTMLSelectElement& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderFlexibleBox(Type::MenuList, element, WTF::move(style))
     , m_needsOptionsWidthUpdate(true)
     , m_optionsWidth(0)
@@ -129,7 +129,8 @@ void RenderMenuList::updateOptionsWidth()
             auto text = htmlSelectMultipleItems(count);
             if (countReplacesSelectedContent)
                 text = select->buttonLabelText(text);
-            auto run = RenderBlock::constructTextRun(applyTextTransform(style, text), style);
+            auto transformed = applyTextTransform(style, text);
+            auto run = RenderBlock::constructTextRun(transformed, style);
             return font->width(run);
         };
         widthWithoutOptions = countTextWidth(0);
@@ -225,7 +226,7 @@ std::pair<LayoutUnit, LayoutUnit> RenderMenuList::computeIntrinsicLogicalWidthCo
         return RenderFlexibleBox::computeIntrinsicLogicalWidthContributions();
 
     if (auto fixedLogicalWidth = style().logicalWidth().tryFixed(); fixedLogicalWidth && fixedLogicalWidth->isPositive()) {
-        auto logicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedLogicalWidth);
+        auto logicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().logicalWidth(), LayoutUnit { fixedLogicalWidth->resolveZoom(style().usedZoomForLength()) }, 0_lu);
         return { logicalWidth, logicalWidth };
     }
 

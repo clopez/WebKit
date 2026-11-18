@@ -160,10 +160,10 @@ TEST(WKWebExtensionAPIRuntime, PlatformArch)
     auto *backgroundScript = Util::constructScript(@[
         @"browser.test.assertEq(typeof browser.runtime.PlatformArch, 'object', 'PlatformArch should be an object')",
 
-        @"browser.test.assertEq(browser.runtime.PlatformArch.ARM, 'arm', 'ARM should be defined')",
+        @"browser.test.assertEq(browser.runtime.PlatformArch.ARM64, 'arm64', 'ARM64 should be defined')",
         @"browser.test.assertEq(browser.runtime.PlatformArch.X86_64, 'x86-64', 'X86_64 should be defined')",
 
-        @"browser.test.assertDeepEq(Object.keys(browser.runtime.PlatformArch).sort(), [ 'ARM', 'X86_64' ], 'PlatformArch should only define the supported values')",
+        @"browser.test.assertDeepEq(Object.keys(browser.runtime.PlatformArch).sort(), [ 'ARM64', 'X86_64' ], 'PlatformArch should only define the supported values')",
 
         @"browser.test.notifyPass()"
     ]);
@@ -332,7 +332,7 @@ TEST(WKWebExtensionAPIRuntime, GetBackgroundPageForServiceWorker)
 TEST(WKWebExtensionAPIRuntime, SetUninstallURL)
 {
     auto *backgroundScript = Util::constructScript(@[
-        @"browser.test.assertSafeResolve(() => browser.runtime.setUninstallURL('https://example.com/uninstall'))",
+        @"await browser.test.assertSafeResolve(() => browser.runtime.setUninstallURL('https://example.com/uninstall'))",
         @"browser.test.notifyPass()"
     ]);
 
@@ -428,12 +428,12 @@ TEST(WKWebExtensionAPIRuntime, GetVersion)
 
 TEST(WKWebExtensionAPIRuntime, GetPlatformInfo)
 {
-#if PLATFORM(MAC) && (CPU(ARM) || CPU(ARM64))
-    auto *expectedInfo = @"{ os: 'mac', arch: 'arm' }";
+#if PLATFORM(MAC) && CPU(ARM64)
+    auto *expectedInfo = @"{ os: 'mac', arch: 'arm64' }";
 #elif PLATFORM(MAC) && (CPU(X86_64))
     auto *expectedInfo = @"{ os: 'mac', arch: 'x86-64' }";
-#elif PLATFORM(IOS_FAMILY) && (CPU(ARM) || CPU(ARM64))
-    auto *expectedInfo = @"{ os: 'ios', arch: 'arm' }";
+#elif PLATFORM(IOS_FAMILY) && CPU(ARM64)
+    auto *expectedInfo = @"{ os: 'ios', arch: 'arm64' }";
 #elif PLATFORM(IOS_FAMILY) && (CPU(X86_64))
     auto *expectedInfo = @"{ os: 'ios', arch: 'x86-64' }";
 #else
@@ -1788,7 +1788,7 @@ TEST(WKWebExtensionAPITabs, SendMessageFromBackgroundToOpenedWindow)
 
     auto *mainScript = Util::constructScript(@[
         @"browser.runtime.onMessage.addListener(() => {",
-        @"  browser.test.fail('Main page should not receive messages intended for opened window')",
+        @"  browser.test.assertTrue(false, 'Main page should not receive messages intended for opened window')",
         @"})",
     ]);
 
@@ -1878,7 +1878,7 @@ TEST(WKWebExtensionAPITabs, ConnectFromBackgroundToOpenedWindow)
 
     auto *mainScript = Util::constructScript(@[
         @"browser.runtime.onConnect.addListener(() => {",
-        @"  browser.test.fail('Main page should not receive connections intended for opened window')",
+        @"  browser.test.assertTrue(false, 'Main page should not receive connections intended for opened window')",
         @"})",
     ]);
 
@@ -2437,7 +2437,7 @@ TEST(WKWebExtensionAPIRuntime, PortDisconnectFromContentScript)
         @"port?.postMessage('Message from content script to background')",
 
         @"port?.onDisconnect.addListener(() => {",
-        @"  browser.test.fail('Should not trigger the onDisconnect event for the port that called disconnect()')",
+        @"  browser.test.assertTrue(false, 'Should not trigger the onDisconnect event for the port that called disconnect()')",
         @"})",
 
         @"port?.disconnect()"
@@ -2784,6 +2784,33 @@ TEST(WKWebExtensionAPIRuntime, ConnectNative)
     [manager run];
 }
 
+TEST(WKWebExtensionAPIRuntime, ConnectNativeWithMessageSentBeforeDelegateCompletes)
+{
+    auto *backgroundScript = Util::constructScript(@[
+        @"const port = browser.runtime?.connectNative('test')",
+
+        @"port?.onMessage.addListener((response) => {",
+        @"  browser.test.assertEq(response, 'Launched', 'Should get the message sent while the native port was connecting')",
+        @"  browser.test.notifyPass()",
+        @"})"
+    ]);
+
+    auto manager = Util::loadExtension(runtimeManifest, @{ @"background.js": backgroundScript });
+
+    [manager.get().context setPermissionStatus:WKWebExtensionContextPermissionStatusGrantedExplicitly forPermission:WKWebExtensionPermissionNativeMessaging];
+
+    manager.get().internalDelegate.connectUsingMessagePort = ^(WKWebExtensionMessagePort *messagePort) {
+        // Let the background page register its onMessage listener before the delegate sends.
+        Util::runFor(0.5_s);
+
+        [messagePort sendMessage:@"Launched" completionHandler:^(NSError *error) {
+            EXPECT_NULL(error);
+        }];
+    };
+
+    [manager run];
+}
+
 TEST(WKWebExtensionAPIRuntime, PortMutateListenersDuringDispatch)
 {
     auto *backgroundScript = Util::constructScript(@[
@@ -2974,7 +3001,7 @@ TEST(WKWebExtensionAPIRuntime, InstalledEvent)
 TEST(WKWebExtensionAPIRuntime, OpenOptionsPage)
 {
     auto *backgroundScript = Util::constructScript(@[
-        @"browser.test.assertSafeResolve(() => browser.runtime.openOptionsPage())"
+        @"await browser.test.assertSafeResolve(() => browser.runtime.openOptionsPage())"
     ]);
 
     auto resources = @{

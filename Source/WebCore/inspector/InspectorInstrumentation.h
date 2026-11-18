@@ -110,7 +110,6 @@ class ServiceWorkerGlobalScope;
 class ShadowRoot;
 class FragmentedSharedBuffer;
 class TimerBase;
-class WebKitNamedFlow;
 class WebSocketChannel;
 class WorkerOrWorkletGlobalScope;
 
@@ -161,11 +160,6 @@ public:
     static void didChangeCustomElementState(Element&);
     static void pseudoElementCreated(Page*, PseudoElement&);
     static void pseudoElementDestroyed(Page*, PseudoElement&);
-    static void didCreateNamedFlow(Document*, WebKitNamedFlow&);
-    static void willRemoveNamedFlow(Document*, WebKitNamedFlow&);
-    static void didChangeRegionOverset(Document&, WebKitNamedFlow&);
-    static void didRegisterNamedFlowContentElement(Document&, WebKitNamedFlow&, Node& contentElement, Node* nextContentElement = nullptr);
-    static void didUnregisterNamedFlowContentElement(Document&, WebKitNamedFlow&, Node& contentElement);
 
     static void mouseDidMoveOverElement(Page&, const HitTestResult&, OptionSet<PlatformEventModifier>);
     static void mouseDidMoveOverRemoteFrame(LocalFrame&);
@@ -363,8 +357,8 @@ public:
     static void didCreateWebAnimation(WebAnimation&);
     static void willDestroyWebAnimation(WebAnimation&);
 
-    static void layerTreeDidChange(Page*);
-    static void renderLayerDestroyed(Page*, const RenderLayer&);
+    static void layerTreeDidChange(LocalFrame&);
+    static void renderLayerDestroyed(LocalFrame&, const RenderLayer&);
 
     static void frontendCreated();
     static void frontendDeleted();
@@ -414,11 +408,6 @@ private:
     static void didChangeCustomElementStateImpl(InstrumentingAgents&, Element&);
     static void pseudoElementCreatedImpl(InstrumentingAgents&, PseudoElement&);
     static void pseudoElementDestroyedImpl(InstrumentingAgents&, PseudoElement&);
-    static void didCreateNamedFlowImpl(InstrumentingAgents&, Document*, WebKitNamedFlow&);
-    static void willRemoveNamedFlowImpl(InstrumentingAgents&, Document*, WebKitNamedFlow&);
-    static void didChangeRegionOversetImpl(InstrumentingAgents&, Document&, WebKitNamedFlow&);
-    static void didRegisterNamedFlowContentElementImpl(InstrumentingAgents&, Document&, WebKitNamedFlow&, Node& contentElement, Node* nextContentElement = nullptr);
-    static void didUnregisterNamedFlowContentElementImpl(InstrumentingAgents&, Document&, WebKitNamedFlow&, Node& contentElement);
 
     static void mouseDidMoveOverElementImpl(InstrumentingAgents&, const HitTestResult&, OptionSet<PlatformEventModifier>);
     static void mouseDidMoveOverRemoteFrameImpl(InstrumentingAgents&, LocalFrame&);
@@ -602,6 +591,7 @@ private:
     static InstrumentingAgents* instrumentingAgents(const LocalFrame*);
     static InstrumentingAgents* instrumentingAgents(ScriptExecutionContext&);
     NODELETE static InstrumentingAgents* instrumentingAgents(Document&);
+    static InstrumentingAgents* instrumentingAgentsForFrameOrPage(Document&);
     static InstrumentingAgents* instrumentingAgents(Document*);
     static InstrumentingAgents* instrumentingAgents(WorkerOrWorkletGlobalScope*);
 };
@@ -804,41 +794,6 @@ inline void InspectorInstrumentation::pseudoElementDestroyed(Page* page, PseudoE
     FAST_RETURN_IF_NO_FRONTENDS(void());
     if (RefPtr agents = instrumentingAgents(page))
         pseudoElementDestroyedImpl(*agents, pseudoElement);
-}
-
-inline void InspectorInstrumentation::didCreateNamedFlow(Document* document, WebKitNamedFlow& namedFlow)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
-        didCreateNamedFlowImpl(*agents, document, namedFlow);
-}
-
-inline void InspectorInstrumentation::willRemoveNamedFlow(Document* document, WebKitNamedFlow& namedFlow)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
-        willRemoveNamedFlowImpl(*agents, document, namedFlow);
-}
-
-inline void InspectorInstrumentation::didChangeRegionOverset(Document& document, WebKitNamedFlow& namedFlow)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
-        didChangeRegionOversetImpl(*agents, document, namedFlow);
-}
-
-inline void InspectorInstrumentation::didRegisterNamedFlowContentElement(Document& document, WebKitNamedFlow& namedFlow, Node& contentElement, Node* nextContentElement)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
-        didRegisterNamedFlowContentElementImpl(*agents, document, namedFlow, contentElement, nextContentElement);
-}
-
-inline void InspectorInstrumentation::didUnregisterNamedFlowContentElement(Document& document, WebKitNamedFlow& namedFlow, Node& contentElement)
-{
-    FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
-        didUnregisterNamedFlowContentElementImpl(*agents, document, namedFlow, contentElement);
 }
 
 inline void InspectorInstrumentation::mouseDidMoveOverElement(Page& page, const HitTestResult& result, OptionSet<PlatformEventModifier> modifiers)
@@ -1129,21 +1084,21 @@ inline void InspectorInstrumentation::didPaint(RenderObject& renderer, const Lay
 inline void InspectorInstrumentation::willRecalculateStyle(Document& document)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
+    if (RefPtr agents = instrumentingAgentsForFrameOrPage(document))
         willRecalculateStyleImpl(*agents);
 }
 
 inline void InspectorInstrumentation::didRecalculateStyle(Document& document)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
+    if (RefPtr agents = instrumentingAgentsForFrameOrPage(document))
         didRecalculateStyleImpl(*agents, document);
 }
 
 inline void InspectorInstrumentation::didScheduleStyleRecalculation(Document& document)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(document))
+    if (RefPtr agents = instrumentingAgentsForFrameOrPage(document))
         didScheduleStyleRecalculationImpl(*agents, document);
 }
 
@@ -1687,7 +1642,7 @@ inline RefPtr<::WebGPU::RenderPipeline> InspectorInstrumentation::renderPipeline
 inline void InspectorInstrumentation::willApplyKeyframeEffect(const Styleable& target, KeyframeEffect& effect, const ComputedEffectTiming& computedTiming)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(target.element.document()))
+    if (RefPtr agents = instrumentingAgents(target.element->document()))
         willApplyKeyframeEffectImpl(*agents, target, effect, computedTiming);
 }
 
@@ -1929,18 +1884,16 @@ inline void InspectorInstrumentation::didFireObserverCallback(ScriptExecutionCon
         didFireObserverCallbackImpl(*agents);
 }
 
-inline void InspectorInstrumentation::layerTreeDidChange(Page* page)
+inline void InspectorInstrumentation::layerTreeDidChange(LocalFrame& frame)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(page))
-        layerTreeDidChangeImpl(*agents);
+    layerTreeDidChangeImpl(protect(instrumentingAgents(frame)));
 }
 
-inline void InspectorInstrumentation::renderLayerDestroyed(Page* page, const RenderLayer& renderLayer)
+inline void InspectorInstrumentation::renderLayerDestroyed(LocalFrame& frame, const RenderLayer& renderLayer)
 {
     FAST_RETURN_IF_NO_FRONTENDS(void());
-    if (RefPtr agents = instrumentingAgents(page))
-        renderLayerDestroyedImpl(*agents, renderLayer);
+    renderLayerDestroyedImpl(protect(instrumentingAgents(frame)), renderLayer);
 }
 
 inline InstrumentingAgents* InspectorInstrumentation::instrumentingAgents(ScriptExecutionContext* context)

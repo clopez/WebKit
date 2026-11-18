@@ -24,6 +24,7 @@
  */
 
 #include "config.h"
+#include "Logging.h"
 #include <wtf/FileSystem.h>
 #include <wtf/SoftLinking.h>
 #include <wtf/posix/POSIXExtras.h>
@@ -53,6 +54,8 @@ void* WebKitSwiftLibrary(bool isOptional)
 
         if (!isOptional)
             RELEASE_ASSERT_WITH_MESSAGE(library, "%s", dlerror());
+        else
+            RELEASE_LOG_ERROR(Process, "Failed to load libWebKitSwift.dylib: %s", dlerror());
         return library;
     }();
     return library;
@@ -95,6 +98,9 @@ SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKIdentityDocumentPrese
 SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKIdentityDocumentPresentmentRequest);
 SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKIdentityDocumentPresentmentRequestAuthenticationCertificate);
 SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKTextAnimationManager)
+#if ENABLE(WEBXR) && (PLATFORM(MAC) || PLATFORM(VISION))
+SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKWebXRImmersiveSpaceHost)
+#endif
 
 // Model API - Main Classes
 SOFT_LINK_CLASS_FOR_SOURCE_OPTIONAL(WebKit, WebKitSwift, WKBridgeUSDConfiguration)

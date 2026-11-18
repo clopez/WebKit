@@ -115,6 +115,7 @@
 #include "ScriptSourceCode.h"
 #include "ScrollingCoordinator.h"
 #include "SecurityOrigin.h"
+#include "SecurityOriginPolicy.h"
 #include "ServiceWorkerGlobalScope.h"
 #include "Settings.h"
 #include "StyleComputedStyle+GettersInlines.h"
@@ -417,7 +418,7 @@ void LocalFrame::invalidateContentEventRegionsIfNeeded(InvalidateContentEventReg
     bool needsUpdateForEditableElements = false;
     bool needsUpdateForInteractionRegions = false;
 #if ENABLE(WHEEL_EVENT_REGIONS)
-    needsUpdateForWheelEventHandlers = document->hasWheelEventHandlers() || reason == InvalidateContentEventRegionsReason::EventHandlerChange;
+    needsUpdateForWheelEventHandlers = document->hasWheelEventHandlers() || document->mayHaveListBoxes() || reason == InvalidateContentEventRegionsReason::EventHandlerChange;
 #else
     UNUSED_PARAM(reason);
 #endif
@@ -828,6 +829,9 @@ void LocalFrame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserS
     if (!page)
         return;
 
+    if (script.pageID() && script.pageID() != page->identifier())
+        return;
+
     if (script.injectedFrames() == UserContentInjectedFrames::InjectInTopFrameOnly && !isMainFrame())
         return;
 
@@ -851,6 +855,10 @@ void LocalFrame::injectUserScriptImmediately(DOMWrapperWorld& world, const UserS
     }
 
     if (!UserContentURLPattern::matchesPatterns(url, script.allowlist(), script.blocklist()))
+        return;
+
+    // We may attempt to add the same script more than once, so ensure it's only added once per document in a world.
+    if (!document->recordInjectedUserScript(world, script))
         return;
 
     page->setHasInjectedUserScript();
@@ -919,6 +927,32 @@ void LocalFrame::willDetachPage()
     // - When adding a document to the back/forward cache, the tree is torn down before instantiating
     //   the CachedPage+CachedFrame object tree.
     ASSERT(!document() || !document()->renderView());
+}
+
+void LocalFrame::willBeReplacedByRemoteFrame()
+{
+    if (!m_cachedPageCount) {
+        loader().detachFromParent();
+        return;
+    }
+
+    ASSERT(isMainFrame());
+    ASSERT(m_doc && m_doc->backForwardCacheState() == Document::InBackForwardCache);
+    ASSERT(!tree().firstChild());
+    ASSERT(!m_existsOnlyForCachedPages);
+    m_existsOnlyForCachedPages = true;
+
+    InspectorInstrumentation::frameDetachedFromParent(*this);
+
+    if (RefPtr page = this->page()) {
+        page->removeRootFrame(*this);
+        if (RefPtr scrollingCoordinator = page->scrollingCoordinator())
+            scrollingCoordinator->rootFrameWasRemoved(frameID());
+    }
+
+#if ASSERT_ENABLED
+    frameExistsOnlyForCachedPages(*this);
+#endif
 }
 
 String LocalFrame::displayStringModifiedByEncoding(const String& str) const
@@ -1130,9 +1164,21 @@ void LocalFrame::setPageAndTextZoomFactors(float pageZoomFactor, float textZoomF
     }
 }
 
-float LocalFrame::frameScaleFactorForChild(const Frame& child) const
+void LocalFrame::frameOwnerZoomDidChange()
 {
-    // The frame scale factor for a child frame is the accumulated CSS zoom
+    // https://github.com/w3c/csswg-drafts/issues/9644
+    RefPtr parentFrame = tree().parent();
+    auto frameOwnerZoomFactor = parentFrame ? parentFrame->frameOwnerZoomFactorForChild(*this) : 1.0f;
+    if (frameOwnerZoomFactor == m_frameOwnerZoomFactor)
+        return;
+    m_frameOwnerZoomFactor = frameOwnerZoomFactor;
+    if (RefPtr document = this->document())
+        document->scheduleFullStyleRebuild();
+}
+
+float LocalFrame::frameOwnerZoomFactorForChild(const Frame& child) const
+{
+    // The frame owner zoom factor for a child frame is the accumulated CSS zoom
     // applied to the frame element. On the ComputedStyle, the used zoom also
     // includes the page zoom factor, so we must divide it out to get back to
     // the accumulated CSS zoom value.
@@ -1792,7 +1838,7 @@ std::optional<DocumentSecurityPolicy> LocalFrame::frameDocumentSecurityPolicy() 
     if (!document)
         return std::nullopt;
 
-    return DocumentSecurityPolicy { document->crossOriginEmbedderPolicy(), document->crossOriginOpenerPolicy(), document->isSecureContext() ? IsSecureContext::Yes : IsSecureContext::No, document->agentClusterIdentifier() };
+    return DocumentSecurityPolicy { document->crossOriginEmbedderPolicy(), document->crossOriginOpenerPolicy(), document->isSecureContext() ? IsSecureContext::Yes : IsSecureContext::No, document->agentClusterIdentifier(), document->isSandboxed(SandboxFlag::Origin) };
 }
 
 std::optional<AgentClusterIdentifier> LocalFrame::frameAgentClusterIdentifier() const

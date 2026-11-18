@@ -355,7 +355,7 @@ void SVGRenderSupport::layoutChildren(RenderElement& start, bool selfNeedsLayout
     }
 
     if (!layoutSizeChanged) {
-        ASSERT(elementsThatDidNotReceiveLayout.isEmptyIgnoringNullReferences());
+        ASSERT(elementsThatDidNotReceiveLayout.computeIsEmpty());
         return;
     }
 
@@ -444,6 +444,7 @@ inline FloatRect clipPathReferenceBox(const RenderElement& renderer, CSSBoxType 
     bool isBoxRelativeToRendererGeometry = true;
     switch (boxType) {
     case CSSBoxType::BorderBox:
+    case CSSBoxType::HalfBorderBox:
     case CSSBoxType::MarginBox:
     case CSSBoxType::StrokeBox:
     case CSSBoxType::BoxMissing:
@@ -751,8 +752,7 @@ FloatRect SVGRenderSupport::calculateApproximateStrokeBoundingBox(const RenderEl
         auto strokeBoundingBox = fillBoundingBox;
         auto nonScalingTransform = renderer.computeNonScalingStrokeTransform();
         if (auto inverse = nonScalingTransform.inverse()) {
-            auto* usePath = renderer.nonScalingStrokePath(&renderer.path(), nonScalingTransform);
-            auto strokeBoundingRect = calculateApproximateScalingStrokeBoundingBox(renderer, usePath->fastBoundingRect());
+            auto strokeBoundingRect = calculateApproximateScalingStrokeBoundingBox(renderer, renderer.nonScalingStrokePath(renderer.path(), nonScalingTransform).fastBoundingRect());
             strokeBoundingRect = inverse.value().mapRect(strokeBoundingRect);
             if (!strokeBoundingRect.isNaN())
                 strokeBoundingBox.unite(strokeBoundingRect);

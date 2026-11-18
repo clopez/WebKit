@@ -33,6 +33,7 @@
 #include <WebCore/IntPoint.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/ListHashSet.h>
+#include <wtf/MonotonicTime.h>
 #include <wtf/RefCountedAndCanMakeWeakPtr.h>
 #include <wtf/RunLoop.h>
 #include <wtf/Seconds.h>
@@ -51,13 +52,14 @@ enum class VirtualKey;
 namespace WebKit {
 
 class AutomationCommandError;
+enum class NodeHandleKind : bool;
 using AutomationCompletionHandler = WTF::CompletionHandler<void(std::optional<AutomationCommandError>)>;
 
 class WebPageProxy;
 
 using KeyboardInteraction = Inspector::Protocol::Automation::KeyboardInteractionType;
 using VirtualKey = Inspector::Protocol::Automation::VirtualKey;
-using VirtualKeyMap = HashMap<VirtualKey, VirtualKey, WTF::IntHash<VirtualKey>, WTF::StrongEnumHashTraits<VirtualKey>>;
+using VirtualKeyMap = HashMap<VirtualKey, VirtualKey, WTF::IntHash<VirtualKey>>;
 
 // https://w3c.github.io/webdriver/#dfn-normalised-key-value
 NODELETE VirtualKey normalizedVirtualKey(VirtualKey);
@@ -153,6 +155,7 @@ struct SimulatedInputViewport {
 struct SimulatedInputRunOptions {
     std::optional<SimulatedInputViewport> viewport;
     bool interpolatePointerMoves { false };
+    NodeHandleKind elementOriginHandleKind { };
 };
 
 class SimulatedInputDispatcher : public RefCountedAndCanMakeWeakPtr<SimulatedInputDispatcher> {
@@ -174,7 +177,7 @@ public:
 #if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
         virtual void simulateWheelInteraction(WebPageProxy&, const WebCore::IntPoint& locationInView, const WebCore::IntSize& delta, AutomationCompletionHandler&&) = 0;
 #endif
-        virtual void viewportInViewCenterPointOfElement(WebPageProxy&, std::optional<WebCore::FrameIdentifier>, const String& nodeHandle, Function<void (std::optional<WebCore::IntPoint>, std::optional<AutomationCommandError>)>&&) = 0;
+        virtual void viewportInViewCenterPointOfElement(WebPageProxy&, std::optional<WebCore::FrameIdentifier>, const String& nodeHandle, NodeHandleKind, Function<void (std::optional<WebCore::IntPoint>, std::optional<AutomationCommandError>)>&&) = 0;
     };
 
     static Ref<SimulatedInputDispatcher> create(WebPageProxy& page, SimulatedInputDispatcher::Client& client)
@@ -185,7 +188,7 @@ public:
     ~SimulatedInputDispatcher();
 
     void run(std::optional<WebCore::FrameIdentifier>, Vector<SimulatedInputKeyFrame>&& keyFrames, const HashMap<String, Ref<SimulatedInputSource>>& inputSources, SimulatedInputRunOptions, AutomationCompletionHandler&&);
-    void cancel();
+    void cancel(AutomationCommandError);
 
     NODELETE bool isActive() const;
 
@@ -215,8 +218,8 @@ private:
         WebCore::IntPoint end;
         MouseButton button;
         String pointerType;
-        unsigned stepCount { 1 };
-        unsigned stepIndex { 0 };
+        MonotonicTime startTime;
+        Seconds duration;
         Seconds stepInterval;
         WebCore::IntPoint lastDispatchedLocation;
         AutomationCompletionHandler completionHandler;
@@ -243,6 +246,7 @@ private:
 #endif
 
     Vector<SimulatedInputKeyFrame> m_keyframes;
+    uint64_t m_runCompletionCount { 0 };
 
     // The position within m_keyframes.
     unsigned m_keyframeIndex { 0 };

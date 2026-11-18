@@ -467,6 +467,8 @@ constexpr CSSValueID toCSSValueID(FillBox e)
         return CSSValueID::BorderArea;
     case FillBox::Text:
         return CSSValueID::Text;
+    case FillBox::BorderAreaText:
+        return CSSValueID::Invalid;
     case FillBox::NoClip:
         return CSSValueID::NoClip;
     }
@@ -1694,7 +1696,7 @@ template<> constexpr WindRule fromCSSValueID(CSSValueID valueID)
 #define TYPE AlignmentBaseline
 #define FOR_EACH(CASE) CASE(AfterEdge) CASE(Alphabetic) CASE(Baseline) \
     CASE(BeforeEdge) CASE(Central) CASE(Hanging) CASE(Ideographic) CASE(Mathematical) \
-    CASE(Middle) CASE(TextAfterEdge) CASE(TextBeforeEdge)
+    CASE(Middle) CASE(TextAfterEdge) CASE(TextBeforeEdge) CASE(TextBottom) CASE(TextTop)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
@@ -1983,6 +1985,8 @@ constexpr CSSValueID toCSSValueID(CSSBoxType cssBox)
         return CSSValueID::MarginBox;
     case CSSBoxType::BorderBox:
         return CSSValueID::BorderBox;
+    case CSSBoxType::HalfBorderBox:
+        return CSSValueID::HalfBorderBox;
     case CSSBoxType::PaddingBox:
         return CSSValueID::PaddingBox;
     case CSSBoxType::ContentBox:
@@ -2008,6 +2012,8 @@ template<> constexpr CSSBoxType fromCSSValueID(CSSValueID valueID)
         return CSSBoxType::MarginBox;
     case CSSValueID::BorderBox:
         return CSSBoxType::BorderBox;
+    case CSSValueID::HalfBorderBox:
+        return CSSBoxType::HalfBorderBox;
     case CSSValueID::PaddingBox:
         return CSSBoxType::PaddingBox;
     case CSSValueID::ContentBox:

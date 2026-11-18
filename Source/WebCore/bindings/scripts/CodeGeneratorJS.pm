@@ -59,7 +59,10 @@ my %auxImplIncludes = ();
 # Used while emitting the split-out getter definitions so their header
 # dependencies travel with the moved code rather than polluting the main file.
 my $auxImplActive = 0;
-my @depsContent = ();
+# Names of the IDL files, without .idl, whose definitions the generated code depends on.
+my %dependencies = ();
+# Names of the child interfaces the generated code depends on, or undef if it doesn't depend on its child interfaces.
+my $childInterfaceNames;
 my $hasNonTrivialFinishCreation = 0;
 my $hasNonDefaultFinishCreation = 0;
 
@@ -620,6 +623,7 @@ sub AddToIncludesForIDLType
     }
 
     if ($codeGenerator->IsCallbackFunction($type) || $codeGenerator->IsCallbackInterface($type)) {
+        $dependencies{$type->name} = 1;
         AddToIncludes("JS" . $type->name . ".h", $includesRef, $conditional);
         AddToIncludes("JSDOMConvertCallbacks.h", $includesRef, $conditional);
         return;
@@ -631,12 +635,14 @@ sub AddToIncludesForIDLType
     }
 
     if ($codeGenerator->IsExternalDictionaryType($type)) {
+        $dependencies{$type->name} = 1;
         AddToIncludes("JS" . $type->name . ".h", $includesRef, $conditional);
         AddToIncludes("JSDOMConvertDictionary.h", $includesRef, $conditional);
         return;
     }
 
     if ($codeGenerator->IsExternalEnumType($type)) {
+        $dependencies{$type->name} = 1;
         AddToIncludes("JS" . $type->name . ".h", $includesRef, $conditional);
         AddToIncludes("JSDOMConvertEnumeration.h", $includesRef, $conditional);
         return;
@@ -655,6 +661,7 @@ sub AddToIncludesForIDLType
     }
 
     if ($codeGenerator->IsInterfaceType($type)) {
+        $dependencies{$type->name} = 1;
         AddToIncludes("JS" . $type->name . ".h", $includesRef, $conditional);
         AddToIncludes("JSDOMConvertInterface.h", $includesRef, $conditional);
         return;
@@ -3788,22 +3795,19 @@ sub GenerateHeader
 
     # - Generate dependencies.
     if ($writeDependencies) {
-        my @ancestors;
         $codeGenerator->ForAllParents($interface, sub {
             my $currentInterface = shift;
-            push(@ancestors, $currentInterface->type->name);
+            $dependencies{$currentInterface->type->name} = 1;
         }, 0);
         for my $dictionary (@$dictionaries) {
             my $parentType = $dictionary->parentType;
             while (defined($parentType)) {
-                push(@ancestors, $parentType->name) if $codeGenerator->IsExternalDictionaryType($parentType);
+                $dependencies{$parentType->name} = 1 if $codeGenerator->IsExternalDictionaryType($parentType);
                 my $parentDictionary = $codeGenerator->GetDictionaryByType($parentType);
                 assert("Unable to find definition for dictionary named '" . $parentType->name . "'!") unless defined($parentDictionary);
                 $parentType = $parentDictionary->parentType;
             }
         }
-        push(@depsContent, "$className.h : ", join(" ", map { "$_.idl" } @ancestors), "\n");
-        push(@depsContent, map { "$_.idl :\n" } @ancestors);
     }
 }
 
@@ -5812,7 +5816,11 @@ sub GenerateImplementation
 
         my $hasChildInterfaces = 0;
         unless ($interface->extendedAttributes->{IgnoreSubclassesWhenGeneratingToJSObject}) {
-            $codeGenerator->ForEachChildInterface($interface, sub { $hasChildInterfaces = 1; });
+            $childInterfaceNames = [];
+            $codeGenerator->ForEachChildInterface($interface, sub {
+                $hasChildInterfaces = 1;
+                push(@$childInterfaceNames, shift->type->name);
+            });
         }
 
         # We use a templated verifyVTable function here to force the type
@@ -7224,16 +7232,13 @@ sub GenerateDictionaryHeader
     
     # - Generate dependencies.
     if ($writeDependencies) {
-        my @ancestors;
         my $parentType = $dictionary->parentType;
         while (defined($parentType)) {
-            push(@ancestors, $parentType->name) if $codeGenerator->IsExternalDictionaryType($parentType);
+            $dependencies{$parentType->name} = 1 if $codeGenerator->IsExternalDictionaryType($parentType);
             my $parentDictionary = $codeGenerator->GetDictionaryByType($parentType);
             assert("Unable to find definition for dictionary named '" . $parentType->name . "'!") unless $parentDictionary;
             $parentType = $parentDictionary->parentType;
         }
-        push(@depsContent, "$className.h : ", join(" ", map { "$_.idl" } @ancestors), "\n");
-        push(@depsContent, map { "$_.idl :\n" } @ancestors);
     }
 }
 
@@ -8873,13 +8878,15 @@ sub WriteData
     %headerIncludes = ();
     %headerTrailingIncludes = ();
 
-    if (@depsContent) {
-        # Update a .dep file if the contents are changed.
-        $contents = join "", @depsContent;
+    if ($writeDependencies) {
+        delete $dependencies{$name};
+        my @dependencies = map { "$_.idl" } sort keys %dependencies;
+        my $contents = "JS$name.h : @dependencies\n" . join("", map { "$_ :\n" } @dependencies);
+        $contents .= join(" ", "# Child interfaces:", @$childInterfaceNames) . "\n" if $childInterfaceNames;
         $codeGenerator->UpdateFile($depsFileName, $contents);
-
-        @depsContent = ();
     }
+    %dependencies = ();
+    $childInterfaceNames = undef;
 }
 
 sub GeneratePrototypeDeclaration

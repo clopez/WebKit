@@ -93,6 +93,7 @@ enum class ShouldFocusElement : bool;
 
 struct FocusEventData;
 struct GlobalWindowIdentifier;
+struct ScrollRectToVisibleOptions;
 
 struct JSHandleIdentifierType;
 using WebProcessJSHandleIdentifier = ObjectIdentifier<JSHandleIdentifierType>;
@@ -113,6 +114,9 @@ class WebMouseEvent;
 class WebPage;
 class WebRemoteFrameClient;
 
+enum class DidCacheOutgoingDocument : bool;
+
+struct BackForwardItemIdentifiers;
 struct FrameInfoData;
 struct FrameTreeNodeData;
 struct JSHandleInfo;
@@ -148,7 +152,8 @@ public:
     void destroyProvisionalFrame();
     void stopLoadingDueToProcessSwap(WebCore::NavigationIdentifier);
     void updateSandboxFlags(WebCore::SandboxFlags);
-    void loadDidCommitInAnotherProcess(WebCore::ProcessIdentifier hostingProcessID, std::optional<WebCore::LayerHostingContextIdentifier>);
+    void didAddHistoryItemToBackForwardItem(WebCore::BackForwardFrameItemIdentifier, WebCore::BackForwardItemIdentifier);
+    DidCacheOutgoingDocument loadDidCommitInAnotherProcess(WebCore::ProcessIdentifier hostingProcessID, std::optional<WebCore::LayerHostingContextIdentifier>, std::optional<BackForwardItemIdentifiers>&& cacheIdentifiers);
     WebCore::LocalFrame* provisionalFrame() { return m_provisionalFrame.get(); }
 
     Awaitable<std::optional<FrameInfoData>> getFrameInfo();
@@ -333,6 +338,7 @@ private:
 
     void findFocusableElementDescendingIntoRemoteFrame(WebCore::FocusDirection, const WebCore::FocusEventData&, WebCore::ShouldFocusElement, CompletionHandler<void(WebCore::FoundElementInRemoteFrame)>&&);
     void findFocusableElementContinuingFromFrame(WebCore::FocusDirection, WebCore::FrameIdentifier, const WebCore::FocusEventData&, WebCore::ShouldFocusElement);
+    void scrollRectToVisibleContinuingFromFrame(WebCore::FrameIdentifier, const WebCore::IntRect&, const WebCore::ScrollRectToVisibleOptions&);
 
     CheckedRef<FrameInspectorTarget> ensureInspectorTarget();
 

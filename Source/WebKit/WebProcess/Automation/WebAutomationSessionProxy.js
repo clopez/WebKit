@@ -25,14 +25,58 @@
 
 //# sourceURL=__InjectedScript_WebAutomationSessionProxy.js
 
-(function (sessionIdentifier, currentFrameIdentifier, evaluate, createUUID, isValidNodeIdentifier, isKnownReference, addKnownReference) {
+(function (sessionIdentifier, currentFrameIdentifier, evaluate, createUUID, isValidNodeIdentifier, isKnownReference, addKnownReference, shadowRootForElement, bidiRemoteValueType, frameIdentifierForWindowProxy, shadowRootMode) {
 
 const sessionNodePropertyName = "session-node-" + sessionIdentifier;
+
+// FIXME: These are captured when the session first uses this global object, which can be after page
+// script has replaced them.
+const dateToISOString = Date.prototype.toISOString;
+const jsonStringify = JSON.stringify;
+const mapForEach = Map.prototype.forEach;
+const reflectApply = Reflect.apply;
+const setForEach = Set.prototype.forEach;
+
+const elementNodeType = 1;
+const attributeNodeType = 2;
+const documentNodeType = 9;
+
+// The UI process can't parse JSON that is nested more than 1000 levels deep. This leaves room for
+// the message around a remote value, and for the levels inside the innermost remote value.
+const maxBidiRemoteValueJSONDepth = 900;
+
+// How deep in JSON the remote value being built is. Page script could intercept this if it were a property
+// of the proxy object.
+let bidiRemoteValueJSONDepth = 0;
+
+function safelyReadStringProperty(value, property)
+{
+    if (value === null || value === undefined)
+        return undefined;
+
+    try {
+        let propertyValue = value[property];
+        if (typeof propertyValue === "string")
+            return propertyValue;
+    } catch { }
+
+    return undefined;
+}
+
+function createBidiScriptError(error, name, fallbackMessage)
+{
+    let message = typeof error === "string" ? error : safelyReadStringProperty(error, "message");
+    return {
+        name,
+        message: message || fallbackMessage
+    };
+}
 
 let AutomationSessionProxy = class AutomationSessionProxy
 {
     constructor()
     {
+        // FIXME: <https://webkit.org/b/328548> Use weak node-reference storage for Classic and BiDi.
         this._nodeToIdMap = new Map;
         this._idToNodeMap = new Map;
         this._staleIdentifiers = new Set;
@@ -47,16 +91,45 @@ let AutomationSessionProxy = class AutomationSessionProxy
             .catch(error => { resultCallback(frameID, callbackID, error); });
     }
 
-    evaluateBidiScript(expression, awaitPromise, maxObjectDepth, frameID, callbackID, resultCallback, callbackTimeout)
+    evaluateBidiScript(expression, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, frameID, callbackID, resultCallback, callbackTimeout)
     {
-        this._executeBidiScript(expression, awaitPromise, maxObjectDepth, callbackTimeout)
-            .then(result => { resultCallback(frameID, callbackID, JSON.stringify(result)); })
-            .catch(error => { resultCallback(frameID, callbackID, error); });
+        this._executeBidiScript(expression, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, callbackTimeout).then(result => {
+            let serializedResult;
+            let serializationError;
+            try {
+                serializedResult = jsonStringify(result);
+            } catch (error) {
+                serializationError = createBidiScriptError(error, "InternalError", "Script result serialization failed.");
+            }
+
+            if (serializationError) {
+                resultCallback(frameID, callbackID, serializationError);
+                return;
+            }
+
+            if (typeof serializedResult !== "string") {
+                resultCallback(frameID, callbackID, createBidiScriptError(undefined, "InternalError", "Script result serialization failed."));
+                return;
+            }
+
+            resultCallback(frameID, callbackID, serializedResult);
+        }, error => {
+            let name = safelyReadStringProperty(error, "name");
+            if (name !== "JavaScriptTimeout")
+                name = "InternalError";
+            let fallbackMessage = name === "JavaScriptTimeout" ? "Script evaluation timed out." : "Script evaluation failed.";
+            resultCallback(frameID, callbackID, createBidiScriptError(error, name, fallbackMessage));
+        });
     }
 
     nodeForIdentifier(identifier)
     {
         this._clearStaleNodes();
+        return this._nodeForIdentifier(identifier);
+    }
+
+    nodeForSharedId(identifier)
+    {
         return this._nodeForIdentifier(identifier);
     }
 
@@ -127,7 +200,7 @@ let AutomationSessionProxy = class AutomationSessionProxy
             });
     }
 
-    _executeBidiScript(expression, awaitPromise, maxObjectDepth, callbackTimeout)
+    _executeBidiScript(expression, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, callbackTimeout)
     {
         let timeoutPromise;
         let timeoutIdentifier = 0;
@@ -140,31 +213,62 @@ let AutomationSessionProxy = class AutomationSessionProxy
         }
 
         let promise = new Promise((resolve, reject) => {
-            try {
-                // Execute expression using globalThis.eval pattern (like original implementation).
-                let result = globalThis.eval(expression);
+            this._clearStaleNodes();
 
-                if (awaitPromise && result && typeof result.then === "function") {
-                    // Handle promises for awaitPromise: true.
-                    result.then(
-                        value => {
-                            let serializedValue = this.serializeBidiRemoteValue(value, maxObjectDepth);
-                            resolve({ success: true, result: serializedValue });
-                        },
-                        error => {
-                            reject({ success: false, error: { name: error.name, message: error.message, stack: error.stack } });
-                        }
-                    );
-                } else {
-                    // Handle synchronous results or non-promises.
-                    let serializedValue = this.serializeBidiRemoteValue(result, maxObjectDepth);
-                    resolve({ success: true, result: serializedValue });
+            let resolveWithExceptionResult = error => {
+                let serializedException;
+                try {
+                    serializedException = this.serializeBidiRemoteValue(error);
+                } catch {
+                    // Report the exception without its contents instead of failing the command. Only an
+                    // object can fail to serialize.
+                    serializedException = { type: bidiRemoteValueType(error) ?? "object" };
                 }
+
+                let errorProperties = {
+                    exception: serializedException,
+                    name: safelyReadStringProperty(error, "name"),
+                    message: safelyReadStringProperty(error, "message"),
+                    stack: safelyReadStringProperty(error, "stack")
+                };
+                resolve({ success: false, error: errorProperties });
+            };
+
+            let serializeAndResolveResult = value => {
+                try {
+                    let serializedValue = this.serializeBidiRemoteValue(value, maxObjectDepth, maxDomDepth, includeShadowTree);
+                    resolve({ success: true, result: serializedValue });
+                } catch (error) {
+                    reject(createBidiScriptError(error, "InternalError", "Script result serialization failed."));
+                }
+            };
+
+            let result;
+            try {
+                // Evaluate the expression in the target global scope.
+                result = globalThis.eval(expression);
             } catch (error) {
-                reject({ success: false, error: { name: error.name, message: error.message, stack: error.stack } });
+                resolveWithExceptionResult(error);
+                return;
             }
+
+            if (awaitPromise && result) {
+                try {
+                    let then = result.then;
+                    if (typeof then === "function") {
+                        reflectApply(then, result, [serializeAndResolveResult, resolveWithExceptionResult]);
+                        return;
+                    }
+                } catch (error) {
+                    resolveWithExceptionResult(error);
+                    return;
+                }
+            }
+
+            serializeAndResolveResult(result);
         });
 
+        // FIXME: <https://webkit.org/b/328581> Prevent page-defined array iterators from affecting script.evaluate.
         let promises = [promise];
         if (timeoutPromise)
             promises.push(timeoutPromise);
@@ -326,113 +430,216 @@ let AutomationSessionProxy = class AutomationSessionProxy
 
     _clearStaleNodes()
     {
-        for (var [node, identifier] of this._nodeToIdMap) {
+        reflectApply(mapForEach, this._nodeToIdMap, [(identifier, node) => {
             const rootNode = node.getRootNode({ composed: true });
             if (rootNode !== document) {
                 this._nodeToIdMap.delete(node);
                 this._idToNodeMap.delete(identifier);
                 this._staleIdentifiers.add(identifier);
             }
-        }
+        }]);
     }
 
     // BiDi Script utilities for W3C WebDriver BiDi specification.
-    serializeBidiRemoteValue(value, maxObjectDepth = 1, depth = 0, visitedObjects = new Set())
+    serializeBidiRemoteValue(value, maxObjectDepth = null, maxDomDepth = 0, includeShadowTree = "none", serializationInternalMap = new Map)
     {
-        // Handle primitives.
+        // Handle primitives, without isNaN(), Object.is() or toString(), which page script can replace.
         if (value === null) return { type: "null" };
         if (value === undefined) return { type: "undefined" };
         if (typeof value === "boolean") return { type: "boolean", value: value };
         if (typeof value === "string") return { type: "string", value: value };
         if (typeof value === "number") {
-            if (isNaN(value)) return { type: "number", value: "NaN" };
+            if (value !== value) return { type: "number", value: "NaN" };
             if (value === Infinity) return { type: "number", value: "Infinity" };
             if (value === -Infinity) return { type: "number", value: "-Infinity" };
-            if (Object.is(value, -0)) return { type: "number", value: "-0" };
+            if (value === 0 && 1 / value < 0) return { type: "number", value: "-0" };
             return { type: "number", value: value };
         }
-        if (typeof value === "bigint") return { type: "bigint", value: value.toString() };
+        if (typeof value === "bigint") return { type: "bigint", value: `${value}` };
         if (typeof value === "symbol") return { type: "symbol" };
-        if (typeof value === "function") return { type: "function" };
 
-        // Handle non-primitive types.
-        if (typeof value === "object" || typeof value === "function") {
-            // Special handling for window object.
-            if (value === window)
-                return { type: "window", value: { context: "context-id-placeholder" } };
+        // Everything else is an object, including document.all.
+        let type = bidiRemoteValueType(value);
+        switch (type) {
+        case null:
+            return this._serializeBidiMapping(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+        case "array":
+        case "set":
+        case "nodelist":
+        case "htmlcollection":
+            return this._serializeBidiList(value, type, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+        case "map":
+            return this._serializeBidiMap(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+        case "node":
+            return this._serializeBidiNode(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+        case "date":
+            return { type, value: reflectApply(dateToISOString, value, []) };
+        case "regexp":
+            // The spec converts these with ToString, so page script that overrides them can't make the pattern or flags an object.
+            return { type, value: { pattern: `${value.source}`, flags: `${value.flags}` } };
+        case "window": {
+            // The UI process replaces the frame identifier with the browsing context id.
+            // FIXME: Page script can read the frame identifier on its way out, which reveals a counter shared by
+            // all pages, and can replace it with another frame's.
+            let frameIdentifier = frameIdentifierForWindowProxy(value);
+            if (frameIdentifier === null)
+                return { type };
+            return { type, value: { context: frameIdentifier } };
+        }
+        default:
+            // Platform objects and the types that are serialized without a value.
+            return { type };
+        }
+    }
 
-            // Handle Date, RegExp, Error, Promise.
-            if (value instanceof Date)
-                return { type: "date", value: value.toISOString() };
-            if (value instanceof RegExp)
-                return { type: "regexp", value: { pattern: value.source, flags: value.flags } };
-            if (value instanceof Error)
-                return { type: "error" };
-            if (value instanceof Promise)
-                return { type: "promise" };
+    // Serializes a value that the remote value being built contains, |jsonLevels| levels of JSON further in:
+    // 2 for a list item ({value: [item]}) or a shadow root ({value: {shadowRoot}}), and 3 for a mapping
+    // entry ({value: [[key, value]]}) or a child node ({value: {children: [node]}}).
+    _serializeNestedBidiRemoteValue(jsonLevels, value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap)
+    {
+        if (bidiRemoteValueJSONDepth + jsonLevels > maxBidiRemoteValueJSONDepth)
+            throw { message: "Value is nested too deeply to serialize." };
 
-            // Handle collection types with serialization.
-            if (value instanceof Map) {
-                let entries = [];
-                for (let [k, v] of value.entries()) {
-                    entries.push({
-                        key: this.serializeBidiRemoteValue(k, maxObjectDepth, depth + 1, visitedObjects),
-                        value: this.serializeBidiRemoteValue(v, maxObjectDepth, depth + 1, visitedObjects)
-                    });
-                }
-                return { type: "map", value: entries };
-            }
-            if (value instanceof Set) {
-                let items = [];
-                for (let v of value.values())
-                    items.push(this.serializeBidiRemoteValue(v, maxObjectDepth, depth + 1, visitedObjects));
-                return { type: "set", value: items };
-            }
+        bidiRemoteValueJSONDepth += jsonLevels;
+        try {
+            return this.serializeBidiRemoteValue(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+        } finally {
+            bidiRemoteValueJSONDepth -= jsonLevels;
+        }
+    }
 
-            // Handle weak collections and ArrayBuffer types.
-            if (value instanceof WeakMap)
-                return { type: "weakmap" };
-            if (value instanceof WeakSet)
-                return { type: "weakset" };
-            if (value instanceof ArrayBuffer)
-                return { type: "arraybuffer" };
-            if (ArrayBuffer.isView(value))
-                return { type: "typedarray" };
-
-            // Check for cyclic references.
-            if (visitedObjects.has(value))
-                return { type: "object", value: {} };
-
-            // Check depth limit.
-            if (depth >= maxObjectDepth)
-                return { type: "object", value: {} };
-
-            visitedObjects.add(value);
-
-            try {
-                if (Array.isArray(value)) {
-                    let serializedArray = [];
-                    for (let i = 0; i < value.length; i++) {
-                        serializedArray[i] = this.serializeBidiRemoteValue(value[i], maxObjectDepth, depth + 1, visitedObjects);
-                    }
-                    return { type: "array", value: serializedArray };
-                } else {
-                    // Deterministic key ordering for plain objects.
-                    let serializedObject = {};
-                    let keys = Object.keys(value).sort();
-                    for (let i = 0; i < keys.length; ++i) {
-                        let key = keys[i];
-                        serializedObject[key] = this.serializeBidiRemoteValue(value[key], maxObjectDepth, depth + 1, visitedObjects);
-                    }
-                    return { type: "object", value: serializedObject };
-                }
-            } finally {
-                visitedObjects.delete(value);
-            }
+    _setBidiInternalIdsIfNeeded(serializationInternalMap, remoteValue, value)
+    {
+        if (!serializationInternalMap.has(value)) {
+            serializationInternalMap.set(value, remoteValue);
+            return;
         }
 
-        // Fallback for unknown types.
-        return { type: "undefined" };
+        let previouslySerializedRemoteValue = serializationInternalMap.get(value);
+        if (!previouslySerializedRemoteValue.internalId)
+            previouslySerializedRemoteValue.internalId = createUUID();
+        remoteValue.internalId = previouslySerializedRemoteValue.internalId;
+    }
+
+    _serializeBidiList(value, type, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap)
+    {
+        let remoteValue = { type };
+        let knownObject = serializationInternalMap.has(value);
+        this._setBidiInternalIdsIfNeeded(serializationInternalMap, remoteValue, value);
+        if (knownObject || maxObjectDepth === 0)
+            return remoteValue;
+
+        let childObjectDepth = maxObjectDepth === null ? null : maxObjectDepth - 1;
+        remoteValue.value = [];
+        if (type === "set") {
+            reflectApply(setForEach, value, [childValue => {
+                remoteValue.value.push(this._serializeNestedBidiRemoteValue(2, childValue, childObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap));
+            }]);
+            return remoteValue;
+        }
+
+        for (let i = 0; i < value.length; ++i)
+            remoteValue.value.push(this._serializeNestedBidiRemoteValue(2, value[i], childObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap));
+        return remoteValue;
+    }
+
+    _serializeBidiMap(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap)
+    {
+        let remoteValue = { type: "map" };
+        let knownObject = serializationInternalMap.has(value);
+        this._setBidiInternalIdsIfNeeded(serializationInternalMap, remoteValue, value);
+        if (knownObject || maxObjectDepth === 0)
+            return remoteValue;
+
+        let childObjectDepth = maxObjectDepth === null ? null : maxObjectDepth - 1;
+        remoteValue.value = [];
+        reflectApply(mapForEach, value, [(childValue, key) => {
+            let serializedKey = typeof key === "string" ? key : this._serializeNestedBidiRemoteValue(3, key, childObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+            let serializedValue = this._serializeNestedBidiRemoteValue(3, childValue, childObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+            remoteValue.value.push([serializedKey, serializedValue]);
+        }]);
+        return remoteValue;
+    }
+
+    _serializeBidiMapping(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap)
+    {
+        let remoteValue = { type: "object" };
+        let knownObject = serializationInternalMap.has(value);
+        this._setBidiInternalIdsIfNeeded(serializationInternalMap, remoteValue, value);
+        if (knownObject || maxObjectDepth === 0)
+            return remoteValue;
+
+        let childObjectDepth = maxObjectDepth === null ? null : maxObjectDepth - 1;
+        remoteValue.value = [];
+        let keys = Object.keys(value);
+        for (let i = 0; i < keys.length; ++i) {
+            let key = keys[i];
+            let serializedValue = this._serializeNestedBidiRemoteValue(3, value[key], childObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap);
+            remoteValue.value.push([key, serializedValue]);
+        }
+        return remoteValue;
+    }
+
+    _serializeBidiNode(value, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap)
+    {
+        let remoteValue = { type: "node" };
+        // FIXME: Read node properties natively. Page script can override them, for example with an own nodeType
+        // property, and make serialization fail.
+        let nodeType = value.nodeType;
+        let nodeDocument = nodeType === documentNodeType ? value : value.ownerDocument;
+        if (nodeDocument === document)
+            remoteValue.sharedId = this._identifierForNode(value);
+
+        let knownObject = serializationInternalMap.has(value);
+        this._setBidiInternalIdsIfNeeded(serializationInternalMap, remoteValue, value);
+        if (knownObject)
+            return remoteValue;
+
+        let serialized = {
+            nodeType,
+            childNodeCount: value.childNodes.length
+        };
+
+        if (value.nodeValue !== null)
+            serialized.nodeValue = value.nodeValue;
+
+        if (nodeType === elementNodeType || nodeType === attributeNodeType) {
+            serialized.localName = value.localName;
+            serialized.namespaceURI = value.namespaceURI;
+        }
+
+        let mode = shadowRootMode(value);
+        let shouldSerializeChildren = maxDomDepth !== 0;
+        if (mode) {
+            if (includeShadowTree === "none" || (includeShadowTree === "open" && mode === "closed"))
+                shouldSerializeChildren = false;
+        }
+
+        if (shouldSerializeChildren) {
+            let childDomDepth = maxDomDepth === null ? null : maxDomDepth - 1;
+            serialized.children = [];
+            let childNodes = value.childNodes;
+            for (let i = 0; i < childNodes.length; ++i)
+                serialized.children.push(this._serializeNestedBidiRemoteValue(3, childNodes[i], maxObjectDepth, childDomDepth, includeShadowTree, serializationInternalMap));
+        }
+
+        if (nodeType === elementNodeType) {
+            serialized.attributes = {};
+            for (let i = 0; i < value.attributes.length; ++i) {
+                let attribute = value.attributes[i];
+                serialized.attributes[attribute.name] = attribute.value;
+            }
+
+            // FIXME: <https://webkit.org/b/328583> Prevent script.evaluate result serialization from exposing closed shadow roots to page code.
+            let shadowRoot = shadowRootForElement(value);
+            serialized.shadowRoot = shadowRoot ? this._serializeNestedBidiRemoteValue(2, shadowRoot, maxObjectDepth, maxDomDepth, includeShadowTree, serializationInternalMap) : null;
+        }
+
+        if (mode)
+            serialized.mode = mode;
+
+        remoteValue.value = serialized;
+        return remoteValue;
     }
 };
 

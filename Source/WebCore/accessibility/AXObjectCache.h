@@ -244,6 +244,10 @@ public:
     // Returns the root object for a specific frame.
     WEBCORE_EXPORT AXCoreObject* rootObjectForFrame(LocalFrame&);
     AccessibilityObject* rootWebArea();
+    // Called when a subframe hosted by another process moves to yet another process.
+    WEBCORE_EXPORT void remoteFrameDidChangeProcess(RemoteFrame&);
+    // Called when this frame's content becomes reachable from its parent process, after focus may already have settled in it.
+    WEBCORE_EXPORT void repostFocusedUIElementChanged();
 #if ENABLE(ACCESSIBILITY_LOCAL_FRAME)
     WEBCORE_EXPORT void setFrameInheritedState(LocalFrame&, const InheritedFrameState&);
     WEBCORE_EXPORT void setFrameGeometry(LocalFrame&, const AXFrameGeometry&);
@@ -387,6 +391,7 @@ public:
     void onScrollbarFrameRectChange(const Scrollbar&);
     void onSelectedOptionChanged(Element&);
     void onSelectedOptionChanged(HTMLSelectElement&, int optionIndex);
+    void onSelectPickerStyleChange(HTMLSelectElement&);
     void onSelectedTextChanged(const VisiblePositionRange&, AccessibilityObject* = nullptr);
 #if PLATFORM(MAC)
     // Posts AXSelectedTextChanged on this cache's root web area for a selection change in a cross-site frame, relayed
@@ -1191,7 +1196,7 @@ private:
     std::optional<WeakPtr<Element, WeakPtrImplWithEventTargetData>> m_suppressedFocusChange;
     WeakHashSet<AccessibilityObject> m_deferredUnconnectedObjects;
 #if PLATFORM(MAC)
-    HashMap<PreSortedObjectType, Vector<Ref<AccessibilityObject>>, IntHash<PreSortedObjectType>, WTF::StrongEnumHashTraits<PreSortedObjectType>> m_deferredUnsortedObjects;
+    HashMap<PreSortedObjectType, Vector<Ref<AccessibilityObject>>, IntHash<PreSortedObjectType>> m_deferredUnsortedObjects;
     Vector<WeakPtr<Document, WeakPtrImplWithEventTargetData>> m_deferredDocumentsWithNewRenderTrees;
 #endif
     Vector<DeferredNotificationData> m_deferredNotifications;

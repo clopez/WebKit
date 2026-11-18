@@ -83,7 +83,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderView);
 
-RenderView::RenderView(Document& document, Style::ComputedStyle&& style)
+RenderView::RenderView(Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(Type::View, document, WTF::move(style))
     , m_frameView(*document.view())
     , m_initialContainingBlock(makeUniqueRef<Layout::InitialContainingBlock>(*this, Style::ComputedStyle::clone(this->style())))
@@ -165,6 +165,8 @@ LayoutUnit RenderView::availableLogicalHeight(AvailableLogicalHeightType) const
     if (document().isPluginDocument() && frameView->useFixedLayout())
         return frameView->fixedLayoutSize().height();
 #endif
+    if (auto pageAreaLogicalSize = printedPageAreaLogicalSize())
+        return pageAreaLogicalSize->height();
     return isHorizontalWritingMode() ? frameView->layoutSize().height() : frameView->layoutSize().width();
 }
 
@@ -383,106 +385,6 @@ RenderElement* RenderView::rendererForRootBackground() const
     return &documentRenderer;
 }
 
-static inline bool rendererObscuresBackground(const RenderElement& rootElement)
-{
-    auto& style = rootElement.style();
-    if (rootElement.usedStyle().visibility() != UsedVisibility::Visible || !style.opacity().isOpaque() || !style.transform().isNone() || !style.offsetPath().isNone())
-        return false;
-
-    if (style.border().hasBorderRadius())
-        return false;
-
-    if (rootElement.isComposited())
-        return false;
-
-    if (rootElement.hasClipPath() && rootElement.isRenderOrLegacyRenderSVGRoot())
-        return false;
-
-    auto* rendererForBackground = rootElement.view().rendererForRootBackground();
-    if (!rendererForBackground)
-        return false;
-
-    if (rendererForBackground->style().backgroundLayers().usedFirst().clip() == FillBox::Text)
-        return false;
-
-    return true;
-}
-
-void RenderView::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint&)
-{
-    if (!paintInfo.shouldPaintWithinRoot(*this))
-        return;
-
-    // Check to see if we are enclosed by a layer that requires complex painting rules.  If so, we cannot blit
-    // when scrolling, and we need to use slow repaints.  Examples of layers that require this are transparent layers,
-    // layers with reflections, or transformed layers.
-    // FIXME: This needs to be dynamic.  We should be able to go back to blitting if we ever stop being inside
-    // a transform, transparency layer, etc.
-    Ref document = this->document();
-    for (RefPtr element = document->ownerElement(); element && element->renderer(); element = element->document().ownerElement()) {
-        CheckedPtr layer = element->renderer()->enclosingLayer();
-        if (layer->cannotBlitToWindow()) {
-            frameView().setCannotBlitToWindow();
-            break;
-        }
-
-        if (CheckedPtr compositingLayer = layer->enclosingCompositingLayerForRepaint().layer) {
-            if (!compositingLayer->backing()->paintsIntoWindow()) {
-                frameView().setCannotBlitToWindow();
-                break;
-            }
-        }
-    }
-
-    if (!shouldPaintBaseBackground())
-        return;
-
-    if (paintInfo.skipRootBackground())
-        return;
-
-    bool rootFillsViewport = false;
-    bool rootObscuresBackground = false;
-    auto shouldPropagateBackgroundPaintingToInitialContainingBlock = true;
-    RefPtr documentElement = document->documentElement();
-    if (RenderElement* rootRenderer = documentElement ? documentElement->renderer() : nullptr) {
-        // The document element's renderer is currently forced to be a block, but may not always be.
-        auto* rootBox = dynamicDowncast<RenderBox>(*rootRenderer);
-        rootFillsViewport = rootBox && !rootBox->x() && !rootBox->y() && rootBox->borderBoxWidth() >= borderBoxWidth() && rootBox->borderBoxHeight() >= borderBoxHeight();
-        rootObscuresBackground = rendererObscuresBackground(*rootRenderer);
-        shouldPropagateBackgroundPaintingToInitialContainingBlock = !!rendererForRootBackground();
-    }
-
-    compositor().rootBackgroundColorOrTransparencyChanged();
-
-    RefPtr page = document->page();
-    float pageScaleFactor = page ? page->pageScaleFactor() : 1;
-
-    // If painting will entirely fill the view, no need to fill the background.
-    if (rootFillsViewport && rootObscuresBackground && pageScaleFactor >= 1 && rootElementShouldPaintBaseBackground())
-        return;
-
-    // This code typically only executes if the root element's visibility has been set to hidden,
-    // if there is a transform on the <html>, or if there is a page scale factor less than 1.
-    // Only fill with a background color (typically white) if we're the root document, 
-    // since iframes/frames with no background in the child document should show the parent's background.
-    // We use the base background color unless the backgroundShouldExtendBeyondPage setting is set,
-    // in which case we use the document's background color.
-    Ref frameView = this->frameView();
-    if (frameView->isTransparent()) // FIXME: This needs to be dynamic. We should be able to go back to blitting if we ever stop being transparent.
-        frameView->setCannotBlitToWindow(); // The parent must show behind the child.
-    else {
-        const Color& documentBackgroundColor = frameView->documentBackgroundColor();
-        const Color& backgroundColor = (shouldPropagateBackgroundPaintingToInitialContainingBlock && settings().backgroundShouldExtendBeyondPage() && documentBackgroundColor.isValid()) ? documentBackgroundColor : frameView->baseBackgroundColor();
-        if (backgroundColor.isVisible()) {
-            CompositeOperator previousOperator = paintInfo.context().compositeOperation();
-            paintInfo.context().setCompositeOperation(CompositeOperator::Copy);
-            paintInfo.context().fillRect(paintInfo.rect, backgroundColor);
-            paintInfo.context().setCompositeOperation(previousOperator);
-        } else
-            paintInfo.context().clearRect(paintInfo.rect);
-    }
-}
-
 bool RenderView::shouldRepaint(const LayoutRect& rect) const
 {
     return !printing() && !rect.isEmpty();
@@ -644,9 +546,9 @@ auto RenderView::computeVisibleRectsInContainer(const RepaintRects& rects, const
 
     auto adjustedRects = rects;
     if (writingMode().isBlockFlipped()) {
-        // We have to flip by hand since the view's logical height has not been determined.  We
+        // We have to convert by hand since the view's logical height has not been determined. We
         // can use the viewport width and height.
-        adjustedRects.flipForWritingMode(LayoutSize(viewWidth(), viewHeight()), writingMode().isHorizontal());
+        adjustedRects.blockStartRelativeToPhysical(LayoutSize(viewWidth(), viewHeight()), writingMode().isHorizontal());
     }
 
     if (state.hasPositionFixedDescendant)
@@ -702,7 +604,7 @@ LayoutRect RenderView::viewRect() const
 IntRect RenderView::unscaledDocumentRect() const
 {
     LayoutRect overflowRect(layoutOverflowRect());
-    flipForWritingMode(overflowRect);
+    blockStartRelativeToPhysical(overflowRect);
     return snappedIntRect(overflowRect);
 }
 
@@ -828,15 +730,22 @@ int RenderView::viewLogicalHeight() const
 
 void RenderView::setPageLogicalSize(LayoutSize size)
 {
+    if (m_pageLogicalSize == size)
+        return;
+
     if (!m_pageLogicalSize || m_pageLogicalSize->height() != size.height())
         m_pageLogicalHeightChanged = true;
 
     m_pageLogicalSize = size;
+    // Viewport units resolve against the page area while printing.
+    protect(document())->updateViewportUnitsOnResize();
 }
 
-float RenderView::pageZoomFactor() const
+std::optional<LayoutSize> RenderView::printedPageAreaLogicalSize() const
 {
-    return frameView().frame().pageZoomFactor();
+    if (!shouldUsePrintingLayout() || !m_pageLogicalSize || m_pageLogicalSize->isEmpty())
+        return std::nullopt;
+    return m_pageLogicalSize;
 }
 
 FloatSize RenderView::sizeForCSSSmallViewportUnits() const
@@ -989,7 +898,6 @@ void RenderView::resumePausedImageAnimationsIfNeeded(const IntRect& visibleRect)
     });
 }
 
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 NODELETE static SVGSVGElement* svgSvgElementFrom(RenderElement& renderElement)
 {
     if (auto* svgSvgElement = dynamicDowncast<SVGSVGElement>(renderElement.element()))
@@ -1054,7 +962,6 @@ void RenderView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
         }
     }
 }
-#endif // ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
 
 RenderView::RepaintRegionAccumulator::RepaintRegionAccumulator(RenderView* view)
 {

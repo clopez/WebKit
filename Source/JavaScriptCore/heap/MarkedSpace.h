@@ -22,6 +22,7 @@
 #pragma once
 
 #include <JavaScriptCore/BlockDirectory.h>
+#include <JavaScriptCore/GCConductor.h>
 #include <JavaScriptCore/MarkedBlock.h>
 #include <JavaScriptCore/MarkedBlockSet.h>
 #include <JavaScriptCore/PreciseAllocation.h>
@@ -106,9 +107,9 @@ public:
 
     static size_t optimalSizeFor(size_t);
     
-    void prepareForAllocation();
+    void prepareForAllocation() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
 
-    void reapWeakSets();
+    void reapWeakSets() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
 
     template<typename Visitor>
     Ref<SharedTask<void(Visitor&)>> forEachWeakInParallel(Visitor&);
@@ -125,7 +126,7 @@ public:
     
     void prepareForConservativeScan();
 
-    typedef UncheckedKeyHashSet<MarkedBlock*>::iterator BlockIterator;
+    typedef HashSet<MarkedBlock*>::iterator BlockIterator;
 
     template<typename Functor> void forEachLiveCell(HeapIterationScope&, NOESCAPE const Functor&);
     template<typename Functor> void forEachDeadCell(HeapIterationScope&, NOESCAPE const Functor&);
@@ -142,10 +143,10 @@ public:
     // FIXME: rdar://139998916
     MarkedBlock::Handle* findMarkedBlockHandleDebug(MarkedBlock*);
 
-    void beginMarking();
-    void endMarking();
+    void beginMarking() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
+    void endMarking() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
     void adoptMarkingVersion(HeapVersion);
-    void snapshotUnswept();
+    void snapshotUnswept() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
     void clearNewlyAllocated();
     void sweepBlocks();
     void sweepPreciseAllocations();
@@ -162,7 +163,7 @@ public:
     const Vector<PreciseAllocation*>& preciseAllocations() const LIFETIME_BOUND { return m_preciseAllocations; }
     unsigned preciseAllocationsNurseryOffset() const { return m_preciseAllocationsNurseryOffset; }
     unsigned preciseAllocationsOffsetForThisCollection() const { return m_preciseAllocationsOffsetForThisCollection; }
-    std::optional<UncheckedKeyHashSet<HeapCell*>>& preciseAllocationSet() LIFETIME_BOUND { return m_preciseAllocationSet; }
+    std::optional<HashSet<HeapCell*>>& preciseAllocationSet() LIFETIME_BOUND { return m_preciseAllocationSet; }
 
     void enablePreciseAllocationTracking();
     
@@ -180,7 +181,7 @@ public:
     // When this is true it means that we have flipped but the mark bits haven't converged yet.
     bool isMarking() const { return m_isMarking; }
     
-    void dumpBits(PrintStream& = WTF::dataFile());
+    void dumpBits(PrintStream& = WTF::dataFile()) WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
     
     JS_EXPORT_PRIVATE static std::array<unsigned, numSizeClasses> s_sizeClassForSizeStep;
     
@@ -206,7 +207,7 @@ private:
 
     Vector<Subspace*> m_subspaces;
 
-    std::optional<UncheckedKeyHashSet<HeapCell*>> m_preciseAllocationSet;
+    std::optional<HashSet<HeapCell*>> m_preciseAllocationSet;
     Vector<PreciseAllocation*> m_preciseAllocations;
     unsigned m_preciseAllocationsNurseryOffset { 0 };
     unsigned m_preciseAllocationsOffsetForThisCollection { 0 };

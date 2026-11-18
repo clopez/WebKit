@@ -554,9 +554,11 @@ protected:
         : Base(inlineBuffer(), inlineCapacity, 0)
     {
         other.crashIfBorrowed();
-        if (other.buffer() == other.inlineBuffer())
+        if (other.buffer() == other.inlineBuffer()) {
+            RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(other.m_size <= inlineCapacity);
+            ASSERT(other.m_capacity == inlineCapacity);
             VectorTypeOperations<T>::move(other.inlineBuffer(), other.inlineBuffer() + other.m_size, inlineBuffer());
-        else {
+        } else {
             m_buffer = std::exchange(other.m_buffer, other.inlineBuffer());
             m_capacity = other.exchangeCapacity(inlineCapacity);
         }
@@ -572,8 +574,10 @@ protected:
             m_buffer = inlineBuffer();
         }
         if (other.buffer() == other.inlineBuffer()) {
+            RELEASE_ASSERT_WITH_SECURITY_IMPLICATION(other.m_size <= inlineCapacity);
+            ASSERT(other.m_capacity == inlineCapacity);
             VectorTypeOperations<T>::move(other.inlineBuffer(), other.inlineBuffer() + other.m_size, inlineBuffer());
-            m_capacity = other.m_capacity;
+            m_capacity = inlineCapacity;
         } else {
             m_buffer = std::exchange(other.m_buffer, other.inlineBuffer());
             m_capacity = other.exchangeCapacity(inlineCapacity);
@@ -746,10 +750,8 @@ public:
     template<typename... Items>
     static Vector from(Items&&... items)
     {
-        Vector result;
         auto size = sizeof...(items);
-
-        result.reserveInitialCapacity(size);
+        Vector result(ReserveCapacityTag { }, size);
         result.asanSetInitialBufferSizeTo(size);
         result.m_size = size;
 

@@ -27,14 +27,17 @@
 
 #if PLATFORM(MAC)
 
+#import "ClassMethodSwizzler.h"
 #import "Helpers/mac/AppKitSPI.h"
 #import "Helpers/cocoa/CGImagePixelReader.h"
 #import "Helpers/PlatformUtilities.h"
 #import "Helpers/Test.h"
+#import "Helpers/Utilities.h"
 #import "Helpers/cocoa/TestWKWebView.h"
 #import "Helpers/cocoa/WKWebViewConfigurationExtras.h"
 #import <WebCore/Color.h>
 #import <WebCore/CornerRadii.h>
+#import <WebKit/WKSnapshotConfigurationPrivate.h>
 #import <WebKit/WKWebViewPrivate.h>
 #import <wtf/RetainPtr.h>
 
@@ -110,6 +113,104 @@ TEST(ScrollbarTests, AppearanceChangeAfterSystemAppearanceChange)
     [webView waitForNextPresentationUpdate];
 
     EXPECT_LT(scrollbarLuminanceForWebView(webView.get()), 0.5f);
+}
+
+enum class FrameScrollbarsSnapshot : bool { ViewRect, ContentsRect };
+
+// The page and the iframe have vertical scroll bars, and both are green where they do not have scroll bars.
+static RetainPtr<TestWKWebView> frameScrollbarsWebView(bool usesOverlayScrollbars)
+{
+    RetainPtr configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
+    RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
+    [webView synchronouslyLoadHTMLString:@""];
+    [webView stringByEvaluatingJavaScript:usesOverlayScrollbars ? @"internals.setUsesOverlayScrollbars(true)" : @"internals.setUsesOverlayScrollbars(false)"];
+    [webView synchronouslyLoadHTMLString:@"<body style='margin: 0; height: 2000px; background-color: rgb(0, 255, 0)'>"
+        "<iframe style='display: block; width: 200px; height: 200px; border: none' srcdoc=\"<body style='margin: 0; height: 2000px; background-color: rgb(0, 255, 0)'></body>\"></iframe></body>"];
+    [webView waitForNextPresentationUpdate];
+    return webView;
+}
+
+static int clientWidthOfPage(TestWKWebView *webView)
+{
+    return [webView stringByEvaluatingJavaScript:@"document.documentElement.clientWidth"].intValue;
+}
+
+static int clientWidthOfIFrame(TestWKWebView *webView)
+{
+    return [webView stringByEvaluatingJavaScript:@"document.querySelector('iframe').contentDocument.documentElement.clientWidth"].intValue;
+}
+
+static RetainPtr<CGImageRef> snapshotOfFrameScrollbars(TestWKWebView *webView, FrameScrollbarsSnapshot snapshot)
+{
+    RetainPtr configuration = adoptNS([[WKSnapshotConfiguration alloc] init]);
+    [configuration _setUsesContentsRect:snapshot == FrameScrollbarsSnapshot::ContentsRect];
+
+    __block RetainPtr<CGImageRef> image;
+    __block bool done = false;
+    [webView takeSnapshotWithConfiguration:configuration.get() completionHandler:^(NSImage *snapshotImage, NSError *error) {
+        EXPECT_NULL(error);
+        image = Util::convertToCGImage(snapshotImage);
+        done = true;
+    }];
+    Util::run(&done);
+    return image;
+}
+
+static void testSnapshotIncludesFrameScrollbars(FrameScrollbarsSnapshot snapshot)
+{
+    RetainPtr webView = frameScrollbarsWebView(false);
+
+    // Legacy scroll bars take up space. The scroll bar tracks start where the client area ends.
+    int pageClientWidth = clientWidthOfPage(webView.get());
+    int iframeClientWidth = clientWidthOfIFrame(webView.get());
+    ASSERT_GT(pageClientWidth, 0);
+    ASSERT_GT(iframeClientWidth, 0);
+    EXPECT_LT(pageClientWidth, 400);
+    EXPECT_LT(iframeClientWidth, 200);
+
+    RetainPtr image = snapshotOfFrameScrollbars(webView.get(), snapshot);
+    ASSERT_NOT_NULL(image.get());
+    CGImagePixelReader reader { image.get() };
+    unsigned scale = reader.width() / (snapshot == FrameScrollbarsSnapshot::ContentsRect ? pageClientWidth : 400);
+    EXPECT_GE(scale, 1u);
+
+    EXPECT_WK_STREQ("rgb(0, 255, 0)", reader.cssColorAt(50 * scale, 100 * scale));
+    EXPECT_WK_STRNE("rgb(0, 255, 0)", reader.cssColorAt((iframeClientWidth + 200) / 2 * scale, 100 * scale));
+    EXPECT_WK_STREQ("rgb(0, 255, 0)", reader.cssColorAt(300 * scale, 300 * scale));
+
+    // The snapshot of the contents of the page has no room for the page's scroll bar.
+    if (snapshot == FrameScrollbarsSnapshot::ViewRect)
+        EXPECT_WK_STRNE("rgb(0, 255, 0)", reader.cssColorAt((pageClientWidth + 400) / 2 * scale, 300 * scale));
+}
+
+TEST(ScrollbarTests, SnapshotIncludesFrameScrollbars)
+{
+    testSnapshotIncludesFrameScrollbars(FrameScrollbarsSnapshot::ViewRect);
+}
+
+TEST(ScrollbarTests, SnapshotOfContentsIncludesIFrameScrollbars)
+{
+    testSnapshotIncludesFrameScrollbars(FrameScrollbarsSnapshot::ContentsRect);
+}
+
+// Overlay scroll bars are hidden until the frame scrolls, so a snapshot does not show them. This test
+// checks that snapshots keep leaving them out.
+TEST(ScrollbarTests, SnapshotDoesNotIncludeHiddenOverlayFrameScrollbars)
+{
+    RetainPtr webView = frameScrollbarsWebView(true);
+    EXPECT_EQ(clientWidthOfPage(webView.get()), 400);
+    EXPECT_EQ(clientWidthOfIFrame(webView.get()), 200);
+
+    RetainPtr image = snapshotOfFrameScrollbars(webView.get(), FrameScrollbarsSnapshot::ViewRect);
+    ASSERT_NOT_NULL(image.get());
+    CGImagePixelReader reader { image.get() };
+    unsigned scale = reader.width() / 400;
+    EXPECT_GE(scale, 1u);
+
+    for (unsigned x = 185; x < 200; ++x)
+        EXPECT_WK_STREQ("rgb(0, 255, 0)", reader.cssColorAt(x * scale, 10 * scale));
+    for (unsigned x = 385; x < 400; ++x)
+        EXPECT_WK_STREQ("rgb(0, 255, 0)", reader.cssColorAt(x * scale, 10 * scale));
 }
 
 #if HAVE(NSVIEW_CORNER_CONFIGURATION)
@@ -772,6 +873,73 @@ TEST(ScrollbarTests, CustomScrollbarScrollCornerSmallCornerRadius)
 }
 
 #endif // HAVE(NSVIEW_CORNER_CONFIGURATION)
+
+static NSScrollerStyle scrollbarTestsScrollerStyle;
+
+static NSScrollerStyle scrollbarTestsPreferredScrollerStyle(id, SEL)
+{
+    return scrollbarTestsScrollerStyle;
+}
+
+// The right edge, the top and the height of the vertical scroll bar of the node, which don't depend on the scroll bar style.
+static NSString *verticalScrollbarGeometry(TestWKWebView *webView, NSString *node)
+{
+    return [webView stringByEvaluatingJavaScript:[NSString stringWithFormat:@"(() => { const r = internals.verticalScrollbarFrameRect(%@); return [r.x + r.width, r.y, r.height].join(','); })()", node]];
+}
+
+// Its own suite, so that it runs in its own process: it changes the scroller style of the process.
+TEST(ScrollerStyleChange, UpdatesIFrameAndOverflowScrollbars)
+{
+    {
+        // Web processes take their scroller style from the UI process.
+        scrollbarTestsScrollerStyle = NSScrollerStyleLegacy;
+        ClassMethodSwizzler swizzler(NSScroller.class, @selector(preferredScrollerStyle), reinterpret_cast<IMP>(scrollbarTestsPreferredScrollerStyle));
+
+        RetainPtr configuration = [WKWebViewConfiguration _test_configurationWithTestPlugInClassName:@"WebProcessPlugInWithInternals" configureJSCForTesting:YES];
+        RetainPtr webView = adoptNS([[TestWKWebView alloc] initWithFrame:NSMakeRect(0, 0, 400, 400) configuration:configuration.get()]);
+        [webView synchronouslyLoadHTMLString:@"<body style='margin: 0'>"
+            "<iframe style='display: block; width: 200px; height: 200px; border: none' srcdoc=\"<body style='margin: 0; height: 2000px'></body>\"></iframe>"
+            "<div id='scroller' style='width: 200px; height: 200px; overflow-y: scroll'><div style='height: 2000px'></div></div></body>"];
+        [webView waitForNextPresentationUpdate];
+
+        static NSString *iframeDocument = @"document.querySelector('iframe').contentDocument";
+        static NSString *scroller = @"document.getElementById('scroller')";
+        NSString *iframeClientWidthScript = [iframeDocument stringByAppendingString:@".documentElement.clientWidth"];
+        NSString *scrollerClientWidthScript = [scroller stringByAppendingString:@".clientWidth"];
+
+        auto expectScrollbars = [&](NSString *description) {
+            SCOPED_TRACE(description.UTF8String);
+            // The iframe's scroll bar spans its right edge, and the scroller's spans the scroller's right edge below the iframe.
+            EXPECT_WK_STREQ("200,0,200", verticalScrollbarGeometry(webView.get(), iframeDocument));
+            EXPECT_WK_STREQ("200,200,200", verticalScrollbarGeometry(webView.get(), scroller));
+        };
+
+        auto changeScrollerStyle = [&](NSScrollerStyle style) {
+            scrollbarTestsScrollerStyle = style;
+            [NSNotificationCenter.defaultCenter postNotificationName:NSPreferredScrollerStyleDidChangeNotification object:nil];
+            // Legacy scroll bars take up space, and overlay scroll bars don't.
+            EXPECT_TRUE(Util::waitFor([&] {
+                bool isOverlay = style == NSScrollerStyleOverlay;
+                int iframeClientWidth = [webView stringByEvaluatingJavaScript:iframeClientWidthScript].intValue;
+                int scrollerClientWidth = [webView stringByEvaluatingJavaScript:scrollerClientWidthScript].intValue;
+                return isOverlay ? iframeClientWidth == 200 && scrollerClientWidth == 200 : iframeClientWidth < 200 && scrollerClientWidth < 200;
+            }));
+        };
+
+        EXPECT_LT([webView stringByEvaluatingJavaScript:iframeClientWidthScript].intValue, 200);
+        EXPECT_LT([webView stringByEvaluatingJavaScript:scrollerClientWidthScript].intValue, 200);
+        expectScrollbars(@"Legacy");
+
+        changeScrollerStyle(NSScrollerStyleOverlay);
+        expectScrollbars(@"Overlay");
+
+        changeScrollerStyle(NSScrollerStyleLegacy);
+        expectScrollbars(@"Legacy again");
+    }
+
+    // Put anything that observed the swizzled style back on the real one.
+    [NSNotificationCenter.defaultCenter postNotificationName:NSPreferredScrollerStyleDidChangeNotification object:nil];
+}
 
 } // namespace TestWebKitAPI
 

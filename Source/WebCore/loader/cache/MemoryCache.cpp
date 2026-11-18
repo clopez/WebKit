@@ -42,6 +42,7 @@
 #include "WorkerThread.h"
 #include <pal/Logging.h>
 #include <stdio.h>
+#include <wtf/Borrow.h>
 #include <wtf/MathExtras.h>
 #include <wtf/NeverDestroyed.h>
 #include <wtf/SetForScope.h>
@@ -80,7 +81,6 @@ auto MemoryCache::sessionResourceMap(PAL::SessionID sessionID) const -> CachedRe
 {
     RELEASE_ASSERT(sessionID.isValid());
     RELEASE_ASSERT(isMainThread());
-    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
     return m_sessionResources.get(sessionID);
 }
 
@@ -88,7 +88,6 @@ auto MemoryCache::ensureSessionResourceMap(PAL::SessionID sessionID) -> CachedRe
 {
     RELEASE_ASSERT(sessionID.isValid());
     RELEASE_ASSERT(isMainThread());
-    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
     auto& map = m_sessionResources.add(sessionID, nullptr).iterator->value;
     if (!map)
         map = makeUnique<CachedResourceMap>();
@@ -124,7 +123,7 @@ bool MemoryCache::add(CachedResource& resource)
     if (resource.resourceRequest().httpMethod() != "GET"_s)
         return false;
 
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
 
     auto key = std::make_pair(resource.url(), resource.cachePartition());
 
@@ -199,7 +198,7 @@ CachedResource* MemoryCache::resourceForRequest(const ResourceRequest& request, 
 
 CachedResource* MemoryCache::resourceForRequestImpl(const ResourceRequest& request, CachedResourceMap& resources)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     URL url = removeFragmentIdentifierIfNeeded(request.url());
 
     auto key = std::make_pair(WTF::move(url), request.cachePartition());
@@ -237,11 +236,11 @@ void MemoryCache::forEachResource(NOESCAPE const Function<void(CachedResource&)>
 {
     RELEASE_ASSERT(isMainThread());
     Vector<CachedResourceHandle<CachedResource>> allResources;
-    for (auto& lruList : m_allResources) {
+    for (auto& lruList : borrow(m_allResources)) {
         allResources.reserveCapacity(allResources.size() + lruList->computeSize());
         allResources.appendRange(lruList->begin(), lruList->end());
     }
-    for (auto& resource : allResources) {
+    for (auto& resource : borrow(allResources)) {
         if (RefPtr resourceHandle = resource)
             function(*resourceHandle);
     }
@@ -250,7 +249,7 @@ void MemoryCache::forEachResource(NOESCAPE const Function<void(CachedResource&)>
 void MemoryCache::forEachSessionResource(PAL::SessionID sessionID, NOESCAPE const Function<void(CachedResource&)>& function)
 {
     RELEASE_ASSERT(isMainThread());
-    RELEASE_ASSERT(m_sessionResources.isValidKey(sessionID));
+    RELEASE_ASSERT(sessionID.isValid());
     auto it = m_sessionResources.find(sessionID);
     if (it == m_sessionResources.end())
         return;
@@ -357,13 +356,13 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
     for (int i = m_allResources.size() - 1; i >= 0; i--) {
         // Make a copy of the LRUList first (and ref the resources) as calling
         // destroyDecodedData() can alter the LRUList.
-        auto lruList = copyToVector(*m_allResources[i]);
+        auto lruList = copyToVector(*borrow(m_allResources)[i]);
 
         LOG(ResourceLoading, " lru list (size %zu) - flushing stage", lruList.size());
 
         // First flush all the decoded data in this queue.
         // Remove from the head, since this is the least frequently accessed of the objects.
-        for (auto& weakResource : lruList) {
+        for (auto& weakResource : borrow(lruList)) {
             RefPtr resource = weakResource;
             if (!resource)
                 continue;
@@ -390,7 +389,7 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
 
         // Now evict objects from this list.
         // Remove from the head, since this is the least frequently accessed of the objects.
-        for (auto& weakResource : lruList) {
+        for (auto& weakResource : borrow(lruList)) {
             RefPtr resource = weakResource;
             if (!resource)
                 continue;
@@ -408,7 +407,7 @@ void MemoryCache::pruneDeadResourcesToSize(unsigned targetSize)
             
         // Shrink the vector back down so we don't waste time inspecting
         // empty LRU lists on future prunes.
-        if (!m_allResources[i]->isEmptyIgnoringNullReferences())
+        if (!borrow(m_allResources)[i]->computeIsEmpty())
             canShrinkLRULists = false;
         else if (canShrinkLRULists)
             m_allResources.shrink(i);
@@ -445,7 +444,7 @@ void MemoryCache::remove(CachedResource& resource)
 
             // If the resource map is now empty, remove it from m_sessionResources.
             if (resources->isEmpty()) {
-                RELEASE_ASSERT(m_sessionResources.isValidKey(resource.sessionID()));
+                RELEASE_ASSERT(resource.sessionID().isValid());
                 m_sessionResources.remove(resource.sessionID());
             }
 
@@ -550,7 +549,7 @@ void MemoryCache::removeResourcesWithOrigin(const SecurityOrigin& origin, const 
         }
     }
 
-    for (auto& weakResource : resourcesWithOrigin) {
+    for (auto& weakResource : borrow(resourcesWithOrigin)) {
         if (RefPtr resource = weakResource)
             remove(*resource);
     }
@@ -598,7 +597,7 @@ void MemoryCache::removeResourcesWithOrigins(PAL::SessionID sessionID, const Has
             resourcesToRemove.append(resource);
     }
 
-    for (auto& weakResource : resourcesToRemove) {
+    for (auto& weakResource : borrow(resourcesToRemove)) {
         if (RefPtr resource = weakResource)
             remove(*resource);
     }

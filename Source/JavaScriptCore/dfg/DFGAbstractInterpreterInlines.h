@@ -540,7 +540,8 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case VarargsLength: {
-        clobberWorld();
+        if (node->argumentsChild().useKind() != KnownCellUse)
+            clobberWorld();
         setTypeForNode(node, SpecInt32Only);
         break;
     }
@@ -567,7 +568,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         // https://bugs.webkit.org/show_bug.cgi?id=143071
         switch (node->op()) {
         case LoadVarargs:
-            if (node->argumentsChild().useKind() != OtherUse)
+            if (node->argumentsChild().useKind() != OtherUse && node->argumentsChild().useKind() != KnownCellUse)
                 clobberWorld();
             break;
         case ForwardVarargs:
@@ -4936,6 +4937,10 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
     }
 
+    case GetTypedArrayBuffer:
+        setTypeForNode(node, SpecObjectOther);
+        break;
+
     case GetWebAssemblyInstanceExports: {
 #if ENABLE(WEBASSEMBLY)
         AbstractValue& base = forNode(node->child1());
@@ -5212,7 +5217,7 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
         break;
 
     case SetPrivateBrand: {
-        clobberStructures();
+        clobberWorld();
         break;
     }
 
@@ -6161,7 +6166,7 @@ template<typename AbstractStateType>
 void AbstractInterpreter<AbstractStateType>::dump(PrintStream& out)
 {
     CommaPrinter comma(" "_s);
-    UncheckedKeyHashSet<NodeFlowProjection> seen;
+    HashSet<NodeFlowProjection> seen;
     if (m_graph.m_form == SSA) {
         for (NodeFlowProjection node : m_state.block()->ssa->liveAtHead) {
             if (node->isTuple())

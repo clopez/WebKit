@@ -814,6 +814,7 @@ void clobberize(Graph& graph, Node* node, NOESCAPE const ReadFunctor& read, NOES
     case PutPrivateNameById:
     case GetPrivateName:
     case GetPrivateNameById:
+    case SetPrivateBrand:
     case DefineDataProperty:
     case DefineAccessorProperty:
     case ObjectDefineProperty:
@@ -1040,6 +1041,10 @@ void clobberize(Graph& graph, Node* node, NOESCAPE const ReadFunctor& read, NOES
     }
         
     case VarargsLength: {
+        if (node->argumentsChild().useKind() == KnownCellUse) {
+            read(Butterfly_publicLength);
+            return;
+        }
         clobberTop();
         return;
     }
@@ -1059,8 +1064,16 @@ void clobberize(Graph& graph, Node* node, NOESCAPE const ReadFunctor& read, NOES
     }
 
     case LoadVarargs: {
-        if (node->argumentsChild().useKind() != OtherUse)
+        switch (node->argumentsChild().useKind()) {
+        case OtherUse:
+            break;
+        case KnownCellUse:
+            read(IndexedContiguousProperties);
+            break;
+        default:
             clobberTop();
+            break;
+        }
         LoadVarargsData* data = node->loadVarargsData();
         write(AbstractHeap(Stack, data->count));
         for (unsigned i = data->limit; i--;)
@@ -1517,11 +1530,6 @@ void clobberize(Graph& graph, Node* node, NOESCAPE const ReadFunctor& read, NOES
         def(HeapLocation(CheckPrivateBrandLoc, JSCell_structureID, node->child1(), node->child2()), LazyNode(node));
         return;
 
-    case SetPrivateBrand:
-        read(JSCell_structureID);
-        write(JSCell_structureID);
-        return;
-
     case CheckArrayOrEmpty:
     case CheckArray:
         read(JSCell_indexingType);
@@ -1721,6 +1729,15 @@ void clobberize(Graph& graph, Node* node, NOESCAPE const ReadFunctor& read, NOES
         }
         return;
     }
+
+    case GetTypedArrayBuffer:
+        read(MiscFields);
+        read(JSObject_butterfly);
+        read(HeapObjectCount);
+        write(MiscFields);
+        write(JSObject_butterfly);
+        write(HeapObjectCount);
+        return;
 
     case GetWebAssemblyInstanceExports:
         def(PureValue(node));

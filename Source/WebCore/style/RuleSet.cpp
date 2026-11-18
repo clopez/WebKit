@@ -388,7 +388,7 @@ void RuleSet::addRuleToBucket(RuleData& ruleData)
             cueBackgroundSelector->setPseudoElement(CSSSelector::PseudoElement::UserAgentPart);
             cueBackgroundSelector->setValue(UserAgentParts::internalCueBackground());
 
-            Ref cueBackgroundStyleRule = StyleRule::create(protect(ruleData.styleRule())->properties().immutableCopyIfNeeded(), ruleData.styleRule().hasDocumentSecurityOrigin(), CSSSelectorList { MutableCSSSelectorList::from(WTF::move(cueBackgroundSelector)) });
+            Ref cueBackgroundStyleRule = StyleRule::create(protect(protect(ruleData.styleRule())->properties())->immutableCopyIfNeeded(), ruleData.styleRule().hasDocumentSecurityOrigin(), CSSSelectorList { MutableCSSSelectorList::from(WTF::move(cueBackgroundSelector)) });
 
             // Warning: Recursion!
             addRule(WTF::move(cueBackgroundStyleRule), 0, 0);
@@ -617,13 +617,13 @@ RuleSet::CollectedMediaQueryChanges RuleSet::evaluateDynamicMediaQueryRules(cons
 {
     CollectedMediaQueryChanges collectedChanges;
 
-    HashMap<size_t, bool, DefaultHash<size_t>, WTF::UnsignedWithZeroKeyHashTraits<size_t>> affectedRulePositionsAndResults;
+    HashMap<size_t, bool> affectedRulePositionsAndResults;
 
     for (size_t i = startIndex; i < m_dynamicMediaQueryRules.size(); ++i) {
         auto& dynamicRules = m_dynamicMediaQueryRules[i];
         bool result = true;
         for (auto& queryList : dynamicRules.mediaQueries) {
-            if (!evaluator.evaluate(queryList)) {
+            if (!evaluator.evaluate(*queryList)) {
                 result = false;
                 break;
             }

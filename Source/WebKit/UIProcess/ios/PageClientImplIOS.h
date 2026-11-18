@@ -97,7 +97,7 @@ private:
 #endif // ENABLE(GPU_PROCESS)
 #if ENABLE(MODEL_PROCESS)
     void didCreateContextInModelProcessForVisibilityPropagation(LayerHostingContextID) override;
-    void didReceiveInteractiveModelElement(std::optional<WebCore::NodeIdentifier>) override;
+    void didReceiveInteractiveModelElement(std::optional<WebCore::FrameIdentifier>, std::optional<WebCore::NodeIdentifier>) override;
 #endif // ENABLE(MODEL_PROCESS)
     RetainPtr<UIView> createVisibilityPropagationView() override;
     void removeVisibilityPropagationView(UIView *) override;
@@ -264,6 +264,8 @@ private:
     void beganExitFullScreen(const WebCore::IntRect& initialFrame, const WebCore::IntRect& finalFrame, CompletionHandler<void()>&&) override;
     bool lockFullscreenOrientation(WebCore::ScreenOrientationType) override;
     void unlockFullscreenOrientation() override;
+    void beginRequestFullscreen() override;
+    void endRequestFullscreen() override;
 #endif
 
     void didFinishLoadingDataForCustomContentProvider(const String& suggestedFilename, std::span<const uint8_t>) override;

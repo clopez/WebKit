@@ -45,6 +45,7 @@
 #include "WebCoreOpaqueRootInlines.h"
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObjectInlines.h>
+#include <wtf/Borrow.h>
 #include <wtf/CrossThreadCopier.h>
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/MakeString.h>
@@ -113,7 +114,7 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
         parameterDescriptors = parameterDescriptorsConversionResult.releaseReturnValue();
 
         HashSet<String> paramNames;
-        for (auto& descriptor : parameterDescriptors) {
+        for (auto& descriptor : borrow(parameterDescriptors)) {
             auto addResult = paramNames.add(descriptor.name);
             if (!addResult.isNewEntry)
                 return Exception { ExceptionCode::NotSupportedError, makeString("parameterDescriptors contain duplicate AudioParam name: "_s, descriptor.name) };
@@ -135,7 +136,7 @@ ExceptionOr<void> AudioWorkletGlobalScope::registerProcessor(String&& name, Ref<
         return Exception { ExceptionCode::InvalidStateError };
 
     messagingProxy->postTaskToAudioWorklet([name = WTF::move(name).isolatedCopy(), parameterDescriptors = crossThreadCopy(WTF::move(parameterDescriptors))](AudioWorklet& worklet) mutable {
-        ASSERT(isMainThread());
+        ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
         if (RefPtr audioContext = worklet.audioContext())
             audioContext->addAudioParamDescriptors(name, WTF::move(parameterDescriptors));
     });

@@ -32,7 +32,7 @@ class RenderTextControlSingleLine : public RenderTextControl {
     WTF_MAKE_TZONE_ALLOCATED(RenderTextControlSingleLine);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTextControlSingleLine);
 public:
-    RenderTextControlSingleLine(Type, HTMLInputElement&, Style::ComputedStyle&&);
+    RenderTextControlSingleLine(Type, HTMLInputElement&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderTextControlSingleLine();
 
     RenderTextControlInnerBlock* innerTextRenderer() const;
@@ -93,8 +93,11 @@ class RenderTextControlInnerBlock final : public RenderBlockFlow {
     WTF_MAKE_TZONE_ALLOCATED(RenderTextControlInnerBlock);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderTextControlInnerBlock);
 public:
-    RenderTextControlInnerBlock(Element&, Style::ComputedStyle&&);
+    RenderTextControlInnerBlock(Element&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderTextControlInnerBlock();
+
+    bool requiresLayerForScreenCaptureProtection() const;
+    bool shouldHideFromScreenCapture() const;
 
 private:
     bool hasLineIfEmpty() const override { return true; }

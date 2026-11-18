@@ -493,6 +493,39 @@ TEST(MediaSamplesDecoder, DecodeFullyTrimmedIsDropped)
     EXPECT_TRUE(samples.isEmpty());
 }
 
+TEST(MediaSamplesDecoder, DecodeSkipsItemsBeforeTheFirstSyncItem)
+{
+    Ref info = makeAudioInfo(FourCC { "lpcm" }, { }, 16, 1);
+    Ref decoder = createDecoder(info);
+
+    auto item = [&](size_t index, Vector<uint8_t>&& bytes, bool isSync) {
+        return MediaSamplesBlock::MediaSampleItem {
+            .presentationTime = MediaTime(index, 48000),
+            .duration = MediaTime(1, 48000),
+            .data = SharedBuffer::create(WTF::move(bytes)),
+            .flags = isSync ? MediaSample::IsSync : MediaSample::None
+        };
+    };
+
+    // Little-endian signed 16-bit samples.
+    MediaSamplesBlock::SamplesVector withoutSync;
+    withoutSync.append(item(0, { 0x00, 0x10 }, false));
+    auto withoutSyncPromise = decoder->decode(MediaSamplesBlock { info.ptr(), WTF::move(withoutSync) });
+    auto withoutSyncResult = settle(withoutSyncPromise.get());
+    ASSERT_TRUE(withoutSyncResult);
+    EXPECT_TRUE(withoutSyncResult->isEmpty());
+
+    MediaSamplesBlock::SamplesVector items;
+    items.append(item(1, { 0x00, 0x40 }, false));
+    items.append(item(2, { 0x00, 0xC0 }, true));
+    items.append(item(3, { 0x00, 0x20 }, false));
+    auto samples = decodeToFloats(decoder, MediaSamplesBlock { info.ptr(), WTF::move(items) });
+
+    ASSERT_EQ(samples.size(), 2u);
+    EXPECT_NEAR(samples[0], -0.5f, 1e-4f);
+    EXPECT_NEAR(samples[1], 0.25f, 1e-4f);
+}
+
 TEST(MediaSamplesBlock, CMSampleBufferRoundTripKeepsTrims)
 {
     auto blocks = parseWebMAudioFile(@"test-mse-audio");
@@ -830,6 +863,22 @@ static DecodedVideo decodeVideoBlocks(MediaSamplesDecoder& decoder, Vector<Uniqu
 
 static constexpr auto vp8ContentType = "video/webm; codecs=vp8"_s;
 
+// The I420A alpha plane follows the Y, U and V planes.
+static uint8_t alphaAt(const Vector<uint8_t>& frame, const FloatSize& size, size_t x, size_t y)
+{
+    size_t width = size.width();
+    size_t height = size.height();
+    size_t alphaOffset = width * height + 2 * ((width + 1) / 2) * ((height + 1) / 2);
+    return frame[alphaOffset + y * width + x];
+}
+
+static size_t i420AFrameSize(const FloatSize& size)
+{
+    size_t width = size.width();
+    size_t height = size.height();
+    return 2 * width * height + 2 * ((width + 1) / 2) * ((height + 1) / 2);
+}
+
 #if ENABLE(VP9)
 class ScopedVP9HardwareDecoder {
 public:
@@ -881,6 +930,38 @@ TEST(MediaSamplesDecoder, CanDecodeRejectsHardwareDecodableVideo)
 #endif
 }
 
+TEST(MediaSamplesDecoder, IsHardwareDecodable)
+{
+    EXPECT_TRUE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "avc1" }, "avc1.640028"_s)));
+    EXPECT_TRUE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "avc3" }, "avc3.640028"_s)));
+    EXPECT_FALSE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "vp08" }, "vp08.00.10.08"_s)));
+    EXPECT_FALSE(MediaSamplesDecoder::isHardwareDecodable(makeAudioInfo(FourCC { "opus" })));
+
+#if ENABLE(VP9)
+    {
+        ScopedVP9HardwareDecoder hardwareDecoder { true };
+        EXPECT_TRUE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "vp09" }, "vp09.00.10.08"_s)));
+        EXPECT_TRUE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "vp09" }, "vp09.02.10.10"_s, 10)));
+    }
+    {
+        ScopedVP9HardwareDecoder noHardwareDecoder { false };
+        EXPECT_FALSE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "vp09" }, "vp09.00.10.08"_s)));
+        EXPECT_FALSE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "vp09" }, "vp09.02.10.10"_s, 10)));
+    }
+#endif
+
+#if ENABLE(AV1)
+    {
+        ScopedAV1HardwareDecoder hardwareDecoder { true };
+        EXPECT_TRUE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "av01" }, "av01.0.04M.08"_s)));
+    }
+    {
+        ScopedAV1HardwareDecoder noHardwareDecoder { false };
+        EXPECT_FALSE(MediaSamplesDecoder::isHardwareDecodable(makeVideoInfo(FourCC { "av01" }, "av01.0.04M.08"_s)));
+    }
+#endif
+}
+
 #if ENABLE(VP9)
 TEST(MediaSamplesDecoder, CanDecodeVP9WithoutHardwareDecoder)
 {
@@ -898,6 +979,18 @@ TEST(MediaSamplesDecoder, CanDecodeVP9WithoutHardwareDecoder)
         ScopedVP9HardwareDecoder hardwareDecoder { true };
         EXPECT_FALSE(MediaSamplesDecoder::canDecode(makeVideoInfo(FourCC { "vp09" }, "vp09.00.10.08"_s), allowedFilters));
     }
+}
+
+TEST(MediaSamplesDecoder, CanDecodeVP9WhenHardwareDecoderIsUnavailable)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    ScopedVP9HardwareDecoder hardwareDecoder { true };
+    auto filters = allowedFilters | MediaSamplesDecoder::Filter::ForceSoftware;
+    EXPECT_TRUE(MediaSamplesDecoder::canDecode(makeVideoInfo(FourCC { "vp09" }, "vp09.00.10.08"_s), filters));
+    EXPECT_FALSE(MediaSamplesDecoder::canDecode(makeVideoInfo(FourCC { "vp09" }, "vp09.02.10.10"_s, 10), filters));
+    EXPECT_FALSE(MediaSamplesDecoder::canDecode(makeVideoInfo(FourCC { "avc1" }, "avc1.640028"_s), filters));
 }
 #endif
 
@@ -1001,11 +1094,10 @@ TEST(MediaSamplesDecoder, DecodeVP8SizeChangeWithoutNewTrackInfo)
     auto decoded = decodeVideoBlocks(decoder, blocks);
     ASSERT_EQ(decoded.frames.size(), decoded.inputPresentationTimes.size());
 
-    for (size_t i = 0; i < decoded.frames.size(); ++i) {
-        size_t width = decoded.outputSizes[i].width();
-        size_t height = decoded.outputSizes[i].height();
-        EXPECT_EQ(decoded.frames[i].size(), width * height + 2 * ((width + 1) / 2) * ((height + 1) / 2));
-    }
+    // The file carries an opaque alpha stream, so the output is I420A.
+    ASSERT_TRUE(downcast<VideoInfo>(*firstInfo).hasSeparateAlphaStream());
+    for (size_t i = 0; i < decoded.frames.size(); ++i)
+        EXPECT_EQ(decoded.frames[i].size(), i420AFrameSize(decoded.outputSizes[i]));
     EXPECT_TRUE(decoded.outputSizes.contains(FloatSize { 400, 300 }));
     EXPECT_TRUE(decoded.outputSizes.contains(FloatSize { 200, 150 }));
 }
@@ -1063,7 +1155,7 @@ TEST(MediaSamplesDecoder, VideoBlockReturnsOnlyItsLastFrame)
     EXPECT_EQ(result->first().first().presentationTime, lastTime);
 }
 
-TEST(MediaSamplesDecoder, VideoFlushRequiresSyncSample)
+TEST(MediaSamplesDecoder, VideoSkipsToSyncSampleAfterFlush)
 {
     if (!isVPXDecodingAvailable())
         GTEST_SKIP() << "VPx software decoding is not available";
@@ -1072,6 +1164,9 @@ TEST(MediaSamplesDecoder, VideoFlushRequiresSyncSample)
     ASSERT_GE(blocks.size(), 2u);
     ASSERT_TRUE(blocks[0]->isSync());
     ASSERT_FALSE(blocks[1]->isSync());
+    auto more = parseWebMVideoFile(@"test-vp8", vp8ContentType);
+    ASSERT_FALSE(more.isEmpty());
+    ASSERT_TRUE(more[0]->isSync());
 
     Ref decoder = createDecoder(*blocks[0]->info());
 
@@ -1081,15 +1176,25 @@ TEST(MediaSamplesDecoder, VideoFlushRequiresSyncSample)
     auto flushPromise = decoder->flush();
     EXPECT_TRUE(settle(flushPromise.get()));
 
+    auto deltaPromise = decoder->decode(WTF::move(blocks[1].get()));
+    auto deltaResult = settle(deltaPromise.get());
+    ASSERT_TRUE(deltaResult);
+    EXPECT_TRUE(deltaResult->isEmpty());
+
+    auto countItems = [](const Vector<MediaSamplesBlock>& output) {
+        size_t count = 0;
+        for (auto& block : output)
+            count += block.size();
+        return count;
+    };
+
+    auto syncPromise = decoder->decode(WTF::move(more[0].get()));
+    auto syncResult = settle(syncPromise.get());
+    ASSERT_TRUE(syncResult);
     auto drainPromise = decoder->drain();
     auto drainResult = settle(drainPromise.get());
     ASSERT_TRUE(drainResult);
-    EXPECT_TRUE(drainResult->isEmpty());
-
-    auto deltaPromise = decoder->decode(WTF::move(blocks[1].get()));
-    auto deltaResult = settle(deltaPromise.get());
-    ASSERT_FALSE(deltaResult);
-    EXPECT_EQ(deltaResult.error(), PlatformMediaError::InvalidState);
+    EXPECT_EQ(countItems(*syncResult) + countItems(*drainResult), 1u);
 }
 
 TEST(MediaSamplesDecoder, CanContinueWithRejectsChangedVideoSize)
@@ -1471,7 +1576,7 @@ TEST(PacedMediaSamplesDecoder, VideoIsDecodedWithinTheDecodeWindow)
     EXPECT_EQ(collected->items, blockCount);
 }
 
-TEST(PacedMediaSamplesDecoder, VideoFlushCancelsPendingInputAndRequiresSyncSample)
+TEST(PacedMediaSamplesDecoder, VideoFlushCancelsPendingInputAndSkipsToSyncSample)
 {
     if (!isVPXDecodingAvailable())
         GTEST_SKIP() << "VPx software decoding is not available";
@@ -1480,6 +1585,7 @@ TEST(PacedMediaSamplesDecoder, VideoFlushCancelsPendingInputAndRequiresSyncSampl
     ASSERT_GT(blocks.size(), 10u);
     auto more = parseWebMVideoFile(@"test-vp8", vp8ContentType);
     ASSERT_GE(more.size(), 2u);
+    ASSERT_TRUE(more[0]->isSync());
     ASSERT_FALSE(more[1]->isSync());
 
     Ref clock = TestClock::create();
@@ -1508,20 +1614,17 @@ TEST(PacedMediaSamplesDecoder, VideoFlushCancelsPendingInputAndRequiresSyncSampl
 
     auto deltaPromise = decoder->decode(WTF::move(more[1].get()));
     auto deltaResult = settle(deltaPromise.get());
-    ASSERT_FALSE(deltaResult);
-    EXPECT_EQ(deltaResult.error(), PlatformMediaError::InvalidState);
+    ASSERT_TRUE(deltaResult);
+    EXPECT_TRUE(deltaResult->isEmpty());
 
-    // The error is fatal: everything after it is rejected with it.
-    ASSERT_TRUE(more[0]->isSync());
     auto syncPromise = decoder->decode(WTF::move(more[0].get()));
     auto syncResult = settle(syncPromise.get());
-    ASSERT_FALSE(syncResult);
-    EXPECT_EQ(syncResult.error(), PlatformMediaError::InvalidState);
+    ASSERT_TRUE(syncResult);
 
     auto drainPromise = decoder->drain();
     auto drainResult = settle(drainPromise.get());
-    ASSERT_FALSE(drainResult);
-    EXPECT_EQ(drainResult.error(), PlatformMediaError::InvalidState);
+    ASSERT_TRUE(drainResult);
+    EXPECT_EQ(syncResult->size() + drainResult->size(), 1u);
 }
 
 TEST(PacedMediaSamplesDecoder, VideoReadinessFollowsTheQueuedBlockCount)
@@ -1704,6 +1807,149 @@ TEST(PacedMediaSamplesDecoder, DecodeRejectsChangedFormat)
     ASSERT_FALSE(result);
     EXPECT_EQ(result.error(), PlatformMediaError::InvalidState);
 }
+
+struct ExpectedAlpha {
+    size_t x;
+    size_t y;
+    uint8_t alpha;
+};
+
+static void testDecodeAlpha(Vector<UniqueRef<MediaSamplesBlock>>&& blocks, FloatSize expectedSize, std::initializer_list<ExpectedAlpha> expectedAlphas)
+{
+    ASSERT_FALSE(blocks.isEmpty());
+    RefPtr inputInfo = dynamicDowncast<VideoInfo>(blocks[0]->info());
+    ASSERT_TRUE(inputInfo);
+    ASSERT_TRUE(inputInfo->hasSeparateAlphaStream());
+    ASSERT_TRUE(MediaSamplesDecoder::canDecode(*inputInfo, allowedFilters));
+
+    Ref decoder = createDecoder(*inputInfo);
+    auto decoded = decodeVideoBlocks(decoder, blocks);
+    RefPtr info = dynamicDowncast<VideoInfo>(decoded.outputInfo);
+    ASSERT_TRUE(info);
+    EXPECT_EQ(info->pixelFormat(), VideoPixelFormat::I420A);
+    EXPECT_EQ(info->size(), expectedSize);
+
+    ASSERT_EQ(decoded.frames.size(), decoded.inputPresentationTimes.size());
+    for (auto& frame : decoded.frames)
+        EXPECT_EQ(frame.size(), i420AFrameSize(info->size()));
+
+    auto& frame = decoded.frames.last();
+    for (auto [x, y, alpha] : expectedAlphas)
+        EXPECT_NEAR(alphaAt(frame, info->size(), x, y), alpha, 3) << "at " << x << "," << y;
+}
+
+// The video is one colour in four vertical stripes at 0, 10%, 50% and 100% opacity.
+static void testDecodeAlphaStripes(Vector<UniqueRef<MediaSamplesBlock>>&& blocks)
+{
+    testDecodeAlpha(WTF::move(blocks), FloatSize(200, 200), { { 25, 100, 0 }, { 75, 100, 26 }, { 125, 100, 128 }, { 175, 100, 255 } });
+}
+
+TEST(MediaSamplesDecoder, DecodeVP8WithAlpha)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    testDecodeAlphaStripes(parseWebMVideoFile(@"video-with-alpha-vp8", vp8ContentType));
+}
+
+TEST(MediaSamplesDecoder, CanContinueWithRejectsChangedAlpha)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    auto blocks = parseWebMVideoFile(@"video-with-alpha-vp8", vp8ContentType);
+    ASSERT_FALSE(blocks.isEmpty());
+    auto& original = downcast<VideoInfo>(*blocks[0]->info());
+    ASSERT_TRUE(original.hasSeparateAlphaStream());
+
+    Ref decoder = createDecoder(original);
+    EXPECT_TRUE(decoder->canContinueWith(original));
+
+    auto data = original.toVideoInfoData();
+    data.second.hasSeparateAlphaStream = false;
+    EXPECT_FALSE(decoder->canContinueWith(VideoInfo::create(WTF::move(data))));
+}
+
+#if ENABLE(VP9)
+static constexpr auto vp9ContentType = "video/webm; codecs=vp09.00.10.08"_s;
+
+// The WebM parser may only expose VP9 tracks when a hardware decoder is reported.
+static Vector<UniqueRef<MediaSamplesBlock>> parseWebMVP9File(NSString *resourceName)
+{
+    ScopedVP9HardwareDecoder hardwareDecoder { true };
+    return parseWebMVideoFile(resourceName, vp9ContentType);
+}
+
+TEST(MediaSamplesDecoder, DecodeVP9WithAlpha)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    // Opaque at the top, stripes at 50%, 0 and 100% opacity at the bottom.
+    auto blocks = parseWebMVP9File(@"vp9-alpha-420-bt709-videorange");
+    ScopedVP9HardwareDecoder noHardwareDecoder { false };
+    testDecodeAlpha(WTF::move(blocks), FloatSize(320, 192), { { 160, 50, 255 }, { 80, 160, 129 }, { 144, 160, 0 }, { 208, 160, 255 }, { 272, 160, 129 } });
+}
+
+TEST(MediaSamplesDecoder, DecodeVP9WithAlphaFullRange)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    auto blocks = parseWebMVP9File(@"video-with-alpha-full-range");
+    ScopedVP9HardwareDecoder noHardwareDecoder { false };
+    testDecodeAlphaStripes(WTF::move(blocks));
+}
+
+// Colour keyframes are at 0s, 1s and 2s, alpha keyframes only at 0s and 1.5s. The video is transparent on the left
+// half and opaque on the right.
+TEST(MediaSamplesDecoder, DecodeAlphaMisalignedKeyframes)
+{
+    if (!isVPXDecodingAvailable())
+        GTEST_SKIP() << "VPx software decoding is not available";
+
+    auto blocks = splitIntoSingleItemBlocks(parseWebMVP9File(@"video-with-alpha-misaligned-keyframes"));
+    ScopedVP9HardwareDecoder noHardwareDecoder { false };
+    ASSERT_FALSE(blocks.isEmpty());
+    RefPtr inputInfo = blocks[0]->info();
+    ASSERT_TRUE(inputInfo);
+
+    // Start at the colour keyframe at 1s, where the alpha frame is a delta.
+    auto start = std::ranges::find_if(blocks, [](auto& block) {
+        return block->isSync() && block->first().presentationTime >= MediaTime(1, 1);
+    });
+    ASSERT_NE(start, blocks.end());
+
+    Ref decoder = createDecoder(*inputInfo);
+    size_t opaqueFrames = 0;
+    size_t transparentFrames = 0;
+    for (auto iterator = start; iterator != blocks.end(); ++iterator) {
+        auto time = (*iterator)->first().presentationTime;
+        auto promise = decoder->decode(WTF::move(iterator->get()));
+        auto result = settle(promise.get());
+        ASSERT_TRUE(result);
+        for (auto& output : *result) {
+            auto size = downcast<VideoInfo>(*output.info()).size();
+            EXPECT_EQ(downcast<VideoInfo>(*output.info()).pixelFormat(), VideoPixelFormat::I420A);
+            for (auto& item : output) {
+                Vector<uint8_t> frame(item.data->makeContiguous()->span());
+                ASSERT_EQ(frame.size(), i420AFrameSize(size));
+                EXPECT_GT(alphaAt(frame, size, 120, 60), 224);
+                if (time < MediaTime(3, 2)) {
+                    // The alpha frames are deltas whose keyframe wasn't decoded: the frame is opaque.
+                    EXPECT_EQ(alphaAt(frame, size, 40, 60), 255);
+                    ++opaqueFrames;
+                } else {
+                    EXPECT_LT(alphaAt(frame, size, 40, 60), 32);
+                    ++transparentFrames;
+                }
+            }
+        }
+    }
+    EXPECT_GT(opaqueFrames, 0u);
+    EXPECT_GT(transparentFrames, 0u);
+}
+#endif
 
 } // namespace TestWebKitAPI
 

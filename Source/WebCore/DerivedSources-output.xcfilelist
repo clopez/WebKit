@@ -397,12 +397,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSByteLengthQueuingStrategy.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSByteLengthQueuingStrategy.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCDATASection.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCDATASection.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCOEPInheritenceViolationReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCOEPInheritenceViolationReportBody.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCORPViolationReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCORPViolationReportBody.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSPViolationReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSPViolationReportBody.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSAnimation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSAnimation.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCSSAnimationEvent.cpp
@@ -625,6 +619,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasRenderingContext2D.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasRenderingContext2D.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasRenderingContext2DSettings.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasRenderingContext2DSettings.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasSettings.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasSettings.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasShadowStyles.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasShadowStyles.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasState.cpp
@@ -635,6 +631,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextAlign.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextAlign.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextBaseline.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextBaseline.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasToneMapping.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasToneMapping.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasToneMappingMode.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasToneMappingMode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextDrawingStyles.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextDrawingStyles.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSCanvasTextRendering.cpp
@@ -871,10 +871,14 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+Compat.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+Compat.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+CookieStore.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+CookieStore.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+FetchLater.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+FetchLater.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DeviceMotion.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DeviceMotion.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DeviceOrientation.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DeviceOrientation.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DocumentPictureInPicture.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+DocumentPictureInPicture.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+MediaControls.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+MediaControls.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDOMWindow+RequestIdleCallback.cpp
@@ -910,6 +914,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStreamDecoder.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDecompressionStreamDecoder.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDedicatedWorkerGlobalScope.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDedicatedWorkerGlobalScope.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeferredRequestInit.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeferredRequestInit.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDelayNode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDelayNode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDelayOptions.cpp
@@ -926,8 +932,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecatedCSSOMValue.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecatedCSSOMValue.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecatedCSSOMValueList.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecatedCSSOMValueList.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecationReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDeprecationReportBody.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDetectedBarcode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDetectedBarcode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDetectedFace.cpp
@@ -1002,6 +1006,10 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentOrShadowRoot+WebAnimation
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentOrShadowRoot+WebAnimations.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentOrShadowRoot.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentOrShadowRoot.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentPictureInPicture.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentPictureInPicture.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentPictureInPictureEvent.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentPictureInPictureEvent.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentTimeline.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentTimeline.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSDocumentTimelineOptions.cpp
@@ -1151,6 +1159,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequest.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestCache.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestCache.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestCredentials.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchLaterResult.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchLaterResult.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestCredentials.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestDestination.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFetchRequestDestination.h
@@ -1208,6 +1218,8 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFocusOptions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFocusOptions.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFace.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFace.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFaceLoadStatus.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFaceLoadStatus.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFaceSet.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFaceSet.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSFontFaceSource.cpp
@@ -1854,8 +1866,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInspectorFrontendHost.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInspectorFrontendHost.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInstallEvent.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInstallEvent.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIntegrityPolicyViolationReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSIntegrityPolicyViolationReportBody.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInternalSettings.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInternalSettings.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSInternalSettingsGenerated.cpp
@@ -2436,6 +2446,12 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPermissionStatus.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPermissionStatus.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPermissions.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPermissions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionCredential.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionCredential.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionRequestOptions.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionRequestOptions.h
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionResponseType.cpp
+$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhoneNumberPossessionResponseType.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhotoCapabilities.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhotoCapabilities.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSPhotoSettings.cpp
@@ -2708,8 +2724,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRenderingMode.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSRenderingMode.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReport.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReport.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReportBody.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReportingObserver.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReportingObserver.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSReportingObserverCallback.cpp
@@ -3138,8 +3152,6 @@ $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSSubscriptionObserverCallback.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSSubscriptionObserverCallback.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSSubtleCrypto.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSSubtleCrypto.h
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTestReportBody.cpp
-$(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTestReportBody.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSText.cpp
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSText.h
 $(BUILT_PRODUCTS_DIR)/DerivedSources/WebCore/JSTextDecoder.cpp

@@ -63,6 +63,7 @@
 #include "Page.h"
 #include "PlatformStrategies.h"
 #include "ResourceLoadInfo.h"
+#include "SecurityPolicy.h"
 #include "Settings.h"
 #include "ThreadableBlobRegistry.h"
 #include "URLKeepingBlobAlive.h"
@@ -196,7 +197,8 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
         return;
     }
 
-    if (RefPtr page = frame->page(); page && !request.didFilterLinkDecoration()) {
+    // Filter only if top-level navigation and the URL was not previously filtered.
+    if (RefPtr page = frame->page(); page && frame->isMainFrame() && !request.didFilterLinkDecoration()) {
         auto [filteredURL, didFilter] = page->chrome().client().applyLinkDecorationFilteringWithResult(request.url(), LinkDecorationFilteringTrigger::Navigation);
         request.setURL(WTF::move(filteredURL), didFilter == DidFilterLinkDecoration::Yes);
     }
@@ -237,7 +239,7 @@ void PolicyChecker::checkNavigationPolicy(ResourceRequest&& request, const Resou
     RefPtr formState = formSubmission ? protect(formSubmission->state()): nullptr;
     auto blobURLLifetimeExtension = extendBlobURLLifetimeIfNecessary(request, *protect(frame->document()), policyDecisionMode);
     bool requestIsJavaScriptURL = request.url().protocolIsJavaScript();
-    bool isInitialEmptyDocumentLoad = !frameLoader->stateMachine().committedFirstRealDocumentLoad() && request.url().protocolIsAbout() && !substituteData.isValid();
+    bool isInitialEmptyDocumentLoad = !frameLoader->stateMachine().committedFirstRealDocumentLoad() && SecurityPolicy::shouldInheritSecurityOriginFromOwner(request.url()) && !substituteData.isValid();
     m_delegateIsDecidingNavigationPolicy = true;
     String suggestedFilename = action.downloadAttribute().isEmpty() ? nullAtom() : action.downloadAttribute();
     FromDownloadAttribute fromDownloadAttribute = action.downloadAttribute().isNull() ? FromDownloadAttribute::No : FromDownloadAttribute::Yes;

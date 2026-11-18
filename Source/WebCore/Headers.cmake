@@ -280,6 +280,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/encryptedmedia/legacy/LegacyCDMPrivate.h
     Modules/encryptedmedia/legacy/LegacyCDMPrivateClearKey.h
 
+    Modules/fetch/DeferredFetchIdentifier.h
     Modules/fetch/FetchBodyConsumer.h
     Modules/fetch/FetchBodySource.h
     Modules/fetch/FetchHeaders.h
@@ -529,7 +530,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     Modules/permissions/PermissionState.h
     Modules/permissions/Permissions.h
 
-    Modules/phonenumberpossession/AggregatorResponseDataFields.h
     Modules/phonenumberpossession/PhoneNumberPossessionCoordinatorClient.h
     Modules/phonenumberpossession/PhoneNumberPossessionRequest.h
     Modules/phonenumberpossession/PhoneNumberPossessionResponse.h
@@ -1451,7 +1451,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     history/CachedFramePlatformData.h
     history/CachedPage.h
     history/HistoryItem.h
-    history/ProcessSwapDisposition.h
 
     html/Allowlist.h
     html/AnchorElementFunctions.h
@@ -1871,6 +1870,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     loader/images/Image.h
     loader/images/ImageAdapter.h
+    loader/images/ImageAnimationTimeline.h
     loader/images/ImageContentSettings.h
     loader/images/ImageDrawDescriptor.h
     loader/images/ImageDrawDescriptorTypes.h
@@ -1958,6 +1958,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     page/ImageAnalysisQueue.h
     page/ImmediateActionStage.h
     page/InteractionRegion.h
+    page/InteractiveModelElementHitTestResult.h
     page/IntersectionObserverMarginBox.h
     page/IsLoggedIn.h
     page/LayoutMilestone.h
@@ -2532,7 +2533,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/ImageBufferAllocator.h
     platform/graphics/ImageBufferBackend.h
     platform/graphics/ImageBufferParameters.h
-    platform/graphics/ImageBufferDisplayListBackend.h
     platform/graphics/ImageBufferFormat.h
     platform/graphics/ImageBufferResourceLimits.h
     platform/graphics/ImageBufferTransferIdentifier.h
@@ -2602,6 +2602,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/PixelBufferFormat.h
     platform/graphics/PixelFormat.h
     platform/graphics/PlaceholderFrameIdentifier.h
+    platform/graphics/PlanarImageConverter.h
     platform/graphics/PlatformAudioTrackConfiguration.h
     platform/graphics/PlatformColorSpace.h
     platform/graphics/PlatformDisplay.h
@@ -2900,6 +2901,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/network/HTTPParsers.h
     platform/network/HTTPSByDefaultMode.h
     platform/network/HTTPStatusCodes.h
+    platform/network/IncludesCredentials.h
     platform/network/NetworkLoadInformation.h
     platform/network/NetworkLoadMetrics.h
     platform/network/NetworkStateNotifier.h
@@ -2970,7 +2972,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/CSSValueKey.h
     rendering/CaretRectComputation.h
     rendering/ClipRect.h
-    rendering/EllipsisBoxPainter.h
     rendering/EventRegion.h
     rendering/FloatingObjects.h
     rendering/GapRects.h
@@ -2989,9 +2990,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/OrderIterator.h
     rendering/OverlapTestRequestClient.h
     rendering/Pagination.h
-    rendering/PaintFrequencyTracker.h
-    rendering/PaintInfo.h
-    rendering/PaintPhase.h
     rendering/PathOperation.h
     rendering/PlatformRenderTheme.h
     rendering/RegionContext.h
@@ -3055,6 +3053,10 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     rendering/TransformOperationData.h
     rendering/VisibleRectContext.h
 
+    rendering/paint/EllipsisBoxPainter.h
+    rendering/paint/PaintFrequencyTracker.h
+    rendering/paint/PaintInfo.h
+    rendering/paint/PaintPhase.h
 
     rendering/shapes/LayoutShape.h
     rendering/shapes/PathLayoutShape.h
@@ -3212,6 +3214,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/backgrounds/StyleRepeatStyle.h
 
     style/values/borders/StyleBorderRadius.h
+    style/values/borders/StyleBorderShape.h
     style/values/borders/StyleBoxShadow.h
     style/values/borders/StyleCornerShapeValue.h
     style/values/borders/StyleShadow.h

@@ -49,6 +49,9 @@ public:
 
     void setAvailableLineWidthOverride(AvailableLineWidthOverride&& availableLineWidthOverride) { m_availableLineWidthOverride = WTF::move(availableLineWidthOverride); }
     const AvailableLineWidthOverride& availableLineWidthOverride() const LIFETIME_BOUND { return m_availableLineWidthOverride; }
+    // The content fits within the line-clamp's maximum lines when laid out without the constrained (e.g. balanced) line widths.
+    void setContentFitsWithinMaximumLinesWithoutLineWidthOverride(bool contentFits) { m_contentFitsWithinMaximumLinesWithoutLineWidthOverride = contentFits; }
+    bool contentFitsWithinMaximumLinesWithoutLineWidthOverride() const { return m_contentFitsWithinMaximumLinesWithoutLineWidthOverride; }
 
     void setLegacyClampedLineIndex(size_t lineIndex) { m_legacyClampedLineIndex = lineIndex; }
     std::optional<size_t> legacyClampedLineIndex() const { return m_legacyClampedLineIndex; }
@@ -76,13 +79,14 @@ public:
     void setShouldShapeTextAcrossInlineBoxes() { m_shouldShapeTextAcrossInlineBoxes = true; }
     bool shouldShapeTextAcrossInlineBoxes() const { return m_shouldShapeTextAcrossInlineBoxes; }
 
+    void setShouldUseAlignmentBaseline() { m_shouldUseAlignmentBaseline = true; }
+    bool shouldUseAlignmentBaseline() const { return m_shouldUseAlignmentBaseline; }
+
     // Excluded list markers belonging to ancestor list items, which are aligned with this formatting context's first formatted line but are no part of its content.
     using AscentAndDescent = std::pair<InlineLayoutUnit, InlineLayoutUnit>;
     void setExcludedMarkerLayoutBounds(Vector<AscentAndDescent>&& layoutBounds) { m_excludedMarkerLayoutBounds = WTF::move(layoutBounds); }
     const Vector<AscentAndDescent>& excludedMarkerLayoutBounds() const LIFETIME_BOUND { return m_excludedMarkerLayoutBounds; }
 
-    void setNestedListMarkerOffsets(HashMap<CheckedRef<const ElementBox>, LayoutUnit>&& nestedListMarkerOffsets) { m_nestedListMarkerOffsets = WTF::move(nestedListMarkerOffsets); }
-    LayoutUnit nestedListMarkerOffset(const ElementBox& listMarkerBox) const { return m_nestedListMarkerOffsets.get(listMarkerBox); }
     void setShouldNotSynthesizeInlineBlockBaseline() { m_shouldNotSynthesizeInlineBlockBaseline = true; }
     bool shouldNotSynthesizeInlineBlockBaseline() const { return m_shouldNotSynthesizeInlineBlockBaseline; }
 
@@ -100,14 +104,15 @@ private:
     size_t m_lineCount { 0 }; // Note that this does not include lines from nested blocks and it does not include lines with no content either.
     size_t m_lineCountWithInlineContentIncludingNestedBlocks { 0 };
     // FIXME: This is required by the integaration codepath.
-    HashMap<CheckedRef<const ElementBox>, LayoutUnit> m_nestedListMarkerOffsets;
     Vector<AscentAndDescent> m_excludedMarkerLayoutBounds;
     AvailableLineWidthOverride m_availableLineWidthOverride;
+    bool m_contentFitsWithinMaximumLinesWithoutLineWidthOverride { false };
     bool m_contentMayHaveInkOverflow { false };
     bool m_shouldNotSynthesizeInlineBlockBaseline { false };
     bool m_inStandardsMode { false };
     bool m_inQuirksMode { false };
     bool m_shouldShapeTextAcrossInlineBoxes { false };
+    bool m_shouldUseAlignmentBaseline { false };
 };
 
 inline InlineLayoutState::InlineLayoutState(BlockLayoutState& parentBlockLayoutState)

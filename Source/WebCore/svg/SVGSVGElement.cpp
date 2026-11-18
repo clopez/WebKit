@@ -514,7 +514,7 @@ AffineTransform SVGSVGElement::localCoordinateSpaceTransform(CTMScope mode) cons
                 // contributions on this element or its ancestors in the result to match
                 // the rendered transform (bug #96361).
                 float effectiveZoom = renderer->style().usedZoom();
-                pageZoomFactor = renderer->view().pageZoomFactor();
+                pageZoomFactor = renderer->frame().pageZoomFactor();
                 float cssZoomScale = effectiveZoom / pageZoomFactor;
 
                 TransformState transformState(TransformState::ApplyTransformDirection, FloatPoint());
@@ -578,7 +578,7 @@ bool SVGSVGElement::rendererIsNeeded(const Style::ComputedStyle& style)
     return StyledElement::rendererIsNeeded(style);
 }
 
-RenderPtr<RenderElement> SVGSVGElement::createElementRenderer(Style::ComputedStyle&& style, const RenderTreePosition&)
+RenderPtr<RenderElement> SVGSVGElement::createElementRenderer(UniqueRef<Style::ComputedStyle>&& style, const RenderTreePosition&)
 {
     if (isOutermostSVGSVGElement()) {
         if (document().settings().layerBasedSVGEngineEnabled()) {

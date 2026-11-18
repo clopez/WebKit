@@ -24,6 +24,8 @@
 #include "config.h"
 #include "RenderListItem.h"
 
+#include "CSSCounterStyleDescriptors.h"
+#include "CSSCounterStyleRegistry.h"
 #include "ContainerNodeInlines.h"
 #include "CSSFontSelector.h"
 #include "DocumentInlines.h"
@@ -51,12 +53,16 @@
 #include "RenderText.h"
 #include "RenderTreeBuilder.h"
 #include "RenderView.h"
+#include "Settings.h"
 #include "StyleComputedStyle+GettersInlines.h"
 #include "StyleComputedStyle+SettersInlines.h"
+#include "StyleContent.h"
+#include "StyleListStyleType.h"
 #include "UnicodeBidi.h"
 #include <wtf/StackStats.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/MakeString.h>
 
 namespace WebCore {
 
@@ -146,7 +152,7 @@ static LayoutUnit excludedMarkerLogicalLeftOffsetFor(const RenderBlockFlow& firs
     return toEnclosingListItem + toAssociatedListItem;
 }
 
-RenderListItem::RenderListItem(Element& element, Style::ComputedStyle&& style)
+RenderListItem::RenderListItem(Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(Type::ListItem, element, WTF::move(style))
 {
     ASSERT(isRenderListItem());
@@ -159,7 +165,7 @@ RenderListItem::~RenderListItem()
     ASSERT(!m_marker);
 }
 
-Style::ComputedStyle RenderListItem::computeMarkerStyle() const
+UniqueRef<Style::ComputedStyle> RenderListItem::computeMarkerStyle() const
 {
     auto markerStyle = [&] {
         if (!is<PseudoElement>(element())) {
@@ -170,42 +176,42 @@ Style::ComputedStyle RenderListItem::computeMarkerStyle() const
         // The marker always inherits from the list item, regardless of where it might end
         // up (e.g., in some deeply nested line box). See CSS3 spec.
         auto markerStyle = Style::ComputedStyle::create();
-        markerStyle.inheritFrom(style());
+        markerStyle->inheritFrom(style());
 
         // In the case of a ::before or ::after pseudo-element, we manually apply the properties
         // otherwise set in the user-agent stylesheet since we don't support ::before::marker or
         // ::after::marker. See bugs.webkit.org/b/218897.
         auto fontDescription = style().fontDescription();
         fontDescription.setVariantNumericSpacing(FontVariantNumericSpacing::TabularNumbers);
-        markerStyle.setFontDescription(WTF::move(fontDescription));
-        markerStyle.setUnicodeBidi(UnicodeBidi::Isolate);
-        markerStyle.setWhiteSpaceCollapse(WhiteSpaceCollapse::Preserve);
-        markerStyle.setTextWrapMode(TextWrapMode::NoWrap);
-        markerStyle.setTextTransform({ });
+        markerStyle->setFontDescription(WTF::move(fontDescription));
+        markerStyle->setUnicodeBidi(UnicodeBidi::Isolate);
+        markerStyle->setWhiteSpaceCollapse(WhiteSpaceCollapse::Preserve);
+        markerStyle->setTextWrapMode(TextWrapMode::NoWrap);
+        markerStyle->setTextTransform({ });
         return markerStyle;
     }();
 
-    markerStyle.setPseudoElementIdentifier({ { PseudoElementType::Marker } });
+    markerStyle->setPseudoElementIdentifier({ { PseudoElementType::Marker } });
 
     // A disclosure triangle is drawn from the system font rather than from the one the marker inherited, so that is the
     // font the marker has: it is what the glyph is measured with too, the way it is for every other marker.
     if (listMarkerIsDisclosure(markerStyle, protect(document()))) {
-        auto fontDescription = FontCascadeDescription { markerStyle.fontDescription() };
+        auto fontDescription = FontCascadeDescription { markerStyle->fontDescription() };
         fontDescription.setFamilies({ { "system-ui"_s, FontFamilyKind::Generic } });
-        markerStyle.setFontDescription(WTF::move(fontDescription));
-        markerStyle.fontCascade().update(&protect(document())->fontSelector());
+        markerStyle->setFontDescription(WTF::move(fontDescription));
+        markerStyle->fontCascade().update(&protect(document())->fontSelector());
     }
 
     // The marker box is a text-decoration boundary: the originating element's text-decoration must
     // not propagate into the marker's generated contents, matching list-style-type markers which are
     // never decorated by the list's text-decoration.
-    markerStyle.setTextDecorationLineInEffect(markerStyle.textDecorationLine());
+    markerStyle->setTextDecorationLineInEffect(markerStyle->textDecorationLine());
 
     // text-align neither applies to nor is inherited by ::marker (css-pseudo-4): reset the value
     // inherited from the originating element so it cannot leak into generated marker contents.
     // (list-style-type markers ignore text-align as well.)
-    markerStyle.setTextAlign(Style::ComputedStyle::initialTextAlign());
-    markerStyle.setTextAlignLast(Style::ComputedStyle::initialTextAlignLast());
+    markerStyle->setTextAlign(Style::ComputedStyle::initialTextAlign());
+    markerStyle->setTextAlignLast(Style::ComputedStyle::initialTextAlignLast());
 
     return markerStyle;
 }
@@ -395,15 +401,15 @@ void RenderListItem::updateValue()
     m_value = std::nullopt;
     if (CheckedPtr marker = markerBox()) {
         marker->setNeedsLayoutAndInvalidateContentLogicalWidths();
-        if (marker->excludedPosition())
-            marker->invalidateExcludedMarkerContainer();
+        if (m_excludedMarkerPosition)
+            invalidateExcludedMarkerContainer();
     }
 }
 
 void RenderListItem::updateMarkerContent()
 {
     if (CheckedPtr markerBox = this->markerBox()) {
-        markerBox->updateInlineMarginsAndContent();
+        markerBox->updateContent();
         return;
     }
 
@@ -453,18 +459,9 @@ void RenderListItem::styleDidChange(Style::Difference diff, const Style::Compute
     if (diff == Style::DifferenceResult::Layout) {
         if (oldStyle && oldStyle->usedCounterDirectives().map.get("list-item"_s) != style().usedCounterDirectives().map.get("list-item"_s))
             usedCounterDirectivesChanged();
-        if (CheckedPtr marker = markerBox(); marker && marker->excludedPosition())
-            marker->invalidateExcludedMarkerContainer();
+        if (m_excludedMarkerPosition)
+            invalidateExcludedMarkerContainer();
     }
-}
-
-std::pair<LayoutUnit, LayoutUnit> RenderListItem::computeIntrinsicLogicalWidthContributions()
-{
-    // FIXME: RenderListOutsideMarker::updateInlineMargins() mutates margin style which affects preferred widths.
-    if (CheckedPtr marker = markerBox(); marker && marker->hasInvalidContentLogicalWidths())
-        marker->updateInlineMarginsAndContent();
-
-    return RenderBlockFlow::computeIntrinsicLogicalWidthContributions();
 }
 
 std::pair<LayoutUnit, LayoutUnit> RenderListItem::computeIntrinsicLogicalWidths() const
@@ -484,10 +481,12 @@ RenderListOutsideMarker* RenderListItem::excludedMarker() const
 void RenderListItem::layoutBlock(RelayoutChildren relayoutChildren, LayoutUnit pageLogicalHeight)
 {
     CheckedPtr excludedMarker = this->excludedMarker();
-    if (!excludedMarker)
+    if (!excludedMarker) {
+        m_excludedMarkerPosition = { };
         return RenderBlockFlow::layoutBlock(relayoutChildren, pageLogicalHeight);
+    }
 
-    auto markerScope = ListItemExcludedMarkerScope { view().frameView().layoutContext(), *excludedMarker };
+    auto markerScope = ListItemExcludedMarkerScope { view().frameView().layoutContext(), *this };
     RenderBlockFlow::layoutBlock(relayoutChildren, pageLogicalHeight);
     placeExcludedMarker(*excludedMarker);
     addOverflowFromContainedBox(*excludedMarker);
@@ -501,12 +500,10 @@ void RenderListItem::layoutExcludedChildren(RelayoutChildren relayoutChildren)
 
     auto markerNeedsOwnLine = [&] {
         // Quirks mode puts the marker of a list item that starts with a nested list on a line of its own above that list, rather than on the line its first item makes.
-        if (!document().inQuirksMode())
-            return false;
         for (CheckedPtr child = firstChild(); child; child = child->nextSibling()) {
-            if (child.get() == m_marker.get() || child->isFloatingOrOutOfFlowPositioned() || is<RenderMenuList>(*child))
-                continue;
-            return child->node() && isHTMLListElement(*child->node());
+            auto boxType = markerSearchBoxType(*child);
+            if (boxType != MarkerSearchBoxType::Opaque)
+                return boxType == MarkerSearchBoxType::NestedListInQuirksMode;
         }
         return false;
     };
@@ -522,8 +519,8 @@ void RenderListItem::layoutExcludedChildren(RelayoutChildren relayoutChildren)
     auto oldLayoutBounds = excludedMarker->layoutBounds();
     excludedMarker->layoutIfNeeded();
 
-    if (excludedMarker->excludedPosition() && excludedMarker->layoutBounds() != oldLayoutBounds)
-        excludedMarker->invalidateExcludedMarkerContainer();
+    if (m_excludedMarkerPosition && excludedMarker->layoutBounds() != oldLayoutBounds)
+        invalidateExcludedMarkerContainer();
 
     RenderBlockFlow::layoutExcludedChildren(relayoutChildren);
 }
@@ -539,7 +536,7 @@ void RenderListItem::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 void RenderListItem::paintObject(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
     if (CheckedPtr excludedMarker = this->excludedMarker(); excludedMarker && !excludedMarker->hasSelfPaintingLayer())
-        excludedMarker->paintAsInlineBlock(paintInfo, flipForWritingModeForChild(*excludedMarker, paintOffset));
+        excludedMarker->paintAsInlineBlock(paintInfo, blockStartRelativeToPhysicalForChild(*excludedMarker, paintOffset));
 
     RenderBlockFlow::paintObject(paintInfo, paintOffset);
 }
@@ -563,7 +560,7 @@ bool RenderListItem::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
 
     // The marker's own location is relative to us, so it needs our adjusted one, the way hitTestChildren gets it.
     auto adjustedLocation = accumulatedOffset + location();
-    return excludedMarker->nodeAtPoint(request, result, locationInContainer, flipForWritingModeForChild(*excludedMarker, adjustedLocation), hitTestAction);
+    return excludedMarker->nodeAtPoint(request, result, locationInContainer, blockStartRelativeToPhysicalForChild(*excludedMarker, adjustedLocation), hitTestAction);
 }
 
 RenderListOutsideMarker* RenderListItem::markerBox() const
@@ -641,7 +638,7 @@ bool RenderListItem::isInReversedOrderedList() const
 
 void RenderListItem::placeExcludedMarker(RenderListOutsideMarker& marker)
 {
-    auto excludedPosition = marker.excludedPosition();
+    auto& excludedPosition = m_excludedMarkerPosition;
     CheckedPtr firstFormattedLineRoot = excludedPosition ? excludedPosition->firstFormattedLineRoot.get() : nullptr;
     if (!firstFormattedLineRoot) {
         // Reached only when no line took the marker: we have no formatted line to align it with, either because we have no content at all.
@@ -745,35 +742,114 @@ RenderListItem::FirstFormattedLineCandidate RenderListItem::firstFormattedLineRo
     return { { }, fallbackParent };
 }
 
-CheckedPtr<RenderListOutsideMarker> RenderListItem::excludedMarkerAnchoredTo(const RenderBlockFlow& firstFormattedLineRoot)
+Vector<CheckedPtr<RenderListItem>> RenderListItem::listItemsWithExcludedMarkerFor(const RenderBlockFlow& inlineRoot, const Vector<SingleThreadWeakPtr<RenderListItem>>& listItemsWithExcludedMarker)
 {
-    for (CheckedPtr<const RenderBlock> ancestor = &firstFormattedLineRoot; ancestor; ancestor = ancestor->containingBlock()) {
-        auto* listItem = dynamicDowncast<RenderListItem>(ancestor);
-        CheckedPtr marker = listItem ? listItem->markerBox() : nullptr;
-        if (!marker || !marker->isExcludedMarker())
-            continue;
-        auto excludedPosition = marker->excludedPosition();
-        if (excludedPosition && excludedPosition->firstFormattedLineRoot.get() == &firstFormattedLineRoot)
-            return marker;
-    }
-    return { };
-}
-
-Vector<CheckedPtr<RenderListOutsideMarker>> RenderListItem::excludedMarkersForContainer(const RenderBlockFlow& inlineRoot, const Vector<SingleThreadWeakPtr<RenderListOutsideMarker>>& allExcludedMarkers)
-{
-    auto markersForContainer = Vector<CheckedPtr<RenderListOutsideMarker>> { };
-    for (auto& marker : allExcludedMarkers) {
-        ASSERT(marker->isExcludedMarker());
-        CheckedPtr listItem = marker->listItem();
-        if (!listItem) {
+    auto listItems = Vector<CheckedPtr<RenderListItem>> { };
+    for (auto& listItem : listItemsWithExcludedMarker) {
+        CheckedPtr marker = listItem ? listItem->excludedMarker() : nullptr;
+        if (!marker) {
             ASSERT_NOT_REACHED();
             continue;
         }
         auto candidate = firstFormattedLineRootFor(*listItem, *marker);
         if ((candidate.parent ? candidate.parent : candidate.fallbackParent) == &inlineRoot)
-            markersForContainer.append(marker.get());
+            listItems.append(listItem.get());
     }
-    return markersForContainer;
+    return listItems;
+}
+
+void RenderListItem::setExcludedMarkerPosition(ExcludedMarkerPosition&& excludedPosition)
+{
+    ASSERT(excludedPosition.firstFormattedLineRoot);
+    m_excludedMarkerPosition = WTF::move(excludedPosition);
+}
+
+void RenderListItem::invalidateExcludedMarkerContainer()
+{
+    ASSERT(m_excludedMarkerPosition);
+
+    if (!m_excludedMarkerPosition || !m_excludedMarkerPosition->firstFormattedLineRoot) {
+        m_excludedMarkerPosition = { };
+        return;
+    }
+
+    if (m_excludedMarkerPosition->firstFormattedLineRoot->isDescendantOf(this))
+        return m_excludedMarkerPosition->firstFormattedLineRoot->setNeedsLayout();
+
+    m_excludedMarkerPosition = { };
+}
+
+void setListMarkerInlineMargins(Style::ComputedStyle& markerStyle, WritingMode listItemWritingMode, LayoutUnit marginStart, LayoutUnit marginEnd)
+{
+    auto zoom = markerStyle.usedZoomForLength().value;
+    auto startEdge = Style::MarginEdge::Fixed { marginStart / zoom };
+    auto endEdge = Style::MarginEdge::Fixed { marginEnd / zoom };
+    if (listItemWritingMode.isHorizontal()) {
+        auto startIsLeft = listItemWritingMode.isInlineLeftToRight();
+        markerStyle.setMarginLeft(startIsLeft ? startEdge : endEdge);
+        markerStyle.setMarginRight(startIsLeft ? endEdge : startEdge);
+        return;
+    }
+    auto startIsTop = listItemWritingMode.isInlineTopToBottom();
+    markerStyle.setMarginTop(startIsTop ? startEdge : endEdge);
+    markerStyle.setMarginBottom(startIsTop ? endEdge : startEdge);
+}
+
+bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document& document)
+{
+    auto counterStyle = markerStyle.listStyleType().tryCounterStyle();
+    if (!counterStyle)
+        return false;
+    auto system = document.counterStyleRegistry().resolvedCounterStyle(*counterStyle)->system();
+    return system == CSSCounterStyleDescriptors::System::DisclosureClosed || system == CSSCounterStyleDescriptors::System::DisclosureOpen;
+}
+
+bool listMarkerIsDisclosure(const RenderElement* renderer)
+{
+    if (!renderer || !renderer->style().isListMarkerStyle())
+        return false;
+    return listMarkerIsDisclosure(renderer->style(), protect(renderer->document()));
+}
+
+RefPtr<Style::Image> listMarkerImage(const Style::ComputedStyle& markerStyle)
+{
+    RefPtr image = markerStyle.listStyleImage().tryStyleImage();
+    if (!image || image->errorOccurred())
+        return nullptr;
+    return image;
+}
+
+bool listMarkerHasContent(const Style::ComputedStyle& markerStyle, Document& document)
+{
+    return document.settings().cssMarkerContentEnabled() && markerStyle.content().isData();
+}
+
+bool listMarkerSynthesizesGlyph(const Style::ComputedStyle& markerStyle, Document& document)
+{
+    // css-lists-3 §3.3: a non-normal `content` supersedes list-style-type, and a list-style-image draws in place of
+    // the glyph unless it failed to load, so neither leaves us a glyph to draw.
+    if (listMarkerHasContent(markerStyle, document) || listMarkerImage(markerStyle))
+        return false;
+
+    auto& listType = markerStyle.listStyleType();
+    return listType.isCircle() || listType.isDisc() || listType.isSquare();
+}
+
+ListMarkerTextContent listMarkerTextContent(const Style::ComputedStyle& markerStyle, RenderListItem& listItem)
+{
+    return WTF::switchOn(markerStyle.listStyleType(),
+        [&](const CSS::Keyword::None&) {
+            return ListMarkerTextContent { .textWithSuffix = " "_s, .textWithoutSuffixLength = 0 };
+        },
+        [&](const Style::String& identifier) {
+            return ListMarkerTextContent { .textWithSuffix = identifier.value, .textWithoutSuffixLength = identifier.value.length() };
+        },
+        [&](const auto& counterStyle) {
+            auto counter = listItem.document().counterStyleRegistry().resolvedCounterStyle(counterStyle);
+            auto text = makeString(counter->prefix().text, counter->text(listItem.value(), markerStyle.writingMode()));
+            return ListMarkerTextContent { .textWithSuffix = makeString(text, counter->suffix().text), .textWithoutSuffixLength = text.length() };
+        }
+    );
 }
 
 } // namespace WebCore

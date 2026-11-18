@@ -134,7 +134,7 @@ private:
     unsigned m_ordinalIteration;
 };
 
-RenderDeprecatedFlexibleBox::RenderDeprecatedFlexibleBox(Element& element, Style::ComputedStyle&& style)
+RenderDeprecatedFlexibleBox::RenderDeprecatedFlexibleBox(Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlock(RenderObject::Type::DeprecatedFlexibleBox, element, WTF::move(style), { })
 {
     setChildrenInline(false); // All of our children must be block-level
@@ -269,7 +269,7 @@ std::pair<LayoutUnit, LayoutUnit> RenderDeprecatedFlexibleBox::computeIntrinsicL
     ASSERT(hasInvalidContentLogicalWidths());
 
     if (auto fixedWidth = style().width().tryFixed(); fixedWidth && fixedWidth->isPositive()) {
-        auto logicalWidth = adjustContentBoxLogicalWidthForBoxSizing(*fixedWidth);
+        auto logicalWidth = adjustContentBoxLogicalWidthForBoxSizing(style().width(), LayoutUnit { fixedWidth->resolveZoom(style().usedZoomForLength()) }, 0_lu);
         return { logicalWidth, logicalWidth };
     }
     return computeIntrinsicLogicalWidths();
@@ -394,7 +394,7 @@ void RenderDeprecatedFlexibleBox::layoutBlock(RelayoutChildren relayoutChildren,
         repaintChildrenDuringLayoutIfMoved(this, oldChildRects);
         ASSERT(view().frameView().layoutContext().layoutDeltaMatches(oldLayoutDelta));
 
-        auto contentArea = flippedContentBoxRect();
+        auto contentArea = blockStartRelativeContentBoxRect();
         updateLogicalHeight();
         updateInFlowDescendantTransformsAfterLayout();
         computeInFlowOverflow(contentArea);
@@ -553,7 +553,7 @@ void RenderDeprecatedFlexibleBox::layoutHorizontalBox(RelayoutChildren relayoutC
             if (child->isOutOfFlowPositioned()) {
                 child->containingBlock()->addOutOfFlowBox(*child);
                 CheckedPtr childLayer = child->layer();
-                childLayer->setStaticInlinePosition(xPos); // FIXME: Not right for regions.
+                childLayer->setStaticInlinePosition(xPos);
                 if (childLayer->staticBlockPosition() != yPos) {
                     childLayer->setStaticBlockPosition(yPos);
                     if (child->style().hasStaticBlockPosition(writingMode().isHorizontal()))
@@ -777,7 +777,7 @@ void RenderDeprecatedFlexibleBox::layoutSingleClampedFlexItem()
     setBorderBoxHeight(childBoxBottom + paddingBottom() + borderBottom());
     updateLogicalHeight();
 
-    computeInFlowOverflow(flippedContentBoxRect());
+    computeInFlowOverflow(blockStartRelativeContentBoxRect());
 
     endAndCommitUpdateScrollInfoAfterLayoutTransaction();
 
@@ -824,7 +824,7 @@ void RenderDeprecatedFlexibleBox::layoutVerticalBox(RelayoutChildren relayoutChi
             if (child->isOutOfFlowPositioned()) {
                 child->containingBlock()->addOutOfFlowBox(*child);
                 CheckedPtr childLayer = child->layer();
-                childLayer->setStaticInlinePosition(borderAndPaddingStart()); // FIXME: Not right for regions.
+                childLayer->setStaticInlinePosition(borderAndPaddingStart());
                 if (childLayer->staticBlockPosition() != borderBoxHeight()) {
                     childLayer->setStaticBlockPosition(borderBoxHeight());
                     if (child->style().hasStaticBlockPosition(writingMode().isHorizontal()))

@@ -483,6 +483,8 @@ platform/graphics/cocoa/IconCocoa.mm @nonARC
 platform/graphics/cocoa/IntRectCocoa.mm @nonARC
 platform/graphics/cocoa/MediaPlayerCocoa.mm @nonARC
 platform/graphics/cocoa/MediaPlayerPrivateWebM.mm @nonARC @no-unify-when(bundle<=8) @cost:7
+platform/graphics/cocoa/MeshGradientRendererMetal.mm @nonARC
+platform/graphics/cocoa/MetalColorConversion.mm @nonARC
 platform/graphics/cocoa/NativeImageCocoa.mm @nonARC
 platform/graphics/cocoa/PeriodicSharedTimer.mm @nonARC
 platform/graphics/cocoa/PlatformMediaEngineConfigurationFactoryCocoa.cpp
@@ -519,6 +521,7 @@ platform/graphics/coretext/SimpleFontDataCoreText.cpp
 platform/graphics/cv/CVUtilities.mm @nonARC
 platform/graphics/cv/ImageTransferSessionVT.mm @nonARC
 platform/graphics/cv/PixelBufferConformerCV.cpp
+platform/graphics/cv/PlanarImageConverterCV.mm @nonARC
 platform/graphics/cv/VideoFrameCV.mm @nonARC
 platform/graphics/coreimage/FEBlendCoreImageApplier.mm @nonARC
 platform/graphics/coreimage/FEColorMatrixCoreImageApplier.mm @nonARC

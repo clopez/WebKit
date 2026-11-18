@@ -67,6 +67,7 @@ IGNORE_CLANG_WARNINGS_BEGIN("nullability-completeness")
 IGNORE_CLANG_WARNINGS_END
 #include <webrtc/pc/peer_connection_factory.h>
 WTF_IGNORE_WARNINGS_IN_THIRD_PARTY_CODE_END
+#include <wtf/Borrow.h>
 #include <wtf/MainThread.h>
 #include <wtf/SetForScope.h>
 #include <wtf/SharedTask.h>
@@ -300,7 +301,7 @@ void LibWebRTCMediaEndpoint::doCreateAnswer()
 webrtc::scoped_refptr<LibWebRTCStatsCollector> LibWebRTCMediaEndpoint::createStatsCollector(Ref<DeferredPromise>&& promise)
 {
     return LibWebRTCStatsCollector::create([promise = WTF::move(promise), protectedThis = Ref { *this }](auto&& rtcReport) mutable {
-        ASSERT(isMainThread());
+        ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
         if (protectedThis->isStopped())
             return;
 
@@ -377,7 +378,7 @@ void LibWebRTCMediaEndpoint::collectTransceivers(Vector<Ref<RTCRtpTransceiver>>&
         peerConnectionBackend->addInternalTransceiver(makeUniqueRef<LibWebRTCRtpTransceiverBackend>(toRef(WTF::move(rtcTransceiver))), rtcReceiver->media_type() == webrtc::MediaType::AUDIO ? RealtimeMediaSource::Type::Audio : RealtimeMediaSource::Type::Video);
     }
 
-    for (auto& transceiver : currentTransceivers)
+    for (auto& transceiver : borrow(currentTransceivers))
         peerConnectionBackend->removeTransceiver(transceiver);
 }
 
@@ -962,8 +963,7 @@ template <>
 struct LogArgument<WebCore::RTCStatsLogger> {
     static String toString(const WebCore::RTCStatsLogger& logger)
     {
-        // FIXME: Remove suppression once rdar://189998444 is fixed.
-        SUPPRESS_MEMORY_UNSAFE_CAST return String(logger.toJSONString());
+        return String(logger.toJSONString());
     }
 };
 

@@ -496,11 +496,6 @@ typedef (FetchRequest or FetchResponse) FetchObject;
     unsigned long long imageBufferForCanvasLimit = 0;
 };
 
-enum RenderingMode {
-    "Unaccelerated",
-    "Accelerated"
-};
-
 enum ContentsFormat {
     "RGBA8",
 #if defined(ENABLE_PIXEL_FORMAT_RGB10)
@@ -606,9 +601,11 @@ enum LayerType {
     DOMString computedAppleColorFilter(Element element);
     [Conditional=AX_CUSTOM_COLOR_MODE] undefined setAXCustomColorModeElementQuirksForTesting(DOMString forceFilterSelector, DOMString preserveAuthoredColorsSelector);
     DOMString usedBackgroundColor(Element element);
+    undefined setOverrideBackgroundColor(Element element, DOMString? color);
 
     Node ensureUserAgentShadowRoot(Element host);
     Node? shadowRoot(Element host);
+    undefined scheduleDeferredMediaControlsBuild(Element host);
 
     DOMString shadowRootType(Node root);
     DOMString userAgentPart(Element element);
@@ -830,9 +827,9 @@ enum LayerType {
     undefined setImageFrameDecodingDuration(HTMLImageElement element, unrestricted float duration);
     undefined resetImageAnimation(HTMLImageElement element);
     boolean isImageAnimating(HTMLImageElement element);
-    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined setImageAnimationEnabled(boolean enabled);
-    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined resumeImageAnimation(HTMLImageElement element);
-    [Conditional=ACCESSIBILITY_ANIMATION_CONTROL] undefined pauseImageAnimation(HTMLImageElement element);
+    undefined setImageAnimationEnabled(boolean enabled);
+    undefined resumeImageAnimation(HTMLImageElement element);
+    undefined pauseImageAnimation(HTMLImageElement element);
     [Conditional=ACCESSIBILITY_VIDEO_AUTOPLAY_CONTROL] undefined setVideoAutoplayPreviewsEnabled(boolean enabled);
     unsigned long imagePendingDecodePromisesCountForTesting(HTMLImageElement element);
     undefined setClearDecoderAfterAsyncFrameRequestForTesting(HTMLImageElement element, boolean enabled);
@@ -989,6 +986,9 @@ enum LayerType {
 
     float obscuredContentInsetTop();
 
+    // Covers the bottom of the view with a fake software keyboard; 0 removes it.
+    undefined setSoftwareKeyboardHeight(unrestricted float height);
+
     undefined setFullscreenInsets(FullscreenInsets insets);
     undefined setFullscreenAutoHideDuration(double duration);
 
@@ -1124,6 +1124,7 @@ enum LayerType {
 
     [Conditional=VIDEO] double effectiveDynamicRangeLimitValue(HTMLMediaElement media);
     double getContextEffectiveDynamicRangeLimitValue(HTMLCanvasElement canvas);
+    boolean isCanvasContextHDR(HTMLCanvasElement canvas);
     undefined setPageShouldSuppressHDR(boolean shouldSuppressHDR);
 
     [Conditional=VIDEO&FULLSCREEN_API] boolean isChildOfElementFullscreen(HTMLMediaElement media);
@@ -1200,6 +1201,8 @@ enum LayerType {
     // allowTestOnlyIPC test option, otherwise the GPU message is rejected and the WebContent process is killed.
     [Conditional=VIDEO] undefined postSystemRemoteControlCommand(DOMString command, optional unrestricted float argument = 0);
     [Conditional=VIDEO] undefined activeAudioRouteDidChange(boolean shouldPause);
+    [Conditional=VIDEO] undefined simulateActiveOutputDeviceChange();
+    [Conditional=VIDEO] boolean activeVideoRouteSupportsAirPlayVideo();
     [Conditional=VIDEO] undefined beginAudioSessionInterruption();
     [Conditional=VIDEO] undefined endAudioSessionInterruption();
     [Conditional=VIDEO] undefined clearAudioSessionInterruptionFlag();
@@ -1466,6 +1469,7 @@ enum LayerType {
     [Conditional=VIDEO] Promise<boolean> elementIsRemoteCommandTargetInGPUProcess(HTMLMediaElement element);
     [Conditional=VIDEO] Promise<DOMRect> hostedVideoLayerBoundsInGPUProcess(HTMLMediaElement element);
     [Conditional=VIDEO] attribute double nowPlayingUpdateInterval;
+    [Conditional=VIDEO] readonly attribute unsigned long mediaSessionStatusUpdateCount;
 
     [Conditional=VIDEO] HTMLMediaElement? bestMediaElementForRemoteControls(PlaybackControlsPurpose purpose);
     [Conditional=VIDEO] MediaSessionState mediaSessionState(HTMLMediaElement element);

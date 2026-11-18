@@ -1495,6 +1495,7 @@ public:
     void compileResolveRope(Node*);
     JITCompiler::Jump jumpForTypedArrayOutOfBounds(Node*, GPRReg baseGPR, GPRReg indexGPR, GPRReg scratchGPR, GPRReg scratch2GPR);
     void compileGetTypedArrayByteOffset(Node*);
+    void compileGetTypedArrayBuffer(Node*);
 #if USE(LARGE_TYPED_ARRAYS)
     void compileGetTypedArrayByteOffsetAsInt52(Node*);
 #endif
@@ -1534,6 +1535,8 @@ public:
     void compileNewRegExp(Node*);
     void compileForwardVarargs(Node*);
     void emitLoadVarargsFromContiguousStorage(LoadVarargsData*, Address sourceStart, GPRReg lengthGPR, GPRReg tempGPR);
+    void emitFillMissingVarargsWithUndefined(LoadVarargsData*, GPRReg lengthGPR, GPRReg tempGPR);
+    void emitCopyVarargs(Address sourceStart, Address targetStart, GPRReg lengthGPR, GPRReg tempGPR);
     void compileVarargsLength(Node*);
     void compileLoadVarargs(Node*);
     void compileVarargsLengthWithSpread(Node*);

@@ -232,7 +232,7 @@ struct IPCCallbackContext {
 
 static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&& imageHandle, IPCCallbackContext* context)
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     RetainPtr view = context->view.get();
 
@@ -258,7 +258,7 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
 
 - (void)_preparePDFDataForPrintingOnSecondaryThread
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     Ref webFrame = *_webFrame;
     RefPtr page = webFrame->page();
@@ -309,7 +309,7 @@ static void pageDidDrawToImage(std::optional<WebCore::ShareableBitmap::Handle>&&
 
 static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, double totalScaleFactorForPrinting, const WebCore::FloatBoxExtent& computedPageMargin, IPCCallbackContext* context)
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     RetainPtr view = context->view.get();
     if (!view->_printOperation)
@@ -358,7 +358,7 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
 
 - (BOOL)_askPageToComputePageRects
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     Ref webFrame = *_webFrame;
     if (!webFrame->page() || !_printOperation)
@@ -380,7 +380,7 @@ static void pageDidComputePageRects(const Vector<WebCore::IntRect>& pageRects, d
 
 static void prepareDataForPrintingOnSecondaryThread(WKPrintingView *view)
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     Locker locker { view->_printingCallbackMutex };
 
@@ -494,8 +494,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
         CGPDFContextAddDestinationAtPoint(context.get(), bridge_cast(linkDestinationName(pdfDocument, destination.get())).get(), destinationPoint);
     }
 
-    // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-    for (SUPPRESS_UNRETAINED_LOCAL PDFAnnotation *annotation in [pdfPage annotations]) {
+    for (PDFAnnotation *annotation in [pdfPage annotations]) {
         if (![[annotation valueForAnnotationKey:PAL::get_PDFKit_PDFAnnotationKeySubtypeSingleton()] isEqualToString:PAL::get_PDFKit_PDFAnnotationSubtypeLinkSingleton()])
             continue;
 
@@ -518,7 +517,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
 
 - (void)_drawPreview:(NSRect)nsRect
 {
-    ASSERT(RunLoop::isMain());
+    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
 
     RefPtr webFrame = _webFrame;
     if (!webFrame || !webFrame->page())
@@ -602,8 +601,7 @@ static RetainPtr<NSString> linkDestinationName(PDFDocument *document, PDFDestina
         _linkDestinationsPerPage.resize(pageCount);
         for (unsigned i = 0; i < pageCount; i++) {
             RetainPtr page = [_printedPagesPDFDocument pageAtIndex:i];
-            // FIXME: Remove the suppression once https://github.com/llvm/llvm-project/pull/230818 is deployed (rdar://189710680).
-            for (SUPPRESS_UNRETAINED_LOCAL PDFAnnotation *annotation in page.get().annotations) {
+            for (PDFAnnotation *annotation in page.get().annotations) {
                 if (![[annotation valueForAnnotationKey:PAL::get_PDFKit_PDFAnnotationKeySubtypeSingleton()] isEqualToString:PAL::get_PDFKit_PDFAnnotationSubtypeLinkSingleton()])
                     continue;
 

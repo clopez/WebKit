@@ -37,7 +37,9 @@
 #import <wtf/text/ASCIILiteral.h>
 #import <wtf/text/MakeString.h>
 
+@class TestMessageHandler;
 @class TestNavigationDelegate;
+@class TestUIDelegate;
 @class TestWKWebView;
 @class WKFrameInfo;
 @class WKWebViewConfiguration;
@@ -58,6 +60,7 @@ struct HTTPResponse;
 
 void setFeatureEnabled(WKWebViewConfiguration *, NSString *featureName, bool enabled);
 void enableSiteIsolation(WKWebViewConfiguration *);
+void enableUnloadEvent(WKWebViewConfiguration *);
 
 std::pair<RetainPtr<TestWKWebView>, RetainPtr<TestNavigationDelegate>> siteIsolatedViewAndDelegate(RetainPtr<WKWebViewConfiguration>, CGRect, bool enable);
 std::pair<RetainPtr<TestWKWebView>, RetainPtr<TestNavigationDelegate>> siteIsolatedViewAndDelegate(RetainPtr<WKWebViewConfiguration>, CGRect = CGRectZero);
@@ -65,6 +68,13 @@ std::pair<RetainPtr<TestWKWebView>, RetainPtr<TestNavigationDelegate>> siteIsola
 
 HTTPResponse documentIsolationPolicyResponse(const String& body);
 std::pair<RetainPtr<TestWKWebView>, RetainPtr<TestNavigationDelegate>> siteIsolatedViewAndDelegateWithDocumentIsolationPolicy(const HTTPServer&);
+
+struct WebViewAndDelegates {
+    RetainPtr<TestWKWebView> webView;
+    RetainPtr<TestMessageHandler> messageHandler;
+    RetainPtr<TestNavigationDelegate> navigationDelegate;
+    RetainPtr<TestUIDelegate> uiDelegate;
+};
 
 struct SiteIsolationParams {
     bool crossOrigin { false };

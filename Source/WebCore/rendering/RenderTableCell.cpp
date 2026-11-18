@@ -79,7 +79,7 @@ struct SameSizeAsRenderTableCell : public RenderBlockFlow {
 static_assert(sizeof(RenderTableCell) == sizeof(SameSizeAsRenderTableCell), "RenderTableCell should stay small");
 static_assert(sizeof(CollapsedBorderValue) <= 24, "CollapsedBorderValue should stay small");
 
-RenderTableCell::RenderTableCell(Element& element, Style::ComputedStyle&& style)
+RenderTableCell::RenderTableCell(Element& element, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(Type::TableCell, element, WTF::move(style))
 {
     // We only update the flags when notified of DOM changes in colSpanOrRowSpanChanged()
@@ -88,7 +88,7 @@ RenderTableCell::RenderTableCell(Element& element, Style::ComputedStyle&& style)
     ASSERT(isRenderTableCell());
 }
 
-RenderTableCell::RenderTableCell(Document& document, Style::ComputedStyle&& style)
+RenderTableCell::RenderTableCell(Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderBlockFlow(Type::TableCell, document, WTF::move(style))
 {
     ASSERT(isRenderTableCell());
@@ -246,7 +246,7 @@ void RenderTableCell::constrainIntrinsicLogicalWidthContributionsByMinMax(Layout
         // In quirks mode, when nowrap is set on a cell that also has an explicit fixed width,
         // WinIE/Moz treat the fixed width as the minimum width of the cell. Affected the top
         // of hiptop.com.
-        minContentLogicalWidthContribution = std::max(adjustBorderBoxLogicalWidthForBoxSizing(LayoutUnit(fixedLogicalWidth->resolveZoom(usedZoom))), minContentLogicalWidthContribution);
+        minContentLogicalWidthContribution = std::max(adjustBorderBoxLogicalWidthForBoxSizing(logicalWidth, LayoutUnit(fixedLogicalWidth->resolveZoom(usedZoom)), 0_lu), minContentLogicalWidthContribution);
     }
 }
 
@@ -1485,11 +1485,11 @@ void RenderTableCell::paintCollapsedBorders(PaintInfo& paintInfo, const LayoutPo
     borders.addBorder(leftVal, BoxSide::Left, renderLeft, borderRect.x(), borderRect.y(), borderRect.x() + leftWidth, borderRect.maxY(), leftStyle);
     borders.addBorder(rightVal, BoxSide::Right, renderRight, borderRect.maxX() - rightWidth, borderRect.y(), borderRect.maxX(), borderRect.maxY(), rightStyle);
 
-    bool antialias = BorderPainter::shouldAntialiasLines(graphicsContext);
+    bool antialias = Paint::BorderPainter::shouldAntialiasLines(graphicsContext);
     
     for (CollapsedBorder* border = borders.nextBorder(); border; border = borders.nextBorder()) {
         if (border->borderValue.isSameIgnoringColor(*table()->currentBorderValue()))
-            BorderPainter::drawLineForBoxSide(graphicsContext, protect(document()), LayoutRect(LayoutPoint(border->x1, border->y1), LayoutPoint(border->x2, border->y2)), border->side,
+            Paint::BorderPainter::drawLineForBoxSide(graphicsContext, protect(document()), LayoutRect(LayoutPoint(border->x1, border->y1), LayoutPoint(border->x2, border->y2)), border->side,
                 border->borderValue.color(), border->style, 0, 0, antialias);
     }
 }
@@ -1530,6 +1530,11 @@ NODELETE static LayoutRect backgroundRectForSection(const RenderTableSection& ta
     return rect;
 }
 
+bool RenderTableCell::isHiddenEmptyCell() const
+{
+    return !table()->collapseBorders() && style().emptyCells() == EmptyCell::Hide && !firstChild();
+}
+
 void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoint paintOffset, RenderBox* backgroundObject, LayoutPoint backgroundPaintOffset)
 {
     ASSERT(backgroundObject);
@@ -1540,10 +1545,10 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
     if (usedStyle().visibility() != UsedVisibility::Visible)
         return;
 
-    RenderTable* tableElt = table();
-    if (!tableElt->collapseBorders() && style().emptyCells() == EmptyCell::Hide && !firstChild())
+    if (isHiddenEmptyCell())
         return;
 
+    RenderTable* tableElt = table();
     const auto& style = backgroundObject->style();
     auto& bgLayers = style.backgroundLayers();
 
@@ -1595,31 +1600,8 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
         bool isFirstColumn = !tableElt->colToEffCol(col());
         bool isLastColumn = tableElt->colToEffCol(col() + colSpan() - 1) == tableElt->numEffCols() - 1;
 
-        LayoutUnit leftInset;
-        LayoutUnit rightInset;
-
-        if (isFirstColumn || isLastColumn) {
-            LayoutUnit cellLeftHalf = isFirstColumn ? borderHalfLeft(false) : 0_lu;
-            LayoutUnit cellRightHalf = isLastColumn ? borderHalfRight(false) : 0_lu;
-            LayoutUnit maxLeftHalf = cellLeftHalf;
-            LayoutUnit maxRightHalf = cellRightHalf;
-
-            for (auto* cell = tableElt->cellAbove(this); cell; cell = tableElt->cellAbove(cell)) {
-                if (isFirstColumn)
-                    maxLeftHalf = std::max(maxLeftHalf, cell->borderHalfLeft(false));
-                if (isLastColumn)
-                    maxRightHalf = std::max(maxRightHalf, cell->borderHalfRight(false));
-            }
-            for (auto* cell = tableElt->cellBelow(this); cell; cell = tableElt->cellBelow(cell)) {
-                if (isFirstColumn)
-                    maxLeftHalf = std::max(maxLeftHalf, cell->borderHalfLeft(false));
-                if (isLastColumn)
-                    maxRightHalf = std::max(maxRightHalf, cell->borderHalfRight(false));
-            }
-
-            leftInset = maxLeftHalf - cellLeftHalf;
-            rightInset = maxRightHalf - cellRightHalf;
-        }
+        LayoutUnit leftInset = isFirstColumn ? tableElt->maxCollapsedInnerBorderHalfForFirstColumn() - borderHalfLeft(false) : 0_lu;
+        LayoutUnit rightInset = isLastColumn ? tableElt->maxCollapsedInnerBorderHalfForLastColumn() - borderHalfRight(false) : 0_lu;
 
         if (leftInset || rightInset) {
             fillRect.shiftXEdgeBy(leftInset);
@@ -1629,11 +1611,11 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
 
     auto compositeOp = protect(document())->compositeOperatorForBackgroundColor(color, *this);
 
-    BackgroundPainter painter { *this, paintInfo };
+    Paint::BackgroundPainter painter { *this, paintInfo };
 
     bool hasBackgroundClipText = false;
     for (auto& backgroundLayer : style.backgroundLayers().usedValues()) {
-        if (backgroundLayer.clip() == FillBox::Text)
+        if (backgroundLayer.clip() == FillBox::Text || backgroundLayer.clip() == FillBox::BorderAreaText)
             hasBackgroundClipText = true;
     }
 
@@ -1642,53 +1624,6 @@ void RenderTableCell::paintBackgroundsBehindCell(PaintInfo& paintInfo, LayoutPoi
         painter.setOverrideOrigin(FillBox::BorderBox);
     }
     painter.paintFillLayers(color, bgLayers, style.usedZoomForLength(), fillRect, BleedAvoidance::None, compositeOp, backgroundObject);
-}
-
-void RenderTableCell::paintBoxDecorations(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
-{
-    if (!paintInfo.shouldPaintWithinRoot(*this))
-        return;
-
-    RenderTable* table = this->table();
-    if (!table->collapseBorders() && style().emptyCells() == EmptyCell::Hide && !firstChild())
-        return;
-
-    LayoutRect paintRect = LayoutRect(paintOffset, borderBoxSize());
-    adjustBorderBoxRectForPainting(paintRect);
-
-    BackgroundPainter backgroundPainter { *this, paintInfo };
-    backgroundPainter.paintBoxShadow(paintRect, usedStyle(), Style::ShadowStyle::Normal);
-
-    // Paint our cell background.
-    paintBackgroundsBehindCell(paintInfo, paintOffset, this, paintOffset);
-
-    // For collapsed borders, we expand from inner edge to outer edge for inset shadow painting.
-    LayoutRect insetShadowRect = paintRect;
-    if (table->collapseBorders())
-        insetShadowRect.expand(RectEdges<LayoutUnit> { borderTop(), borderRight(), borderBottom(), borderLeft() });
-
-    backgroundPainter.paintBoxShadow(insetShadowRect, usedStyle(), Style::ShadowStyle::Inset);
-
-    if (!style().border().hasBorder() || table->collapseBorders())
-        return;
-
-    BorderPainter borderPainter { *this, paintInfo };
-    borderPainter.paintBorder(paintRect, usedStyle());
-}
-
-void RenderTableCell::paintMask(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
-{
-    if (usedStyle().visibility() != UsedVisibility::Visible || paintInfo.phase != PaintPhase::Mask)
-        return;
-
-    RenderTable* tableElt = table();
-    if (!tableElt->collapseBorders() && style().emptyCells() == EmptyCell::Hide && !firstChild())
-        return;
-   
-    LayoutRect paintRect = LayoutRect(paintOffset, borderBoxSize());
-    adjustBorderBoxRectForPainting(paintRect);
-
-    paintMaskImages(paintInfo, paintRect);
 }
 
 void RenderTableCell::scrollbarsChanged(bool horizontalScrollbarChanged, bool verticalScrollbarChanged)

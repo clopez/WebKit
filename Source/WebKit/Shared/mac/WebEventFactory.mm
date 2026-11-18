@@ -116,10 +116,13 @@ static int typeForEvent(NSEvent *event)
     return static_cast<int>([NSMenu menuTypeForEvent:event]);
 }
 
-static unsigned short buttonsMaskForMouseButton(WebCore::MouseButton button)
+static unsigned short buttonsMaskForMouseButton(std::expected<WebCore::MouseButton, WebCore::MouseButtonState> button)
 {
+    if (!button)
+        return 0;
+
     // https://w3c.github.io/pointerevents/#the-buttons-property
-    switch (button) {
+    switch (*button) {
     case WebCore::MouseButton::Left:
         return 1;
     case WebCore::MouseButton::Right:
@@ -130,8 +133,6 @@ static unsigned short buttonsMaskForMouseButton(WebCore::MouseButton button)
         return 8;
     case WebCore::MouseButton::Forward:
         return 16;
-    case WebCore::MouseButton::None:
-    case WebCore::MouseButton::PointerHasNotChanged:
     case WebCore::MouseButton::Other:
         return 0;
     }
@@ -140,7 +141,7 @@ static unsigned short buttonsMaskForMouseButton(WebCore::MouseButton button)
     return 0;
 }
 
-static unsigned short buttonsForAutomationEvent(NSEvent *event)
+static unsigned short buttonsForEventFromTouch(NSEvent *event)
 {
     switch ([event type]) {
     case NSEventTypeLeftMouseDown:
@@ -173,7 +174,7 @@ WebMouseEventInit WebEventFactory::createWebMouseEvent(NSEvent *event, NSEvent *
     }
 
     WebMouseEventButton button = kit(WebCore::mouseButtonForEvent(event));
-    unsigned short buttons = inputSource == WebEventInputSource::Automation ? buttonsForAutomationEvent(event) : WebCore::currentlyPressedMouseButtons();
+    unsigned short buttons = inputSource == WebEventInputSource::Touch ? buttonsForEventFromTouch(event) : WebCore::currentlyPressedMouseButtons();
     float deltaX = [event deltaX];
     float deltaY = [event deltaY];
     float deltaZ = [event deltaZ];

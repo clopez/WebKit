@@ -38,11 +38,11 @@
 
 namespace WebKit {
 
-WebCore::MouseButton platform(WebMouseEventButton button)
+std::expected<WebCore::MouseButton, WebCore::MouseButtonState> platform(WebMouseEventButton button)
 {
     switch (button) {
     case WebMouseEventButton::None:
-        return WebCore::MouseButton::None;
+        return std::unexpected { WebCore::MouseButtonState::None };
     case WebMouseEventButton::Left:
         return WebCore::MouseButton::Left;
     case WebMouseEventButton::Middle:
@@ -58,11 +58,14 @@ WebCore::MouseButton platform(WebMouseEventButton button)
     }
 }
 
-WebMouseEventButton kit(WebCore::MouseButton button)
+WebMouseEventButton kit(std::expected<WebCore::MouseButton, WebCore::MouseButtonState> button)
 {
-    switch (button) {
-    case WebCore::MouseButton::None:
+    if (!button) {
+        RELEASE_ASSERT(button.error() == WebCore::MouseButtonState::None);
         return WebMouseEventButton::None;
+    }
+
+    switch (*button) {
     case WebCore::MouseButton::Left:
         return WebMouseEventButton::Left;
     case WebCore::MouseButton::Middle:
@@ -81,10 +84,10 @@ WebMouseEventButton kit(WebCore::MouseButton button)
 WebCore::MouseEventInputSource platform(WebEventInputSource source)
 {
     switch (source) {
-    case WebEventInputSource::UserDriven:
-        return WebCore::MouseEventInputSource::UserDriven;
-    case WebEventInputSource::Automation:
-        return WebCore::MouseEventInputSource::Automation;
+    case WebEventInputSource::Default:
+        return WebCore::MouseEventInputSource::Default;
+    case WebEventInputSource::Touch:
+        return WebCore::MouseEventInputSource::Touch;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }
@@ -93,10 +96,10 @@ WebCore::MouseEventInputSource platform(WebEventInputSource source)
 WebEventInputSource kit(WebCore::MouseEventInputSource source)
 {
     switch (source) {
-    case WebCore::MouseEventInputSource::UserDriven:
-        return WebEventInputSource::UserDriven;
-    case WebCore::MouseEventInputSource::Automation:
-        return WebEventInputSource::Automation;
+    case WebCore::MouseEventInputSource::Default:
+        return WebEventInputSource::Default;
+    case WebCore::MouseEventInputSource::Touch:
+        return WebEventInputSource::Touch;
     default:
         RELEASE_ASSERT_NOT_REACHED();
     }

@@ -87,9 +87,8 @@ FileInputType::~FileInputType()
 
 std::pair<Vector<FileChooserFileInfo>, String> FileInputType::filesFromFormControlState(const FormControlState& state)
 {
-    Vector<FileChooserFileInfo> files;
     size_t size = state.size() - 1;
-    files.reserveInitialCapacity(size / 2);
+    Vector<FileChooserFileInfo> files(ReserveCapacityTag { }, size / 2);
     for (size_t i = 0; i < size; i += 2)
         files.append({ state[i], { }, state[i + 1] });
 
@@ -192,7 +191,7 @@ bool FileInputType::allowsShowPickerAcrossFrames()
     return true;
 }
 
-RenderPtr<RenderElement> FileInputType::createInputRenderer(Style::ComputedStyle&& style)
+RenderPtr<RenderElement> FileInputType::createInputRenderer(UniqueRef<Style::ComputedStyle>&& style)
 {
     ASSERT(element());
     return createRenderer<RenderFileUploadControl>(*protect(element()), WTF::move(style));
@@ -415,7 +414,7 @@ void FileInputType::filesChosen(const Vector<FileChooserFileInfo>& paths, const 
     }
 
     Ref creator = DirectoryFileListCreator::create([weakThis = WeakPtr { *this }, icon = RefPtr { icon }](Ref<FileList>&& fileList) mutable {
-        ASSERT(isMainThread());
+        ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return;

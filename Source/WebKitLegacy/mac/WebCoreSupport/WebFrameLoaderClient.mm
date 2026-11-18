@@ -129,6 +129,7 @@
 #import <pal/spi/cocoa/NSURLDownloadSPI.h>
 #import <pal/spi/cocoa/NSURLFileTypeMappingsSPI.h>
 #import <wtf/BlockObjCExceptions.h>
+#import <wtf/Borrow.h>
 #import <wtf/EnumTraits.h>
 #import <wtf/MainThread.h>
 #import <wtf/NakedPtr.h>
@@ -958,7 +959,7 @@ static NSDictionary *makeFormFieldValuesDictionary(WebCore::FormState& formState
     auto& textFieldValues = formState.textFieldValues();
     size_t size = textFieldValues.size();
     auto dictionary = adoptNS([[NSMutableDictionary alloc] initWithCapacity:size]);
-    for (auto& value : textFieldValues)
+    for (auto& value : borrow(textFieldValues))
         [dictionary setObject:value.second.createNSString().get() forKey:value.first.createNSString().get()];
     return dictionary.autorelease();
 }
@@ -1544,7 +1545,11 @@ NSDictionary *WebFrameLoaderClient::actionDictionary(const WebCore::NavigationAc
         RetainPtr element = adoptNS([[WebElementDictionary alloc] initWithHitTestResult:protect(core(m_webFrame.get())->eventHandler())->hitTestResultAtPoint(mouseEventData->absoluteLocation, hitType)]);
         [result setObject:element.get() forKey:WebActionElementKey];
 
-        auto button = std::to_underlying(mouseEventData->isTrusted ? mouseEventData->button : MouseButton::None);
+        int button = std::to_underlying(MouseButtonState::None);
+        if (mouseEventData->isTrusted) {
+            auto eventButton = mouseEventData->button;
+            button = eventButton ? std::to_underlying(*eventButton) : std::to_underlying(eventButton.error());
+        }
         [result setObject:@(button) forKey:WebActionButtonKey];
     }
 
@@ -1996,7 +2001,7 @@ void WebFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<WebCor
 
 #if PLATFORM(MAC)
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_DEFAULT_ICON_LOADING)) {
-        for (auto& icon : icons)
+        for (auto& icon : borrow(icons))
             documentLoader->didGetLoadDecisionForIcon(false, icon.second, [](auto) { });
 
         return;
@@ -2008,7 +2013,7 @@ void WebFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<WebCor
         disallowedDueToImageLoadSettings = true;
 
     if (disallowedDueToImageLoadSettings || !frame->isMainFrame() || !documentLoader->url().protocolIsInHTTPFamily() || ![WebView _isIconLoadingEnabled]) {
-        for (auto& icon : icons)
+        for (auto& icon : borrow(icons))
             documentLoader->didGetLoadDecisionForIcon(false, icon.second, [](auto) { });
 
         return;
@@ -2038,7 +2043,7 @@ void WebFrameLoaderClient::getLoadDecisionForIcons(const Vector<std::pair<WebCor
     }
 #else
     // No WebCore icon loading on iOS
-    for (auto& icon : icons)
+    for (auto& icon : borrow(icons))
         documentLoader->didGetLoadDecisionForIcon(false, icon.second, [](auto) { });
 #endif
 }

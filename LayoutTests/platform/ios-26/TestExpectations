@@ -16,6 +16,9 @@ webkit.org/b/328460 webaudio/decode-audio-data-webm-opus-5.1.html [ Failure ]
 webkit.org/b/328460 http/wpt/webcodecs/audio-decoder-channel-order.https.any.html [ Failure ]
 webkit.org/b/328460 http/wpt/webcodecs/audio-decoder-channel-order.https.any.worker.html [ Failure ]
 
+# Phone number possession requires the iOS 27 SDK.
+http/wpt/phone-number-possession [ Skip ]
+
 # -- The above has different, expected behavior on iOS 27 than iOS 26 --
 # -- New failure expectations below this point only!! --
 
@@ -35,6 +38,8 @@ fast/text-extraction/text-extraction-scroll-to-next-page.html [ Pass ]
 fast/text-extraction/debug-text-extraction-autofilled-attributes.html [ Pass ]
 fast/text-extraction/debug-text-extraction-highlight-text.html [ Pass ]
 fast/text-extraction/debug-text-extraction-offscreen-button.html [ Pass ]
+fast/text-extraction/debug-text-extraction-body-shadow-root.html [ Pass ]
+fast/text-extraction/debug-text-extraction-lightweight.html [ Pass ]
 
 # rdar://189326945 ☂️Batch file expectations for failures observed on the new iOS 27 UAT EWS queues
 imported/w3c/web-platform-tests/css/css-content/quotes-009.html [ Pass ]

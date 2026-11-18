@@ -224,7 +224,23 @@ void WebPageProxy::dynamicViewportSizeUpdate(const DynamicViewportSizeUpdate& ta
     internals().minimumUnobscuredSize = target.minimumUnobscuredSize;
     internals().maximumUnobscuredSize = target.maximumUnobscuredSize;
     protect(m_legacyMainFrameProcess)->send(Messages::WebPage::DynamicViewportSizeUpdate(target), webPageIDInMainFrameProcess());
+    updateUnobscuredSafeAreaInsets(target.unobscuredSafeAreaInsets);
     setDeviceOrientation(target.deviceOrientation);
+}
+
+void WebPageProxy::updateUnobscuredSafeAreaInsets(const FloatBoxExtent& insets)
+{
+    if (internals().unobscuredSafeAreaInsets == insets)
+        return;
+
+    internals().unobscuredSafeAreaInsets = insets;
+
+    if (!hasRunningProcess())
+        return;
+
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::SetUnobscuredSafeAreaInsets(insets), pageID);
+    });
 }
 
 void WebPageProxy::setViewportConfigurationViewLayoutSize(const WebCore::FloatSize& size, double layoutSizeScaleFactorFromClient, double minimumEffectiveDeviceWidth)
@@ -460,7 +476,7 @@ void WebPageProxy::handleAutocorrectionContext(const WebAutocorrectionContext& c
 void WebPageProxy::clearSelectionAfterTappingSelectionHighlightIfNeeded(WebCore::FloatPoint location)
 {
     if (hasRunningProcess())
-        protect(legacyMainFrameProcess())->send(Messages::WebPage::ClearSelectionAfterTappingSelectionHighlightIfNeeded(location), webPageIDInMainFrameProcess());
+        sendToFocusedOrMainFrameProcess(Messages::WebPage::ClearSelectionAfterTappingSelectionHighlightIfNeeded(location));
 }
 
 void WebPageProxy::getSelectionContext(CompletionHandler<void(const String&, const String&, const String&)>&& callbackFunction)
@@ -472,7 +488,25 @@ void WebPageProxy::getSelectionContext(CompletionHandler<void(const String&, con
 
 void WebPageProxy::handleTwoFingerTapAtPoint(const WebCore::IntPoint& point, OptionSet<WebEventModifier> modifiers, WebKit::TapIdentifier requestID)
 {
-    protect(legacyMainFrameProcess())->send(Messages::WebPage::HandleTwoFingerTapAtPoint(point, modifiers, requestID), webPageIDInMainFrameProcess());
+    handleTwoFingerTapAtPointInFrame(std::nullopt, point, modifiers, requestID);
+}
+
+void WebPageProxy::handleTwoFingerTapAtPointInFrame(std::optional<FrameIdentifier> frameID, const WebCore::IntPoint& point, OptionSet<WebEventModifier> modifiers, WebKit::TapIdentifier requestID)
+{
+    RefPtr frame = frameID ? WebFrameProxy::webFrame(*frameID) : m_mainFrame.get();
+    if (!frame || frame->page() != this)
+        return;
+
+    frame->notifyActivated(MonotonicTime::now());
+
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::HandleTwoFingerTapAtPoint(frameID, point, modifiers, requestID), Messages::WebPage::HandleTwoFingerTapAtPoint::Reply { [weakThis = WeakPtr { *this }, modifiers, requestID](auto remoteUserInputEventData) {
+        if (!remoteUserInputEventData)
+            return;
+        RefPtr protectedThis = weakThis;
+        if (!protectedThis)
+            return;
+        protectedThis->handleTwoFingerTapAtPointInFrame(remoteUserInputEventData->targetFrameID, roundedIntPoint(FloatPoint { remoteUserInputEventData->transformedPoint }), modifiers, requestID);
+    } });
 }
 
 void WebPageProxy::selectWithTwoTouches(std::optional<WebCore::FrameIdentifier> frameID, const WebCore::IntPoint from, const WebCore::IntPoint to, GestureType gestureType, GestureRecognizerState gestureState, CompletionHandler<void(const WebCore::IntPoint&, GestureType, GestureRecognizerState, OptionSet<SelectionFlags>)>&& callback)
@@ -564,14 +598,18 @@ void WebPageProxy::applicationDidEnterBackground()
             navigationState->releaseNetworkActivity(NavigationState::NetworkActivityReleaseReason::ScreenLocked);
     }
 #endif
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationDidEnterBackground(isSuspendedUnderLock), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationDidEnterBackground(isSuspendedUnderLock), pageID);
+    });
 }
 
 void WebPageProxy::applicationDidFinishSnapshottingAfterEnteringBackground()
 {
     if (m_drawingArea)
         protect(m_drawingArea)->hideContentUntilPendingUpdate();
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationDidFinishSnapshottingAfterEnteringBackground(), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationDidFinishSnapshottingAfterEnteringBackground(), pageID);
+    });
 }
 
 void WebPageProxy::applicationWillEnterForeground()
@@ -581,14 +619,18 @@ void WebPageProxy::applicationWillEnterForeground()
     bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForeground: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationWillEnterForeground(isSuspendedUnderLock), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationWillEnterForeground(isSuspendedUnderLock), pageID);
+    });
 
     hardwareKeyboardAvailabilityChanged(protect(m_configuration->processPool())->cachedHardwareKeyboardState());
 }
 
 void WebPageProxy::applicationWillResignActive()
 {
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationWillResignActive(), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationWillResignActive(), pageID);
+    });
 }
 
 void WebPageProxy::applicationDidEnterBackgroundForMedia()
@@ -596,7 +638,9 @@ void WebPageProxy::applicationDidEnterBackgroundForMedia()
     bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForegroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationDidEnterBackgroundForMedia(isSuspendedUnderLock), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationDidEnterBackgroundForMedia(isSuspendedUnderLock), pageID);
+    });
 }
 
 void WebPageProxy::applicationWillEnterForegroundForMedia()
@@ -604,7 +648,9 @@ void WebPageProxy::applicationWillEnterForegroundForMedia()
     bool isSuspendedUnderLock = UIApplication.sharedApplication.isSuspendedUnderLock;
     WEBPAGEPROXY_RELEASE_LOG(ViewState, "applicationWillEnterForegroundForMedia: isSuspendedUnderLock? %d", isSuspendedUnderLock);
 
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationWillEnterForegroundForMedia(isSuspendedUnderLock), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationWillEnterForegroundForMedia(isSuspendedUnderLock), pageID);
+    });
 }
 
 void WebPageProxy::applicationDidBecomeActive()
@@ -613,7 +659,9 @@ void WebPageProxy::applicationDidBecomeActive()
     if (m_videoPresentationManager)
         protect(m_videoPresentationManager)->applicationDidBecomeActive();
 #endif
-    protect(m_legacyMainFrameProcess)->send(Messages::WebPage::ApplicationDidBecomeActive(), webPageIDInMainFrameProcess());
+    forEachWebContentProcess([&](auto& process, auto pageID) {
+        process.send(Messages::WebPage::ApplicationDidBecomeActive(), pageID);
+    });
 }
 
 void WebPageProxy::extendSelection(WebCore::TextGranularity granularity, CompletionHandler<void()>&& completionHandler)
@@ -778,12 +826,46 @@ void WebPageProxy::didEndUserTriggeredZooming()
 
 void WebPageProxy::tapHighlightAtPosition(const WebCore::FloatPoint& position, WebKit::TapIdentifier requestID)
 {
-    protect(legacyMainFrameProcess())->send(Messages::WebPage::TapHighlightAtPosition(requestID, position), webPageIDInMainFrameProcess());
+    tapHighlightAtPositionInFrame(std::nullopt, position, requestID);
+}
+
+void WebPageProxy::tapHighlightAtPositionInFrame(std::optional<FrameIdentifier> frameID, const WebCore::FloatPoint& position, WebKit::TapIdentifier requestID)
+{
+    RefPtr frame = frameID ? WebFrameProxy::webFrame(*frameID) : m_mainFrame.get();
+    if (!frame || frame->page() != this)
+        return;
+
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::TapHighlightAtPosition(frameID, requestID, position), Messages::WebPage::TapHighlightAtPosition::Reply { [weakThis = WeakPtr { *this }, requestID](auto remoteUserInputEventData) {
+        if (!remoteUserInputEventData)
+            return;
+        RefPtr protectedThis = weakThis;
+        if (!protectedThis)
+            return;
+        protectedThis->tapHighlightAtPositionInFrame(remoteUserInputEventData->targetFrameID, FloatPoint { remoteUserInputEventData->transformedPoint }, requestID);
+    } });
 }
 
 void WebPageProxy::attemptSyntheticClick(const FloatPoint& location, OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
 {
-    protect(legacyMainFrameProcess())->send(Messages::WebPage::AttemptSyntheticClick(roundedIntPoint(location), modifiers, layerTreeTransactionIdAtLastTouchStart), webPageIDInMainFrameProcess());
+    attemptSyntheticClickInFrame(std::nullopt, roundedIntPoint(location), modifiers, layerTreeTransactionIdAtLastTouchStart);
+}
+
+void WebPageProxy::attemptSyntheticClickInFrame(std::optional<FrameIdentifier> frameID, const IntPoint& point, OptionSet<WebEventModifier> modifiers, TransactionID layerTreeTransactionIdAtLastTouchStart)
+{
+    RefPtr frame = frameID ? WebFrameProxy::webFrame(*frameID) : m_mainFrame.get();
+    if (!frame || frame->page() != this)
+        return;
+
+    frame->notifyActivated(MonotonicTime::now());
+
+    sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::AttemptSyntheticClick(frameID, point, modifiers, layerTreeTransactionIdAtLastTouchStart), Messages::WebPage::AttemptSyntheticClick::Reply { [weakThis = WeakPtr { *this }, modifiers, layerTreeTransactionIdAtLastTouchStart](auto remoteUserInputEventData) {
+        if (!remoteUserInputEventData)
+            return;
+        RefPtr protectedThis = weakThis;
+        if (!protectedThis)
+            return;
+        protectedThis->attemptSyntheticClickInFrame(remoteUserInputEventData->targetFrameID, roundedIntPoint(FloatPoint { remoteUserInputEventData->transformedPoint }), modifiers, layerTreeTransactionIdAtLastTouchStart);
+    } });
 }
 
 void WebPageProxy::didRecognizeLongPress()
@@ -1073,7 +1155,7 @@ std::optional<IPC::Connection::AsyncReplyID> WebPageProxy::drawToPDFiOS(FrameIde
     auto snapshotIdentifier = generateRemoteSnapshotIdentifier();
     Ref gpuProcess = GPUProcessProxy::getOrCreate();
     Ref drawing = PendingSnapshotDrawing::create(snapshotIdentifier);
-    auto sinkReplyID = gpuProcess->sinkCompletedSnapshotToPDF(snapshotIdentifier, frameID, drawing->completionHandler(launchPrintProcessForDrawingIfNeeded(frame.get(), WTF::move(completionHandler))));
+    auto sinkReplyID = gpuProcess->sinkCompletedSnapshotToPDF(snapshotIdentifier, frameID, printProcessIdentifier(frame.get()), drawing->completionHandler(launchPrintProcessForDrawingIfNeeded(frame.get(), WTF::move(completionHandler))));
     auto replyID = sendWithAsyncReplyToProcessContainingFrame(frameID, Messages::WebPage::DrawPrintingPagesToSnapshotiOS(snapshotIdentifier, frameID, printInfo, pageCount), gpuProcess->releaseSnapshotIfRootFails(snapshotIdentifier));
     if (replyID)
         drawing->setReply<Messages::GPUProcess::SinkCompletedSnapshotToPDF>(gpuProcess.get(), sinkReplyID, *replyID);
@@ -1208,7 +1290,33 @@ void WebPageProxy::requestEvasionRectsAboveSelection(CompletionHandler<void(cons
         return;
     }
 
-    protect(legacyMainFrameProcess())->sendWithAsyncReply(Messages::WebPage::RequestEvasionRectsAboveSelection(), WTF::move(callback), webPageIDInMainFrameProcess());
+    // Only the main frame's view knows the page's scale and unobscured area, so pass them to every process we ask.
+    double scaleFactor = pageScaleFactor();
+    double contextMenuAreaLimit = 0.5 * scaleFactor * unobscuredContentRect().area();
+
+    auto rects = Box<Vector<FloatRect>>::create();
+    Ref aggregator = CallbackAggregator::create([rects, callback = WTF::move(callback)] mutable {
+        callback(*rects);
+    });
+
+    RefPtr focusedFrame = focusedOrMainFrame();
+    std::optional<FrameIdentifier> focusedFrameID = focusedFrame ? std::optional(focusedFrame->frameID()) : std::nullopt;
+    sendWithAsyncReplyToProcessContainingFrame(focusedFrameID, Messages::WebPage::RequestEvasionRectsAboveSelection(std::nullopt, scaleFactor, contextMenuAreaLimit), Messages::WebPage::RequestEvasionRectsAboveSelection::Reply { [rects, aggregator](Vector<FloatRect>&& focusedFrameRects) {
+        rects->appendVector(WTF::move(focusedFrameRects));
+    } });
+
+    // The controls to evade can be in the main frame even when the selection is in an iframe in another process.
+    RefPtr mainFrame = m_mainFrame;
+    if (!focusedFrame || !mainFrame || &focusedFrame->process() == &mainFrame->process())
+        return;
+
+    auto selectionBounds = selectionBoundingRectInRootViewCoordinates();
+    if (selectionBounds.isEmpty())
+        return;
+
+    sendWithAsyncReplyToProcessContainingFrame(mainFrame->frameID(), Messages::WebPage::RequestEvasionRectsAboveSelection(selectionBounds, scaleFactor, contextMenuAreaLimit), Messages::WebPage::RequestEvasionRectsAboveSelection::Reply { [rects, aggregator](Vector<FloatRect>&& mainFrameRects) {
+        rects->appendVector(WTF::move(mainFrameRects));
+    } });
 }
 
 void WebPageProxy::updateSelectionWithDelta(int64_t locationDelta, int64_t lengthDelta, CompletionHandler<void()>&& completionHandler)
@@ -1331,10 +1439,10 @@ void WebPageProxy::didConcludeDrop()
 #endif
 
 #if ENABLE(MODEL_PROCESS)
-void WebPageProxy::didReceiveInteractiveModelElement(std::optional<WebCore::NodeIdentifier> nodeID)
+void WebPageProxy::didReceiveInteractiveModelElement(std::optional<WebCore::FrameIdentifier> frameID, std::optional<WebCore::NodeIdentifier> nodeID)
 {
     if (RefPtr pageClient = this->pageClient())
-        pageClient->didReceiveInteractiveModelElement(nodeID);
+        pageClient->didReceiveInteractiveModelElement(frameID, nodeID);
 }
 #endif
 

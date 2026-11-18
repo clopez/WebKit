@@ -48,7 +48,7 @@ class RenderView final : public RenderBlockFlow {
     WTF_MAKE_TZONE_ALLOCATED(RenderView);
     WTF_OVERRIDE_DELETE_FOR_CHECKED_PTR(RenderView);
 public:
-    RenderView(Document&, Style::ComputedStyle&&);
+    RenderView(Document&, UniqueRef<Style::ComputedStyle>&&);
     virtual ~RenderView();
 
     ASCIILiteral renderName() const override { return "RenderView"_s; }
@@ -72,7 +72,6 @@ public:
     LayoutUnit clientLogicalWidthForFixedPosition() const;
     LayoutUnit clientLogicalHeightForFixedPosition() const;
 
-    NODELETE float pageZoomFactor() const;
 
     NODELETE inline LocalFrameView& frameView() const LIFETIME_BOUND; // Defined in LocalFrameViewInlines.h.
 
@@ -114,7 +113,6 @@ public:
 #endif
 
     void paint(PaintInfo&, const LayoutPoint&) override;
-    void paintBoxDecorations(PaintInfo&, const LayoutPoint&) override;
     // Return the renderer whose background style is used to paint the root background.
     RenderElement* rendererForRootBackground() const;
 
@@ -129,7 +127,9 @@ public:
 
     void updateHitTestResult(HitTestResult&, const LayoutPoint&) const override;
 
-    NODELETE void setPageLogicalSize(LayoutSize);
+    void setPageLogicalSize(LayoutSize);
+    // The page area while printing, which css-page-3 makes the initial containing block.
+    std::optional<LayoutSize> printedPageAreaLogicalSize() const;
     LayoutUnit pageOrViewLogicalHeight() const;
 
     // This method is used to assign a page number only when pagination modes have
@@ -205,9 +205,7 @@ public:
     void unregisterForVisibleInViewportCallback(RenderElement&);
 
     void resumePausedImageAnimationsIfNeeded(const IntRect& visibleRect);
-#if ENABLE(ACCESSIBILITY_ANIMATION_CONTROL)
     void updatePlayStateForAllAnimations(const IntRect& visibleRect);
-#endif
     void addRendererWithPausedImageAnimations(RenderElement&);
     void removeRendererWithPausedImageAnimations(RenderElement&);
 

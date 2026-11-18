@@ -32,6 +32,7 @@
 #include "LibWebRTCUtils.h"
 #include "RTCDataChannel.h"
 #include "RTCError.h"
+#include <wtf/Borrow.h>
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 
@@ -105,7 +106,7 @@ void LibWebRTCDataChannelHandler::setClient(RTCDataChannelHandlerClient& client,
     m_client = client;
     m_contextIdentifier = contextIdentifier;
 
-    for (auto& message : m_bufferedMessages) {
+    for (auto& message : borrow(m_bufferedMessages)) {
         switchOn(message, [&](Ref<FragmentedSharedBuffer>& data) {
             Ref contiguousData = data->makeContiguous();
             client.didReceiveRawData(contiguousData->span());
@@ -125,12 +126,12 @@ void LibWebRTCDataChannelHandler::setClient(RTCDataChannelHandlerClient& client,
 bool LibWebRTCDataChannelHandler::sendStringData(const UTF8CString& utf8Text)
 {
     auto bytes = asByteSpan(utf8Text.span());
-    return m_channel->Send({ webrtc::CopyOnWriteBuffer(bytes.data(), bytes.size()), false });
+    return m_channel->Send({ webrtc::CopyOnWriteBuffer(bytes), false });
 }
 
 bool LibWebRTCDataChannelHandler::sendRawData(std::span<const uint8_t> data)
 {
-    return m_channel->Send({ webrtc::CopyOnWriteBuffer(data.data(), data.size()), true });
+    return m_channel->Send({ webrtc::CopyOnWriteBuffer(data), true });
 }
 
 void LibWebRTCDataChannelHandler::close()

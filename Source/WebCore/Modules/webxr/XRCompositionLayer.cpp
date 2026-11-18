@@ -123,11 +123,7 @@ const WebXRSpace& XRCompositionLayer::space() const
 
 void XRCompositionLayer::setSpace(WebXRSpace& space)
 {
-    if (m_space == &space)
-        return;
-
     m_space = space;
-    setNeedsRedraw(true);
 }
 
 const WebXRRigidTransform& XRCompositionLayer::transform() const
@@ -138,16 +134,14 @@ const WebXRRigidTransform& XRCompositionLayer::transform() const
 
 void XRCompositionLayer::setTransform(WebXRRigidTransform& transform)
 {
-    if (m_transform == &transform)
-        return;
-
     m_transform = transform;
-    setNeedsRedraw(true);
 }
 
 void XRCompositionLayer::startFrame(PlatformXR::FrameData& frameData)
 {
 #if PLATFORM(GTK) || PLATFORM(WPE)
+    m_contentUpdatedThisFrame = false;
+
     auto it = frameData.layers.find(m_backing->handle());
     if (it == frameData.layers.end())
         return;
@@ -175,12 +169,14 @@ std::optional<PlatformXR::FrameData::Pose> computeXRCompositionLayerPose(const T
 void XRCompositionLayer::recomputePose()
 {
     std::optional<TransformationMatrix> spaceTransform;
-    if (m_space)
-        spaceTransform = m_space->nativeOrigin();
+    RefPtr space = m_space;
+    if (space)
+        spaceTransform = space->nativeOrigin();
     if (!spaceTransform)
         spaceTransform = TransformationMatrix();
 
-    auto pose = computeXRCompositionLayerPose(*spaceTransform, m_transform ? &m_transform->rawTransform() : nullptr);
+    RefPtr transform = m_transform;
+    auto pose = computeXRCompositionLayerPose(*spaceTransform, transform ? &transform->rawTransform() : nullptr);
     if (!pose) {
         RELEASE_LOG_ERROR(XR, "Failed to decompose space transform, using identity transform for layer pose");
         m_poseInLocalSpace = PlatformXR::FrameData::Pose { .position = { 0, 0, 0 }, .orientation = { 0, 0, 0, 1 } };
@@ -197,6 +193,7 @@ PlatformXR::DeviceLayer XRCompositionLayer::endFrame()
 
     layerData.handle = m_backing->handle();
     layerData.visible = true;
+    layerData.contentUpdated = std::exchange(m_contentUpdatedThisFrame, false);
 
     recomputePose();
 

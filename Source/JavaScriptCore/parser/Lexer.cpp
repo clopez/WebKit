@@ -26,6 +26,7 @@
 #include "Lexer.h"
 
 #include "BuiltinNames.h"
+#include "DecimalNumberScanner.h"
 #include "Identifier.h"
 #include "KeywordLookup.h"
 #include "Lexer.lut.h"
@@ -34,6 +35,7 @@
 #include <limits.h>
 #include <string.h>
 #include <wtf/Assertions.h>
+#include <wtf/FastFloat.h>
 #include <wtf/HexNumber.h>
 #include <wtf/MathExtras.h>
 #include <wtf/dtoa.h>
@@ -1812,6 +1814,43 @@ ALWAYS_INLINE auto Lexer<T>::parseOctal() -> std::optional<NumberParseResult>
     return NumberParseResult { parseIntOverflow(m_buffer8.span(), 8) };
 }
 
+// Converts a decimal literal as it is scanned, rather than copying it into m_buffer8 for parseDouble. If the literal has
+// separators, a BigInt suffix, too many digits, or a syntax error, or is directly followed by an identifier, this consumes
+// nothing and returns ERRORTOK so that the general path handles it. Kept out of line so that lexing short integers, the
+// most common literals, does not pay for it.
+template <typename T>
+NEVER_INLINE JSTokenType Lexer<T>::lexDecimalWithoutSeparators(JSTokenData* tokenData, const T* start, const T* integerEnd, uint64_t integer)
+{
+    auto decimal = scanDecimalNumber<DecimalFractionSyntax::AllowsEmpty>(start, integerEnd, m_codeEnd, integer);
+    if (!decimal)
+        return ERRORTOK;
+    T next = decimal->end < m_codeEnd ? *decimal->end : T { };
+    if (!cannotBeIdentStart(next)) [[unlikely]]
+        return ERRORTOK;
+    double value = WTF::parseDoubleFromDecimalDigits(decimal->mantissa, decimal->exponent, decimal->digitCount);
+    tokenData->doubleValue = value;
+    m_code = decimal->end;
+    m_current = next;
+    if (integerEnd < m_codeEnd && *integerEnd == '.')
+        return DOUBLE;
+    return tokenTypeForIntegerLikeToken(value);
+}
+
+template <typename T>
+NEVER_INLINE JSTokenType Lexer<T>::scanDecimalArrayElementFollowedByComma(double& value, const T* start, const T* integerEnd, uint64_t integer)
+{
+    auto decimal = scanDecimalNumber<DecimalFractionSyntax::AllowsEmpty>(start, integerEnd, m_codeEnd, integer);
+    if (!decimal || decimal->end >= m_codeEnd || *decimal->end != ',')
+        return ERRORTOK;
+    value = WTF::parseDoubleFromDecimalDigits(decimal->mantissa, decimal->exponent, decimal->digitCount);
+    m_code = decimal->end + 1;
+    m_current = m_code < m_codeEnd ? *m_code : T { };
+    m_hasLineTerminatorBeforeToken = false;
+    if (*integerEnd == '.')
+        return DOUBLE;
+    return tokenTypeForIntegerLikeToken(value);
+}
+
 template <typename T>
 ALWAYS_INLINE auto Lexer<T>::parseDecimal() -> std::optional<NumberParseResult>
 {
@@ -2470,6 +2509,10 @@ start:
             token = DOT;
             break;
         }
+        if (auto type = lexDecimalWithoutSeparators(tokenData, m_code - 1, m_code - 1, 0); type != ERRORTOK) [[likely]] {
+            token = type;
+            break;
+        }
         if (!parseNumberAfterDecimalPoint()) [[unlikely]] {
             m_lexErrorMessage = "Non-number found after decimal point"_s;
             token = atEnd() ? UNTERMINATED_NUMERIC_LITERAL_ERRORTOK : INVALID_NUMERIC_LITERAL_ERRORTOK;
@@ -2644,6 +2687,12 @@ start:
                 token = INTEGER;
                 break;
             }
+            if (m_current == '.' || isASCIIAlphaCaselessEqual(m_current, 'e')) {
+                if (auto type = lexDecimalWithoutSeparators(tokenData, m_code - 1, m_code, 0); type != ERRORTOK) [[likely]] {
+                    token = type;
+                    break;
+                }
+            }
             record8('0');
         }
         [[fallthrough]];
@@ -2674,6 +2723,14 @@ start:
                     m_code = ptr;
                     m_current = *ptr;
                     break;
+                }
+
+                // Separators, BigInt suffixes, and identifiers cannot follow a literal that the fast path accepts.
+                if (ptr == m_codeEnd || *ptr == '.' || isASCIIAlphaCaselessEqual(*ptr, 'e') || cannotBeIdentStart(*ptr)) {
+                    if (auto type = lexDecimalWithoutSeparators(tokenData, start, ptr, result); type != ERRORTOK) [[likely]] {
+                        token = type;
+                        break;
+                    }
                 }
             }
 
@@ -3088,22 +3145,24 @@ template <typename T>
 JSTokenType Lexer<T>::scanRegExp(JSToken* tokenRecord, char16_t patternPrefix)
 {
     JSTokenData* tokenData = &tokenRecord->m_data;
-    ASSERT(m_buffer16.isEmpty());
 
     bool lastWasEscape = false;
     bool inBrackets = false;
     char16_t charactersOredTogether = 0;
 
+    // The pattern is taken verbatim from the source, including the prefix the caller already consumed.
+    const T* patternStart = m_code;
     if (patternPrefix) {
         ASSERT(!isLineTerminator(patternPrefix));
         ASSERT(patternPrefix != '/');
         ASSERT(patternPrefix != '[');
-        record16(patternPrefix);
+        ASSERT(patternStart > m_codeStart && patternStart[-1] == patternPrefix);
+        --patternStart;
+        orCharacter<T>(charactersOredTogether, patternPrefix);
     }
 
     while (true) {
         if (isLineTerminator(m_current) || atEnd()) {
-            m_buffer16.shrink(0);
             JSTokenType token = UNTERMINATED_REGEXP_LITERAL_ERRORTOK;
             fillTokenInfo(tokenRecord, currentPosition());
             m_error = true;
@@ -3118,7 +3177,6 @@ JSTokenType Lexer<T>::scanRegExp(JSToken* tokenRecord, char16_t patternPrefix)
         if (prev == '/' && !lastWasEscape && !inBrackets)
             break;
 
-        record16(prev);
         orCharacter<T>(charactersOredTogether, prev);
 
         if (lastWasEscape) {
@@ -3139,20 +3197,21 @@ JSTokenType Lexer<T>::scanRegExp(JSToken* tokenRecord, char16_t patternPrefix)
         }
     }
 
-    tokenData->pattern = makeRightSizedIdentifier(m_buffer16, charactersOredTogether);
-    m_buffer16.shrink(0);
+    std::span<const T> pattern { patternStart, m_code - 1 };
+    if constexpr (std::is_same_v<T, Latin1Character>)
+        tokenData->pattern = makeIdentifier(pattern);
+    else
+        tokenData->pattern = makeRightSizedIdentifier(pattern, charactersOredTogether);
 
-    ASSERT(m_buffer8.isEmpty());
+    const T* flagsStart = m_code;
     while (isLatin1(m_current)) [[likely]] {
         if (!isIdentPart(static_cast<Latin1Character>(m_current)))
             break;
-        record8(static_cast<Latin1Character>(m_current));
         shift();
     }
 
     // Normally this would not be a lex error but dealing with surrogate pairs here is annoying and it's going to be an error anyway...
     if (!isLatin1(m_current) && !isWhiteSpace(m_current) && !isLineTerminator(m_current)) [[unlikely]] {
-        m_buffer8.shrink(0);
         JSTokenType token = INVALID_IDENTIFIER_UNICODE_ERRORTOK;
         fillTokenInfo(tokenRecord, currentPosition());
         m_error = true;
@@ -3163,8 +3222,7 @@ JSTokenType Lexer<T>::scanRegExp(JSToken* tokenRecord, char16_t patternPrefix)
         return token;
     }
 
-    tokenData->flags = makeIdentifier(m_buffer8.span());
-    m_buffer8.shrink(0);
+    tokenData->flags = makeLatin1Identifier(std::span<const T> { flagsStart, m_code });
 
     // Since RegExp always ends with / or flags (IdentifierPart), m_atLineStart always becomes false.
     m_atLineStart = false;

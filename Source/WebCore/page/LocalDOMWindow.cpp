@@ -62,6 +62,9 @@
 #include "DocumentInlines.h"
 #include "DocumentLoader.h"
 #include "DocumentPage.h"
+#if ENABLE(DOCUMENT_PIP)
+#include "DocumentPictureInPicture.h"
+#endif
 #include "DocumentQuirks.h"
 #include "DocumentSecurityOrigin.h"
 #include "DocumentView.h"
@@ -130,7 +133,6 @@
 #include "ResourceLoadObserver.h"
 #include "ScheduledAction.h"
 #include "Screen.h"
-#include "ScriptDisallowedScope.h"
 #include "ScrollAnimator.h"
 #include "ScrollToOptions.h"
 #include "SecurityOrigin.h"
@@ -351,7 +353,8 @@ void LocalDOMWindow::dispatchAllPendingUnloadEvents()
         RefPtr document = window->document();
         if (document)
             document->dispatchPagehideEvent(PageshowEventPersistence::NotPersisted);
-        window->dispatchEvent(Event::create(eventNames.unloadEvent, Event::CanBubble::No, Event::IsCancelable::No), document.get());
+        if (!document || document->settings().unloadEventEnabled())
+            window->dispatchEvent(Event::create(eventNames.unloadEvent, Event::CanBubble::No, Event::IsCancelable::No), document.get());
 
         window->enableSuddenTermination();
     }
@@ -486,7 +489,6 @@ void LocalDOMWindow::didSecureTransitionTo(Document& document)
     m_crypto = nullptr;
     m_navigator = nullptr;
     m_performance = nullptr;
-    m_customElementRegistry = nullptr;
 }
 
 void LocalDOMWindow::prewarmLocalStorageIfNecessary()
@@ -666,21 +668,9 @@ void LocalDOMWindow::resumeFromBackForwardCache()
     m_suspendedForDocumentSuspension = false;
 }
 
-CustomElementRegistry& LocalDOMWindow::ensureCustomElementRegistry()
+CustomElementRegistry& LocalDOMWindow::customElementRegistry()
 {
-    if (!m_customElementRegistry) {
-        m_customElementRegistry = CustomElementRegistry::create(protect(*scriptExecutionContext()), *this);
-        ScriptDisallowedScope::InMainThread scriptDisallowedScope;
-        for (Ref shadowRoot : document()->inDocumentShadowRoots()) {
-            if (shadowRoot->mode() == ShadowRootMode::UserAgent || shadowRoot->hasScopedCustomElementRegistry())
-                continue;
-            const_cast<ShadowRoot&>(shadowRoot.get()).setCustomElementRegistry(*m_customElementRegistry);
-        }
-        protect(document())->setCustomElementRegistry(*m_customElementRegistry);
-    }
-    ASSERT(!m_customElementRegistry->isScoped());
-    ASSERT(m_customElementRegistry->scriptExecutionContext() == document());
-    return *m_customElementRegistry;
+    return *document()->customElementRegistry();
 }
 
 static ExceptionOr<SelectorQuery&> selectorQueryInFrame(LocalFrame* frame, const String& selectors)
@@ -750,7 +740,7 @@ ExceptionOr<Ref<DOMRect>> LocalDOMWindow::convertRectToMainFrameCoordinates(cons
     // and it is CSS pixels that have not had zoom taken into account.
     FloatRect contentsRect(rect.x, rect.y, rect.width, rect.height);
     Ref frame = view->frame();
-    contentsRect.scale(frame->pageZoomFactor() * frame->frameScaleFactor());
+    contentsRect.scale(frame->effectiveZoomFactor() * frame->frameScaleFactor());
     return DOMRect::create(view->contentsToMainFrameView(enclosingIntRect(contentsRect)));
 }
 
@@ -1883,9 +1873,8 @@ double LocalDOMWindow::devicePixelRatio() const
         return 0.0;
 
     // Page zoom applies to all frames synchronously, so include it in devicePixelRatio
-    // for both main frame and iframes. frameScaleFactor() doesn't include page zoom
-    // since page zoom is applied globally for rendering.
-    auto frameScaleRatio = frame->frameScaleFactor() * frame->pageZoomFactor();
+    // for both main frame and iframes, along with the owner's CSS zoom for an iframe.
+    auto frameScaleRatio = frame->frameScaleFactor() * frame->effectiveZoomFactor();
     return page->deviceScaleFactor() * frameScaleRatio;
 }
 
@@ -1968,10 +1957,38 @@ bool LocalDOMWindow::allowedToChangeWindowGeometry() const
     return true;
 }
 
+#if ENABLE(DOCUMENT_PIP)
+// https://wicg.github.io/document-picture-in-picture/#moving-the-pip-window
+static bool isDocumentPictureInPictureWindow(const LocalDOMWindow& window)
+{
+    RefPtr frame = window.frame();
+    RefPtr page = frame ? frame->page() : nullptr;
+    return page && page->isDocumentPictureInPicture();
+}
+
+// https://wicg.github.io/document-picture-in-picture/#resizing-the-pip-window
+static ExceptionOr<void> consumeActivationForDocumentPictureInPictureResize(LocalDOMWindow& window)
+{
+    if (!isDocumentPictureInPictureWindow(window))
+        return { };
+
+    if (!window.hasTransientActivation())
+        return Exception { ExceptionCode::NotAllowedError, "Resizing a Document Picture-in-Picture window requires a user gesture."_s };
+
+    window.consumeTransientActivation();
+    return { };
+}
+#endif
+
 void LocalDOMWindow::moveBy(int x, int y) const
 {
     if (!allowedToChangeWindowGeometry())
         return;
+
+#if ENABLE(DOCUMENT_PIP)
+    if (isDocumentPictureInPictureWindow(*this))
+        return;
+#endif
 
     RefPtr page = frame()->page();
     auto fr = page->chrome().windowRect();
@@ -1985,6 +2002,11 @@ void LocalDOMWindow::moveTo(int x, int y) const
     if (!allowedToChangeWindowGeometry())
         return;
 
+#if ENABLE(DOCUMENT_PIP)
+    if (isDocumentPictureInPictureWindow(*this))
+        return;
+#endif
+
     RefPtr page = frame()->page();
     auto update = page->chrome().windowRect();
     RefPtr localMainFrame = page->localMainFrame();
@@ -1995,28 +2017,40 @@ void LocalDOMWindow::moveTo(int x, int y) const
     page->chrome().setWindowRect(adjustWindowRect(*page, update));
 }
 
-void LocalDOMWindow::resizeBy(int x, int y) const
+ExceptionOr<void> LocalDOMWindow::resizeBy(int x, int y)
 {
     if (!allowedToChangeWindowGeometry())
-        return;
+        return { };
+
+#if ENABLE(DOCUMENT_PIP)
+    if (auto result = consumeActivationForDocumentPictureInPictureResize(*this); result.hasException())
+        return result.releaseException();
+#endif
 
     RefPtr page = frame()->page();
     auto fr = page->chrome().windowRect();
     auto dest = fr.size() + LayoutSize(x, y);
     LayoutRect update(fr.location(), dest);
     page->chrome().setWindowRect(adjustWindowRect(*page, update));
+    return { };
 }
 
-void LocalDOMWindow::resizeTo(int width, int height) const
+ExceptionOr<void> LocalDOMWindow::resizeTo(int width, int height)
 {
     if (!allowedToChangeWindowGeometry())
-        return;
+        return { };
+
+#if ENABLE(DOCUMENT_PIP)
+    if (auto result = consumeActivationForDocumentPictureInPictureResize(*this); result.hasException())
+        return result.releaseException();
+#endif
 
     RefPtr page = frame()->page();
     auto fr = page->chrome().windowRect();
     auto dest = LayoutSize(width, height);
     LayoutRect update(fr.location(), dest);
     page->chrome().setWindowRect(adjustWindowRect(*page, update));
+    return { };
 }
 
 ExceptionOr<int> LocalDOMWindow::setTimeout(std::unique_ptr<ScheduledAction> action, int timeout, FixedVector<JSC::Strong<JSC::Unknown>>&& arguments)
@@ -3232,6 +3266,15 @@ CookieStore& LocalDOMWindow::cookieStore()
         lazyInitialize(m_cookieStore, CookieStore::create(protect(document()).get()));
     return *m_cookieStore;
 }
+
+#if ENABLE(DOCUMENT_PIP)
+DocumentPictureInPicture& LocalDOMWindow::documentPictureInPicture()
+{
+    if (!m_documentPictureInPicture)
+        lazyInitialize(m_documentPictureInPicture, DocumentPictureInPicture::create(*this));
+    return *m_documentPictureInPicture;
+}
+#endif
 
 CloseWatcherManager& LocalDOMWindow::closeWatcherManager()
 {

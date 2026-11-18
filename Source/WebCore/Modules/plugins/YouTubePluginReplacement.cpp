@@ -35,6 +35,7 @@
 #include "Settings.h"
 #include "ShadowRoot.h"
 #include "YouTubeEmbedShadowElement.h"
+#include <wtf/Borrow.h>
 #include <wtf/text/MakeString.h>
 #include <wtf/text/StringBuilder.h>
 
@@ -66,12 +67,12 @@ YouTubePluginReplacement::YouTubePluginReplacement(HTMLPlugInElement& plugin, co
 {
     ASSERT(paramNames.size() == paramValues.size());
     for (size_t i = 0; i < paramNames.size(); ++i)
-        m_attributes.add(paramNames[i], paramValues[i]);
+        m_attributes.add(borrow(paramNames)[i], borrow(paramValues)[i]);
 }
 
 YouTubePluginReplacement::~YouTubePluginReplacement() = default;
 
-RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, Style::ComputedStyle&& style, const RenderTreePosition& insertionPosition)
+RenderPtr<RenderElement> YouTubePluginReplacement::createElementRenderer(HTMLPlugInElement& plugin, UniqueRef<Style::ComputedStyle>&& style, const RenderTreePosition& insertionPosition)
 {
     ASSERT_UNUSED(plugin, m_parentElement == &plugin);
 

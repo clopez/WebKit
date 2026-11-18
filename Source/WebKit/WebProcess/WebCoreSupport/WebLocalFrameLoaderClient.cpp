@@ -73,6 +73,7 @@
 #include <WebCore/CachedFrame.h>
 #include <WebCore/CertificateInfo.h>
 #include <WebCore/Chrome.h>
+#include <WebCore/ContentSecurityPolicy.h>
 #include <WebCore/DOMWrapperWorld.h>
 #include <WebCore/DocumentLoader.h>
 #include <WebCore/DocumentPage.h>
@@ -99,7 +100,6 @@
 #include <WebCore/PluginData.h>
 #include <WebCore/PluginDocument.h>
 #include <WebCore/PolicyChecker.h>
-#include <WebCore/ProcessSwapDisposition.h>
 #include <WebCore/ProgressTracker.h>
 #include <WebCore/ResourceError.h>
 #include <WebCore/ResourceRequest.h>
@@ -702,13 +702,14 @@ void WebLocalFrameLoaderClient::dispatchDidCommitLoad(const std::optional<BackFo
 
     // Notify the UIProcess.
     auto frameInfo = frame->info();
+    // The UI process only uses this to adopt the opaque origin identifier generated here, and for web archive main frame loads.
+    auto reportedOrigin = backForwardCacheData ? backForwardCacheData->documentOrigin : SecurityOriginData::fromFrame(protect(m_localFrame));
     if (backForwardCacheData) {
         // A page enters the back/forward cache whole, so the restored document is the main frame's.
         ASSERT(frame->isMainFrame());
         frameInfo.documentID = backForwardCacheData->documentID;
-        frameInfo.securityOrigin = backForwardCacheData->documentOrigin;
     }
-    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), WTF::move(frameInfo), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), !certificateInfo.isEmpty(), usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), containsPluginDocument, hasInsecureContent, documentLoader->mouseEventPolicy(), WTF::move(documentSecurityPolicy), cspOriginsThatUpgradeInsecureNavigations, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), m_localFrame->loader().loadingFromCachedPage() ? RestoredFromBackForwardCache::Yes : RestoredFromBackForwardCache::No, WTF::move(redirectReplaceFrameState)));
+    webPage->send(Messages::WebPageProxy::DidCommitLoadForFrame(frame->frameID(), WTF::move(frameInfo), WTF::move(reportedOrigin), documentLoader->request(), documentLoader->navigationID(), documentLoader->response().mimeType(), m_frameHasCustomContentProvider, m_localFrame->loader().loadType(), !certificateInfo.isEmpty(), usedLegacyTLS, wasPrivateRelayed, documentLoader->response().proxyName(), documentLoader->response().source(), containsPluginDocument, hasInsecureContent, documentLoader->mouseEventPolicy(), WTF::move(documentSecurityPolicy), cspOriginsThatUpgradeInsecureNavigations, UserData(WebProcess::singleton().transformObjectsToHandles(userData.get()).get()), m_localFrame->loader().loadingFromCachedPage() ? RestoredFromBackForwardCache::Yes : RestoredFromBackForwardCache::No, WTF::move(redirectReplaceFrameState)));
     webPage->didCommitLoad(m_frame.ptr());
 }
 
@@ -1012,9 +1013,12 @@ void WebLocalFrameLoaderClient::dispatchDecidePolicyForResponse(const ResourceRe
 
     RefPtr policyDocumentLoader = m_localFrame->loader().provisionalDocumentLoader();
 
-    // Without an assignment from the UI process, only this decision assigns the document's agent cluster.
+    // Without an assignment from the UI process, only this decision assigns the document's agent cluster. It also
+    // assigns one to a sandboxed document, whose origin isn't its URL's.
     // FIXME: Once the UI process assigns agent clusters to opaque origins, they will need this decision too.
-    bool needsAgentClusterAssignment = !(policyDocumentLoader && policyDocumentLoader->agentClusterAssignment().identifier) && !SecurityOrigin::create(response.url())->isOpaque();
+    CheckedPtr contentSecurityPolicy = policyDocumentLoader ? policyDocumentLoader->contentSecurityPolicy() : nullptr;
+    bool isOriginSandboxed = m_localFrame->sandboxFlagsFromSandboxAttributeNotCSP().contains(SandboxFlag::Origin) || (contentSecurityPolicy && contentSecurityPolicy->sandboxFlags().contains(SandboxFlag::Origin));
+    bool needsAgentClusterAssignment = isOriginSandboxed || (!(policyDocumentLoader && policyDocumentLoader->agentClusterAssignment().identifier) && !SecurityOrigin::create(response.url())->isOpaque());
     if (!needsAgentClusterAssignment && (!m_frame->isMainFrame() || m_frame->isSafeBrowsingCheckOngoing() == SafeBrowsingCheckOngoing::No) && webPage->shouldSkipDecidePolicyForResponse(response)) {
         WebLocalFrameLoaderClient_RELEASE_LOG(Network, "dispatchDecidePolicyForResponse: continuing because injected bundle says so");
         function(PolicyAction::Use);
@@ -1647,8 +1651,14 @@ void WebLocalFrameLoaderClient::restoreViewState()
     // A scale factor of 0 means the history item has the default scale factor, thus we do not need to update it.
     // Session state supplied by the client can also hold values the UI process would reject.
     RefPtr page = m_frame->page();
-    if (page && isValidScaleFactor(scaleFactor))
-        page->send(Messages::WebPageProxy::DidSetPageScaleFactor(scaleFactor));
+    if (page && isValidScaleFactor(scaleFactor)) {
+        RefPtr corePage = page->corePage();
+        RefPtr view = m_localFrame->view();
+        if (m_frame->isMainFrame() && corePage && corePage->delegatesScaling() && view && !view->wasScrolledByUser() && scaleFactor != page->pageScaleFactor())
+            page->scalePage(scaleFactor, view->scrollPosition());
+        else
+            page->send(Messages::WebPageProxy::DidSetPageScaleFactor(scaleFactor));
+    }
 
     // FIXME: This should not be necessary. WebCore should be correctly invalidating
     // the view on restores from the back/forward cache.
@@ -1770,7 +1780,8 @@ void WebLocalFrameLoaderClient::transitionToCommittedForNewPage(InitializingIfra
     bool horizontalLock = shouldHideScrollbars || webPage->alwaysShowsHorizontalScroller();
     bool verticalLock = shouldHideScrollbars || webPage->alwaysShowsVerticalScroller();
 
-    auto size = m_frame->isRootFrame() && !isMainFrame && oldView ? oldView->size() : webPage->size();
+    // m_frame->coreFrame() is still the RemoteFrame being replaced until commitProvisionalFrame(), so ask the frame being committed.
+    auto size = localFrame->isRootFrame() && !isMainFrame && oldView ? oldView->size() : webPage->size();
     localFrame->createView(size, webPage->backgroundColor(), webPage->fixedLayoutSize(), shouldUseFixedLayout,
         horizontalScrollbarMode, horizontalLock, verticalScrollbarMode, verticalLock);
 

@@ -55,7 +55,9 @@ public:
     WEBCORE_EXPORT Ref<const DisplayList> copyDisplayList();
 
     void save(GraphicsContextState::Purpose) final;
-    void restore(GraphicsContextState::Purpose) final;
+    bool restore(GraphicsContextState::Purpose) final;
+    void saveTransform() final;
+    bool restoreTransform() final;
     void translate(float x, float y) final;
     void rotate(float angle) final;
     void scale(const FloatSize&) final;
@@ -73,7 +75,7 @@ public:
     void clipOutRoundedRect(const FloatRoundedRect&) final;
     void clipPath(const Path&, WindRule) final;
     void clipTransformedPath(const AffineTransform&, const Path&, WindRule) final;
-    void clipToImageBuffer(ImageBuffer&, const FloatRect&) final;
+    void clipToNativeImage(const NativeImage&, const FloatRect&) final;
     void beginTransparencyLayer(float) final;
     void beginTransparencyLayer(CompositeOperator, BlendMode) final;
     void endTransparencyLayer() final;
@@ -96,8 +98,8 @@ public:
     void fillPath(const Path&) final;
     void fillRect(const FloatRect&, RequiresClipToRect) final;
     void fillRect(const FloatRect&, const Color&) final;
-    void fillRect(const FloatRect&, Gradient&) final;
-    void fillRect(const FloatRect&, Gradient&, const AffineTransform&, RequiresClipToRect) final;
+    void fillRect(const FloatRect&, const Gradient&) final;
+    void fillRect(const FloatRect&, const Gradient&, const AffineTransform&, RequiresClipToRect) final;
     void fillRect(const FloatRect&, const Color&, CompositeOperator, BlendMode) final;
     void fillRoundedRect(const FloatRoundedRect&, const Color&, BlendMode) final;
     void fillRectWithRoundedHole(const FloatRect&, const FloatRoundedRect&, const Color&) final;
@@ -112,10 +114,6 @@ public:
     void strokePath(const Path&) final;
     void clearRect(const FloatRect&) final;
     void drawControlPart(ControlPart&, const FloatRoundedRect& borderRect, float deviceScaleFactor, const ControlStyle&) final;
-#if USE(CG)
-    void applyStrokePattern() final;
-    void applyFillPattern() final;
-#endif
     void applyDeviceScaleFactor(float) final;
 
     void beginPage(const FloatRect&) final;

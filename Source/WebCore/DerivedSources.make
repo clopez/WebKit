@@ -320,6 +320,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/device-posture/DevicePosture.idl \
     $(WebCore)/Modules/device-posture/DevicePostureType.idl \
     $(WebCore)/Modules/device-posture/Navigator+DevicePosture.idl \
+    $(WebCore)/Modules/documentpip/DOMWindow+DocumentPictureInPicture.idl \
+    $(WebCore)/Modules/documentpip/DocumentPictureInPicture.idl \
+    $(WebCore)/Modules/documentpip/DocumentPictureInPictureEvent.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyEncryptionScheme.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEventInit.idl \
     $(WebCore)/Modules/encryptedmedia/MediaKeyMessageEvent.idl \
@@ -347,8 +350,11 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/entriesapi/FileSystemEntryCallback.idl \
     $(WebCore)/Modules/entriesapi/FileSystemFileEntry.idl \
     $(WebCore)/Modules/entriesapi/HTMLInputElement+EntriesAPI.idl \
+    $(WebCore)/Modules/fetch/DOMWindow+FetchLater.idl \
+    $(WebCore)/Modules/fetch/DeferredRequestInit.idl \
     $(WebCore)/Modules/fetch/FetchBody.idl \
     $(WebCore)/Modules/fetch/FetchHeaders.idl \
+    $(WebCore)/Modules/fetch/FetchLaterResult.idl \
     $(WebCore)/Modules/fetch/FetchReferrerPolicy.idl \
     $(WebCore)/Modules/fetch/FetchRequest.idl \
     $(WebCore)/Modules/fetch/FetchRequestCache.idl \
@@ -598,6 +604,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/permissions/PermissionStatus.idl \
     $(WebCore)/Modules/permissions/Permissions.idl \
     $(WebCore)/Modules/permissions/WorkerNavigator+Permissions.idl \
+    $(WebCore)/Modules/phonenumberpossession/PhoneNumberPossessionCredential.idl \
+    $(WebCore)/Modules/phonenumberpossession/PhoneNumberPossessionRequestOptions.idl \
+    $(WebCore)/Modules/phonenumberpossession/PhoneNumberPossessionResponseType.idl \
     $(WebCore)/Modules/pictureinpicture/DocumentOrShadowRoot+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/Document+PictureInPicture.idl \
     $(WebCore)/Modules/pictureinpicture/HTMLVideoElement+PictureInPicture.idl \
@@ -621,13 +630,9 @@ JS_BINDING_IDLS := \
     $(WebCore)/Modules/remoteplayback/HTMLMediaElement+RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlayback.idl \
     $(WebCore)/Modules/remoteplayback/RemotePlaybackAvailabilityCallback.idl \
-    $(WebCore)/Modules/reporting/DeprecationReportBody.idl \
-    $(WebCore)/Modules/reporting/IntegrityPolicyViolationReportBody.idl \
     $(WebCore)/Modules/reporting/Report.idl \
-    $(WebCore)/Modules/reporting/ReportBody.idl \
     $(WebCore)/Modules/reporting/ReportingObserver.idl \
     $(WebCore)/Modules/reporting/ReportingObserverCallback.idl \
-    $(WebCore)/Modules/reporting/TestReportBody.idl \
     $(WebCore)/Modules/screen-wake-lock/Navigator+ScreenWakeLock.idl \
     $(WebCore)/Modules/screen-wake-lock/WakeLock.idl \
     $(WebCore)/Modules/screen-wake-lock/WakeLockSentinel.idl \
@@ -1084,6 +1089,7 @@ JS_BINDING_IDLS := \
     $(WebCore)/css/ElementCSSInlineStyle.idl \
     $(WebCore)/css/ElementCSSInlineStyle+Typedom.idl \
     $(WebCore)/css/FontFace.idl \
+    $(WebCore)/css/FontFaceLoadStatus.idl \
     $(WebCore)/css/FontFaceSet.idl \
     $(WebCore)/css/FontFaceSource.idl \
     $(WebCore)/css/LinkStyle.idl \
@@ -1471,11 +1477,14 @@ JS_BINDING_IDLS := \
     $(WebCore)/html/canvas/CanvasRect.idl \
     $(WebCore)/html/canvas/CanvasRenderingContext2D.idl \
     $(WebCore)/html/canvas/CanvasRenderingContext2DSettings.idl \
+    $(WebCore)/html/canvas/CanvasSettings.idl \
     $(WebCore)/html/canvas/CanvasShadowStyles.idl \
     $(WebCore)/html/canvas/CanvasState.idl \
     $(WebCore)/html/canvas/CanvasText.idl \
     $(WebCore)/html/canvas/CanvasTextAlign.idl \
     $(WebCore)/html/canvas/CanvasTextBaseline.idl \
+    $(WebCore)/html/canvas/CanvasToneMapping.idl \
+    $(WebCore)/html/canvas/CanvasToneMappingMode.idl \
     $(WebCore)/html/canvas/CanvasTextDrawingStyles.idl \
     $(WebCore)/html/canvas/CanvasTextRendering.idl \
     $(WebCore)/html/canvas/CanvasTransform.idl \
@@ -1591,8 +1600,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/inspector/InspectorAuditResourcesObject.idl \
     $(WebCore)/inspector/InspectorFrontendHost.idl \
     $(WebCore)/inspector/RTCLogsCallback.idl \
-    $(WebCore)/loader/COEPInheritenceViolationReportBody.idl \
-    $(WebCore)/loader/CORPViolationReportBody.idl \
     $(WebCore)/page/BarProp.idl \
     $(WebCore)/page/Crypto.idl \
     $(WebCore)/page/DOMSelection.idl \
@@ -1707,7 +1714,6 @@ JS_BINDING_IDLS := \
     $(WebCore)/page/WebKitBuffer.idl \
     $(WebCore)/page/WebKitBufferNamespace.idl \
     $(WebCore)/page/WorkerNavigator.idl \
-    $(WebCore)/page/csp/CSPViolationReportBody.idl \
     $(WebCore)/plugins/DOMMimeType.idl \
     $(WebCore)/plugins/DOMMimeTypeArray.idl \
     $(WebCore)/plugins/DOMPlugin.idl \
@@ -2208,6 +2214,9 @@ LocalizableAdditions.strings.out : $(WebCore)/preprocess-localizable-strings.pl 
 
 # modern media controls
 
+# The style sheets below are concatenated into one sheet that every media element shares through
+# the style sheet contents cache. Do not use CSS nesting in them: one nested rule makes the whole
+# sheet uncacheable, and each media element would parse its own copy.
 MODERN_MEDIA_CONTROLS_STYLE_SHEETS = \
     $(WebCore)/Modules/modern-media-controls/controls/activity-indicator.css \
     $(WebCore)/Modules/modern-media-controls/controls/airplay-button.css \
@@ -2266,7 +2275,6 @@ USER_AGENT_STYLE_SHEETS = \
     $(WebCore)/css/popover.css \
     $(WebCore)/css/quirks.css \
     $(WebCore)/css/selectMultipleAndListBox.css \
-    $(WebCore)/css/selectMultipleSelectedContent.css \
     $(WebCore)/css/svg.css \
     $(WebCore)/css/viewTransitions.css \
     $(WebCore)/html/shadow/mac/imageControlsMac.css \

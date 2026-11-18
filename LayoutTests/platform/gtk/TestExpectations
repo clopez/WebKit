@@ -534,6 +534,11 @@ webkit.org/b/308100 [ Release ] fast/dom/Window/window-property-invalid-characte
 
 webkit.org/b/308632 svg/repaint/non-scaling-stroke-transform-animation.html [ ImageOnlyFailure Pass ]
 
+webkit.org/b/309376 [ Debug ] compositing/animation/animation-backing.html [ Failure Pass ]
+
+webkit.org/b/330947 webaudio/suspend-context-while-backgrounded.html [ Failure Pass ]
+webkit.org/b/330948 [ Debug ] editing/execCommand/delete-non-editable-range-crash.html [ Pass Timeout ]
+
 #////////////////////////////////////////////////////////////////////////////////////////
 # End of Flaky tests
 #////////////////////////////////////////////////////////////////////////////////////////
@@ -816,9 +821,6 @@ webkit.org/b/144763 fast/events/scroll-in-scaled-page-with-overflow-hidden.html
 # web-platform-tests XHR tests
 imported/w3c/web-platform-tests/xhr/event-readystatechange-loaded.any.js [ Slow ]
 
-webkit.org/b/151267 imported/blink/fast/gradients/large-horizontal-gradient.html [ ImageOnlyFailure ]
-webkit.org/b/151267 imported/blink/fast/gradients/large-vertical-gradient.html [ ImageOnlyFailure ]
-
 webkit.org/b/94952 platform/gtk/scrollbars/overflow-scrollbar-horizontal-wheel-scroll.html [ Failure ]
 
 webkit.org/b/160251 fast/text/font-kerning.html [ ImageOnlyFailure ]
@@ -894,7 +896,7 @@ webkit.org/b/273396 css3/masking/clip-path-border-radius-border-box-000.html [ I
 webkit.org/b/273396 css3/masking/clip-path-border-radius-stroke-box-000.html [ ImageOnlyFailure ]
 webkit.org/b/273396 css3/masking/clip-path-border-radius-view-box-000.html [ ImageOnlyFailure ]
 webkit.org/b/273396 fast/canvas/canvas-filter-drawing.html [ ImageOnlyFailure ]
-webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-backgrounds/css-border-radius-001.html [ ImageOnlyFailure ]
+webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-borders/css-border-radius-001.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-012.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-fonts/font-size-adjust-013.html [ ImageOnlyFailure ]
 webkit.org/b/273396 imported/w3c/web-platform-tests/css/css-masking/clip-path/animations/clip-path-animation-custom-timing-function.html [ ImageOnlyFailure ]
@@ -1161,6 +1163,7 @@ webkit.org/b/319066 imported/w3c/web-platform-tests/css/css-view-transitions/vie
 webkit.org/b/319072 imported/w3c/web-platform-tests/html/semantics/embedded-content/the-audio-element/audio-loading-lazy-window-onload.html [ Pass Failure Timeout ]
 webkit.org/b/319318 http/tests/inspector/network/har/har-page-aggressive-gc.html [ Failure ]
 webkit.org/b/319319 [ Debug ] imported/w3c/web-platform-tests/css/css-contain/contain-inline-size-replaced.html [ Failure Pass ]
+imported/w3c/web-platform-tests/css/css-contain/content-visibility/crashtests/area-focus-in-hidden.html [ Skip ]
 webkit.org/b/319323 imported/w3c/web-platform-tests/css/css-scroll-snap/input/keyboard-snap-interruption.html [ Failure Pass ]
 
 webkit.org/b/320055 [ Release ] imported/w3c/web-platform-tests/html/interaction/focus/the-autofocus-attribute/update-the-rendering.html [ Failure Pass ]
@@ -1214,7 +1217,6 @@ webkit.org/b/322632 [ Release ] inspector/dom-debugger/dom-breakpoint-attribute-
 webkit.org/b/323049 [ Debug ] imported/w3c/web-platform-tests/webaudio/the-audio-api/media-playback-while-not-visible-permission-policy/suspended-hide-show.tentative.sub.html?origin=cross-origin&frame=nested&visibility=zero-size [ Crash Pass ]
 webkit.org/b/323049 [ Debug ] imported/w3c/web-platform-tests/service-workers/service-worker/static-router-main-resource.https.html [ Crash Failure Pass ]
 
-webkit.org/b/323667 imported/w3c/web-platform-tests/mediacapture-record/MediaRecorder-disabled-tracks.https.html [ Crash Pass Timeout ]
 
 webkit.org/b/323784 css3/filters/filter-repaint-blur-nested-pixel-moving-filter.html [ ImageOnlyFailure ]
 webkit.org/b/323612 imported/w3c/web-platform-tests/css/css-counter-styles/counter-style-at-rule/disclosure-line-height.html [ ImageOnlyFailure ]
@@ -1270,7 +1272,6 @@ webkit.org/b/325943 webgl/default-framebuffer-resize-applied-at-use.html [ Failu
 
 webkit.org/b/327256 editing/editability/contenteditable-false-in-editable-view.html [ Pass Timeout ]
 webkit.org/b/327258 fast/css-grid-layout/grid-auto-columns-rows-get-set.html [ Failure Pass ]
-webkit.org/b/327259 imported/w3c/web-platform-tests/html/browsers/browsing-the-web/history-traversal/pagereveal/order-in-new-document-navigation-iframe.html [ Failure Pass ]
 
 webkit.org/b/327677 media/video-page-visibility-restriction.html [ Pass Timeout ]
 
@@ -1308,6 +1309,16 @@ webkit.org/b/329970 [ Debug ] media/video-orientation.html [ Failure Pass ]
 webkit.org/b/329973 fullscreen/full-screen-enter-while-exiting-mid-completion-handler.html [ Crash Pass ]
 webkit.org/b/329973 [ Debug ] fullscreen/full-screen-enter-while-exiting-fully-mid-completion-handler.html [ Crash Pass ]
 webkit.org/b/330314 [ Debug ] imported/w3c/web-platform-tests/css/css-overflow/scrollbar-gutter-scroll-into-view.html [ ImageOnlyFailure Pass ]
-webkit.org/b/330317 webanimations/accelerated-backdrop-filter.html [ ImageOnlyFailure Pass ]
+
+webkit.org/b/330280 fast/events/touch/tap-with-prevented-touchmove-within-threshold-clicks.html [ Failure ]
 
 webkit.org/b/330505 [ Debug ] imported/w3c/web-platform-tests/hr-time/idlharness.any.serviceworker.html [ Failure Pass ]
+
+imported/w3c/web-platform-tests/css/css-tables/table-row-group-color-inheritance-001.html [ ImageOnlyFailure ]
+imported/w3c/web-platform-tests/css/css-inline/dominant-baseline/dominant-baseline-mixed-writing-modes-002.html [ Skip ]
+
+imported/w3c/web-platform-tests/css/css-borders/border-shape/border-shape-circle-extent-keywords.html [ Skip ]
+imported/w3c/web-platform-tests/css/css-masking/clip.html [ Skip ]
+
+webkit.org/b/329529 imported/w3c/web-platform-tests/html/canvas/element/manual/draw-element-image/changes-in-paint-event.tentative.html [ ImageOnlyFailure Pass ]
+webkit.org/b/331428 adaptive-dark-mode/fingerprint/widgets-appearance-auto.html [ Pass Timeout ]

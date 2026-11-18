@@ -276,7 +276,7 @@ void SWServer::importRegistrationsForOrigin(const SecurityOriginData& topOrigin,
 
 void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data, CompletionHandler<void()>&& completionHandler)
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
 
     ASSERT(!m_scopeToRegistrationMap.contains(data.registration.key));
 
@@ -285,7 +285,7 @@ void SWServer::addRegistrationFromStore(ServiceWorkerContextData&& data, Complet
     auto registrationKey = data.registration.key;
     auto registrableDomain = WebCore::RegistrableDomain(registrationKey.topOrigin());
     validateRegistrationDomain(registrableDomain, ServiceWorkerJobType::Register, m_scopeToRegistrationMap.contains(registrationKey), [weakThis = WeakPtr { *this }, data = WTF::move(data), completionHandler = WTF::move(completionHandler)] (bool isValid) mutable {
-        ASSERT(isMainThread());
+        ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
         RefPtr protectedThis = weakThis.get();
         if (!protectedThis)
             return completionHandler();
@@ -1124,7 +1124,7 @@ LastNavigationWasAppInitiated SWServer::clientIsAppInitiatedForRegistrableDomain
 void SWServer::tryInstallContextData(const std::optional<ProcessIdentifier>& requestingProcessIdentifier, ServiceWorkerContextData&& data)
 {
     Site site(data.registration.key.topOrigin());
-    auto workerCOEP = data.crossOriginEmbedderPolicy.value;
+    auto workerCOEP = contextConnectionCrossOriginEmbedderPolicyValue(data.crossOriginEmbedderPolicy.value);
     RefPtr connection = contextConnectionForRegistrableDomain(site.domain(), workerCOEP);
     if (!connection) {
         auto firstPartyForCookies = data.registration.key.firstPartyForCookies();
@@ -1310,7 +1310,7 @@ void SWServer::runServiceWorkerIfNecessary(SWServerWorker& worker, RunServiceWor
     }
 
     if (!contextConnection) {
-        auto& serviceWorkerRunRequestsForOrigin = m_serviceWorkerRunRequests.ensure(ContextConnectionKey { worker.topRegistrableDomain(), worker.crossOriginEmbedderPolicy().value }, [] {
+        auto& serviceWorkerRunRequestsForOrigin = m_serviceWorkerRunRequests.ensure(ContextConnectionKey { worker.topRegistrableDomain(), contextConnectionCrossOriginEmbedderPolicyValue(worker.crossOriginEmbedderPolicy().value) }, [] {
             return HashMap<ServiceWorkerIdentifier, Vector<RunServiceWorkerCallback>> { };
         }).iterator->value;
         serviceWorkerRunRequestsForOrigin.ensure(worker.identifier(), [&] {
@@ -1789,7 +1789,7 @@ void SWServer::getOriginsWithRegistrations(CompletionHandler<void(const HashSet<
 
 void SWServer::performGetOriginsWithRegistrationsCallbacks()
 {
-    ASSERT(isMainThread());
+    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     ASSERT(m_originListImportComplete);
 
     if (m_getOriginsWithRegistrationsCallbacks.isEmpty() && m_getAllOriginsCallbacks.isEmpty())
@@ -1861,7 +1861,7 @@ void SWServer::removeContextConnection(SWServerToContextConnection& connection, 
     m_contextConnections.remove({ site.domain(), coep });
     Vector<Ref<SWServerWorker>> terminatedWorkers;
     for (auto& worker : m_runningOrTerminatingWorkers.values()) {
-        if (worker->topRegistrableDomain() == site.domain() && worker->crossOriginEmbedderPolicy().value == coep)
+        if (worker->topRegistrableDomain() == site.domain() && contextConnectionCrossOriginEmbedderPolicyValue(worker->crossOriginEmbedderPolicy().value) == coep)
             terminatedWorkers.append(worker);
     }
     for (auto& worker : terminatedWorkers)
@@ -1879,7 +1879,7 @@ void SWServer::terminateIdleServiceWorkers(SWServerToContextConnection& connecti
 
     Vector<Ref<SWServerWorker>> idleWorkers;
     for (Ref worker : m_runningOrTerminatingWorkers.values()) {
-        if (worker->topRegistrableDomain() == domain && worker->crossOriginEmbedderPolicy().value == coep && worker->isIdle(m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration))
+        if (worker->topRegistrableDomain() == domain && contextConnectionCrossOriginEmbedderPolicyValue(worker->crossOriginEmbedderPolicy().value) == coep && worker->isIdle(m_isProcessTerminationDelayEnabled ? defaultTerminationDelay : defaultFunctionalEventDuration))
             idleWorkers.append(worker);
     }
     for (auto& worker : idleWorkers) {
@@ -1890,7 +1890,7 @@ void SWServer::terminateIdleServiceWorkers(SWServerToContextConnection& connecti
 
 SWServerToContextConnection* SWServer::contextConnectionForRegistrableDomain(const RegistrableDomain& domain, CrossOriginEmbedderPolicyValue coep)
 {
-    return m_contextConnections.get({ domain, coep });
+    return m_contextConnections.get({ domain, contextConnectionCrossOriginEmbedderPolicyValue(coep) });
 }
 
 // Safe to mutate m_contextConnections during callback — iteration uses individual lookups, not iterators.
@@ -1904,6 +1904,7 @@ void SWServer::forEachContextConnectionForRegistrableDomain(const RegistrableDom
 
 void SWServer::createContextConnection(const Site& site, std::optional<ScriptExecutionContextIdentifier> serviceWorkerPageIdentifier, CrossOriginEmbedderPolicyValue workerCrossOriginEmbedderPolicy)
 {
+    workerCrossOriginEmbedderPolicy = contextConnectionCrossOriginEmbedderPolicyValue(workerCrossOriginEmbedderPolicy);
     ContextConnectionKey key { site.domain(), workerCrossOriginEmbedderPolicy };
     ASSERT(!m_contextConnections.contains(key));
     if (m_pendingConnectionDomains.contains(key))

@@ -64,6 +64,7 @@
 #include <WebCore/ViewportArguments.h>
 #include <wtf/CompletionHandler.h>
 #include <wtf/Deque.h>
+#include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
 #include <wtf/Logger.h>
 #include <wtf/Observer.h>
@@ -75,6 +76,7 @@
 #include <wtf/WeakHashMap.h>
 #include <wtf/WeakHashSet.h>
 #include <wtf/WeakListHashSet.h>
+#include <wtf/WeakPtr.h>
 #include <wtf/text/AtomStringHash.h>
 
 #if ENABLE(IOS_TOUCH_EVENTS)
@@ -236,6 +238,7 @@ class Region;
 class RenderBlockFlow;
 class RenderTreeBuilder;
 class RenderView;
+class DeferredFetchRegistry;
 class ReportingScope;
 class RequestAnimationFrameCallback;
 class ResizeObserver;
@@ -274,6 +277,7 @@ class TextResourceDecoder;
 class TransformSource;
 class TreeWalker;
 class UndoManager;
+class UserScript;
 class ValidationMessage;
 class VisibilityChangeClient;
 class ViewTransition;
@@ -337,6 +341,7 @@ enum class CSSPropertyID : uint16_t;
 enum class DidUpdateAnyContentRelevancy : bool;
 
 enum class CompositeOperator : uint8_t;
+enum class ConsistentQueryParameterFilteringLevel : uint8_t;
 enum class ContentRelevancy : uint8_t;
 #if ENABLE(DOM_AUDIO_SESSION)
 enum class DOMAudioSessionType : uint8_t;
@@ -396,6 +401,7 @@ enum class PageshowEventPersistence : bool { NotPersisted, Persisted };
 
 enum class EventHandlerRemoval : bool { One, All };
 enum class EventHandlerRemovalReason : bool { RendererDetached, Other };
+enum class HoverFollowsMouseCapture : bool { No, Yes };
 using EventTargetSet = WeakHashCountedSet<Node, WeakPtrImplWithEventTargetData>;
 
 struct CachedSetInnerHTML {
@@ -416,15 +422,6 @@ enum class HttpEquivPolicy : uint8_t {
     Enabled,
     DisabledBySettings,
     DisabledByContentDispositionAttachmentSandbox
-};
-
-enum class CustomElementNameValidationStatus : uint8_t {
-    Valid,
-    FirstCharacterIsNotLowercaseASCIILetter,
-    ContainsNoHyphen,
-    ContainsUppercaseASCIILetter,
-    ContainsDisallowedCharacter,
-    ConflictsWithStandardElementName
 };
 
 enum class ClonedDocumentType : uint8_t { XMLDocument, XHTMLDocument, HTMLDocument, SVGDocument, Document };
@@ -476,7 +473,8 @@ public:
     inline static Ref<Document> create(const Settings&, const URL&);
     static Ref<Document> createNonRenderedPlaceholder(LocalFrame&, const URL&);
     static Ref<Document> create(Document&);
-    static Ref<Document> createCloned(ClonedDocumentType, const Settings&, const URL&, const URL& baseURL, const URL& aboutBaseURL, const Variant<String, URL>& documentURI, DocumentCompatibilityMode, OptionSet<ParserContentPolicy>, Document& contextDocument, SecurityOriginPolicy*, const String& contentType, TextResourceDecoder*);
+    static Ref<Document> create(Document& contextDocument, const URL&, RefPtr<SecurityOriginPolicy>&&);
+    static Ref<Document> createCloned(ClonedDocumentType, const URL&, const URL& baseURL, const URL& aboutBaseURL, const Variant<String, URL>& documentURI, DocumentCompatibilityMode, OptionSet<ParserContentPolicy>, Document& contextDocument, SecurityOriginPolicy*, const String& contentType, TextResourceDecoder*);
 
     virtual ~Document();
 
@@ -491,7 +489,7 @@ public:
     // pointer without introducing reference cycles.
     ALWAYS_INLINE void incrementReferencingNodeCount(unsigned count = 1)
     {
-        ASSERT(!deletionHasBegun());
+        ASSERT_WITH_SECURITY_IMPLICATION(!deletionHasBegun());
         m_referencingNodeCount += count;
     }
 
@@ -504,7 +502,7 @@ public:
             // Restore the the final overlooking ref that deref() maintains.
             m_refCountAndParentBit = s_refCountIncrement;
 
-#if ASSERT_ENABLED
+#if ASSERT_ENABLED || ENABLE(SECURITY_ASSERTIONS)
             m_deletionHasBegun = true;
 #endif
             delete this;
@@ -560,6 +558,7 @@ public:
     void addResultForSelector(ContainerNode&, const String&, Element*, const AtomString& classNameToMatch);
     void invalidateQuerySelectorResults(Node&);
     void invalidateQuerySelectorResultsForClassAttributeChange(Node&, const SpaceSplitString& oldClasses, const SpaceSplitString& newClasses);
+    void removeQuerySelectorResults(Node&);
     void clearQuerySelectorResults();
 
     ExceptionOr<SelectorQuery&> selectorQueryForString(const String&);
@@ -604,12 +603,7 @@ public:
 
     WEBCORE_EXPORT Ref<Element> createElement(const QualifiedName&, bool createdByParser, CustomElementRegistry* = nullptr);
 
-    RefPtr<CustomElementRegistry> customElementRegistryForBindings();
     NODELETE CustomElementRegistry* effectiveGlobalCustomElementRegistry();
-    static CustomElementNameValidationStatus validateCustomElementName(const AtomString&);
-    CustomElementRegistry* activeCustomElementConstructorRegistry(JSC::JSObject* constructor);
-    void addToActiveCustomElementConstructorMap(JSC::JSObject* constructor, CustomElementRegistry&);
-    void removeFromActiveCustomElementConstructorMap(JSC::JSObject* constructor);
     void addCustomElementUpgradeCandidateLocalName(const AtomString& localName) { m_customElementUpgradeCandidateLocalNames.add(localName); }
     void removeCustomElementUpgradeCandidateLocalName(const AtomString& localName) { m_customElementUpgradeCandidateLocalNames.remove(localName); }
     bool mayHaveCustomElementUpgradeCandidate(const AtomString& localName) const { return m_customElementUpgradeCandidateLocalNames.contains(localName); }
@@ -756,6 +750,9 @@ public:
     NODELETE const Style::CustomPropertyRegistry& customPropertyRegistry() const;
     NODELETE const CSSCounterStyleRegistry& counterStyleRegistry() const;
     NODELETE CSSCounterStyleRegistry& counterStyleRegistry();
+    // Returns true the first time a user script with this world, URL and source is recorded for this document.
+    // The match patterns and page ID are not part of the identity, so a page-scoped copy and a wider copy of the same script count as one.
+    bool recordInjectedUserScript(const DOMWrapperWorld&, const UserScript&);
 
     WEBCORE_EXPORT const CSSParserContext& cssParserContext() const LIFETIME_BOUND;
     void invalidateCachedCSSParserContext();
@@ -859,8 +856,13 @@ public:
 
     const NetworkLoadPolicy& networkLoadPolicy() const final;
 
+#if ENABLE(DEVICE_ORIENTATION) && PLATFORM(IOS_FAMILY)
+    void suspendDeviceMotionAndOrientationUpdates();
+    void resumeDeviceMotionAndOrientationUpdates();
+#else
     NODELETE void suspendDeviceMotionAndOrientationUpdates();
     NODELETE void resumeDeviceMotionAndOrientationUpdates();
+#endif
 
     void suspendFontLoading();
 
@@ -891,7 +893,7 @@ public:
     std::optional<FrameIdentifier> frameID() const { return m_frameIdentifier; }
 
     // to get visually ordered hebrew and arabic pages right
-    NODELETE void setVisuallyOrdered();
+    void setVisuallyOrdered();
     bool visuallyOrdered() const { return m_visuallyOrdered; }
 
     NODELETE WEBCORE_EXPORT DocumentLoader* loader() const;
@@ -929,6 +931,7 @@ public:
     WEBCORE_EXPORT const URL& urlForBindings();
 
     URL adjustedURL() const;
+    ConsistentQueryParameterFilteringLevel consistentQueryParameterFilteringLevelForBindings();
 
     const URL& creationURL() const LIFETIME_BOUND { return m_creationURL; }
 
@@ -957,6 +960,7 @@ public:
     static const URL& maskedURLForBindings();
 
     WEBCORE_EXPORT String userAgent(const URL&) const final;
+    String navigatorPlatform() const final;
 
     void disableEval(const String& errorMessage) final;
     void disableWebAssembly(const String& errorMessage) final;
@@ -1031,7 +1035,7 @@ public:
     VisitedLinkState* visitedLinkStateIfExists() const { return m_visitedLinkState.get(); }
     inline VisitedLinkState& visitedLinkState() const;
 
-    MouseEventWithHitTestResults prepareMouseEvent(const HitTestRequest&, const DoublePoint&, const PlatformMouseEvent&);
+    MouseEventWithHitTestResults prepareMouseEvent(const HitTestRequest&, const DoublePoint&, const PlatformMouseEvent&, HoverFollowsMouseCapture = HoverFollowsMouseCapture::No);
     // Returns whether focus was blocked. A true value does not necessarily mean the element was focused.
     // The element could have already been focused or may not be focusable (e.g. <input disabled>).
     WEBCORE_EXPORT bool setFocusedElement(Element*, const FocusOptions& = { });
@@ -1125,7 +1129,6 @@ public:
     inline bool hasBrowsingContext() const; // Defined in DocumentInlines.h.
 
     NODELETE Document& contextDocument() const;
-    void setContextDocument(Ref<Document>&& document) { m_contextDocument = WTF::move(document); }
     
     OptionSet<ParserContentPolicy> parserContentPolicy() const { return m_parserContentPolicy; }
     void setParserContentPolicy(OptionSet<ParserContentPolicy> policy) { m_parserContentPolicy = policy; }
@@ -1211,6 +1214,9 @@ public:
     WEBCORE_EXPORT bool isViewportDocument() const;
     void processDisabledAdaptations(const String& adaptations);
     void updateViewportArguments();
+#if PLATFORM(IOS_FAMILY)
+    void updateViewportDefaultConfiguration();
+#endif
     void processReferrerPolicy(const String& policy, ReferrerPolicySource);
 
     void metaElementThemeColorChanged(HTMLMetaElement&);
@@ -1468,7 +1474,11 @@ public:
     void updateAXCustomColorModeTextBackdrops();
 #endif
 
+#if PLATFORM(IOS_FAMILY)
+    void invalidateRenderingDependentRegions();
+#else
     NODELETE void invalidateRenderingDependentRegions();
+#endif
     void invalidateEventRegionsForFrame(HTMLFrameOwnerElement&);
 
     void invalidateEventListenerRegions();
@@ -1478,11 +1488,10 @@ public:
     SVGDocumentExtensions* svgExtensionsIfExists() { return m_svgExtensions.get(); }
     WEBCORE_EXPORT SVGDocumentExtensions& svgExtensions();
 
-    void initSecurityContext();
+    void initSecurityContext(RefPtr<SecurityOriginPolicy>&& = nullptr);
     void initContentSecurityPolicy();
 
     void inheritPolicyContainerFrom(const PolicyContainer&) final;
-    void enforceSandboxFlags(SandboxFlags, SandboxFlagsSource = SandboxFlagsSource::Other) final;
 
     WEBCORE_EXPORT void updateURLForPushOrReplaceState(const URL&);
     void statePopped(Ref<SerializedScriptValue>&&);
@@ -1646,12 +1655,19 @@ public:
     bool mayHaveRenderedSVGForeignObjects() const { return m_mayHaveRenderedSVGForeignObjects; }
     void setMayHaveRenderedSVGForeignObjects() { m_mayHaveRenderedSVGForeignObjects = true; }
 
+#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
+    void didAddTouchEventHandler(Node&);
+    void didRemoveTouchEventHandler(Node&, EventHandlerRemoval = EventHandlerRemoval::One);
+#else
     NODELETE void didAddTouchEventHandler(Node&);
     NODELETE void didRemoveTouchEventHandler(Node&, EventHandlerRemoval = EventHandlerRemoval::One);
+#endif
 
     void didRemoveEventTargetNode(Node&);
 
-    bool hasWheelEventHandlers() const { return !m_wheelEventTargets.isEmptyIgnoringNullReferences(); }
+    bool hasWheelEventHandlers() const { return !m_wheelEventTargets.computeIsEmpty(); }
+    bool mayHaveListBoxes() const { return m_mayHaveListBoxes; }
+    void setMayHaveListBoxes() { m_mayHaveListBoxes = true; }
 
     using RegionFixedPair = std::pair<Region, bool>;
     RegionFixedPair absoluteRegionForWheelEventTargets();
@@ -1723,6 +1739,9 @@ public:
     bool hasDisabledFieldsetElement() const { return m_disabledFieldsetElementsCount; }
     void addDisabledFieldsetElement() { m_disabledFieldsetElementsCount++; }
     void removeDisabledFieldsetElement() { ASSERT(m_disabledFieldsetElementsCount); m_disabledFieldsetElementsCount--; }
+    bool hasConnectedDisabledFieldsetElement() const { return m_connectedDisabledFieldsetElementsCount; }
+    void addConnectedDisabledFieldsetElement() { m_connectedDisabledFieldsetElementsCount++; }
+    void removeConnectedDisabledFieldsetElement() { ASSERT(m_connectedDisabledFieldsetElementsCount); m_connectedDisabledFieldsetElementsCount--; }
 
     bool hasDataListElements() const { return m_dataListElementCount; }
     void incrementDataListElementCount() { ++m_dataListElementCount; }
@@ -1757,7 +1776,7 @@ public:
     void setIsOriginKeyed(OriginKeyed value) { m_isOriginKeyed = value; }
 
     std::optional<AgentClusterIdentifier> agentClusterIdentifier() const { return m_agentClusterIdentifier; }
-    void setAgentClusterIdentifier(std::optional<AgentClusterIdentifier> identifier) { m_agentClusterIdentifier = identifier; }
+    void setAgentClusterIdentifier(std::optional<AgentClusterIdentifier>);
 
     void willLoadScriptElement(const URL&);
     void willLoadFrameElement(const URL&);
@@ -2138,6 +2157,9 @@ public:
 
     std::optional<PAL::SessionID> sessionID() const final;
 
+    DeferredFetchRegistry* deferredFetchRegistryIfExists() const { return m_deferredFetchRegistry.get(); }
+    DeferredFetchRegistry& ensureDeferredFetchRegistry();
+
     ReportingScope* reportingScopeIfExists() const { return m_reportingScope.get(); }
     inline ReportingScope& reportingScope() const;
     WEBCORE_EXPORT String endpointURIForToken(const String&) const final;
@@ -2205,10 +2227,13 @@ protected:
         NonRenderedPlaceholder = 1 << 1
     };
     WEBCORE_EXPORT Document(LocalFrame*, const Settings&, const URL&, DocumentClasses = { }, OptionSet<ConstructionFlag> = { }, std::optional<ScriptExecutionContextIdentifier> = std::nullopt);
+    Document(Document& contextDocument, const URL&, RefPtr<SecurityOriginPolicy>&&, DocumentClasses = { });
 
     void clearXMLVersion() { m_xmlVersion = String(); }
 
 private:
+    Document(LocalFrame*, Document* contextDocument, RefPtr<SecurityOriginPolicy>&&, const Settings&, const URL&, DocumentClasses, OptionSet<ConstructionFlag>, std::optional<ScriptExecutionContextIdentifier>);
+
     enum class PopoverListType : bool { Auto, Hint };
     void addPopoverToList(PopoverListType, HTMLElement&);
     void removePopoverFromList(PopoverListType, HTMLElement&);
@@ -2268,7 +2293,7 @@ private:
 
     // ScriptExecutionContext
     CSSFontSelector* cssFontSelector() final;
-    RefPtr<FontLoadRequest> fontLoadRequest(const String&, bool, bool, LoadedFromOpaqueSource) final;
+    RefPtr<FontLoadRequest> fontLoadRequest(const String&, bool, bool, const CSS::URLModifiers&) final;
     void beginLoadingFontSoon(FontLoadRequest&) final;
 
     // FontSelectorClient
@@ -2291,7 +2316,7 @@ private:
     void updateTitle(const StringWithDirection&);
     void updateBaseURL();
 
-    WeakPtr<HTMLMetaElement, WeakPtrImplWithEventTargetData> determineActiveThemeColorMetaElement();
+    RefPtr<HTMLMetaElement> determineActiveThemeColorMetaElement();
     void themeColorChanged();
 
     void invalidateAccessKeyCacheSlowCase();
@@ -2359,7 +2384,11 @@ private:
 
     bool computeIsSecureContext() const;
 
+#if ENABLE(CONTENT_CHANGE_OBSERVER)
+    void platformSuspendOrStopActiveDOMObjects();
+#else
     NODELETE void platformSuspendOrStopActiveDOMObjects();
+#endif
 
     void collectHighlightRangesFromRegister(Vector<WeakPtr<HighlightRange>>&, const HighlightRegistry&);
 
@@ -2420,6 +2449,7 @@ private:
     URL m_firstPartyForCookies; // The policy URL for third-party cookie blocking.
     URL m_siteForCookies; // The policy URL for Same-Site cookies.
     URL m_adjustedURL; // The URL to return for bindings after a cross-site navigation when advanced privacy protections are enabled.
+    std::optional<ConsistentQueryParameterFilteringLevel> m_consistentQueryParameterFilteringLevelForBindings;
 
     // Document.documentURI:
     // Although URL-like, Document.documentURI can actually be set to any
@@ -2458,6 +2488,7 @@ private:
 
     const UniqueRef<Style::DocumentScope> m_styleScope;
     const std::unique_ptr<ExtensionStyleSheets> m_extensionStyleSheets;
+    std::unique_ptr<SingleThreadWeakHashMap<DOMWrapperWorld, HashSet<std::pair<String, String>>>> m_injectedUserScripts;
     const RefPtr<StyleSheetList> m_styleSheetList;
 
     std::unique_ptr<FormController> m_formController;
@@ -2517,7 +2548,7 @@ private:
     RefPtr<TextResourceDecoder> m_decoder;
 
     HashSet<LiveNodeList*> m_listsInvalidatedAtDocument;
-    HashSet<HTMLCollection*> m_collectionsInvalidatedAtDocument;
+    HashCountedSet<HTMLCollection*> m_collectionsInvalidatedAtDocument;
     std::array<unsigned, numNodeListInvalidationTypes> m_nodeListAndCollectionCounts = { };
 
     const RefPtr<XPathEvaluator> m_xpathEvaluator;
@@ -2669,7 +2700,6 @@ private:
 
     WeakListHashSet<ShadowRoot, WeakPtrImplWithEventTargetData> m_inDocumentShadowRoots;
 
-    HashMap<uintptr_t, RefPtr<CustomElementRegistry>> m_activeCustomElementConstructorMap;
     HashSet<AtomString> m_customElementUpgradeCandidateLocalNames;
 
 #if ENABLE(WIRELESS_PLAYBACK_TARGET)
@@ -2767,6 +2797,7 @@ private:
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_renderBlockingElements;
 
+    RefPtr<DeferredFetchRegistry> m_deferredFetchRegistry;
     const RefPtr<ReportingScope> m_reportingScope;
 
     const std::unique_ptr<WakeLockManager> m_wakeLockManager;
@@ -2791,6 +2822,7 @@ private:
     unsigned m_parserYieldTokenCount { 0 };
 
     unsigned m_disabledFieldsetElementsCount { 0 };
+    unsigned m_connectedDisabledFieldsetElementsCount { 0 };
     unsigned m_dataListElementCount { 0 };
     unsigned m_deferredLifecycleEventCount { 0 };
 
@@ -2950,6 +2982,7 @@ private:
 #if ENABLE(EDITABLE_REGION)
     bool m_mayHaveEditableElements : 1 { false };
 #endif
+    bool m_mayHaveListBoxes : 1 { false };
 #if ENABLE(TELEPHONE_NUMBER_DETECTION)
     bool m_isTelephoneNumberParsingAllowed : 1 { true };
 #endif

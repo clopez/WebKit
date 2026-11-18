@@ -305,12 +305,14 @@ NODELETE static LocalFrame* frameForEvent(KeyboardEvent* event)
     return downcast<Node>(event->target())->document().frame();
 }
 
-bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>& commands, KeyboardEvent* event)
+bool WebPage::executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>& passedCommands, KeyboardEvent* event)
 {
     RefPtr frame = event ? frameForEvent(event) : m_page->focusController().focusedOrMainFrame();
     if (!frame)
         return false;
     ASSERT(frame->page() == corePage());
+
+    auto commands = passedCommands;
 
     Ref editor = frame->editor();
     bool eventWasHandled = false;
@@ -1077,9 +1079,11 @@ void WebPage::didBeginMagnificationGesture()
 void WebPage::didEndMagnificationGesture()
 {
 #if ENABLE(MAC_GESTURE_EVENTS)
-    // Under site isolation the main frame can be remote in this process, so reset every local root.
-    for (WeakRef frame : protect(corePage())->rootFrames())
-        frame->eventHandler().didEndMagnificationGesture();
+    // Gestures over a subframe are tracked by that subframe's EventHandler, so reset every local frame,
+    // not just the main frame or local roots.
+    protect(corePage())->forEachLocalFrame([](auto& frame) {
+        frame.eventHandler().didEndMagnificationGesture();
+    });
 #endif
 #if ENABLE(PDF_PLUGIN)
     if (RefPtr pluginView = mainFramePlugIn())
@@ -1279,7 +1283,7 @@ void WebPage::dispatchTrackedPointerEvent(std::optional<FrameIdentifier> frameID
 
     SetForScope userIsInteractingChange { m_userIsInteracting, true };
 
-    PlatformMouseEvent platformEvent { position, globalPosition, MouseButton::Left, type, 1, platform(modifiers), MonotonicTime::now(), isPressed ? ForceAtClick : 0, SyntheticClickType::NoTap, MouseEventInputSource::Automation, mousePointerID, movementDelta };
+    PlatformMouseEvent platformEvent { position, globalPosition, MouseButton::Left, type, 1, platform(modifiers), MonotonicTime::now(), isPressed ? ForceAtClick : 0, SyntheticClickType::NoTap, MouseEventInputSource::Touch, mousePointerID, movementDelta };
     // Pointer events report `buttons`, and a mouse pointer's `pressure`, from this.
     platformEvent.setButtons(isPressed ? 1 : 0);
 

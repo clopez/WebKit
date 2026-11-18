@@ -48,7 +48,7 @@ class HitTestResult;
 class RenderBlockFlow;
 class RenderBox;
 class RenderBoxModelObject;
-class RenderListOutsideMarker;
+class RenderListItem;
 struct PaintInfo;
 struct SVGTextFragment;
 
@@ -124,6 +124,7 @@ public:
     std::optional<LayoutUnit> firstLineBaseline() const;
     std::optional<LayoutUnit> lastLineBaseline() const;
     LayoutRect firstInlineBoxRect(const RenderBoxModelObject&) const;
+    LayoutRect blockStartRelativeFirstInlineBoxRect(const RenderBoxModelObject&) const;
     LayoutRect enclosingBorderBoxRectFor(const RenderBoxModelObject&) const;
 
     InlineIterator::TextBoxIterator textBoxesFor(const RenderText&) const;
@@ -205,7 +206,8 @@ private:
 
     NODELETE bool isContentConsideredStale() const;
 
-    using ExcludedMarkerList = Vector<CheckedPtr<RenderListOutsideMarker>>;
+    // The list items whose excluded marker aligns with our first formatted line.
+    using ExcludedMarkerList = Vector<CheckedPtr<RenderListItem>>;
     ExcludedMarkerList excludedMarkersForFirstFormattedLine(Layout::InlineLayoutState&);
     void setExcludedMarkerPositions(const ExcludedMarkerList&);
 

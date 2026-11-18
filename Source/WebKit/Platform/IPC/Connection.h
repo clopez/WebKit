@@ -37,6 +37,7 @@
 #include "ReceiverMatcher.h"
 #include "SyncRequestID.h"
 #include "Timeout.h"
+#include <WebCore/ScriptExecutionContextIdentifier.h>
 #include <atomic>
 #include <new>
 #include <tuple>
@@ -322,7 +323,7 @@ public:
 
         ~MessageDispatchScope()
         {
-            ASSERT(s_current == this);
+            ASSERT_WITH_SECURITY_IMPLICATION(s_current == this);
             s_current = m_previous;
         }
 
@@ -467,6 +468,10 @@ public:
     // are run.
     void addMessageReceiver(FunctionDispatcher&, MessageReceiver&, ReceiverName, uint64_t destinationID = 0);
     void removeMessageReceiver(ReceiverName, uint64_t destinationID = 0);
+
+    // Adds a message receive queue that dispatches through ScriptExecutionContext.
+    void addScriptExecutionContextMessageReceiver(ReceiverName, WebCore::ScriptExecutionContextIdentifier, ThreadSafeMessageReceiver&, uint64_t destinationID = 0);
+    void removeScriptExecutionContextMessageReceiver(ReceiverName, uint64_t destinationID = 0);
 
     bool open(Client&, SerialFunctionDispatcher& = RunLoop::currentSingleton());
     // Ensures that messages sent prior to the call are not affected by invalidate() or crash done after the call returns.

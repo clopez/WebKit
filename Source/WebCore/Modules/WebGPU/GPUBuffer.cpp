@@ -30,6 +30,7 @@
 #include "JSDOMConvertNull.h"
 #include "JSDOMPromiseDeferred.h"
 #include "JSGPUBufferMapState.h"
+#include <wtf/Borrow.h>
 
 namespace WebCore {
 
@@ -85,6 +86,9 @@ void GPUBuffer::mapAsync(GPUMapModeFlags mode, GPUSize64 offset, std::optional<G
     if (m_mapState == GPUBufferMapState::Unmapped)
         m_mapState = GPUBufferMapState::Pending;
 
+    if (RefPtr device = m_device)
+        device->addBufferToUnmap(*this);
+
     m_pendingMapPromise = makeUnique<MapAsyncPromise>(promise);
     // FIXME: Should this capture a weak pointer to |this| instead?
     m_backing->mapAsync(convertMapModeFlagsToBacking(mode), offset, size, [promise = WTF::move(promise), protectedThis = protect(*this), offset, size](bool success) mutable {
@@ -103,8 +107,11 @@ void GPUBuffer::mapAsync(GPUMapModeFlags mode, GPUSize64 offset, std::optional<G
             protectedThis->m_mappedRangeSize = size.value_or(protectedThis->m_bufferSize - protectedThis->m_mappedRangeOffset);
             promise.resolve();
         } else {
-            if (protectedThis->m_mapState == GPUBufferMapState::Pending)
+            if (protectedThis->m_mapState == GPUBufferMapState::Pending) {
                 protectedThis->m_mapState = GPUBufferMapState::Unmapped;
+                if (RefPtr device = protectedThis->m_device)
+                    device->removeBufferToUnmap(protectedThis.get());
+            }
 
             promise.reject(Exception { ExceptionCode::OperationError, "map async was not successful"_s });
         }
@@ -230,7 +237,7 @@ void GPUBuffer::internalUnmap(ScriptExecutionContext& scriptExecutionContext)
 
     m_mapState = GPUBufferMapState::Unmapped;
 
-    for (auto& arrayBufferAndOffset : m_arrayBuffers) {
+    for (auto& arrayBufferAndOffset : borrow(m_arrayBuffers)) {
         auto& arrayBuffer = arrayBufferAndOffset.buffer;
         if (arrayBuffer && arrayBuffer->data() && arrayBuffer->byteLength()) {
             m_backing->copyFrom(arrayBuffer->span(), arrayBufferAndOffset.offset);
@@ -254,8 +261,10 @@ void GPUBuffer::destroy(ScriptExecutionContext& scriptExecutionContext)
     m_bufferSize = 0;
     m_memoryCost.store(0, std::memory_order_relaxed);
     m_backing->destroy();
-    if (RefPtr device = m_device)
+    if (RefPtr device = m_device) {
+        device->removeBufferToUnmap(*this);
         device->didChangeBufferMemoryCost(*this);
+    }
 }
 
 }

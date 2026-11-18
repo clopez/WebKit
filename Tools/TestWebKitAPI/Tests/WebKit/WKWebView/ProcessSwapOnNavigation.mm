@@ -29,6 +29,7 @@
 #import "FrameTreeChecks.h"
 #import "Helpers/cocoa/HTTPServer.h"
 #import "Helpers/PlatformUtilities.h"
+#import "Helpers/cocoa/ProcessTerminationTestUtilities.h"
 #import "Helpers/cocoa/SiteIsolationUtilities.h"
 #import "Helpers/Test.h"
 #import "Helpers/cocoa/TestNavigationDelegate.h"
@@ -1375,6 +1376,19 @@ TEST(ProcessSwap, CrossOriginButSameSiteWindowOpenNoOpener)
     // Same-site navigations without opener still share the same process.
     EXPECT_EQ(pid1, pid2);
 }
+
+#if !TARGET_OS_IPHONE
+static void enableUnloadEventForPSONTest(WKWebViewConfiguration *configuration)
+{
+    auto preferences = [configuration preferences];
+    for (_WKFeature *feature in [WKPreferences _features]) {
+        if ([feature.key isEqualToString:@"UnloadEventEnabled"]) {
+            [preferences _setEnabled:YES forFeature:feature];
+            break;
+        }
+    }
+}
+#endif
 
 static void enableSiteIsolationForPSONTest(WKWebViewConfiguration *configuration)
 {
@@ -4377,6 +4391,7 @@ TEST(ProcessSwap, LoadUnload)
     [webViewConfiguration setProcessPool:processPool.get()];
     RetainPtr handler = adoptNS([[PSONScheme alloc] init]);
     [handler addMappingFromURLString:@"pson://www.webkit.org/main.html" toData:loadUnloadBytes];
+    enableUnloadEventForPSONTest(webViewConfiguration.get());
     [handler addMappingFromURLString:@"pson://www.apple.com/main.html" toData:loadUnloadBytes];
     [webViewConfiguration setURLSchemeHandler:handler.get() forURLScheme:@"PSON"];
 
@@ -4470,6 +4485,7 @@ TEST(ProcessSwap, UnloadEventsOnCrossSiteClientRedirect)
     [webViewConfiguration setProcessPool:processPool.get()];
     RetainPtr handler = adoptNS([[PSONScheme alloc] init]);
     [handler addMappingFromURLString:@"pson://www.webkit.org/main.html" toData:unloadOnClientRedirectBytes];
+    enableUnloadEventForPSONTest(webViewConfiguration.get());
     [handler addMappingFromURLString:@"pson://www.apple.com/main.html" toData:"<body>apple</body>"_s];
     [webViewConfiguration setURLSchemeHandler:handler.get() forURLScheme:@"PSON"];
 
@@ -9393,7 +9409,6 @@ static void checkSettingsControlledByLockdownMode(WKWebView *webView, ShouldBeEn
 
     EXPECT_EQ(runJSCheck("CSS.supports('text-justify: auto')"_s), shouldBeEnabled == ShouldBeEnabled::Yes);
     EXPECT_EQ(runJSCheck("!!navigator.contacts"_s), isShowingInitialEmptyDocument != IsShowingInitialEmptyDocument::Yes && shouldBeEnabled == ShouldBeEnabled::Yes);
-    EXPECT_EQ(runJSCheck("!!window.DeprecationReportBody"_s), shouldBeEnabled == ShouldBeEnabled::Yes);
 
     // Confirm unstable settings are always off in Lockdown Mode.
     EXPECT_EQ(runJSCheck("!!document.undoManager"_s), false);
@@ -10217,16 +10232,6 @@ TEST(ProcessSwap, ReuseProcessAfterNavigatingFromAboutPage)
     EXPECT_EQ(pid1, pid2);
 }
 
-static bool waitForProcessExitWithoutSpinningRunLoop(pid_t pid)
-{
-    for (unsigned i = 0; i < 100; ++i) {
-        if (kill(pid, 0) && errno == ESRCH)
-            return true;
-        WTF::sleep(100_ms);
-    }
-    return false;
-}
-
 // The WebProcess cache cannot be enabled on devices with too little RAM so we need to disable
 // tests relying on it on iOS. The WebProcess cache is disabled by default on iOS anyway.
 #if !PLATFORM(IOS_FAMILY)
@@ -10278,8 +10283,8 @@ TEST(WebProcessCache, ReusedCrashedCachedWebProcess)
     kill(cachedProcessPID, 9);
 
     // Intentional hang to delay processing of crash notifications.
-    EXPECT_TRUE(waitForProcessExitWithoutSpinningRunLoop(webView2PID));
-    EXPECT_TRUE(waitForProcessExitWithoutSpinningRunLoop(cachedProcessPID));
+    EXPECT_TRUE(TestWebKitAPI::waitForProcessExitWithoutSpinningRunLoop(webView2PID));
+    EXPECT_TRUE(TestWebKitAPI::waitForProcessExitWithoutSpinningRunLoop(cachedProcessPID));
 
     // View should reload due to crash.
     TestWebKitAPI::Util::run(&done);
@@ -10381,8 +10386,8 @@ TEST(WebProcessCache, ReusedCrashedBackForwardSuspendedWebProcess)
     kill(firstWebProcessPID, 9);
 
     // Intentional hang to delay processing of crash notifications.
-    EXPECT_TRUE(waitForProcessExitWithoutSpinningRunLoop(secondWebProcessPID));
-    EXPECT_TRUE(waitForProcessExitWithoutSpinningRunLoop(firstWebProcessPID));
+    EXPECT_TRUE(TestWebKitAPI::waitForProcessExitWithoutSpinningRunLoop(secondWebProcessPID));
+    EXPECT_TRUE(TestWebKitAPI::waitForProcessExitWithoutSpinningRunLoop(firstWebProcessPID));
 
     // View should reload due to crash.
     TestWebKitAPI::Util::run(&done);

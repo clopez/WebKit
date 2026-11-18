@@ -193,6 +193,7 @@ set(WebKit_BINDINGS_IN_FILES
 set(WebKit_CPP_BINDINGS_IN_FILES
     WebProcess/Extensions/Interfaces/WebExtensionAPIAlarms
     WebProcess/Extensions/Interfaces/WebExtensionAPIEvent
+    WebProcess/Extensions/Interfaces/WebExtensionAPIExtensionTypes
     WebProcess/Extensions/Interfaces/WebExtensionAPINamespace
     WebProcess/Extensions/Interfaces/WebExtensionAPIRuntime
     WebProcess/Extensions/Interfaces/WebExtensionAPIStorage
@@ -521,6 +522,7 @@ set(WebKit_SERIALIZATION_IN_FILES
     Shared/GoToBackForwardItemParameters.serialization.in
     Shared/IPCTester.serialization.in
     Shared/ImageOptions.serialization.in
+    Shared/ImmersiveElementDetails.serialization.in
     Shared/InspectorExtensionTypes.serialization.in
     Shared/InspectorNetworkTypes.serialization.in
     Shared/InspectorPageTypes.serialization.in
@@ -631,7 +633,7 @@ set(WebKit_SERIALIZATION_IN_FILES
 
     Shared/Extensions/WebExtensionActionClickBehavior.serialization.in
     Shared/Extensions/WebExtensionAlarmParameters.serialization.in
-    Shared/Extensions/WebExtensionBookmarksParameters.serialization.in
+    Shared/Extensions/WebExtensionBookmarkParameters.serialization.in
     Shared/Extensions/WebExtensionCommandParameters.serialization.in
     Shared/Extensions/WebExtensionContentWorldType.serialization.in
     Shared/Extensions/WebExtensionContext.serialization.in
@@ -1036,9 +1038,6 @@ WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER(WebKit WebKit
     "${WebKit_DERIVED_SOURCES_DIR}/WebKit-Swift-Generated.h")
 
 if (SWIFT_REQUIRED)
-    # should match the rest of WebKit and use -Onone, but it negatively impacts build time
-    webkit_target_add_swift_options(WebKit
-        "$<$<AND:$<COMPILE_LANGUAGE:Swift>,$<CONFIG:Debug>>:-O>")
     # Every frontend job imports most of WebCore's C++ declarations, at a cost
     # of seconds of CPU time and gigabytes of memory, before compiling anything.
     # One batch per core repeats that work for each core and competes with the

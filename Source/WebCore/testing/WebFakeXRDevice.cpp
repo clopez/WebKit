@@ -127,11 +127,11 @@ void SimulatedXRDevice::initializeTrackingAndRendering(const WebCore::SecurityOr
         // There is no way to know how many simulateInputConnection calls will the device receive,
         // so notify the input sources have been initialized with an empty list. This is not a problem because
         // WPT tests rely on requestAnimationFrame updates to test the input sources.
-        callOnMainThread([this, weakThis = ThreadSafeWeakPtr { *this }]() {
+        callOnMainThread([weakThis = ThreadSafeWeakPtr { *this }] {
             auto protectedThis = weakThis.get();
             if (!protectedThis)
                 return;
-            if (RefPtr client = m_trackingAndRenderingClient)
+            if (RefPtr client = protectedThis->m_trackingAndRenderingClient)
                 client->sessionDidInitializeInputSources({ });
         });
     }
@@ -326,7 +326,7 @@ std::optional<PlatformXR::LayerInfo> SimulatedXRDevice::createLayerProjection(ui
 }
 
 #if ENABLE(WEBXR_LAYERS)
-std::optional<PlatformXR::LayerInfo> SimulatedXRDevice::createCompositionLayer(PlatformXR::CompositionLayerType, IntSize size, PlatformXR::LayerLayout)
+std::optional<PlatformXR::LayerInfo> SimulatedXRDevice::createCompositionLayer(PlatformXR::CompositionLayerType, IntSize size, PlatformXR::LayerLayout, PlatformXR::LayerUpdateMode)
 {
     auto handle = createLayer(size);
     if (!handle)

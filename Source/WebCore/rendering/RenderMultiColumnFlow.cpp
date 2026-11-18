@@ -45,7 +45,7 @@ namespace WebCore {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderMultiColumnFlow);
 
-RenderMultiColumnFlow::RenderMultiColumnFlow(Document& document, Style::ComputedStyle&& style)
+RenderMultiColumnFlow::RenderMultiColumnFlow(Document& document, UniqueRef<Style::ComputedStyle>&& style)
     : RenderFragmentedFlow(Type::MultiColumnFlow, document, WTF::move(style))
 {
     setFragmentedFlowState(FragmentedFlowState::InsideFlow);
@@ -140,7 +140,6 @@ void RenderMultiColumnFlow::addFragmentToThread(RenderFragmentContainer* fragmen
         m_fragmentList.insertBefore(it, *columnSet);
     } else
         m_fragmentList.add(*columnSet);
-    fragmentContainer->setIsValid(true);
 }
 
 void RenderMultiColumnFlow::willBeRemovedFromTree()
@@ -333,9 +332,9 @@ void RenderMultiColumnFlow::mapAbsoluteToLocalPoint(OptionSet<MapCoordinatesMode
 
 LayoutSize RenderMultiColumnFlow::physicalTranslationFromFragmentToFlow(const RenderMultiColumnSet* columnSet, const LayoutPoint& physicalPoint) const
 {
-    LayoutPoint logicalPoint = columnSet->flipForWritingMode(physicalPoint);
+    LayoutPoint logicalPoint = columnSet->physicalToBlockStartRelative(physicalPoint);
     LayoutPoint translatedPoint = columnSet->translateFragmentPointToFragmentedFlow(logicalPoint);
-    LayoutPoint physicalTranslatedPoint = columnSet->flipForWritingMode(translatedPoint);
+    LayoutPoint physicalTranslatedPoint = columnSet->blockStartRelativeToPhysical(translatedPoint);
     return physicalPoint - physicalTranslatedPoint;
 }
 
@@ -346,7 +345,7 @@ RenderFragmentContainer* RenderMultiColumnFlow::mapFromFlowToFragment(TransformS
 
     // Get back into our local flow thread space.
     LayoutRect boxRect = transformState.mappedQuad().enclosingBoundingBox();
-    flipForWritingMode(boxRect);
+    physicalToBlockStartRelative(boxRect);
 
     // FIXME: We need to refactor RenderObject::absoluteQuads to be able to split the quads across fragments,
     // for now we just take the center of the mapped enclosing box and map it to a column.
@@ -375,7 +374,7 @@ LayoutSize RenderMultiColumnFlow::physicalTranslationOffsetFromFlowToFragment(co
             columnRect.setHeight(portionRect.height());
         else
             columnRect.setWidth(portionRect.width());
-        columnSet->flipForWritingMode(columnRect);
+        columnSet->blockStartRelativeToPhysical(columnRect);
         if (isHorizontalWritingMode())
             translationOffset.move(0_lu, columnRect.y() - portionRect.y() - physicalDeltaFromPortionBottom);
         else
@@ -391,7 +390,7 @@ RenderFragmentContainer* RenderMultiColumnFlow::physicalTranslationFromFlowToFra
         return nullptr;
     
     // Put the physical point into the flow thread's coordinate space.
-    LayoutPoint logicalPoint = flipForWritingMode(physicalPoint);
+    LayoutPoint logicalPoint = physicalToBlockStartRelative(physicalPoint);
     
     // Now get the fragment that we are in.
     LayoutUnit logicalOffset = isHorizontalWritingMode() ? logicalPoint.y() : logicalPoint.x();
