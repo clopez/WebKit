@@ -83,6 +83,7 @@
 #include "HTMLParagraphElement.h"
 #include "HTMLParserIdioms.h"
 #include "HTMLSelectElement.h"
+#include "HTMLSelectedContentElement.h"
 #include "HTMLSlotElement.h"
 #include "HTMLSummaryElement.h"
 #include "HTMLTableCaptionElement.h"
@@ -117,7 +118,6 @@
 #include "RenderImage.h"
 #include "RenderListBox.h"
 #include "RenderListItem.h"
-#include "RenderListOutsideMarker.h"
 #include "RenderObjectInlines.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
@@ -137,11 +137,13 @@
 #include "VisibleUnits.h"
 #include "XLinkNames.h"
 #include <numeric>
+#include <wtf/Language.h>
 #include <wtf/Scope.h>
 #include <wtf/SetForScope.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuilder.h>
 #include <wtf/unicode/CharacterNames.h>
+#include <wtf/unicode/ListFormatter.h>
 
 namespace WebCore {
 
@@ -921,8 +923,12 @@ bool AccessibilityNodeObject::canHaveChildren() const
     if (!altTextFromStyle().isNull())
         return false;
 
-    if (CheckedPtr listMarker = dynamicDowncast<RenderListOutsideMarker>(renderer()))
-        return listMarkerHasContent(listMarker->style(), protect(listMarker->document()));
+    if (CheckedPtr renderer = this->renderer(); renderer && renderer->isOutsideListMarker())
+        return listMarkerHasContent(renderer->style(), protect(renderer->document()));
+
+    // Markers are exposed as markerText(), so ignore any children.
+    if (CheckedPtr renderer = this->renderer(); renderer && renderer->isListMarkerBox())
+        return false;
 
     if (optGroupForLabel())
         return false;
@@ -2245,7 +2251,7 @@ AccessibilityObject* AccessibilityNodeObject::tableHeaderContainer()
     tableHeader->setParent(this);
     rareData->setTableHeaderContainer(tableHeader.get());
 
-    return tableHeader.unsafePtr();
+    return rareData->tableHeaderContainer();
 }
 
 AXCoreObject::AccessibilityChildrenVector AccessibilityNodeObject::columns()
@@ -2905,7 +2911,7 @@ AccessibilityObject::AccessibilityChildrenVector AccessibilityNodeObject::disclo
     return disclosedRows;
 }
 
-AccessibilityObject* AccessibilityNodeObject::disclosedByRow() const
+RefPtr<AXCoreObject> AccessibilityNodeObject::disclosedByRow() const
 {
     if (!isARIATreeGridRow())
         return AccessibilityObject::disclosedByRow();
@@ -2929,7 +2935,7 @@ AccessibilityObject* AccessibilityNodeObject::disclosedByRow() const
 
     for (int k = index - 1; k >= 0; --k) {
         if (protect(allRows[k])->hierarchicalLevel() == level - 1)
-            return downcast<AccessibilityObject>(allRows[k].unsafePtr());
+            return WTF::move(allRows[k]);
     }
     return nullptr;
 }
@@ -3976,6 +3982,38 @@ static bool shouldPrependNewline(AccessibilityObject* previousObject)
     return node && WebCore::shouldEmitNewlinesBeforeAndAfterNode(*node);
 }
 
+static RefPtr<HTMLSelectElement> selectForSelectedContent(Node* node)
+{
+    RefPtr selectedContent = dynamicDowncast<HTMLSelectedContentElement>(node);
+    if (!selectedContent || selectedContent->isDisabled())
+        return nullptr;
+    RefPtr select = ancestorsOfType<HTMLSelectElement>(*selectedContent).first();
+    return select && select->updatesSelectedContent() ? select : nullptr;
+}
+
+// The <selectedcontent> of a multi-select holds a clone of every option, of which only the selected ones render.
+static String selectedOptionLabels(const AccessibilityObject& selectedContent, const HTMLSelectElement& select)
+{
+    Vector<String> labels;
+    for (Ref child : AXChildIterator(selectedContent)) {
+        RefPtr option = dynamicDowncast<HTMLOptionElement>(child->node());
+        if (!option)
+            continue;
+        auto label = option->attributeTrimmedWithDefaultARIA(aria_labelAttr);
+        if (label.isEmpty())
+            label = child->textUnderElement();
+        if (!label.isEmpty())
+            labels.append(WTF::move(label));
+    }
+    if (labels.size() < 2)
+        return labels.isEmpty() ? String() : WTF::move(labels[0]);
+
+    auto& language = select.effectiveLang();
+    ListFormatter formatter { (language.isEmpty() ? defaultLanguage() : language.string()).ascii(), ListFormatter::Type::Conjunction, ListFormatter::Style::Long };
+    auto list = formatter.format(labels.span());
+    return list ? WTF::move(*list) : makeStringByJoining(labels.span(), ", "_s);
+}
+
 String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) const
 {
     RefPtr node = this->node();
@@ -4008,6 +4046,16 @@ String AccessibilityNodeObject::textUnderElement(TextUnderElementMode mode) cons
             // Unlike visibility:visible + visiblity:visible where the latter can override the former in a subtree,
             // display:none guarantees nothing within will be rendered, so we can exit early.
             return { };
+        }
+    }
+
+    // A <selectedcontent> shows the selected options, so their labels give its text.
+    if (RefPtr select = selectForSelectedContent(node.get()); select && !mode.isHidden()) {
+        if (select->multiple())
+            return selectedOptionLabels(*this, *select);
+        if (RefPtr option = select->selectedOptionForSelectedContent()) {
+            if (auto label = option->attributeTrimmedWithDefaultARIA(aria_labelAttr); !label.isEmpty())
+                return label;
         }
     }
 
@@ -4225,22 +4273,22 @@ Vector<AXStitchGroup> AccessibilityNodeObject::stitchGroups() const
     };
     // Our own outside marker takes no part in our lines, so it is not one of the leaf boxes below, but it belongs at
     // the start of the group for the line it was positioned against, when that line is one of ours.
-    auto stitchableExcludedMarker = [&]() -> CheckedPtr<RenderListOutsideMarker> {
+    auto stitchableOutsideMarker = [&] -> CheckedPtr<RenderBlockFlow> {
         // The marker's list item is this block flow itself when the item's own content makes the line, and an
         // ancestor of it when the line is in a descendant block of the item.
         for (CheckedPtr<const RenderBoxModelObject> ancestor = renderBlockFlow; ancestor; ancestor = ancestor->containingBlock()) {
             CheckedPtr listItem = dynamicDowncast<RenderListItem>(ancestor.get());
             CheckedPtr marker = listItem ? listItem->markerBox() : nullptr;
-            if (!marker || !marker->isExcludedMarker() || listMarkerIsDisclosure(marker.get()))
+            if (!marker || listMarkerIsDisclosure(marker.get()))
                 continue;
-            auto& excludedPosition = listItem->excludedMarkerPosition();
-            if (excludedPosition && excludedPosition->firstFormattedLineRoot.get() == renderBlockFlow.get())
+            auto& markerPosition = listItem->outsideMarkerPosition();
+            if (markerPosition && markerPosition->firstFormattedLineRoot.get() == renderBlockFlow.get())
                 return marker;
         }
         return { };
     }();
-    if (stitchableExcludedMarker) {
-        if (RefPtr object = cache->getOrCreate(*stitchableExcludedMarker))
+    if (stitchableOutsideMarker) {
+        if (RefPtr object = cache->getOrCreate(*stitchableOutsideMarker))
             appendToCurrentGroup(object->objectID());
     }
 
@@ -4252,12 +4300,6 @@ Vector<AXStitchGroup> AccessibilityNodeObject::stitchGroups() const
 
             if (listMarkerIsDisclosure(protect(dynamicDowncast<RenderElement>(box->renderer()))) || listMarkerIsDisclosure(protect(box->renderer().parent()))) {
                 finalizeCurrentGroup();
-                continue;
-            }
-
-            if (CheckedPtr renderListMarker = dynamicDowncast<RenderListOutsideMarker>(box->renderer())) {
-                if (RefPtr object = cache->getOrCreate(const_cast<RenderListOutsideMarker&>(*renderListMarker)))
-                    appendToCurrentGroup(object->objectID());
                 continue;
             }
 
@@ -4384,11 +4426,10 @@ String AccessibilityNodeObject::stringValue() const
                 if (!runStartNode)
                     runStartNode = memberNode;
                 runEndNode = memberNode;
-            } else if (CheckedPtr renderListMarker = dynamicDowncast<RenderListOutsideMarker>(object->renderer())) {
+            } else if (CheckedPtr renderer = object->renderer(); renderer && renderer->isListMarkerBox()) {
                 // List markers have no DOM node. Flush any pending text run, then append marker text.
                 flushRun();
-                if (CheckedPtr listItem = renderListMarker->listItem())
-                    builder.append(listItem->markerText());
+                builder.append(RenderListItem::markerText(*renderer));
             }
         }
         flushRun();

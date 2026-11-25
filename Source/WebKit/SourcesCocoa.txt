@@ -481,6 +481,8 @@ UIProcess/Cocoa/SecItemShimProxy.cpp
 UIProcess/Cocoa/SecurityFlagsControllerCocoa.mm @nonARC
 UIProcess/Cocoa/SessionStateCoding.mm @nonARC
 UIProcess/Cocoa/SystemPreviewControllerCocoa.mm @nonARC
+UIProcess/Cocoa/TabCapturePicker.mm
+UIProcess/Cocoa/TabCaptureWindow.mm @nonARC
 UIProcess/Cocoa/TextCheckingController.mm @nonARC
 UIProcess/Cocoa/TextExtraction/WKTextExtractionUtilities.mm @nonARC
 UIProcess/Cocoa/UIDelegate.mm @nonARC @cost:3
@@ -647,6 +649,7 @@ UIProcess/ios/WKWebGeolocationPolicyDeciderIOS.mm @nonARC
 UIProcess/Launcher/cocoa/ProcessLauncherCocoa.mm @nonARC
 
 UIProcess/mac/AppKitGestures/WKAppKitGestureController.mm @nonARC
+UIProcess/mac/CapturePromptUtilities.mm
 UIProcess/mac/CorrectionPanel.mm @nonARC
 UIProcess/mac/DisplayLinkMac.cpp
 UIProcess/mac/PageClientImplMac.mm @nonARC
@@ -669,7 +672,6 @@ UIProcess/mac/WKImmediateActionController.mm @nonARC
 UIProcess/mac/PositionInformationManager.cpp
 UIProcess/mac/WKPrintingView.mm @nonARC
 UIProcess/mac/WKQuickLookPreviewController.mm @nonARC
-UIProcess/mac/WKRevealItemPresenter.mm @nonARC
 UIProcess/mac/WKSharingServicePickerDelegate.mm @nonARC
 UIProcess/mac/WKTextFinderClient.mm @nonARC
 UIProcess/mac/WKTextAnimationManagerMac.mm @nonARC
@@ -709,11 +711,13 @@ UIProcess/RemoteLayerTree/RemoteAnimation.cpp
 UIProcess/RemoteLayerTree/RemoteAnimationStack.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteAnimationTimeline.cpp
 UIProcess/RemoteLayerTree/RemoteAnimationUtilities.cpp
+UIProcess/RemoteLayerTree/RemoteAnimationVisibility.mm
 UIProcess/RemoteLayerTree/RemoteMonotonicTimeline.cpp
 UIProcess/RemoteLayerTree/RemoteMonotonicTimelineRegistry.cpp
 UIProcess/RemoteLayerTree/RemoteLayerTreeDrawingAreaProxy.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteLayerTreeHost.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteLayerTreeInteractionRegionLayers.mm @nonARC
+UIProcess/RemoteLayerTree/RemoteLayerTreeMirror.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteLayerTreeNode.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteLayerTreeScrollingPerformanceData.mm @nonARC
 UIProcess/RemoteLayerTree/RemoteScrollingCoordinatorProxy.cpp @cost:3

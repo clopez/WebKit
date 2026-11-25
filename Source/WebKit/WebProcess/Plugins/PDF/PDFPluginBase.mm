@@ -973,6 +973,13 @@ void PDFPluginBase::scrollbarStyleChanged(ScrollbarStyle style, bool forceUpdate
     updateScrollbars();
 }
 
+std::optional<ScrollbarStyle> PDFPluginBase::scrollbarStyleOverride() const
+{
+    if (RefPtr page = this->page())
+        return page->scrollbarStyleOverride();
+    return std::nullopt;
+}
+
 IntRect PDFPluginBase::convertFromScrollbarToContainingView(const Scrollbar& scrollbar, const IntRect& scrollbarRect) const
 {
     Ref view = *m_view;
@@ -1409,7 +1416,7 @@ bool PDFPluginBase::performImmediateActionHitTestAtLocation(const WebCore::Float
 
 WebCore::AXObjectCache* PDFPluginBase::axObjectCache() const
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
+    RELEASE_ASSERT(isMainRunLoop());
     RefPtr frame = m_frame.get();
     if (!frame)
         return nullptr;

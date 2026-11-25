@@ -40,13 +40,13 @@
 #include "InlineRunAndOffset.h"
 #include "LayoutInlineTextBox.h"
 #include "LayoutIntegrationLineLayout.h"
-#include "LogicalSelectionOffsetCachesInlines.h"
 #include "LineSelection.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
 #include "MathVariant.h"
 #include "Range.h"
 #include "RenderBlockFlowInlines.h"
+#include "RenderBlockInlines.h"
 #include "RenderElementInlines.h"
 #include "RenderLayer.h"
 #include "RenderObjectInlines.h"
@@ -112,7 +112,7 @@ public:
 
 private:
     void fired() override;
-    RenderText& m_renderer;
+    const CheckedRef<RenderText> m_renderer;
     unsigned m_offsetAfterLastTypedCharacter { 0 };
 };
 
@@ -132,7 +132,7 @@ inline SecureTextTimer::SecureTextTimer(RenderText& renderer)
 inline void SecureTextTimer::restart(unsigned offsetAfterLastTypedCharacter)
 {
     m_offsetAfterLastTypedCharacter = offsetAfterLastTypedCharacter;
-    startOneShot(1_s * m_renderer.settings().passwordEchoDurationInSeconds());
+    startOneShot(1_s * m_renderer->settings().passwordEchoDurationInSeconds());
 }
 
 NODELETE inline unsigned SecureTextTimer::takeOffsetAfterLastTypedCharacter()
@@ -144,9 +144,9 @@ NODELETE inline unsigned SecureTextTimer::takeOffsetAfterLastTypedCharacter()
 
 void SecureTextTimer::fired()
 {
-    ASSERT(secureTextTimers().get(m_renderer) == this);
+    ASSERT(secureTextTimers().get(m_renderer.get()) == this);
     m_offsetAfterLastTypedCharacter = 0;
-    m_renderer.setText(m_renderer.text(), true /* forcing setting text as it may be masked later */);
+    m_renderer->setText(m_renderer->text(), true /* forcing setting text as it may be masked later */);
 }
 
 NODELETE static HashMap<SingleThreadWeakRef<const RenderText>, String>& originalTextMap()
@@ -389,12 +389,12 @@ static LayoutRect selectionRectForTextBox(const InlineIterator::TextBox& textBox
     }
 
     auto lineBox = textBox.lineBox();
-    auto lineRect = lineExtent == LineExtent::Selection ? LineSelection::logicalRect(lineBox) : lineBox.contentLogicalRectAdjustedForAdjacentLineBoxes();
+    auto lineRect = lineExtent == LineExtent::Selection ? LineSelection::logicalRect(lineBox) : lineBox.contentAreaLogicalRectAdjustedForAdjacentLineBoxes();
     auto selectionRect = LayoutRect { 0, lineRect.y(), textBox.logicalWidth(), lineRect.height() };
 
     auto textRun = textBox.textRun();
     if (clampedStart || clampedEnd != textRun.length())
-        textBox.fontCascade().adjustSelectionRectForText(textBox.renderer().canUseSimplifiedTextMeasuring(), textRun, selectionRect, clampedStart, clampedEnd);
+        protect(textBox.fontCascade())->adjustSelectionRectForText(textBox.renderer().canUseSimplifiedTextMeasuring(), textRun, selectionRect, clampedStart, clampedEnd);
 
     if (!textBox.writingMode().isLogicalLeftLineLeft())
         selectionRect.setX(textBox.logicalWidth() - selectionRect.maxX());
@@ -685,9 +685,8 @@ void RenderText::collectSelectionGeometries(Vector<SelectionGeometry>& rects, un
         }
 
         // Map rect, extended left to leftOffset, and right to rightOffset, through transforms to get minX and maxX.
-        LogicalSelectionOffsetCaches cache(formattingContextRoot);
-        LayoutUnit leftOffset = formattingContextRoot->logicalLeftSelectionOffset(formattingContextRoot, LayoutUnit(textBox->logicalTop()), cache);
-        LayoutUnit rightOffset = formattingContextRoot->logicalRightSelectionOffset(formattingContextRoot, LayoutUnit(textBox->logicalTop()), cache);
+        LayoutUnit leftOffset = formattingContextRoot->logicalLeftOffsetForLine(LayoutUnit(textBox->logicalTop()));
+        LayoutUnit rightOffset = formattingContextRoot->logicalRightOffsetForLine(LayoutUnit(textBox->logicalTop()));
         LayoutRect extentsRect = rect;
         if (textBox->isHorizontal()) {
             extentsRect.setX(leftOffset);
@@ -744,7 +743,7 @@ static Vector<FloatQuad> collectAbsoluteQuads(const RenderText& textRenderer, bo
     Vector<FloatQuad> quads;
     for (auto& textBox : InlineIterator::textBoxesFor(textRenderer)) {
         auto* svgTextBox = dynamicDowncast<InlineIterator::SVGTextBox>(textBox);
-        auto boundaries = svgTextBox ? svgTextBox->calculateBoundariesIncludingSVGTransform() : textBox.blockStartRelativePhysicalRect();
+        auto boundaries = svgTextBox ? svgTextBox->localBoundariesIncludingSVGTransform() : textBox.blockStartRelativePhysicalRect();
 
         // Shorten the width of this text box if it ends in an ellipsis.
         if (clipping == ClippingOption::ClipToEllipsis) {
@@ -803,9 +802,9 @@ static Vector<LayoutRect> characterRects(const InlineIterator::TextBox& run, uns
         });
     }
 
-    auto lineRect = run.lineBox().contentLogicalRectAdjustedForAdjacentLineBoxes();
+    auto lineRect = run.lineBox().contentAreaLogicalRectAdjustedForAdjacentLineBoxes();
     auto selectionRect = LayoutRect { run.logicalLeftIgnoringInlineDirection(), lineRect.y(), run.logicalWidth(), lineRect.height() };
-    return run.fontCascade().characterSelectionRectsForText(run.textRun(), selectionRect, clampedStart, clampedEnd).map([&](auto& characterRect) {
+    return protect(run.fontCascade())->characterSelectionRectsForText(run.textRun(), selectionRect, clampedStart, clampedEnd).map([&](auto& characterRect) {
         return snappedSelectionRect(characterRect, run.logicalRightIgnoringInlineDirection(), run.writingMode());
     });
 }
@@ -866,7 +865,7 @@ Vector<FloatQuad> RenderText::absoluteQuadsForRange(unsigned start, unsigned end
 
         if (start <= textBox.start() && textBox.end() <= end) {
             auto* svgTextBox = dynamicDowncast<InlineIterator::SVGTextBox>(textBox);
-            auto boundaries = svgTextBox ? svgTextBox->calculateBoundariesIncludingSVGTransform() : textBox.blockStartRelativePhysicalRect();
+            auto boundaries = svgTextBox ? svgTextBox->localBoundariesIncludingSVGTransform() : textBox.blockStartRelativePhysicalRect();
 
             if (useSelectionHeight) {
                 LayoutRect selectionRect = selectionRectForTextBox(textBox, start, end);
@@ -946,7 +945,7 @@ static PositionWithAffinity createPositionWithAffinityForBox(const InlineIterato
         affinity = offset > run->minimumCaretOffset() ? Affinity::Upstream : Affinity::Downstream;
         break;
     }
-    return run->renderer().createPositionWithAffinity(offset, affinity);
+    return protect(run->renderer())->createPositionWithAffinity(offset, affinity);
 }
 
 static PositionWithAffinity createPositionWithAffinityAfterAdjustingOffsetForBiDi(const InlineIterator::TextBoxIterator& run, unsigned offset, ShouldAffinityBeDownstream shouldAffinityBeDownstream)
@@ -1147,7 +1146,7 @@ void RenderText::setSelectionState(HighlightState state)
     RenderObject::setSelectionState(state);
 
     // The containing block can be null in case of an orphaned tree.
-    RenderBoxModelObject* containingBlock = this->containingBlock();
+    CheckedPtr<RenderBoxModelObject> containingBlock = this->containingBlock();
     if (containingBlock && !containingBlock->isRenderView())
         containingBlock->setSelectionState(state);
 }
@@ -1487,7 +1486,7 @@ String RenderText::textWithoutConvertingBackslashToYenSymbol() const
     if (style().textTransform().isNone())
         return originalText();
 
-    return applyTextTransform(style(), originalText(), previousCharacter());
+    return applyTextTransform(protect(style()), originalText(), previousCharacter());
 }
 
 IntRect RenderText::linesBoundingBox() const

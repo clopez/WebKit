@@ -393,23 +393,46 @@ static std::optional<GstVideoFormat> gstVideoFormatForPlanarYUV(VideoPixelFormat
     switch (format) {
     case VideoPixelFormat::I420:
         return GST_VIDEO_FORMAT_I420;
+    case VideoPixelFormat::I422:
+        return GST_VIDEO_FORMAT_Y42B;
+    case VideoPixelFormat::I444:
+        return GST_VIDEO_FORMAT_Y444;
+#if G_BYTE_ORDER == G_LITTLE_ENDIAN
     case VideoPixelFormat::I420P10:
         return GST_VIDEO_FORMAT_I420_10LE;
     case VideoPixelFormat::I420P12:
         return GST_VIDEO_FORMAT_I420_12LE;
-    case VideoPixelFormat::I422:
-        return GST_VIDEO_FORMAT_Y42B;
     case VideoPixelFormat::I422P10:
         return GST_VIDEO_FORMAT_I422_10LE;
     case VideoPixelFormat::I422P12:
         return GST_VIDEO_FORMAT_I422_12LE;
-    case VideoPixelFormat::I444:
-        return GST_VIDEO_FORMAT_Y444;
     case VideoPixelFormat::I444P10:
         return GST_VIDEO_FORMAT_Y444_10LE;
     case VideoPixelFormat::I444P12:
         return GST_VIDEO_FORMAT_Y444_12LE;
+#else
+    case VideoPixelFormat::I420P10:
+        return GST_VIDEO_FORMAT_I420_10BE;
+    case VideoPixelFormat::I420P12:
+        return GST_VIDEO_FORMAT_I420_12BE;
+    case VideoPixelFormat::I422P10:
+        return GST_VIDEO_FORMAT_I422_10BE;
+    case VideoPixelFormat::I422P12:
+        return GST_VIDEO_FORMAT_I422_12BE;
+    case VideoPixelFormat::I444P10:
+        return GST_VIDEO_FORMAT_Y444_10BE;
+    case VideoPixelFormat::I444P12:
+        return GST_VIDEO_FORMAT_Y444_12BE;
+#endif
     case VideoPixelFormat::I420A:
+    case VideoPixelFormat::I420AP10:
+    case VideoPixelFormat::I420AP12:
+    case VideoPixelFormat::I422A:
+    case VideoPixelFormat::I422AP10:
+    case VideoPixelFormat::I422AP12:
+    case VideoPixelFormat::I444A:
+    case VideoPixelFormat::I444AP10:
+    case VideoPixelFormat::I444AP12:
     case VideoPixelFormat::NV12:
     case VideoPixelFormat::RGBA:
     case VideoPixelFormat::RGBX:
@@ -421,12 +444,12 @@ static std::optional<GstVideoFormat> gstVideoFormatForPlanarYUV(VideoPixelFormat
     return { };
 }
 
-RefPtr<VideoFrame> VideoFrame::createPlanarYUV(VideoPixelFormat format, std::span<const uint8_t> span, size_t width, size_t height, std::span<const ComputedPlaneLayout, 3> layouts, Init&& init)
+RefPtr<VideoFrame> VideoFrame::createPlanarYUV(VideoPixelFormat format, std::span<const uint8_t> span, size_t width, size_t height, std::span<const ComputedPlaneLayout> layouts, Init&& init)
 {
     ensureVideoFrameDebugCategoryInitialized();
     auto layout = planarYUVFormatLayout(format);
     auto gstFormat = gstVideoFormatForPlanarYUV(format);
-    if (!layout || !gstFormat || !width || !height)
+    if (!layout || !gstFormat || !width || !height || layouts.size() != 3)
         return nullptr;
     GST_TRACE("Creating VideoFrame from %s raw buffer", gst_video_format_to_string(*gstFormat));
 

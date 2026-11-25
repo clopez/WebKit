@@ -22,6 +22,7 @@
 #include "config.h"
 #include "StyleRuleImport.h"
 
+#include "CSSStyleResource.h"
 #include "CSSStyleSheet.h"
 #include "CachedCSSStyleSheet.h"
 #include "CachedResourceRequest.h"
@@ -29,6 +30,7 @@
 #include "DocumentPage.h"
 #include "DocumentResourceLoader.h"
 #include "MediaList.h"
+#include "NodeInlines.h"
 #include "SecurityOrigin.h"
 #include "StyleSheetContents.h"
 #include <wtf/StdLibExtras.h>
@@ -76,8 +78,11 @@ void StyleRuleImport::setCSSStyleSheet(const String& href, const URL& baseURL, A
 
     CSSParserContext context = m_parentStyleSheet ? m_parentStyleSheet->parserContext() : HTMLStandardMode;
     context.charset = charset;
-    if (!baseURL.isNull())
+    if (!baseURL.isNull()) {
         context.baseURL = baseURL;
+        context.isExternalStyleSheet = true;
+        context.referrerPolicy = cachedStyleSheet.referrerPolicy();
+    }
 
     CheckedPtr<Document> document = m_parentStyleSheet ? m_parentStyleSheet->singleOwnerDocument() : nullptr;
     m_styleSheet = StyleSheetContents::create(this, href, context);
@@ -132,10 +137,6 @@ void StyleRuleImport::requestStyleSheet()
         rootSheet = sheet;
     }
 
-    // FIXME: Skip Content Security Policy check when stylesheet is in a user agent shadow tree.
-    // See <https://bugs.webkit.org/show_bug.cgi?id=146663>.
-    CachedResourceRequest request(WTF::move(absURL), CachedResourceLoader::defaultCachedResourceOptions(), std::nullopt, String(m_parentStyleSheet->charset()));
-    request.setInitiatorType(cachedResourceRequestInitiatorTypes().css);
     if (m_cachedSheet)
         protect(m_cachedSheet)->removeClient(protect(m_styleSheetClient));
     if (m_parentStyleSheet->isUserStyleSheet()) {
@@ -155,16 +156,14 @@ void StyleRuleImport::requestStyleSheet()
         };
         options.loadedFromOpaqueSource = m_parentStyleSheet->loadedFromOpaqueSource();
 
-        request.setOptions(WTF::move(options));
-
+        CachedResourceRequest request(WTF::move(absURL), options, std::nullopt, String(m_parentStyleSheet->charset()));
+        request.setInitiatorType(cachedResourceRequestInitiatorTypes().css);
         m_cachedSheet = protect(document->cachedResourceLoader())->requestUserCSSStyleSheet(*page, WTF::move(request));
     } else {
-        auto options = request.options();
-        CSS::applyModifiersToLoaderOptions(m_url.modifiers, options);
-        options.loadedFromOpaqueSource = m_parentStyleSheet->loadedFromOpaqueSource();
-        request.setOptions(WTF::move(options));
-        if (request.options().mode == FetchOptions::Mode::Cors)
-            request.updateForAccessControl(*document);
+        RefPtr ownerNode = rootSheet->singleOwnerNode();
+        auto options = CSS::styleResourceLoaderOptions(ownerNode && ownerNode->isInUserAgentShadowTree());
+        auto request = CSS::createStyleResourceRequest(*document, absURL, m_url.modifiers, m_parentStyleSheet->parserContext().provenance(), FetchOptions::Mode::NoCors, options);
+        request.setCharset(m_parentStyleSheet->charset());
         if (auto result = protect(document->cachedResourceLoader())->requestCSSStyleSheet(WTF::move(request)))
             m_cachedSheet = WTF::move(result.value());
         else

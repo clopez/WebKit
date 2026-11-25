@@ -31,6 +31,7 @@
 #include "SharedFont.h"
 #include <WebCore/Filter.h>
 #include <WebCore/FontCustomPlatformData.h>
+#include <WebCore/FreeformGradient.h>
 #include <WebCore/Gradient.h>
 #include <WebCore/ImageBuffer.h>
 #include <WebCore/MeshGradient.h>
@@ -73,19 +74,34 @@ RefPtr<PathImpl> RemoteResourceCache::cachedPathImpl(RemotePathImplIdentifier id
     return m_paths.get(identifier);
 }
 
-bool RemoteResourceCache::cacheGradient(RemoteGradientIdentifier identifier, Ref<const Gradient>&& gradient)
+bool RemoteResourceCache::cacheGradient(GradientIdentifier identifier, Ref<const Gradient>&& gradient)
 {
     return m_gradients.add(identifier, WTF::move(gradient)).isNewEntry;
 }
 
-bool RemoteResourceCache::releaseGradient(RemoteGradientIdentifier identifier)
+bool RemoteResourceCache::releaseGradient(GradientIdentifier identifier)
 {
     return m_gradients.remove(identifier);
 }
 
-RefPtr<const Gradient> RemoteResourceCache::cachedGradient(RemoteGradientIdentifier identifier) const
+RefPtr<const Gradient> RemoteResourceCache::cachedGradient(GradientIdentifier identifier) const
 {
     return m_gradients.get(identifier);
+}
+
+bool RemoteResourceCache::cacheFreeformGradient(RemoteFreeformGradientIdentifier identifier, Ref<FreeformGradient>&& gradient)
+{
+    return m_freeformGradients.add(identifier, WTF::move(gradient)).isNewEntry;
+}
+
+bool RemoteResourceCache::releaseFreeformGradient(RemoteFreeformGradientIdentifier identifier)
+{
+    return m_freeformGradients.remove(identifier);
+}
+
+RefPtr<FreeformGradient> RemoteResourceCache::cachedFreeformGradient(RemoteFreeformGradientIdentifier identifier) const
+{
+    return m_freeformGradients.get(identifier);
 }
 
 bool RemoteResourceCache::cacheMeshGradient(RemoteMeshGradientIdentifier identifier, Ref<MeshGradient>&& gradient)
@@ -176,6 +192,7 @@ void RemoteResourceCache::releaseAllResources()
 void RemoteResourceCache::releaseMemory()
 {
     m_gradients.clear();
+    m_freeformGradients.clear();
     m_meshGradients.clear();
     m_filters.clear();
     m_fonts.clear();

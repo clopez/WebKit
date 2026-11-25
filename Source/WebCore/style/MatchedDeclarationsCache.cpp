@@ -44,8 +44,7 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/StringHash.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(MatchedDeclarationsCache);
 
@@ -110,6 +109,10 @@ bool MatchedDeclarationsCache::isCacheable(const Element& element, const Style::
         return false;
 
     if (element.hasRandomCachingKeyMap())
+        return false;
+
+    // AccentColor CSS keyword keyword in the child resolves differently depending on the accent color of the parent.
+    if (!parentStyle.accentColor().isAuto())
         return false;
 
     // FIXME: counter-style: we might need to resolve cache like for fontSelector here (rdar://103018993).
@@ -256,5 +259,4 @@ void MatchedDeclarationsCache::sweep()
     m_additionsSinceLastSweep = 0;
 }
 
-}
 }

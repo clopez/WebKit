@@ -233,6 +233,7 @@ list(APPEND WebKit_PUBLIC_FRAMEWORK_HEADERS
 )
 
 list(APPEND WebKit_PRIVATE_FRAMEWORK_HEADERS
+    Platform/cocoa/CocoaObjectForKeyHelpers.h
     Platform/cocoa/WKCrashReporter.h
 
     Platform/unix/EnvironmentUtilities.h
@@ -556,6 +557,7 @@ set(WebKit_PROJECT_HEADERS
     UIProcess/DigitalCredentials/WKDigitalCredentialsPicker.h
 
     WebKitSwift/CredentialUpdaterShim.h
+    WebKitSwift/WKPhoneNumberPossessionPlatformManaging.h
     WebKitSwift/WebKitSwift.h
 
     WebKitSwift/AVKit/WKSExperienceController.h

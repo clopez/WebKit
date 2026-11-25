@@ -25,6 +25,10 @@
 
 #pragma once
 
+#if !__has_feature(objc_arc)
+#error This header requires ARC. Include it only from files compiled with -fobjc-arc.
+#endif
+
 #import "CommandsMixin.h"
 #import "RenderBundle.h"
 #import <WebGPU/WebGPUCpp.h>
@@ -117,6 +121,7 @@ public:
     void setVertexBuffer(uint32_t slot, WebGPU::Buffer*, uint64_t offset, std::optional<uint64_t> size) final;
     void setBindGroup(uint32_t groupIndex, const WebGPU::BindGroup*, std::optional<std::span<const uint32_t>> dynamicOffsets) final;
     void makeInvalid(NSString* = nil);
+    void makeInvalid(String&& error) final;
     void setLabel(String&&) final;
 
     NODELETE bool isValid() const final;

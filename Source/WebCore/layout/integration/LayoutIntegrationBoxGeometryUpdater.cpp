@@ -70,8 +70,7 @@
 #include "RenderViewTransitionCapture.h"
 #include "StylePrimitiveNumericTypes+EvaluationMinimum.h"
 
-namespace WebCore {
-namespace LayoutIntegration {
+namespace WebCore::LayoutIntegration {
 
 static inline void adjustBorderForTable(const RenderBoxModelObject& renderer, RectEdges<LayoutUnit>& borderWidths)
 {
@@ -627,7 +626,7 @@ void BoxGeometryUpdater::setFormattingContextContentGeometry(std::optional<Layou
 
     if (rootLayoutBox().establishesInlineFormattingContext()) {
         for (auto walker = InlineWalker(downcast<RenderBlockFlow>(rootRenderer())); !walker.atEnd(); walker.advance()) {
-            if (walker.current()->isExcludedMarker() || is<RenderText>(walker.current()))
+            if (walker.current()->isOutsideListMarker() || is<RenderText>(walker.current()))
                 continue;
             updateBoxGeometry(protect(downcast<RenderElement>(*walker.current())), availableLogicalWidth, intrinsicWidthMode);
         }
@@ -799,5 +798,3 @@ inline WritingMode BoxGeometryUpdater::writingMode() const
 }
 
 }
-}
-

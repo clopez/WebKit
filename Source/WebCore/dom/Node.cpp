@@ -2331,6 +2331,8 @@ static bool shouldClearNullCustomElementRegistryOnAdoption(const Node& node, Doc
         return false;
     if (!is<Element>(node))
         return true;
+    if (downcast<Element>(node).keepsCustomElementRegistryNull())
+        return false;
     RefPtr parent = node.parentNode();
     if (!parent || (parent->isDocumentFragment() && !parent->isShadowRoot()))
         return true;
@@ -2440,7 +2442,7 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
     if (hasEventTargetData()) {
         unsigned numWheelEventHandlers = 0;
         unsigned numTouchEventListeners = 0;
-#if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
+#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
         unsigned numGestureEventListeners = 0;
 #endif
 
@@ -2467,7 +2469,7 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
                 numWheelEventHandlers += count;
             else if (typeInfo.isInCategory(touchEventCategory))
                 numTouchEventListeners += count;
-#if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
+#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
             else if (typeInfo.isInCategory(EventCategory::Gesture))
                 numGestureEventListeners += count;
 #endif
@@ -2486,6 +2488,20 @@ void Node::moveNodeToNewDocumentSlowCase(Document& oldDocument, Document& newDoc
             newDocument.addTouchEventListener(*this);
 #endif
         }
+
+#if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
+        // Match tryAddEventListener(), which tracks gesture listeners in touchEventTargets.
+        if (numGestureEventListeners) {
+            bool oldDocumentUsesTouchEventRegions = oldDocument.shouldUseTouchEventRegions();
+            bool newDocumentUsesTouchEventRegions = newDocument.shouldUseTouchEventRegions();
+            for (unsigned i = 0; i < numGestureEventListeners; ++i) {
+                if (oldDocumentUsesTouchEventRegions)
+                    oldDocument.didRemoveTouchEventHandler(*this);
+                if (newDocumentUsesTouchEventRegions)
+                    newDocument.didAddTouchEventHandler(*this);
+            }
+        }
+#endif
 
 #if ENABLE(TOUCH_EVENTS) && ENABLE(IOS_GESTURE_EVENTS)
         for (unsigned i = 0; i < numGestureEventListeners; ++i) {
@@ -2791,7 +2807,7 @@ void Node::dispatchSubtreeModifiedEvent()
 
 void Node::dispatchDOMActivateEvent(Event& underlyingClickEvent)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    RELEASE_ASSERT(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     auto* uiEvent = dynamicDowncast<UIEvent>(underlyingClickEvent);
     int detail = uiEvent ? uiEvent->detail() : 0;
     Ref event = UIEvent::create(eventNames().DOMActivateEvent, Event::CanBubble::Yes, Event::IsCancelable::Yes, Event::IsComposed::Yes, document().windowProxy(), detail);
@@ -3117,10 +3133,14 @@ template<TreeType treeType> NODELETE size_t depth(const Node& node)
     return depth;
 }
 
+// AncestorAndChildren is a short-lived return value of NODELETE functions and is never stored, so nodes
+// cannot be destroyed while it is alive. Using smart pointers here would regress treeOrder(), which is hot.
 struct AncestorAndChildren {
-    const Node* commonAncestor;
-    const Node* distinctAncestorA;
-    const Node* distinctAncestorB;
+    WTF_FORBID_HEAP_ALLOCATION;
+public:
+    SUPPRESS_UNCHECKED_MEMBER SUPPRESS_UNCOUNTED_MEMBER const Node* commonAncestor;
+    SUPPRESS_UNCHECKED_MEMBER SUPPRESS_UNCOUNTED_MEMBER const Node* distinctAncestorA;
+    SUPPRESS_UNCHECKED_MEMBER SUPPRESS_UNCOUNTED_MEMBER const Node* distinctAncestorB;
 };
 
 template<TreeType treeType> NODELETE AncestorAndChildren commonInclusiveAncestorAndChildren(const Node& a, const Node& b)

@@ -281,7 +281,7 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
             message = makeString("WebSocket port "_s, m_url.port().value(), " blocked"_s);
         else
             message = "WebSocket without port blocked"_s;
-        context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, message);
+        context->addConsoleMessage(MessageSource::Security, MessageLevel::Error, message);
         failAsynchronously();
         return { };
     }
@@ -297,12 +297,6 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
         // FIXME: Should this be throwing an exception?
         return Exception { ExceptionCode::SecurityError };
     }
-
-    if (RefPtr provider = context->socketProvider())
-        m_channel = ThreadableWebSocketChannel::create(context.get(), *this, *provider);
-
-    // Every ScriptExecutionContext should have a SocketProvider.
-    RELEASE_ASSERT(m_channel);
 
     // FIXME: There is a disagreement about restriction of subprotocols between WebSocket API and hybi-10 protocol
     // draft. The former simply says "only characters in the range U+0021 to U+007E are allowed," while the latter
@@ -326,6 +320,15 @@ ExceptionOr<void> WebSocket::connect(const String& url, const Vector<String>& pr
             return Exception { ExceptionCode::SyntaxError };
         }
     }
+
+    if (isContextStopped())
+        return { };
+
+    if (RefPtr provider = context->socketProvider())
+        m_channel = ThreadableWebSocketChannel::create(context.get(), *this, *provider);
+
+    // Every ScriptExecutionContext should have a SocketProvider.
+    RELEASE_ASSERT(m_channel);
 
     RunLoop::mainSingleton().dispatch([targetURL = m_url.isolatedCopy(), mainFrameURL = context->url().isolatedCopy()]() {
         ResourceLoadObserver::singleton().logWebSocketLoading(targetURL, mainFrameURL);
@@ -371,7 +374,7 @@ ExceptionOr<void> WebSocket::send(const String& message)
     LOG_WITH_STREAM(Network, stream << "WebSocket "_s << this << " send() Sending String '"_s << message << "'"_s);
     if (m_state == CONNECTING)
         return Exception { ExceptionCode::InvalidStateError };
-    auto utf8 = message.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
+    auto utf8 = message.utf8();
     // No exception is raised if the connection was once established but has subsequently been closed.
     if (m_state == CLOSING || m_state == CLOSED) {
         size_t payloadSize = utf8.length();
@@ -451,8 +454,7 @@ ExceptionOr<void> WebSocket::close(std::optional<unsigned short> optionalCode, c
         LOG_WITH_STREAM(Network, stream << "WebSocket "_s << this << " close() code="_s << code << " reason='"_s << reason << "'"_s);
         if (!(code == ThreadableWebSocketChannel::CloseEventCodeNormalClosure || (ThreadableWebSocketChannel::CloseEventCodeMinimumUserDefined <= code && code <= ThreadableWebSocketChannel::CloseEventCodeMaximumUserDefined)))
             return Exception { ExceptionCode::InvalidAccessError };
-        auto utf8 = reason.utf8(StrictConversionReplacingUnpairedSurrogatesWithFFFD);
-        if (utf8.length() > maxReasonSizeInBytes) {
+        if (utf8Length(reason) > maxReasonSizeInBytes) {
             protect(scriptExecutionContext())->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "WebSocket close message is too long."_s);
             return Exception { ExceptionCode::SyntaxError };
         }

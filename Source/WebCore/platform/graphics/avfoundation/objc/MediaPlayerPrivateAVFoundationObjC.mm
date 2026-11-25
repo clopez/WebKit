@@ -102,7 +102,6 @@
 #import <pal/avfoundation/OutputContext.h>
 #import <pal/spi/cocoa/AVFoundationSPI.h>
 #import <pal/spi/cocoa/QuartzCoreSPI.h>
-#import <pal/text/TextCodecUTF8.h>
 #import <wtf/BlockObjCExceptions.h>
 #import <wtf/BlockPtr.h>
 #import <wtf/CompletionHandler.h>
@@ -2221,7 +2220,7 @@ bool MediaPlayerPrivateAVFoundationObjC::shouldWaitForLoadingOfResource(AVAssetR
 #if ENABLE(LEGACY_ENCRYPTED_MEDIA)
     if (scheme == "clearkey"_s) {
         String keyID = [[[avRequest request] URL] resourceSpecifier];
-        auto encodedKeyId = PAL::TextCodecUTF8::encodeUTF8(keyID);
+        auto encodedKeyId = utf8Bytes(keyID);
         auto initData = SharedBuffer::create(WTF::move(encodedKeyId));
 
         auto keyData = player->cachedKeyForKeyId(keyID);
@@ -4634,7 +4633,7 @@ NSArray* playerKVOPropertiesSingleton()
 
 - (void)metadataOutput:(AVPlayerItemMetadataOutput *)output didOutputTimedMetadataGroups:(NSArray<AVTimedMetadataGroup *> *)metadataGroups fromPlayerItemTrack:(AVPlayerItemTrack *)track
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     UNUSED_PARAM(output);
     UNUSED_PARAM(track);
 
@@ -4653,7 +4652,7 @@ NSArray* playerKVOPropertiesSingleton()
 
 - (void)metadataCollector:(AVPlayerItemMetadataCollector *)metadataCollector didCollectDateRangeMetadataGroups:(NSArray<AVDateRangeMetadataGroup *> *)metadataGroups indexesOfNewGroups:(NSIndexSet *)indexesOfNewGroups indexesOfModifiedGroups:(NSIndexSet *)indexesOfModifiedGroups
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     UNUSED_PARAM(metadataCollector);
     UNUSED_PARAM(indexesOfNewGroups);
     UNUSED_PARAM(indexesOfModifiedGroups);

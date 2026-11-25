@@ -172,6 +172,18 @@ ExceptionOr<void> WebCodecsVideoDecoder::configure(ScriptExecutionContext& conte
     setState(WebCodecsCodecState::Configured);
     m_isKeyChunkRequired = true;
 
+    queueControlMessageAndProcess({ *this, [this, protectedThis = Ref { *this }] mutable {
+        RefPtr internalDecoder = m_internalDecoder;
+        if (!internalDecoder)
+            return WebCodecsControlMessageOutcome::Processed;
+        blockControlMessageQueue();
+        protect(scriptExecutionContext())->enqueueTaskWhenSettled(internalDecoder->flush(), TaskSource::MediaElement, [weakThis = ThreadSafeWeakPtr { *this }](auto&&) {
+            if (RefPtr protectedThis = weakThis)
+                protectedThis->unblockControlMessageQueue();
+        });
+        return WebCodecsControlMessageOutcome::Processed;
+    } });
+
     bool isSupportedCodec = isSupportedDecoderCodec(config.codec, context.settingsValues());
     queueControlMessageAndProcess({ *this, [this, protectedThis = Ref { *this }, codec = config.codec, config = createVideoDecoderConfig(config), isSupportedCodec]() mutable {
         auto rotation = config.rotation;
@@ -204,8 +216,9 @@ ExceptionOr<void> WebCodecsVideoDecoder::configure(ScriptExecutionContext& conte
                 // Decoders should create frames with the orientation of the configuration, we override for decoders that do not know about orientation.
                 frame = frame->updateOrientation(rotation, isMirrored, VideoFrame::ShouldClone::No);
                 auto presentationSize = frame->presentationSize();
+                Ref context = *decoder.scriptExecutionContext();
                 WebCodecsVideoFrame::BufferInit init {
-                    .format = convertVideoFramePixelFormat(frame->pixelFormat()),
+                    .format = WebCodecsVideoFrame::videoPixelFormatForContext(context, frame),
                     .codedWidth = static_cast<size_t>(presentationSize.width()),
                     .codedHeight = static_cast<size_t>(presentationSize.height()),
                     .timestamp = decodedResult.timestamp,
@@ -215,7 +228,7 @@ ExceptionOr<void> WebCodecsVideoDecoder::configure(ScriptExecutionContext& conte
                     .colorSpace = frame->colorSpace()
                 };
 
-                auto videoFrame = WebCodecsVideoFrame::create(protect(*decoder.scriptExecutionContext()), WTF::move(frame), WTF::move(init));
+                auto videoFrame = WebCodecsVideoFrame::create(context, WTF::move(frame), WTF::move(init));
                 decoder.m_output->invoke(WTF::move(videoFrame));
             });
         });
@@ -337,6 +350,7 @@ ExceptionOr<void> WebCodecsVideoDecoder::resetDecoder(const Exception& exception
         return Exception { ExceptionCode::InvalidStateError, "VideoDecoder is closed"_s };
 
     setState(WebCodecsCodecState::Unconfigured);
+    ++m_decoderCount;
     if (RefPtr internalDecoder = std::exchange(m_internalDecoder, { }))
         internalDecoder->reset();
     clearControlMessageQueueAndMaybeScheduleDequeueEvent();

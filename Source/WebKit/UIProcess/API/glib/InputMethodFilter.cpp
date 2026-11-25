@@ -92,8 +92,14 @@ void InputMethodFilter::setContext(WebKitInputMethodContext* context)
 void InputMethodFilter::setState(std::optional<InputMethodState>&& state)
 {
     bool focusChanged = state.has_value() != m_state.has_value();
-    if (focusChanged && !state)
-        notifyFocusedOut();
+    if (focusChanged && !state) {
+        // The input method context already got a focus out when the view lost the focus,
+        // or it never got a focus in.
+        if (isViewFocused())
+            notifyFocusedOut();
+        else
+            resetForFocusOut();
+    }
 
     m_state = WTF::move(state);
     notifyContentType();
@@ -241,10 +247,18 @@ void InputMethodFilter::notifyFocusedOut()
     if (!isEnabled() || !m_context)
         return;
 
+    resetForFocusOut();
+    webkit_input_method_context_notify_focus_out(m_context.get());
+}
+
+void InputMethodFilter::resetForFocusOut()
+{
+    if (!m_context)
+        return;
+
     cancelComposition();
     m_cursorRect = { };
     m_surrounding = { };
-    webkit_input_method_context_notify_focus_out(m_context.get());
 }
 
 void InputMethodFilter::notifyCursorRect(const IntRect& cursorRect)
@@ -277,10 +291,10 @@ void InputMethodFilter::notifySurrounding(const String& text, uint64_t cursorPos
     m_surrounding.selectionPosition = selectionPosition;
 
     auto textUTF8 = m_surrounding.text.utf8();
-    auto cursorPositionUTF8 = cursorPosition != text.length() ? StringView(text).left(cursorPosition).utf8().length() : textUTF8.length();
+    auto cursorPositionUTF8 = cursorPosition != text.length() ? utf8Length(StringView(text).left(cursorPosition)) : textUTF8.length();
     auto selectionPositionUTF8 = cursorPositionUTF8;
     if (cursorPosition != selectionPosition)
-        selectionPositionUTF8 = selectionPosition != text.length() ? StringView(text).left(selectionPosition).utf8().length() : textUTF8.length();
+        selectionPositionUTF8 = selectionPosition != text.length() ? utf8Length(StringView(text).left(selectionPosition)) : textUTF8.length();
     auto textCharacters = byteCast<char>(textUTF8.span());
     webkit_input_method_context_notify_surrounding(m_context.get(), textCharacters.data(), textCharacters.size(), cursorPositionUTF8, selectionPositionUTF8);
 }

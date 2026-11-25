@@ -66,8 +66,7 @@
 #include <ranges>
 #include <wtf/SetForScope.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 static const StyleProperties& leftToRightDeclarationSingleton()
 {
@@ -210,8 +209,7 @@ void ElementRuleCollector::collectMatchingRules(DeclarationOrigin origin)
         return;
     }
 
-    auto* parent = element().parentElement();
-    if (parent && parent->shadowRoot()) {
+    if (element().parentElement() && element().parentElement()->shadowRoot()) {
         matchSlottedPseudoElementRules(origin);
         if (isFirstMatchModeAndHasMatchedAnyRules())
             return;
@@ -239,8 +237,7 @@ void ElementRuleCollector::collectMatchingRules(const MatchRequest& matchRequest
     ASSERT_WITH_MESSAGE(!(m_mode == SelectorChecker::Mode::StyleInvalidation && m_pseudoElementRequest), "When in StyleInvalidation or SharingRules, SelectorChecker does not try to match the pseudo ID. While ElementRuleCollector supports matching a particular pseudoId in this case, this would indicate a error at the call site since matching a particular element should be unnecessary.");
 
     auto& element = this->element();
-    auto* shadowRoot = element.containingShadowRoot();
-    if (shadowRoot && shadowRoot->mode() == ShadowRootMode::UserAgent)
+    if (element.isInUserAgentShadowTree())
         collectMatchingUserAgentPartRules(matchRequest);
 
     bool isHTMLElement = element.isHTMLElement();
@@ -453,7 +450,7 @@ void ElementRuleCollector::matchSlottedPseudoElementRules(DeclarationOrigin orig
     auto* slot = element().assignedSlot();
     auto styleScopeOrdinal = ScopeOrdinal::FirstSlot;
 
-    for (; slot; slot = slot->assignedSlot(), ++styleScopeOrdinal) {
+    for (; slot && styleScopeOrdinal < ScopeOrdinal::SlotLimit; slot = slot->assignedSlot(), ++styleScopeOrdinal) {
         auto& styleScope = Scope::forNode(*slot);
         if (!styleScope.resolver().ruleSets().isAuthorStyleDefined())
             continue;
@@ -464,9 +461,6 @@ void ElementRuleCollector::matchSlottedPseudoElementRules(DeclarationOrigin orig
 
         MatchRequest scopeMatchRequest(*scopeRules, styleScopeOrdinal);
         collectMatchingRulesForList(&scopeRules->slottedPseudoElementRules(), scopeMatchRequest);
-
-        if (styleScopeOrdinal == ScopeOrdinal::SlotLimit)
-            break;
     }
 }
 
@@ -490,7 +484,7 @@ void ElementRuleCollector::matchPartPseudoElementRulesForScope(const Element& pa
     auto* element = &partMatchingElement;
     auto styleScopeOrdinal = ScopeOrdinal::Element;
 
-    for (; element; element = element->shadowHost(), --styleScopeOrdinal) {
+    for (; element && styleScopeOrdinal > ScopeOrdinal::ContainingHostLimit; element = element->shadowHost(), --styleScopeOrdinal) {
         auto& styleScope = Scope::forNode(const_cast<Element&>(*element));
         if (!styleScope.resolver().ruleSets().isAuthorStyleDefined())
             continue;
@@ -507,27 +501,23 @@ void ElementRuleCollector::matchPartPseudoElementRulesForScope(const Element& pa
         // Element may only be exposed to styling from enclosing scopes via exportparts attributes.
         if (element != &partMatchingElement && element->shadowRoot()->partMappings().isEmpty())
             break;
-
-        if (styleScopeOrdinal == ScopeOrdinal::ContainingHostLimit)
-            break;
     }
 }
 
 void ElementRuleCollector::matchSlottedPseudoElementRulesInUserAgentShadowTree(DeclarationOrigin origin)
 {
     ASSERT(element().isInShadowTree());
-    auto* shadowRoot = element().containingShadowRoot();
-    if (!shadowRoot || shadowRoot->mode() != ShadowRootMode::UserAgent)
+    if (!element().isInUserAgentShadowTree())
         return;
 
-    auto* host = shadowRoot->host();
+    auto* host = element().containingShadowRoot()->host();
     if (!host)
         return;
 
     auto* slot = host->assignedSlot();
     auto styleScopeOrdinal = ScopeOrdinal::FirstSlot;
 
-    for (; slot; slot = slot->assignedSlot(), ++styleScopeOrdinal) {
+    for (; slot && styleScopeOrdinal < ScopeOrdinal::SlotLimit; slot = slot->assignedSlot(), ++styleScopeOrdinal) {
         auto& styleScope = Scope::forNode(*slot);
         if (!styleScope.resolver().ruleSets().isAuthorStyleDefined())
             continue;
@@ -538,9 +528,6 @@ void ElementRuleCollector::matchSlottedPseudoElementRulesInUserAgentShadowTree(D
 
         MatchRequest scopeMatchRequest(*scopeRules, styleScopeOrdinal);
         collectMatchingRulesForList(&scopeRules->slottedPseudoElementRules(), scopeMatchRequest);
-
-        if (styleScopeOrdinal == ScopeOrdinal::SlotLimit)
-            break;
     }
 }
 
@@ -581,13 +568,12 @@ void ElementRuleCollector::matchQuirkRules()
 void ElementRuleCollector::matchUARules()
 {
     // First we match rules from the user agent sheet.
-    auto* userAgentStyleSheet = m_isPrintStyle
-        ? UserAgentStyle::defaultPrintStyle : UserAgentStyle::defaultStyle;
-    matchUARules(*userAgentStyleSheet);
+    auto& userAgentSheets = UserAgentStyle::sheets();
+    matchUARules(m_isPrintStyle ? *userAgentSheets.defaultPrintStyle : *userAgentSheets.defaultStyle);
 
     // In quirks mode, we match rules from the quirks user agent sheet.
     if (element().document().inQuirksMode())
-        matchUARules(*UserAgentStyle::defaultQuirksStyle);
+        matchUARules(*userAgentSheets.defaultQuirksStyle);
 
     if (m_userAgentMediaQueryStyle)
         matchUARules(*m_userAgentMediaQueryStyle);
@@ -1100,5 +1086,4 @@ void ElementRuleCollector::addAuthorKeyframeRules(const StyleRuleKeyframe& keyfr
     m_result->authorDeclarations.append({ keyframe.properties(), SelectorChecker::MatchAll, propertyAllowlist });
 }
 
-}
-} // namespace WebCore
+} // namespace WebCore::Style

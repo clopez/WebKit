@@ -23,11 +23,11 @@
 #pragma once
 
 #include "RenderBlockFlow.h"
-#include "RenderListOutsideMarker.h"
 
 namespace WebCore {
 
 class HTMLOListElement;
+class RenderImage;
 
 enum class ListMarkerIncludeSuffix : bool { No, Yes };
 
@@ -56,6 +56,7 @@ public:
     void updateValue();
 
     WEBCORE_EXPORT String markerText(ListMarkerIncludeSuffix = ListMarkerIncludeSuffix::Yes) const;
+    static String markerText(const RenderObject& marker, ListMarkerIncludeSuffix = ListMarkerIncludeSuffix::Yes);
 
     Vector<CheckedRef<RenderListItem>> updateListMarkerNumbers();
 
@@ -69,12 +70,16 @@ public:
     void setMarkerRenderer(RenderBoxModelObject& marker)
     {
         m_marker = marker;
-        m_excludedMarkerPosition = { };
+        m_outsideMarkerPosition = { };
     }
-    NODELETE RenderListOutsideMarker* markerBox() const;
+    // The outside marker. We place it against our first formatted line after layout.
+    NODELETE RenderBlockFlow* markerBox() const;
+    static RenderListItem* listItemForMarker(const RenderObject&);
 
     // Fills in what the marker shows, in whichever shape it was built.
     void updateMarkerContent();
+    // The image an image marker shows.
+    RenderImage* markerImage() const;
 
     bool isInReversedOrderedList() const;
 
@@ -83,16 +88,18 @@ public:
         CheckedPtr<RenderBlock> fallbackParent;
     };
     static FirstFormattedLineCandidate firstFormattedLineRootFor(RenderBlock& blockContainer, const RenderBoxModelObject& marker);
-    static Vector<CheckedPtr<RenderListItem>> listItemsWithExcludedMarkerFor(const RenderBlockFlow& inlineRoot, const Vector<SingleThreadWeakPtr<RenderListItem>>&);
+    static Vector<CheckedPtr<RenderListItem>> listItemsWithOutsideMarkerFor(const RenderBlockFlow& inlineRoot, const Vector<SingleThreadWeakPtr<RenderListItem>>&);
 
-    // Where the line our excluded marker is aligned with put it.
-    struct ExcludedMarkerPosition {
+    // Where the line our outside marker is aligned with put it.
+    struct OutsideMarkerPosition {
         SingleThreadWeakPtr<RenderBlockFlow> firstFormattedLineRoot;
         FloatPoint topLeft;
         bool isLineStartConstrainedByFloat { false };
     };
-    void setExcludedMarkerPosition(ExcludedMarkerPosition&&);
-    const std::optional<ExcludedMarkerPosition>& excludedMarkerPosition() const LIFETIME_BOUND { return m_excludedMarkerPosition; }
+    void setOutsideMarkerPosition(OutsideMarkerPosition&&);
+    const std::optional<OutsideMarkerPosition>& outsideMarkerPosition() const LIFETIME_BOUND { return m_outsideMarkerPosition; }
+    // The layout bounds of our outside marker on its line, computed when the marker is laid out.
+    std::pair<float, float> markerLayoutBounds() const { return m_markerLayoutBounds; }
 
 private:
     ASCIILiteral renderName() const final { return "RenderListItem"_s; }
@@ -105,11 +112,14 @@ private:
     void layoutBlock(RelayoutChildren, LayoutUnit pageLogicalHeight = 0_lu) final;
     void layoutExcludedChildren(RelayoutChildren) final;
 
-    void placeExcludedMarker(RenderListOutsideMarker&);
-    NODELETE RenderListOutsideMarker* excludedMarker() const;
-    void invalidateExcludedMarkerContainer();
+    void placeOutsideMarker(RenderBlockFlow&);
+    void invalidateOutsideMarkerContainer();
+    LayoutSize markerImageSize(const Style::Image&) const;
 
+    void willBeDestroyed() final;
     void styleDidChange(Style::Difference, const Style::ComputedStyle* oldStyle) final;
+    void imageChanged(WrappedImagePtr, const IntRect* = nullptr) final;
+    void forEachStyleImage(NOESCAPE const ScopedLambda<void(Style::Image&)>&) final;
 
     std::pair<LayoutUnit, LayoutUnit> computeIntrinsicLogicalWidths() const final;
 
@@ -118,7 +128,8 @@ private:
     void usedCounterDirectivesChanged();
 
     SingleThreadWeakPtr<RenderBoxModelObject> m_marker;
-    std::optional<ExcludedMarkerPosition> m_excludedMarkerPosition;
+    std::optional<OutsideMarkerPosition> m_outsideMarkerPosition;
+    std::pair<float, float> m_markerLayoutBounds;
     mutable std::optional<int> m_value;
 };
 
@@ -133,6 +144,9 @@ RefPtr<Style::Image> listMarkerImage(const Style::ComputedStyle& markerStyle);
 bool listMarkerIsDisclosure(const Style::ComputedStyle& markerStyle, Document&);
 bool listMarkerIsDisclosure(const RenderElement*);
 void setListMarkerInlineMargins(Style::ComputedStyle& markerStyle, WritingMode listItemWritingMode, LayoutUnit marginStart, LayoutUnit marginEnd);
+
+// How far an outside marker's start edge is from the start edge of the line it goes on, in its list item's inline direction. It is negative: the marker hangs off the start of the line.
+LayoutUnit outsideMarkerMarginStart(const RenderBlockFlow&);
 
 inline int RenderListItem::value() const
 {

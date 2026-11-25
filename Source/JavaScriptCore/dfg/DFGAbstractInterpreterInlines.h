@@ -547,13 +547,11 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
     }
 
     case VarargsLengthWithSpread: {
-        clobberWorld();
         setTypeForNode(node, SpecInt32Only);
         break;
     }
 
     case LoadVarargsWithSpread: {
-        clobberWorld();
         LoadVarargsData* data = node->loadVarargsData();
         m_state.operand(data->count).setNonCellType(SpecInt32Only);
         for (unsigned i = data->limit - 1; i--;)
@@ -1438,6 +1436,37 @@ bool AbstractInterpreter<AbstractStateType>::executeEffects(unsigned clobberLimi
             DFG_ASSERT(m_graph, node, node->child1().useKind() == UntypedUse, node->child1().useKind());
             clobberWorld();
             setNonCellTypeForNode(node, SpecBytecodeNumber);
+            break;
+        }
+        break;
+    }
+
+    case ArithSign: {
+        JSValue child = forNode(node->child1()).value();
+        switch (node->child1().useKind()) {
+        case Int32Use:
+            if (child && child.isInt32()) {
+                setConstant(node, jsNumber((child.asInt32() > 0) - (child.asInt32() < 0)));
+                break;
+            }
+            setNonCellTypeForNode(node, SpecInt32Only);
+            break;
+        case DoubleRepUse:
+            if (std::optional<double> number = child.toNumberFromPrimitive()) {
+                setConstant(node, jsDoubleNumber(Math::mathSign(*number)));
+                break;
+            }
+            setNonCellTypeForNode(node, typeOfDoubleSign(forNode(node->child1()).m_type));
+            break;
+        default:
+            DFG_ASSERT(m_graph, node, node->child1().useKind() == UntypedUse, node->child1().useKind());
+            if (std::optional<double> number = child.toNumberFromPrimitive()) {
+                didFoldClobberWorld();
+                setConstant(node, jsDoubleNumber(Math::mathSign(*number)));
+                break;
+            }
+            clobberWorld();
+            setNonCellTypeForNode(node, SpecBytecodeDouble);
             break;
         }
         break;

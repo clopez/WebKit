@@ -28,13 +28,15 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RemoteDisplayListIdentifier.h"
-#include "RemoteGradientIdentifier.h"
+#include "RemoteFreeformGradientIdentifier.h"
 #include "RemoteMeshGradientIdentifier.h"
 #include "RemoteNativeImageIdentifier.h"
 #include "RemotePathImplIdentifier.h"
 #include "RenderingUpdateID.h"
 #include <WebCore/FilterFunction.h>
+#include <WebCore/FreeformGradient.h>
 #include <WebCore/Gradient.h>
+#include <WebCore/GradientIdentifier.h>
 #include <WebCore/MeshGradient.h>
 #include <WebCore/NativeImage.h>
 #include <WebCore/ShareableBitmap.h>
@@ -74,7 +76,8 @@ public:
     RemoteNativeImageReadReference recordSharedNativeImageUse(RemoteNativeImageProxy&);
     RemotePathImplIdentifier recordPathImplUse(const WebCore::PathImpl&);
     void recordFontUse(WebCore::FontBase&);
-    RemoteGradientIdentifier recordGradientUse(const WebCore::Gradient&);
+    WebCore::GradientIdentifier recordGradientUse(const WebCore::Gradient&);
+    RemoteFreeformGradientIdentifier recordFreeformGradientUse(WebCore::FreeformGradient&);
     RemoteMeshGradientIdentifier recordMeshGradientUse(WebCore::MeshGradient&);
     void recordFilterUse(WebCore::Filter&);
     void recordFontCustomPlatformDataUse(const WebCore::FontCustomPlatformData&);
@@ -101,7 +104,8 @@ private:
 
     // WebCore::RenderingResourceObserver overrides.
     void willDestroyNativeImage(const WebCore::NativeImage&) override;
-    void willDestroyGradient(const WebCore::Gradient&) override;
+    void willDestroyGradient(WebCore::GradientIdentifier) override;
+    void willDestroyFreeformGradient(const WebCore::FreeformGradient&) override;
     void willDestroyMeshGradient(const WebCore::MeshGradient&) override;
     void willDestroyPathImpl(const WebCore::PathImpl&) override;
     void willDestroyFilter(WebCore::RenderingResourceIdentifier) override;
@@ -117,7 +121,8 @@ private:
         bool existsInRemote = true;
     };
     HashMap<CheckedPtr<const WebCore::NativeImage>, NativeImageEntry> m_nativeImages;
-    HashMap<CheckedPtr<const WebCore::Gradient>, RemoteGradientIdentifier> m_gradients;
+    HashSet<WebCore::GradientIdentifier> m_gradients;
+    HashMap<CheckedPtr<const WebCore::FreeformGradient>, RemoteFreeformGradientIdentifier> m_freeformGradients;
     HashMap<CheckedPtr<const WebCore::MeshGradient>, RemoteMeshGradientIdentifier> m_meshGradients;
     HashMap<CheckedPtr<const WebCore::PathImpl>, RemotePathImplIdentifier> m_paths;
     HashSet<WebCore::RenderingResourceIdentifier> m_filters;

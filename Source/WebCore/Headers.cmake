@@ -1133,6 +1133,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     css/values/primitives/CSSTypeSpecifier.h
     css/values/primitives/CSSURL.h
     css/values/primitives/CSSURLModifiers.h
+    css/values/primitives/CSSURLProvenance.h
     css/values/primitives/CSSUnevaluatedCalc.h
 
     css/values/shapes/CSSBasicShape.h
@@ -1651,6 +1652,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     inspector/InspectorResourceUtilities.h
     inspector/InspectorWebAgentBase.h
     inspector/LegacyWebSocketInspectorInstrumentation.h
+    inspector/NetworkInterception.h
     inspector/PageInspectorController.h
     inspector/UncachedLoadType.h
     inspector/WebInjectedScriptManager.h
@@ -2490,6 +2492,9 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/FontSizeAdjust.h
     platform/graphics/FontTaggedSettings.h
     platform/graphics/FourCC.h
+    platform/graphics/FreeformGradient.h
+    platform/graphics/FreeformGradientRenderer.h
+    platform/graphics/FreeformGradientRendererCPU.h
     platform/graphics/GainMap.h
     platform/graphics/GCGLExtension.h
     platform/graphics/GCGLSpan.h
@@ -2502,6 +2507,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/Gradient.h
     platform/graphics/GradientColorStop.h
     platform/graphics/GradientColorStops.h
+    platform/graphics/GradientIdentifier.h
     platform/graphics/GraphicsContext.h
     platform/graphics/GraphicsContextGL.h
     platform/graphics/GraphicsContextGLActiveInfo.h
@@ -2709,6 +2715,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/graphics/displaylists/DisplayListItems.h
     platform/graphics/displaylists/DisplayListRecorder.h
     platform/graphics/displaylists/DisplayListRecorderImpl.h
+    platform/graphics/displaylists/DisplayListResourceCache.h
 
     platform/graphics/egl/BitmapTexture.h
     platform/graphics/egl/BitmapTexturePool.h
@@ -2959,6 +2966,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     platform/video-codecs/VideoCodecType.h
 
     platform/xr/PlatformXR.h
+    platform/xr/XRAnchorIdentifier.h
     platform/xr/XRHitTestSourceIdentifier.h
 
     plugins/PluginData.h
@@ -3231,7 +3239,6 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
 
     style/values/color/StyleColor.h
     style/values/color/StyleColorOptions.h
-    style/values/color/StyleCurrentAccentColor.h
     style/values/color/StyleCurrentColor.h
     style/values/color/StyleDynamicRangeLimit.h
     style/values/color/StyleDynamicRangeLimitMix.h
@@ -3386,6 +3393,7 @@ set(WebCore_PRIVATE_FRAMEWORK_HEADERS
     style/values/overflow/StyleScrollbarGutter.h
     style/values/overflow/StyleTextOverflow.h
 
+    style/values/page/StylePageName.h
     style/values/page/StylePageSize.h
 
     style/values/pointerevents/StyleTouchAction.h

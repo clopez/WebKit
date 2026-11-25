@@ -54,13 +54,13 @@
 #include "LayoutIntegrationLineLayout.h"
 #include "LocalFrame.h"
 #include "LocalFrameView.h"
-#include "LogicalSelectionOffsetCachesInlines.h"
 #include "NativeImage.h"
 #include "NaturalDimensions.h"
 #include "Page.h"
 #include "PaintInfo.h"
 #include "PlatformRenderTheme.h"
 #include "PlatformScreen.h"
+#include "RenderBlockInlines.h"
 #include "RenderBoxInlines.h"
 #include "RenderBoxModelObjectInlines.h"
 #include "RenderChildIterator.h"
@@ -116,7 +116,7 @@ WTF_MAKE_TZONE_ALLOCATED_IMPL(RenderImage);
 // of the start and end, we need to know the whole Position.
 void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometries, unsigned, unsigned)
 {
-    RenderBlock* containingBlock = this->containingBlock();
+    CheckedPtr containingBlock = this->containingBlock();
 
     IntRect imageRect;
     // FIXME: It doesn't make sense to package line bounds into SelectionGeometry. We should find
@@ -141,7 +141,7 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
             lineExtentRect.setHeight(containingBlock->borderBoxHeight());
         }
     } else {
-        auto lineRect = run->lineBox().contentLogicalRectAdjustedForAdjacentLineBoxes();
+        auto lineRect = run->lineBox().contentAreaLogicalRectAdjustedForAdjacentLineBoxes();
         int selectionTop = !containingBlock->writingMode().isBlockFlipped() ? lineRect.y() - logicalTop() : logicalBottom() - lineRect.maxY();
         int selectionHeight = lineRect.height();
         imageRect = IntRect { 0,  selectionTop, logicalWidth(), selectionHeight };
@@ -149,9 +149,8 @@ void RenderImage::collectSelectionGeometries(Vector<SelectionGeometry>& geometri
         isLastOnLine = !run->nextLineRightwardOnLine();
         // An image on a line is laid out by the block that establishes its inline formatting context.
         CheckedRef formattingContextRoot = *LayoutIntegration::LineLayout::blockContainer(*this);
-        LogicalSelectionOffsetCaches cache(formattingContextRoot);
-        LayoutUnit leftOffset = formattingContextRoot->logicalLeftSelectionOffset(formattingContextRoot, LayoutUnit(run->logicalTop()), cache);
-        LayoutUnit rightOffset = formattingContextRoot->logicalRightSelectionOffset(formattingContextRoot, LayoutUnit(run->logicalTop()), cache);
+        LayoutUnit leftOffset = formattingContextRoot->logicalLeftOffsetForLine(LayoutUnit(run->logicalTop()));
+        LayoutUnit rightOffset = formattingContextRoot->logicalRightOffsetForLine(LayoutUnit(run->logicalTop()));
         lineExtentRect = IntRect(leftOffset - logicalLeft(), imageRect.y(), rightOffset - leftOffset, imageRect.height());
         if (!run->isHorizontal()) {
             imageRect = imageRect.transposedRect();
@@ -232,7 +231,7 @@ IntSize RenderImage::imageSizeForError(CachedImage* newImage) const
     FloatSize imageSize;
     if (newImage->willPaintBrokenImage()) {
         auto brokenImageAndImageScaleFactor = CachedImage::brokenImage(document().deviceScaleFactor());
-        imageSize = brokenImageAndImageScaleFactor.first->size();
+        imageSize = protect(brokenImageAndImageScaleFactor.first)->size();
         imageSize.scale(1 / brokenImageAndImageScaleFactor.second);
     } else if (newImage->hasImage()) {
         auto naturalDimensions = protect(newImage->image())->naturalDimensions(imageOrientation());
@@ -263,8 +262,9 @@ ImageSizeChangeType RenderImage::setImageSizeForAltText(CachedImage* newImage /*
 
     // we have an alt and the user meant it (its not a text we invented)
     if (auto alt = altText(); !alt.isEmpty()) {
-        const FontCascade& font = style().fontCascade();
-        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font.width(RenderBlock::constructTextRun(alt, style()))), maxAltTextWidth), paddingHeight + std::min(font.metricsOfPrimaryFont().intHeight(), maxAltTextHeight));
+        CheckedRef style = this->style();
+        CheckedRef font = style->fontCascade();
+        IntSize paddedTextSize(paddingWidth + std::min(ceilf(font->width(RenderBlock::constructTextRun(alt, style))), maxAltTextWidth), paddingHeight + std::min(font->metricsOfPrimaryFont().intHeight(), maxAltTextHeight));
         imageSize = imageSize.expandedTo(paddedTextSize);
     }
 
@@ -388,7 +388,12 @@ std::optional<FloatSize> RenderImage::usedImageSize() const
 
 ConcreteObjectSize RenderImage::concreteObjectSizeForPainting() const
 {
-    return ConcreteObjectSize::fixed(FloatSize(imageContainerSize()));
+    return concreteObjectSizeForPainting(replacedContentRect());
+}
+
+ConcreteObjectSize RenderImage::concreteObjectSizeForPainting(const LayoutRect& replacedContentRect)
+{
+    return ConcreteObjectSize::fixed(FloatSize(flooredIntSize(replacedContentRect.size())));
 }
 
 ConcreteObjectSize RenderImage::concreteObjectSizeForInteractionRegion() const
@@ -722,13 +727,13 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
     if (altText.isEmpty())
         return;
 
-    auto& style = this->style();
-    auto& fontCascade = style.fontCascade();
-    auto& fontMetrics = fontCascade.metricsOfPrimaryFont();
+    CheckedRef style = this->style();
+    CheckedRef fontCascade = style->fontCascade();
+    auto& fontMetrics = fontCascade->metricsOfPrimaryFont();
     auto isHorizontal = writingMode().isHorizontal();
     auto encodedDisplayString = protect(document())->displayStringModifiedByEncoding(altText);
     auto textRun = RenderBlock::constructTextRun(encodedDisplayString, style, ExpansionBehavior::defaultBehavior(), RespectDirection | RespectDirectionOverride);
-    auto textWidth = LayoutUnit { fontCascade.width(textRun) };
+    auto textWidth = LayoutUnit { fontCascade->width(textRun) };
 
     auto hasRoomForAltText = [&] {
         // Only draw the alt text if it fits within the content box (content width) and above the error image (content height).
@@ -743,12 +748,12 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
     if (!hasRoomForAltText())
         return;
 
-    context.setFillColor(style.visitedDependentColorApplyingColorFilter());
+    context.setFillColor(style->visitedDependentColorApplyingColorFilter());
     if (isHorizontal) {
         auto altTextLocation = [&]() -> LayoutPoint {
             auto contentHorizontalOffset = LayoutUnit { borderWidths.left() + padding.left() + (paddingWidth / 2) - missingImageBorderWidth };
             auto contentVerticalOffset = LayoutUnit { borderWidths.top() + padding.top() + fontMetrics.ascent() + (paddingHeight / 2) - missingImageBorderWidth };
-            if (!style.writingMode().isInlineLeftToRight())
+            if (!style->writingMode().isInlineLeftToRight())
                 contentHorizontalOffset += contentSize.width() - textWidth;
             return paintOffset + LayoutPoint { contentHorizontalOffset, contentVerticalOffset };
         };
@@ -771,7 +776,7 @@ void RenderImage::paintMissingImageState(PaintInfo& paintInfo, const LayoutPoint
 
         auto rotationRect = LayoutRect { visualLeft, adjustedPaintOffset.y(), textWidth, contentLogicalHeight };
         context.concatCTM(Paint::rotation(rotationRect, RotationDirection::Clockwise));
-        auto textOrigin = LayoutPoint { visualLeft, adjustedPaintOffset.y() + fontCascade.metricsOfPrimaryFont().ascent() };
+        auto textOrigin = LayoutPoint { visualLeft, adjustedPaintOffset.y() + fontCascade->metricsOfPrimaryFont().ascent() };
         context.drawBidiText(fontCascade, textRun, roundPointToDevicePixels(textOrigin, document().deviceScaleFactor()));
         context.concatCTM(Paint::rotation(rotationRect, RotationDirection::Counterclockwise));
     }
@@ -823,10 +828,12 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
 
     contentBoxRect.moveBy(paintOffset);
 
-    auto replacedContentRect = this->replacedContentRect();
-    replacedContentRect.moveBy(paintOffset);
+    auto naturalDimensions = zoomedNaturalDimensions();
+    auto replacedContentRect = this->replacedContentRect(naturalDimensions);
+    auto concreteObjectSize = concreteObjectSizeForPainting(replacedContentRect);
+    auto paintRect = replacedContentPaintRect(replacedContentRect, naturalDimensions);
 
-    auto paintRect = replacedContentPaintRect();
+    replacedContentRect.moveBy(paintOffset);
     paintRect.moveBy(paintOffset);
 
     float snappingScaleFactor = document().pixelSnappingScaleFactor();
@@ -835,7 +842,7 @@ void RenderImage::paintReplaced(PaintInfo& paintInfo, const LayoutPoint& paintOf
     if (clip)
         context.clip(snapRectToDevicePixels(contentBoxRect, snappingScaleFactor));
 
-    ImageDrawResult result = paintIntoRect(paintInfo, snapRectToDevicePixels(paintRect, snappingScaleFactor));
+    ImageDrawResult result = paintIntoRect(paintInfo, snapRectToDevicePixels(paintRect, snappingScaleFactor), concreteObjectSize);
 
     if (showBorderForIncompleteImage && (result != ImageDrawResult::DidDraw || (cachedImage() && cachedImage()->isLoading())))
         paintIncompleteImageOutline(paintInfo, paintOffset, missingImageBorderWidth);
@@ -869,17 +876,17 @@ void RenderImage::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 
 void RenderImage::paintAreaElementFocusRing(PaintInfo& paintInfo, const LayoutPoint& paintOffset)
 {
-    if (document().printing() || !frame().selection().isFocusedAndActive())
-        return;
-    
-    if (paintInfo.context().paintingDisabled() && !paintInfo.context().performingPaintInvalidation())
-        return;
-
     RefPtr areaElement = dynamicDowncast<HTMLAreaElement>(document().focusedElement());
     if (!areaElement || areaElement->imageElement() != element())
         return;
 
-    auto* areaElementStyle = areaElement->computedStyle();
+    if (document().printing() || !frame().selection().isFocusedAndActive())
+        return;
+
+    if (paintInfo.context().paintingDisabled() && !paintInfo.context().performingPaintInvalidation())
+        return;
+
+    CheckedPtr areaElementStyle = areaElement->computedStyle();
     if (!areaElementStyle)
         return;
 
@@ -946,14 +953,17 @@ RefPtr<NativeImage> RenderImage::createNativeImageAsPainted(float deviceScaleFac
 
 ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect& rect)
 {
+    return paintIntoRect(paintInfo, rect, concreteObjectSizeForPainting());
+}
+
+ImageDrawResult RenderImage::paintIntoRect(PaintInfo& paintInfo, const FloatRect& rect, const ConcreteObjectSize& concreteObjectSize)
+{
     if (isShowingMissingOrImageError() || rect.width() <= 0 || rect.height() <= 0)
         return ImageDrawResult::DidNothing;
 
     RefPtr styleImage = imageResource().styleImage();
     if (!styleImage || !styleImage->canDrawAtSize(*this, rect.size()))
         return ImageDrawResult::DidNothing;
-
-    auto concreteObjectSize = concreteObjectSizeForPainting();
 
 #if ENABLE(AX_CUSTOM_COLOR_MODE)
     auto invertContent = [&] {

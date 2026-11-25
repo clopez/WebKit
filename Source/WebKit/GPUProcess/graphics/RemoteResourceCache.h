@@ -28,10 +28,11 @@
 #if ENABLE(GPU_PROCESS)
 
 #include "RemoteDisplayListIdentifier.h"
-#include "RemoteGradientIdentifier.h"
+#include "RemoteFreeformGradientIdentifier.h"
 #include "RemoteMeshGradientIdentifier.h"
 #include "RemotePathImplIdentifier.h"
 #include <WebCore/DisplayList.h>
+#include <WebCore/GradientIdentifier.h>
 #include <WebCore/RenderingResourceIdentifier.h>
 #include <wtf/HashMap.h>
 #include <wtf/RefPtr.h>
@@ -63,9 +64,13 @@ public:
     bool releasePathImpl(RemotePathImplIdentifier);
     RefPtr<WebCore::PathImpl> cachedPathImpl(RemotePathImplIdentifier) const;
 
-    bool cacheGradient(RemoteGradientIdentifier, Ref<const WebCore::Gradient>&&);
-    bool releaseGradient(RemoteGradientIdentifier);
-    RefPtr<const WebCore::Gradient> cachedGradient(RemoteGradientIdentifier) const;
+    bool cacheGradient(WebCore::GradientIdentifier, Ref<const WebCore::Gradient>&&);
+    bool releaseGradient(WebCore::GradientIdentifier);
+    RefPtr<const WebCore::Gradient> cachedGradient(WebCore::GradientIdentifier) const;
+
+    bool cacheFreeformGradient(RemoteFreeformGradientIdentifier, Ref<WebCore::FreeformGradient>&&);
+    bool releaseFreeformGradient(RemoteFreeformGradientIdentifier);
+    RefPtr<WebCore::FreeformGradient> cachedFreeformGradient(RemoteFreeformGradientIdentifier) const;
 
     bool cacheMeshGradient(RemoteMeshGradientIdentifier, Ref<WebCore::MeshGradient>&&);
     bool releaseMeshGradient(RemoteMeshGradientIdentifier);
@@ -93,7 +98,8 @@ public:
 private:
     HashMap<WebCore::RenderingResourceIdentifier, Ref<WebCore::ImageBuffer>> m_imageBuffers;
     HashMap<WebCore::RenderingResourceIdentifier, Ref<WebCore::NativeImage>> m_nativeImages;
-    HashMap<RemoteGradientIdentifier, Ref<const WebCore::Gradient>> m_gradients;
+    HashMap<WebCore::GradientIdentifier, Ref<const WebCore::Gradient>> m_gradients;
+    HashMap<RemoteFreeformGradientIdentifier, Ref<WebCore::FreeformGradient>> m_freeformGradients;
     HashMap<RemoteMeshGradientIdentifier, Ref<WebCore::MeshGradient>> m_meshGradients;
     HashMap<WebCore::RenderingResourceIdentifier, Ref<WebCore::Filter>> m_filters;
     HashMap<WebCore::RenderingResourceIdentifier, Ref<SharedFont>> m_fonts;

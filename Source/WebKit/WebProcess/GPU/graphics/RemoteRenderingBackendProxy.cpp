@@ -563,16 +563,28 @@ void RemoteRenderingBackendProxy::releaseFontCustomPlatformData(RenderingResourc
     send(Messages::RemoteRenderingBackend::ReleaseFontCustomPlatformData(identifier));
 }
 
-void RemoteRenderingBackendProxy::cacheGradient(Ref<const Gradient>&& gradient, RemoteGradientIdentifier identifier)
+void RemoteRenderingBackendProxy::cacheGradient(Ref<const Gradient>&& gradient, GradientIdentifier identifier)
 {
     send(Messages::RemoteRenderingBackend::CacheGradient(WTF::move(gradient), identifier));
 }
 
-void RemoteRenderingBackendProxy::releaseGradient(RemoteGradientIdentifier identifier)
+void RemoteRenderingBackendProxy::releaseGradient(GradientIdentifier identifier)
 {
     if (!m_connection)
         return;
     send(Messages::RemoteRenderingBackend::ReleaseGradient(identifier));
+}
+
+void RemoteRenderingBackendProxy::cacheFreeformGradient(Ref<FreeformGradient>&& gradient, RemoteFreeformGradientIdentifier identifier)
+{
+    send(Messages::RemoteRenderingBackend::CacheFreeformGradient(WTF::move(gradient), identifier));
+}
+
+void RemoteRenderingBackendProxy::releaseFreeformGradient(RemoteFreeformGradientIdentifier identifier)
+{
+    if (!m_connection)
+        return;
+    send(Messages::RemoteRenderingBackend::ReleaseFreeformGradient(identifier));
 }
 
 void RemoteRenderingBackendProxy::cacheMeshGradient(Ref<MeshGradient>&& gradient, RemoteMeshGradientIdentifier identifier)

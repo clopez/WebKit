@@ -24,7 +24,6 @@
  */
 
 #import "config.h"
-#import "Helpers/DeprecatedGlobalValues.h"
 #import "Helpers/PlatformUtilities.h"
 #import "Helpers/Test.h"
 #import "Helpers/cocoa/PrintingTestUtilities.h"
@@ -36,12 +35,22 @@
 #import <wtf/RetainPtr.h>
 
 @interface EmbeddedPrintPaginationLoadDelegate : NSObject <WebFrameLoadDelegate>
+- (void)waitForDidFinishLoad;
 @end
 
-@implementation EmbeddedPrintPaginationLoadDelegate
+@implementation EmbeddedPrintPaginationLoadDelegate {
+    bool _didFinishLoad;
+}
+
 - (void)webView:(WebView *)sender didFinishLoadForFrame:(WebFrame *)frame
 {
-    didFinishLoad = true;
+    _didFinishLoad = true;
+}
+
+- (void)waitForDidFinishLoad
+{
+    EXPECT_FALSE(_didFinishLoad);
+    TestWebKitAPI::Util::run(&_didFinishLoad);
 }
 @end
 
@@ -64,18 +73,17 @@ TEST(WebKitLegacy, EmbeddedPrintPaginationWithZeroPageSize)
     RetainPtr loadDelegate = adoptNS([[EmbeddedPrintPaginationLoadDelegate alloc] init]);
     [webView setFrameLoadDelegate:loadDelegate.get()];
 
-    didFinishLoad = false;
     [[webView mainFrame] loadHTMLString:@"<html><body><p>Hello, printing world.</p></body></html>" baseURL:nil];
-    Util::run(&didFinishLoad);
+    [loadDelegate waitForDidFinishLoad];
 
     // This is the AppKit-driven call path used when a WebHTMLView is a
     // subview of a larger view hierarchy being printed. Before the fix
     // this asserted in debug (LocalFrame.cpp:resizePageRectsKeepingRatio)
     // and silently dropped text runs in release; reaching the
-    // EXPECT_GT below without crashing is the pass condition.
+    // check below without crashing is the pass condition.
     CGFloat newBottom = 0;
     [webHTMLView adjustPageHeightNew:&newBottom top:0 bottom:400 limit:400];
-    EXPECT_GT(newBottom, 0);
+    EXPECT_EQ(newBottom, 400);
 }
 
 #if HAVE(PDFKIT)
@@ -85,9 +93,8 @@ static RetainPtr<TestPDFDocument> printWebViewToPDF(NSString *styleSheet)
     RetainPtr loadDelegate = adoptNS([[EmbeddedPrintPaginationLoadDelegate alloc] init]);
     [webView setFrameLoadDelegate:loadDelegate.get()];
 
-    didFinishLoad = false;
     [[webView mainFrame] loadHTMLString:[NSString stringWithFormat:@"<style>%@ body { margin: 0 }</style><div>Hello</div>", styleSheet] baseURL:nil];
-    Util::run(&didFinishLoad);
+    [loadDelegate waitForDidFinishLoad];
 
     return printToPDF(^(NSPrintInfo *printInfo) {
         [printInfo setTopMargin:0];

@@ -1636,9 +1636,14 @@ public:
 #if ENABLE(TOUCH_EVENTS) || ENABLE(TOUCH_EVENT_REGIONS)
     bool hasTouchEventHandlers() const;
     bool touchEventTargetsContain(Node& node) const { return m_touchEventTargets.contains(node); }
+    const EventTargetSet& touchEventTargetsIncludingSubframeDocuments() const LIFETIME_BOUND { return m_touchEventTargets; }
 #else
     bool hasTouchEventHandlers() const { return false; }
     bool touchEventTargetsContain(Node&) const { return false; }
+#endif
+#if ENABLE(IOS_TOUCH_EVENTS) && ENABLE(TOUCH_EVENT_REGIONS)
+    // Nodes that handle touches themselves, such as switches and range inputs.
+    const EventTargetSet& touchEventHandlers() const LIFETIME_BOUND { return m_touchEventHandlerCounts; }
 #endif
 #if ENABLE(TOUCH_ACTION_REGIONS)
     bool mayHaveElementsWithNonAutoTouchAction() const { return m_mayHaveElementsWithNonAutoTouchAction; }
@@ -2184,7 +2189,7 @@ public:
     WEBCORE_EXPORT void invalidateDOMCookieCache();
 
     void detachFromFrame();
-    NODELETE void willBeDisconnectedFromFrame(Document&);
+    void willBeDisconnectedFromFrame(Document&);
 
     PermissionsPolicy permissionsPolicy() const;
 
@@ -2293,7 +2298,7 @@ private:
 
     // ScriptExecutionContext
     CSSFontSelector* cssFontSelector() final;
-    RefPtr<FontLoadRequest> fontLoadRequest(const String&, bool, bool, const CSS::URLModifiers&) final;
+    RefPtr<FontLoadRequest> fontLoadRequest(const CSS::URL&, bool isSVG, bool isInitiatingElementInUserAgentShadowTree) final;
     void beginLoadingFontSoon(FontLoadRequest&) final;
 
     // FontSelectorClient
@@ -2739,7 +2744,7 @@ private:
 #endif
 
     const std::unique_ptr<OrientationNotifier> m_orientationNotifier;
-    mutable RefPtr<Logger> m_logger;
+    const RefPtr<Logger> m_logger;
 
     RefPtr<DocumentTimeline> m_timeline;
     const std::unique_ptr<AnimationTimelinesController> m_timelinesController;
@@ -2797,7 +2802,7 @@ private:
 
     WeakHashSet<Element, WeakPtrImplWithEventTargetData> m_renderBlockingElements;
 
-    RefPtr<DeferredFetchRegistry> m_deferredFetchRegistry;
+    const RefPtr<DeferredFetchRegistry> m_deferredFetchRegistry;
     const RefPtr<ReportingScope> m_reportingScope;
 
     const std::unique_ptr<WakeLockManager> m_wakeLockManager;
@@ -3007,7 +3012,7 @@ private:
     const RefPtr<ResourceMonitor> m_resourceMonitor;
 #endif
 
-    mutable RefPtr<CSSCalc::RandomCachingKeyMap> m_randomCachingKeyMap;
+    const RefPtr<CSSCalc::RandomCachingKeyMap> m_randomCachingKeyMap;
 
     const Ref<DocumentSyncData> m_syncData;
 

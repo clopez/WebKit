@@ -32,6 +32,7 @@
 #include "RenderAncestorIterator.h"
 #include "RenderBlock.h"
 #include "RenderElementInlines.h"
+#include "RenderListItem.h"
 #include "RenderObject.h"
 #include "RenderTableCell.h"
 #include "RenderText.h"
@@ -42,6 +43,12 @@
 #include <wtf/glib/GLibExtras.h>
 
 namespace WebCore {
+
+static bool isImageListMarker(const RenderObject& renderer)
+{
+    CheckedPtr listItem = RenderListItem::listItemForMarker(renderer);
+    return listItem && listItem->markerImage();
+}
 
 Ref<AccessibilityObjectAtspi> AccessibilityObjectAtspi::create(AXCoreObject* coreObject, AccessibilityRootAtspi* root)
 {
@@ -105,7 +112,7 @@ OptionSet<AccessibilityObjectAtspi::Interface> AccessibilityObjectAtspi::interfa
         interfaces.add(Interface::TableCell);
 
     if (coreObject.role() == AccessibilityRole::ListMarker && renderer) {
-        if (renderer->isImage())
+        if (isImageListMarker(*renderer))
             interfaces.add(Interface::Image);
         else
             interfaces.add(Interface::Text);
@@ -1063,7 +1070,7 @@ RelationMap AccessibilityObjectAtspi::relationMap() const
 
     AccessibilityObject::AccessibilityChildrenVector ariaLabelledByElements;
     if (m_coreObject->isControl() || m_coreObject->isFieldset()) {
-        if (auto* label = m_coreObject->titleUIElement())
+        if (RefPtr label = m_coreObject->titleUIElement())
             ariaLabelledByElements.append(*label);
     } else if (m_coreObject->role() == AccessibilityRole::Legend) {
         if (auto* renderFieldset = ancestorsOfType<RenderBlock>(*m_coreObject->renderer()).first()) {
@@ -1214,7 +1221,7 @@ std::optional<Atspi::Role> AccessibilityObjectAtspi::effectiveRole() const
         break;
     case AccessibilityRole::ListMarker: {
         auto* renderer = m_coreObject->renderer();
-        return renderer && renderer->isImage() ? Atspi::Role::Image : Atspi::Role::Text;
+        return renderer && isImageListMarker(*renderer) ? Atspi::Role::Image : Atspi::Role::Text;
     }
     case AccessibilityRole::MathElement:
         if (m_coreObject->isMathRow())

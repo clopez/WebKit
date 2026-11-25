@@ -25,10 +25,11 @@ from buildbot.process import buildstep, logobserver, properties, remotecommand
 from buildbot.process.results import Results, SUCCESS, FAILURE, CANCELLED, WARNINGS, SKIPPED, EXCEPTION, RETRY
 from buildbot.steps import master, shell, transfer, trigger
 from buildbot.steps.source import git
+from contextlib import contextmanager
 from dataclasses import replace
 from datetime import date
 from shlex import quote
-from typing import Any, Generator
+from typing import Any, Generator, NamedTuple
 from unittest import mock
 
 from twisted.internet import defer, reactor, task
@@ -76,6 +77,7 @@ CANONICAL_GITHUB_PROJECT = 'WebKit/WebKit'
 HASH_LENGTH_TO_DISPLAY = 8
 DEFAULT_BRANCH = 'main'
 DEFAULT_REMOTE = 'origin'
+FEATURE_BRANCHES = [re.compile(r'^swift-adoption-experiments$'), re.compile(r'^feature/.+$')]
 LAYOUT_TESTS_URL = '{}{}/blob/{}/LayoutTests/'.format(GITHUB_URL, CANONICAL_GITHUB_PROJECT, DEFAULT_BRANCH)
 MAX_COMMITS_IN_PR_SERIES = 50
 QUEUES_WITH_PUSH_ACCESS = ('merge-queue', 'unsafe-merge-queue')
@@ -91,6 +93,10 @@ USE_GITHUB_PROJECTS_FOR_HOOKS = load_password('USE_GITHUB_PROJECTS_FOR_HOOKS', d
 
 if CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES:
     CURRENT_HOSTNAME = 'ews-build.webkit.org'
+
+
+def is_feature_branch(branch):
+    return any(candidate.match(branch or '') for candidate in FEATURE_BRANCHES)
 
 
 class ParseByLineLogObserver(logobserver.LineConsumerLogObserver):
@@ -374,7 +380,7 @@ class GitHubMixin(object):
         if not pr_sha:
             yield self._addToLog('stdio', 'Cannot determine if hash is outdated or not.\n')
             return defer.returnValue(-1)
-        return defer.returnValue(0 if pr_sha == self.getProperty('github.head.sha', '?') else 1)
+        return defer.returnValue(0 if pr_sha in (self.getProperty('github.head.sha', '?'), self.getProperty('pushed_head_sha')) else 1)
 
     def _is_pr_blocked(self, pr_json):
         for label in (pr_json or {}).get('labels', {}):
@@ -563,6 +569,13 @@ class AddToLogMixin(object):
         log.addStdout(message)
 
 
+class FlakinessVerdicts(NamedTuple):
+    flaky: dict  # Every test with a flaky verdict, mapped to its flaky type, whether excused or not.
+    unsupported: list  # Flaky between builds with no evidence from within a build, never excused.
+    unknown: list
+    excused: set
+
+
 class ResultsDBReportMixin(abc.ABC):
     """
     Reports test results to the results database. Hosts supply AddToLogMixin, a `suite`, and
@@ -578,6 +591,7 @@ class ResultsDBReportMixin(abc.ABC):
     MAX_FAILURES_TO_CHECK_RESULTS_DB = 50
     NUM_FAILURES_TO_DISPLAY = 10
     prefix = ''
+    results_db_flavor_override = None
 
     # From Tools/Scripts/libraries/resultsdbpy/resultsdbpy/controller/configuration.py
     RESULTS_REQUIRED_CONFIG = ['platform', 'is_simulator', 'version', 'architecture']
@@ -595,7 +609,10 @@ class ResultsDBReportMixin(abc.ABC):
             configuration['platform'] = ResultsDatabase.platform_for_query(platform)
         if (style := self.getProperty('configuration', None)) in ('debug', 'release'):
             configuration['style'] = style
-        if (flavor := self.getProperty('flavor', None)) in ('wk1', 'wk2', 'site-isolation'):
+        # A step that runs more than one driver (run-webkit-tests -2 -1) queries and reports each
+        # driver's results under that driver's flavor, which overrides the build's `flavor`.
+        flavor = self.results_db_flavor_override or self.getProperty('flavor', None)
+        if flavor in ('wk1', 'wk2', 'site-isolation'):
             configuration['flavor'] = flavor
         # GTK and WPE post-commit bots run on more than one architecture, and pooling their history
         # can excuse a failure on this architecture with failures seen only on another one.
@@ -604,6 +621,15 @@ class ResultsDBReportMixin(abc.ABC):
             if architecture and ' ' not in architecture:
                 configuration['architecture'] = architecture
         return configuration
+
+    @contextmanager
+    def overriding_results_db_flavor(self, flavor):
+        previous = self.results_db_flavor_override
+        self.results_db_flavor_override = flavor
+        try:
+            yield
+        finally:
+            self.results_db_flavor_override = previous
 
     def results_db_configuration(self):
         architecture = self.getProperty('machine_architecture', None) or self.getProperty('architecture', None)
@@ -717,21 +743,82 @@ class ResultsDBReportMixin(abc.ABC):
             return False
         return reported
 
+    def results_db_ignored_tests(self) -> tuple[list[str], list[str]]:
+        return list(self.pre_existing_failures_in_results_db), sorted(self.pre_existing_flakes_in_results_db)
+
     def results_db_ignore_message(self) -> str:
+        failures, flakes = self.results_db_ignored_tests()
         parts = []
-        if self.pre_existing_failures_in_results_db:
-            parts.append(f"Ignored pre-existing failures: {', '.join(self.pre_existing_failures_in_results_db)}")
-        if self.pre_existing_flakes_in_results_db:
-            parts.append(f"Ignored pre-existing flakes: {', '.join(sorted(self.pre_existing_flakes_in_results_db))}")
+        if failures:
+            parts.append(f"Ignored pre-existing failures: {', '.join(failures)}")
+        if flakes:
+            parts.append(f"Ignored pre-existing flakes: {', '.join(flakes)}")
         return '\n'.join(parts)
 
     def results_db_ignore_counts_message(self) -> str:
+        failures, flakes = self.results_db_ignored_tests()
         counts = []
-        if self.pre_existing_failures_in_results_db:
-            counts.append(f'{len(self.pre_existing_failures_in_results_db)} pre-existing')
-        if self.pre_existing_flakes_in_results_db:
-            counts.append(f'{len(self.pre_existing_flakes_in_results_db)} flaky')
+        if failures:
+            counts.append(f'{len(failures)} pre-existing')
+        if flakes:
+            counts.append(f'{len(flakes)} flaky')
         return f"Ignored {' and '.join(counts)} failure(s)"
+
+    def modified_test_names(self):
+        """Tests this change modifies, named as run-webkit-tests reports failures."""
+        # modified_tests carries a 'LayoutTests/' prefix, failing tests are named relative to it.
+        prefix = 'LayoutTests/'
+        changed = set()
+        for test in self.getProperty('modified_tests', None) or []:
+            changed.add(test[len(prefix):] if test.startswith(prefix) else test)
+        return changed
+
+    @defer.inlineCallbacks
+    def filter_failures_using_results_db(self, failing_tests):
+        """
+        Sets failing_tests_filtered to `failing_tests` without the ones the results database knows to fail
+        or flake without this change, and records those in pre_existing_failures_in_results_db and
+        pre_existing_flakes_in_results_db.
+        """
+        self.failing_tests_filtered = list(failing_tests)
+        self.pre_existing_failures_in_results_db = []
+        configuration = self.results_db_query_configuration()
+
+        # The database only knows the test without this change, so it cannot vouch for one it modifies.
+        modified = self.modified_test_names()
+        self.tests_modified_by_change = [test for test in failing_tests if test in modified]
+        candidates = [test for test in failing_tests if test not in modified]
+        if self.tests_modified_by_change:
+            yield self._addToLog(
+                self.results_db_log_name,
+                f"Not consulting the results database for {len(self.tests_modified_by_change)} failing test(s) modified by this change: {', '.join(self.tests_modified_by_change)}\n",
+            )
+
+        identifier, has_commit = yield self.resolve_identifier_for_results_db(configuration, bool(candidates))
+
+        tests = candidates[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]
+        unexplained = set()
+        for test in tests:
+            data = yield ResultsDatabase.is_test_pre_existing_failure(
+                test, configuration=configuration,
+                commit=identifier if has_commit else None,
+            )
+            if data['is_existing_failure']:
+                self.pre_existing_failures_in_results_db.append(test)
+                self.failing_tests_filtered.remove(test)
+            else:
+                unexplained.add(test)
+
+            yield self._addToLog(
+                self.results_db_log_name,
+                f"\n{test}: pass_rate: {data['pass_rate']}, pre-existing-failure={data['is_existing_failure']}\n"
+                f"Response from results-db: {data['raw_data']}\n"
+                f"{data['logs']}"
+            )
+
+        excused = yield self.pre_existing_flakes_using_results_db(unexplained)
+        for test in excused:
+            self.failing_tests_filtered.remove(test)
 
     @defer.inlineCallbacks
     def pre_existing_flakes_using_results_db(self, new_failures: set[str]) -> Generator[Any, Any, set[str]]:
@@ -740,6 +827,24 @@ class ResultsDBReportMixin(abc.ABC):
         Only the first MAX_FAILURES_TO_CHECK_RESULTS_DB names, sorted, are queried; the rest are
         absent from the result rather than reported as unexcused. Every verdict seen is recorded on
         the step and in the results-db_<prefix>flaky, _flaky_unsupported and _flaky_unknown properties.
+        """
+        verdicts = yield self.flaky_verdicts_using_results_db(new_failures)
+        self.pre_existing_flakes_in_results_db = verdicts.flaky
+        self.unsupported_flakes_in_results_db = verdicts.unsupported
+        self.unknown_flakes_in_results_db = verdicts.unknown
+        self.set_flaky_verdict_properties(verdicts, self.prefix)
+        defer.returnValue(verdicts.excused)
+
+    def set_flaky_verdict_properties(self, verdicts: FlakinessVerdicts, prefix: str):
+        self.setProperty('results-db_' + prefix + 'flaky', verdicts.flaky)
+        self.setProperty('results-db_' + prefix + 'flaky_unsupported', sorted(verdicts.unsupported))
+        self.setProperty('results-db_' + prefix + 'flaky_unknown', sorted(verdicts.unknown))
+
+    @defer.inlineCallbacks
+    def flaky_verdicts_using_results_db(self, new_failures: set[str]) -> Generator[Any, Any, FlakinessVerdicts]:
+        """
+        The results database's flakiness verdicts for `new_failures`, without recording them on the
+        step; pre_existing_flakes_using_results_db() describes which tests are queried and excused.
         """
         tests = sorted(new_failures)[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]
         configuration = self.results_db_query_configuration()
@@ -772,20 +877,13 @@ class ResultsDBReportMixin(abc.ABC):
 
             yield self._addToLog(self.results_db_log_name, f'\n{test}: pre-existing-flake={flake_summary}\n')
 
-        self.pre_existing_flakes_in_results_db = flaky
-        self.unsupported_flakes_in_results_db = unsupported
-        self.unknown_flakes_in_results_db = unknown
-        self.setProperty('results-db_' + self.prefix + 'flaky', flaky)
-        self.setProperty('results-db_' + self.prefix + 'flaky_unsupported', sorted(unsupported))
-        self.setProperty('results-db_' + self.prefix + 'flaky_unknown', sorted(unknown))
-
         for action, acted_on in (('Ignored', ignored), ('Would have ignored', shadowed)):
             if acted_on:
                 yield self._addToLog(
                     self.results_db_log_name,
                     f"\n{action} {len(acted_on)} flaky test(s): {', '.join(sorted(acted_on))}\n",
                 )
-        defer.returnValue(set(ignored))
+        defer.returnValue(FlakinessVerdicts(flaky=flaky, unsupported=unsupported, unknown=unknown, excused=set(ignored)))
 
 
 class Contributors(object):
@@ -1466,126 +1564,10 @@ class CheckChangeRelevance(AnalyzeChange):
     name = 'check-change-relevance'
     description = ['check-change-relevance running']
     descriptionDone = ['Change contains relevant changes']
-    MAX_LINE_SIZE = 250
 
-    bindings_path_regexes = [
-        re.compile(rb'Source/WebCore', re.IGNORECASE),
-        re.compile(rb'Tools', re.IGNORECASE),
-    ]
-
-    services_path_regexes = [
-        re.compile(rb'Tools/CISupport/build-webkit-org', re.IGNORECASE),
-        re.compile(rb'Tools/CISupport/ews-build', re.IGNORECASE),
-        re.compile(rb'Tools/CISupport/Shared', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/libraries/resultsdbpy', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/libraries/webkitcorepy', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/libraries/webkitscmpy', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/webkitpy/autoinstalled', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/webkitpy/__init__.py', re.IGNORECASE),
-    ]
-
-    jsc_path_regexes = [
-        re.compile(rb'.*javascriptcore.*', re.IGNORECASE),
-        re.compile(rb'JSTests/', re.IGNORECASE),
-        re.compile(rb'LayoutTests/js.*', re.IGNORECASE),  # This catches both js/ and jsc-layout-tests.yaml
-        re.compile(rb'Source/WTF/', re.IGNORECASE),
-        re.compile(rb'Source/bmalloc/', re.IGNORECASE),
-        re.compile(rb'Source/cmake/', re.IGNORECASE),
-        re.compile(rb'.*Makefile.*', re.IGNORECASE),
-        re.compile(rb'Tools/.*jsc.*', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/build-webkit', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/webkitdirs.pm', re.IGNORECASE),
-    ]
-
-    wk1_path_regexes = [
-        re.compile(rb'Source/WebKitLegacy', re.IGNORECASE),
-        re.compile(rb'Source/WebCore', re.IGNORECASE),
-        re.compile(rb'Source/WebInspectorUI', re.IGNORECASE),
-        re.compile(rb'Source/WebDriver', re.IGNORECASE),
-        re.compile(rb'Source/WTF', re.IGNORECASE),
-        re.compile(rb'Source/bmalloc', re.IGNORECASE),
-        re.compile(rb'Source/JavaScriptCore', re.IGNORECASE),
-        re.compile(rb'Source/ThirdParty', re.IGNORECASE),
-        re.compile(rb'LayoutTests', re.IGNORECASE),
-        re.compile(rb'Tools', re.IGNORECASE),
-    ]
-
-    monterey_builder_path_regexes = [
-        re.compile(rb'Source/', re.IGNORECASE),
-        re.compile(rb'Tools/', re.IGNORECASE),
-    ]
-
-    webkitpy_path_regexes = [
-        re.compile(rb'Tools/Scripts/webkitpy', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/libraries', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/commit-log-editor', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/test262', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/webkit-sysprof', re.IGNORECASE),
-        re.compile(rb'Source/WebKit/Scripts', re.IGNORECASE),
-        re.compile(rb'metadata/contributors.json', re.IGNORECASE),
-    ]
-
-    safer_cpp_path_regexes = [
-        re.compile(rb'Source/WebCore', re.IGNORECASE),
-        re.compile(rb'Source/WebDriver', re.IGNORECASE),
-        re.compile(rb'Source/WebGPU', re.IGNORECASE),
-        re.compile(rb'Source/WebInspectorUI', re.IGNORECASE),
-        re.compile(rb'Source/WebKit', re.IGNORECASE),
-        re.compile(rb'Source/WebKitLegacy', re.IGNORECASE),
-        re.compile(rb'Source/WTF', re.IGNORECASE),
-        re.compile(rb'Source/JavaScriptCore', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/build-and-analyze', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/generate-dirty-files', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/compare-static-analysis-results', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/generate-dirty-files', re.IGNORECASE),
-        re.compile(rb'Tools/CISupport/Shared/download-and-install-build-tools', re.IGNORECASE),
-        re.compile(rb'Tools/CISupport/safer-cpp-swift-version', re.IGNORECASE)
-    ]
-
-    webdriver_path_regexes = [
-        re.compile(rb'Source/WebDriver/', re.IGNORECASE),
-        re.compile(rb'Tools/minidriver/', re.IGNORECASE),
-        re.compile(rb'Source/WebKit/UIProcess/Automation/', re.IGNORECASE),
-        re.compile(rb'Source/WebKit/WebProcess/Automation/', re.IGNORECASE),
-        re.compile(rb'Source/WebKit/Shared/Automation/', re.IGNORECASE),
-        re.compile(rb'Source/WebCore/automation/', re.IGNORECASE),
-        re.compile(rb'Source/WebCore/Modules/webdriver/', re.IGNORECASE),
-        re.compile(rb'Tools/MiniBrowser/mac/', re.IGNORECASE),
-        re.compile(rb'Tools/MiniBrowser/MiniBrowser.xcodeproj', re.IGNORECASE),
-        re.compile(rb'WebDriverTests/', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/webkitpy/webdriver_tests/', re.IGNORECASE),
-        re.compile(rb'Tools/Scripts/run-webdriver-tests', re.IGNORECASE),
-    ]
-
-    group_to_paths_mapping = {
-        'bindings': bindings_path_regexes,
-        'monterey-release-build': monterey_builder_path_regexes,
-        'services-ews': services_path_regexes,
-        'jsc': jsc_path_regexes,
-        'webkitpy': webkitpy_path_regexes,
-        'wk1-tests': wk1_path_regexes,
-        'safer-cpp': safer_cpp_path_regexes,
-        'webdriver': webdriver_path_regexes,
-    }
-
-    def _change_is_relevant(self, changed_files, builderName, timeout=30):
-        group = [group for group in self.group_to_paths_mapping.keys() if group.lower() in builderName.lower()]
-        if not group:
-            # This builder doesn't have paths defined, all changes are relevant.
-            return True
-
-        relevant_path_regexes = self.group_to_paths_mapping.get(group[0], [])
-        start = time.time()
-
-        for change in changed_files.splitlines():
-            for regex in relevant_path_regexes:
-                if type(change) == str:
-                    change = change.encode(encoding='utf-8', errors='replace')
-                if regex.search(change[:self.MAX_LINE_SIZE]):
-                    return True
-            if time.time() > start + timeout:
-                return False
-        return False
+    def __init__(self, relevance, **kwargs):
+        self.relevance = relevance
+        super().__init__(**kwargs)
 
     @defer.inlineCallbacks
     def run(self):
@@ -1594,7 +1576,7 @@ class CheckChangeRelevance(AnalyzeChange):
             # This build doesn't have a change, it might be a force build.
             defer.returnValue(SUCCESS)
 
-        if self._change_is_relevant(changed_files, self.getProperty('buildername', '')):
+        if self.relevance.is_relevant(changed_files):
             yield self._addToLog('stdio', 'This pull request contains relevant changes.')
             defer.returnValue(SUCCESS)
 
@@ -1606,6 +1588,7 @@ class CheckChangeRelevance(AnalyzeChange):
 
 class GetTestExpectationsBaseline(shell.ShellCommand, ShellMixin):
     name = 'get-test-expectations-baseline'
+    logEnviron = False
     description = 'get-test-expectations-baseline running'
     descriptionDone = 'Found baseline expectations for layout tests'
     command = ['python3', 'Tools/Scripts/run-webkit-tests', '--print-expectations', WithProperties('--%(configuration)s')]
@@ -1634,6 +1617,7 @@ class GetTestExpectationsBaseline(shell.ShellCommand, ShellMixin):
 
 class GetUpdatedTestExpectations(steps.ShellSequence, ShellMixin):
     name = 'get-updated-test-expectations'
+    logEnviron = False
     description = 'get-updated-test-expectations running'
     descriptionDone = 'Found updated expectations for layout tests'
 
@@ -1807,12 +1791,14 @@ class ValidateChange(buildstep.BuildStep, AddToLogMixin, GitHubMixin):
         enableSkipEWSLabel=True,
         branches=None,
         excluded_branches=None,
+        excludeFeatureBranches=True,
     ):
         self.verifyObsolete = verifyObsolete
         self.verifyPRClosed = verifyPRClosed
         self.verifyMergeQueue = verifyMergeQueue
         self.verifyNoDraftForMergeQueue = verifyNoDraftForMergeQueue
         self.enableSkipEWSLabel = enableSkipEWSLabel
+        self.excludeFeatureBranches = excludeFeatureBranches
         self.addURLs = addURLs
 
         branches = branches or [r'.+']
@@ -1854,6 +1840,10 @@ class ValidateChange(buildstep.BuildStep, AddToLogMixin, GitHubMixin):
 
         if any(candidate.match(branch) for candidate in self.excluded_branches):
             rc = yield self.skip_build(f"Skipping as PR {pr_number} targets '{branch}' branch")
+            return defer.returnValue(rc)
+
+        if self.excludeFeatureBranches and is_feature_branch(branch):
+            rc = yield self.skip_build(f"Skipping as PR {pr_number} targets the '{branch}' feature branch")
             return defer.returnValue(rc)
 
         if not any(candidate.match(branch) for candidate in self.branches):
@@ -3392,25 +3382,44 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, AddToLogMixin, GitHubMixi
     name = 'analyze-compile-webkit-results'
     description = ['analyze-compile-webkit-results']
     descriptionDone = ['analyze-compile-webkit-results']
+    DISK_FULL_ERROR = 'No space left on device'
 
     @defer.inlineCallbacks
     def run(self):
         self.error_logs = {}
         self.compile_webkit_step = CompileWebKit.name
+        self.compile_without_change_step = CompileWebKitWithoutChange.name
         if shouldBuildJSCOnly(self.getProperty('group'), self.getProperty('platform')):
             self.compile_webkit_step = CompileJSC.name
+            self.compile_without_change_step = CompileJSCWithoutChange.name
         yield self.getResults(self.compile_webkit_step)
+        yield self.getResults(self.compile_without_change_step)
         rc = yield self.analyzeResults()
         defer.returnValue(rc)
 
+    def ran_out_of_disk_space(self, compile_without_change_result):
+        steps_to_check = [self.compile_webkit_step]
+        if compile_without_change_result == FAILURE:
+            steps_to_check.append(self.compile_without_change_step)
+        for step_name in steps_to_check:
+            for line in (self.error_logs.get(step_name) or '').splitlines():
+                if self.DISK_FULL_ERROR in line and 'error' in line.lower():
+                    return True
+        return False
+
     @defer.inlineCallbacks
     def analyzeResults(self):
-        compile_without_change_step = CompileWebKitWithoutChange.name
-        if shouldBuildJSCOnly(self.getProperty('group'), self.getProperty('platform')):
-            compile_without_change_step = CompileJSCWithoutChange.name
-        compile_without_change_result = self.getStepResult(compile_without_change_step)
+        compile_without_change_result = self.getStepResult(self.compile_without_change_step)
 
         pr_number = self.getProperty('github.number')
+
+        if self.ran_out_of_disk_space(compile_without_change_result):
+            message = 'Ran out of disk space, retrying build'
+            self.descriptionDone = message
+            yield self.send_email_for_disk_full()
+            self.build.workerforbuilder.worker.putInQuarantine()
+            self.build.buildFinished([message], RETRY)
+            return defer.returnValue(FAILURE)
 
         if compile_without_change_result == FAILURE:
             if pr_number and self.getProperty('github.base.ref') != 'main':
@@ -3552,6 +3561,19 @@ class AnalyzeCompileWebKitResults(buildstep.BuildStep, AddToLogMixin, GitHubMixi
             send_email_to_bot_watchers(email_subject, email_text, builder_name, reference)
         except Exception as e:
             yield self._addToLog('stdio', f'Error in sending email for build failure: {e}')
+
+    @defer.inlineCallbacks
+    def send_email_for_disk_full(self):
+        try:
+            builder_name = self.getProperty('buildername', '')
+            worker_name = self.getProperty('workername', '')
+            build_url = f'{self.master.config.buildbotURL}#/builders/{self.build._builderid}/builds/{self.build.number}'
+            email_subject = f'{worker_name} ran out of disk space while building WebKit'
+            email_text = f'{worker_name} ran out of disk space while building WebKit.'
+            email_text += f'\n\nBuild: {build_url}\n\nBuilder: {builder_name}\n'
+            send_email_to_bot_watchers(email_subject, email_text, builder_name, f'disk-full-{worker_name}')
+        except Exception as e:
+            yield self._addToLog('stdio', f'Error in sending email for disk full: {e}')
 
 
 class CompileJSC(CompileWebKit):
@@ -3978,6 +4000,7 @@ class AnalyzeJSCTestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddToLog
 
 class CleanBuild(shell.Compile):
     name = 'delete-WebKitBuild-directory'
+    logEnviron = False
     description = ['deleting WebKitBuild directory']
     descriptionDone = ['Deleted WebKitBuild directory']
     command = ['python3', 'Tools/CISupport/clean-build', WithProperties('--platform=%(fullPlatform)s'), WithProperties('--%(configuration)s')]
@@ -4204,58 +4227,6 @@ class RunWebKitTests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin
             yield self.report_to_results_db(first_results.flaky_results, flaky_type='WithinStepDirtyTree', stage='first-run')
 
         self._parseRunWebKitTestsOutput(logText)
-
-    def modified_test_names(self):
-        """Tests this change modifies, named as run-webkit-tests reports failures."""
-        # modified_tests carries a 'LayoutTests/' prefix, failing tests are named relative to it.
-        prefix = 'LayoutTests/'
-        changed = set()
-        for test in self.getProperty('modified_tests', None) or []:
-            changed.add(test[len(prefix):] if test.startswith(prefix) else test)
-        return changed
-
-    @defer.inlineCallbacks
-    def filter_failures_using_results_db(self, failing_tests):
-        self.failing_tests_filtered = failing_tests.copy()
-        configuration = self.results_db_query_configuration()
-
-        # The database only knows the test without this change, so it cannot vouch for one it modifies.
-        modified = self.modified_test_names()
-        self.tests_modified_by_change = [test for test in failing_tests if test in modified]
-        candidates = [test for test in failing_tests if test not in modified]
-        if self.tests_modified_by_change:
-            yield self._addToLog(
-                self.results_db_log_name,
-                'Not consulting the results database for {} failing test(s) modified by this change: {}\n'.format(
-                    len(self.tests_modified_by_change), ', '.join(self.tests_modified_by_change),
-                ),
-            )
-
-        identifier, has_commit = yield self.resolve_identifier_for_results_db(configuration, bool(candidates))
-
-        tests = candidates[:self.MAX_FAILURES_TO_CHECK_RESULTS_DB]
-        unexplained = set()
-        for test in tests:
-            data = yield ResultsDatabase.is_test_pre_existing_failure(
-                test, configuration=configuration,
-                commit=identifier if has_commit else None,
-            )
-            if data['is_existing_failure']:
-                self.pre_existing_failures_in_results_db.append(test)
-                self.failing_tests_filtered.remove(test)
-            else:
-                unexplained.add(test)
-
-            yield self._addToLog(
-                self.results_db_log_name,
-                f"\n{test}: pass_rate: {data['pass_rate']}, pre-existing-failure={data['is_existing_failure']}\n"
-                f"Response from results-db: {data['raw_data']}\n"
-                f"{data['logs']}"
-            )
-
-        excused = yield self.pre_existing_flakes_using_results_db(unexplained)
-        for test in excused:
-            self.failing_tests_filtered.remove(test)
 
     def evaluateResult(self, cmd):
         result = SUCCESS
@@ -4749,6 +4720,7 @@ class ReRunWebKitTestsEWSSiteIsolation(SiteIsolationResultsDBMixin, ReRunWebKitT
 class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddToLogMixin, GitHubMixin):
     name = 'analyze-layout-tests-results'
     suite = 'layout-tests'
+    MAX_FAILURES_TO_CHECK_RESULTS_DB = RunWebKitTests.MAX_FAILURES_TO_CHECK_RESULTS_DB
     description = ['analyze-layout-test-results']
     descriptionDone = ['analyze-layout-tests-results']
 
@@ -4788,7 +4760,7 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddTo
 
             pluralSuffix = 's' if len(new_failures) > 1 else ''
             if exceed_failure_limit:
-                message = 'Failure limit exceed. At least found'
+                message = 'Failure limit exceeded. Found at least'
             else:
                 message = 'Found'
             new_failures_string = ' '.join(sorted(new_failures)[:self.NUM_FAILURES_TO_DISPLAY])
@@ -4975,30 +4947,20 @@ class AnalyzeLayoutTestsResults(ResultsDBReportMixin, buildstep.BuildStep, AddTo
         num_flaky_failures = len(flaky_failures)
         flaky_failures_string = ', '.join(sorted(flaky_failures)[:self.NUM_FAILURES_TO_DISPLAY])
 
-        if first_results_did_exceed_test_failure_limit and second_results_did_exceed_test_failure_limit:
-            if (len(first_results_failing_tests) - len(clean_tree_results_failing_tests)) <= 5:
-                # If we've made it here, then many tests are failing with the change applied, but
-                # if the clean tree is also failing many tests, even if it's not quite as many,
-                # then we can't be certain that the discrepancy isn't due to flakiness, and hence we must defer judgement.
-                return defer.returnValue(self.retry_build())
-            rc = yield self.report_failure(first_results_failing_tests)
-            return defer.returnValue(rc)
-
-        if second_results_did_exceed_test_failure_limit:
+        # An early-exit run doesn't retry its failures, so blame only what failed in both runs and was clean without the change.
+        if first_results_did_exceed_test_failure_limit or second_results_did_exceed_test_failure_limit:
             if clean_tree_results_did_exceed_test_failure_limit:
                 return defer.returnValue(self.retry_build())
-            failures_introduced_by_change = first_results_failing_tests - clean_tree_results_failing_tests
+            clean_tree_results_flaky_tests = set(self.getProperty('clean_tree_run_flakies', []))
+            failures_introduced_by_change = first_results_failing_tests.intersection(second_results_failing_tests) - clean_tree_results_failing_tests - clean_tree_results_flaky_tests
+            # Completed runs already consulted the results database.
+            both_runs_exceeded_failure_limit = first_results_did_exceed_test_failure_limit and second_results_did_exceed_test_failure_limit
+            is_main = self.getProperty('github.base.ref', DEFAULT_BRANCH) == DEFAULT_BRANCH
+            if failures_introduced_by_change and both_runs_exceeded_failure_limit and is_main:
+                yield self.filter_failures_using_results_db(sorted(failures_introduced_by_change))
+                failures_introduced_by_change = set(self.failing_tests_filtered)
             if failures_introduced_by_change:
-                rc = yield self.report_failure(failures_introduced_by_change)
-                return defer.returnValue(rc)
-            return defer.returnValue(self.retry_build())
-
-        if first_results_did_exceed_test_failure_limit:
-            if clean_tree_results_did_exceed_test_failure_limit:
-                return defer.returnValue(self.retry_build())
-            failures_introduced_by_change = second_results_failing_tests - clean_tree_results_failing_tests
-            if failures_introduced_by_change:
-                rc = yield self.report_failure(failures_introduced_by_change)
+                rc = yield self.report_failure(failures_introduced_by_change, exceed_failure_limit=both_runs_exceeded_failure_limit)
                 return defer.returnValue(rc)
             return defer.returnValue(self.retry_build())
 
@@ -5534,12 +5496,15 @@ class UploadFileToS3(shell.ShellCommand, AddToLogMixin):
     descriptionDone = name
     haltOnFailure = True
     flunkOnFailure = True
+    MAX_ATTEMPTS = 3
 
-    def __init__(self, file, links=None, content_type=None, **kwargs):
+    def __init__(self, file, links=None, content_type=None, attempt=1, **kwargs):
         super().__init__(timeout=31 * 60, logEnviron=False, **kwargs)
         self.file = file
         self.links = links or dict()
         self.content_type = content_type
+        self.attempt = attempt
+        self.retrying = False
 
     def getLastBuildStepByName(self, name):
         for step in reversed(self.build.executedSteps):
@@ -5573,12 +5538,34 @@ class UploadFileToS3(shell.ShellCommand, AddToLogMixin):
                     continue
                 step.addURL(message, self.build.s3_archives[-1])
 
+        if rc == FAILURE and self.attempt < self.MAX_ATTEMPTS:
+            generate_step = self.getLastBuildStepByName(GenerateS3URL.name)
+            if generate_step:
+                # The presigned URL can expire mid-upload, so each attempt needs a freshly generated one.
+                self.build.addStepsAfterCurrentStep([
+                    GenerateS3URL(
+                        generate_step.identifier,
+                        extension=generate_step.extension,
+                        additions=generate_step.additions,
+                        content_type=generate_step.content_type,
+                    ), UploadFileToS3(
+                        self.file,
+                        links=self.links,
+                        content_type=self.content_type,
+                        attempt=self.attempt + 1,
+                    )
+                ])
+                self.retrying = True
+                rc = WARNINGS
+
         return defer.returnValue(rc)
 
     def doStepIf(self, step):
         return USE_S3 and CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES + TESTING_ENVIRONMENT_HOSTNAMES
 
     def getResultSummary(self):
+        if self.retrying:
+            return {'step': f'Failed to upload {self.file} to S3 (attempt {self.attempt} of {self.MAX_ATTEMPTS}), retrying'}
         if self.results == FAILURE:
             return {'step': f'Failed to upload {self.file} to S3. Please inform an admin.'}
         if self.results == SKIPPED:
@@ -5950,24 +5937,30 @@ class RunAPITests(shell.Test, ResultsDBReportMixin, AddToLogMixin, ShellMixin):
             if self.name != RunAPITestsWithoutChange.name:
                 self.build.results = SUCCESS
                 self.setProperty('build_summary', message)
-                # Add parallel safety testing for modified API tests (only for initial run)
-                if self.name == RunAPITests.name:
-                    self.steps_to_add += [
-                        FindModifiedAPITests(skipBuildIfNoResult=False),
-                        FilterAPITestsForPlatform(),
-                        RunAPITestsParallelSafety(),
-                    ]
+                self.add_parallel_safety_steps()
         elif (self.name != RunAPITestsWithoutChange.name and self.pre_existing_failures_in_results_db and len(self.failing_tests_filtered) == 0):
             # This means all the tests which failed in this run were also failing or flaky in results database
             message = self.results_db_ignore_message()
             self.descriptionDone = message
             self.build.results = SUCCESS
             self.setProperty('build_summary', message)
+            self.add_parallel_safety_steps()
         else:
             yield self.doOnFailure()
 
         self.build.addStepsAfterCurrentStep(self.steps_to_add)
         defer.returnValue(rc)
+
+    def add_parallel_safety_steps(self):
+        if self.name not in (RunAPITests.name, ReRunAPITests.name):
+            return
+        if self.getProperty('platform') in RunAPITestsParallelSafety.UNSUPPORTED_PLATFORMS:
+            return
+        self.steps_to_add += [
+            FindModifiedAPITests(skipBuildIfNoResult=False),
+            FilterAPITestsForPlatform(),
+            RunAPITestsParallelSafety(),
+        ]
 
     def parseOutputLine(self, line):
         self.line_count += 1
@@ -6150,6 +6143,7 @@ class ReRunAPITests(RunAPITests):
             self.build.results = SUCCESS
             self.setProperty('force_build_success', True)
             self.setProperty('build_summary', message)
+            self.add_parallel_safety_steps()
             return
 
         first_exceeded = self.getProperty('api_first_run_exceeded_failure_limit', False)
@@ -6177,6 +6171,7 @@ class ReRunAPITests(RunAPITests):
                     'second-run': 'api_second_run_results',
                 })
                 yield self.report_to_results_db(results)
+                self.add_parallel_safety_steps()
                 return
 
         self.steps_to_add += [RevertAppliedChanges(), CleanWorkingDirectory(), ValidateChange(verifyPRClosed=False, addURLs=False)]
@@ -6547,52 +6542,113 @@ class FindModifiedAPITests(shell.ShellCommand, AnalyzeChange):
     name = 'find-modified-api-tests'
     description = ['find-modified-api tests running']
     descriptionDone = ['Found modified API tests']
-    RE_API_TEST = br'^(\+\+\+).*(Tools/TestWebKitAPI/Tests/.*\.(cpp|mm|m))'
-    RE_TEST_F = re.compile(r'TEST_F\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)')
-    RE_TEST = re.compile(r'TEST\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)')
+    RE_API_TEST = br'^(\+\+\+).*(Tools/TestWebKitAPI/Tests/.*\.(cpp|mm|m|swift))'
+    RE_TEST_DEFINITION = re.compile(r'^[ \t]*TEST(?:_F)?\s*\(\s*(\w+)\s*,\s*(\w+)\s*\)', re.MULTILINE)
+    RE_SWIFT_TYPE = re.compile(r'^\s*(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|private|fileprivate|internal|final)\s+)*(?:struct|class|enum|actor|extension)\s+(\w+)')
+    RE_SWIFT_TEST = re.compile(r'^\s*@Test\b')
+    RE_SWIFT_FUNCTION = re.compile(r'\bfunc\s+(\w+)\s*\(')
+    RE_HUNK = re.compile(r'^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@', re.MULTILINE)
     API_TEST_PATHS = ['Tools/TestWebKitAPI/Tests/']
+    BINARY_FOR_DIRECTORY = {
+        'Tools/TestWebKitAPI/Tests/IPC/': 'TestIPC',
+        'Tools/TestWebKitAPI/Tests/WGSL/': 'TestWGSL',
+        'Tools/TestWebKitAPI/Tests/WebGPU/': 'TestWGSL',
+        'Tools/TestWebKitAPI/Tests/WTF/': 'TestWTF',
+    }
+    MAX_TESTS = 250
 
     def __init__(self, skipBuildIfNoResult=True):
         self.skipBuildIfNoResult = skipBuildIfNoResult
         super().__init__(logEnviron=False)
 
-    @staticmethod
-    def _extract_test_names_from_content(content):
-        """Extract test names from file content string"""
-        test_names = []
-        for pattern in [FindModifiedAPITests.RE_TEST_F, FindModifiedAPITests.RE_TEST]:
-            matches = pattern.findall(content)
-            for suite, test in matches:
-                test_names.append(f'{suite}.{test}')
-        return test_names
+    @classmethod
+    def _test_spans_from_content(cls, content, swift=False):
+        lines = content.splitlines()
+        starts = []
+        if swift:
+            suite = None
+            pending_swift_test = None
+            in_string_literal = False
+            for number, line in enumerate(lines, 1):
+                was_in_string_literal = in_string_literal
+                in_string_literal ^= line.count('\"\"\"') % 2 == 1
+                if was_in_string_literal:
+                    continue
+                type_match = cls.RE_SWIFT_TYPE.match(line)
+                if type_match and pending_swift_test is None:
+                    suite = type_match.group(1)
+                    starts.append((None, None, number))
+                if cls.RE_SWIFT_TEST.match(line):
+                    pending_swift_test = number
+                if pending_swift_test is not None and (function := cls.RE_SWIFT_FUNCTION.search(line)):
+                    if suite:
+                        starts.append((suite, function.group(1), pending_swift_test))
+                    pending_swift_test = None
+        else:
+            for match in cls.RE_TEST_DEFINITION.finditer(content):
+                starts.append((match.group(1), match.group(2), content.count('\n', 0, match.start()) + 1))
+        spans = []
+        for index, (span_suite, test, first) in enumerate(starts):
+            if test is None:
+                continue
+            last = starts[index + 1][2] - 1 if index + 1 < len(starts) else len(lines)
+            spans.append((span_suite, test, first, last))
+        return spans
 
-    @staticmethod
-    def _get_binary_for_test_path(file_path):
-        """Determine which test binary a file belongs to"""
-        binaries = ['TestWTF', 'TestWebCore', 'TestIPC', 'TestWGSL']
-        for binary in binaries:
-            if binary in file_path:
+    @classmethod
+    def _changed_line_ranges(cls, diff):
+        ranges = []
+        for start, count in cls.RE_HUNK.findall(diff):
+            first = int(start)
+            ranges.append((first, first + max(int(count or 1), 1) - 1))
+        return ranges
+
+    @classmethod
+    def _get_binary_for_test_path(cls, file_path):
+        """FilterAPITestsForPlatform corrects the tests this guesses wrong using run-api-tests --dump."""
+        for directory, binary in cls.BINARY_FOR_DIRECTORY.items():
+            if file_path.startswith(directory):
                 return binary
         return 'TestWebKitAPI'
 
+    @classmethod
+    def _tests_in_file(cls, file_path, content, diff):
+        swift = file_path.endswith('.swift')
+        binary = cls._get_binary_for_test_path(file_path)
+        changed = cls._changed_line_ranges(diff)
+        tests = []
+        for suite, test, first, last in cls._test_spans_from_content(content, swift=swift):
+            item = {
+                'file': file_path,
+                'test': f'{binary}.{suite}/{test}()' if swift else f'{binary}.{suite}.{test}',
+                'touched': any(first <= changed_last and changed_first <= last for changed_first, changed_last in changed),
+            }
+            if swift:
+                item['swift'] = [suite, test]
+            tests.append(item)
+        return sorted(tests, key=lambda item: not item['touched'])
+
+    @defer.inlineCallbacks
+    def _command_output(self, command):
+        log_observer = logobserver.BufferLogObserver()
+        self.addLogObserver('stdio', log_observer)
+        self.command = command
+        rc = yield super().run()
+        defer.returnValue(log_observer.getStdout() if rc == SUCCESS else None)
+
     @defer.inlineCallbacks
     def run(self):
-        self.log_observer = logobserver.BufferLogObserver()
-        self.addLogObserver('stdio', self.log_observer)
+        remote = self.getProperty('remote', 'origin')
+        base_ref = self.getProperty('github.base.ref', 'main')
+        # Use triple-dot diff to compare merge-base with HEAD (only PR changes)
+        merge_base_range = f'remotes/{remote}/{base_ref}...HEAD'
 
         all_changed_files = self._get_changed_files()
         if not all_changed_files:
             yield self._addToLog('stdio', 'No changed files found, using git diff against base branch\n')
-            remote = self.getProperty('remote', 'origin')
-            base_ref = self.getProperty('github.base.ref', 'main')
-            # Use triple-dot diff to compare merge-base with HEAD (only PR changes)
-            self.command = ['git', 'diff', f'remotes/{remote}/{base_ref}...HEAD', '--name-only']
-            rc = yield super().run()
-
-            if rc != SUCCESS:
+            log_text = yield self._command_output(['git', 'diff', merge_base_range, '--name-only'])
+            if log_text is None:
                 return defer.returnValue(SKIPPED)
-
-            log_text = self.log_observer.getStdout()
             changed_files = [f for f in log_text.splitlines() if any(f.startswith(path) for path in self.API_TEST_PATHS)]
         else:
             yield self._addToLog('stdio', 'Found changed files, analyzing for API test changes\n')
@@ -6607,58 +6663,39 @@ class FindModifiedAPITests(shell.ShellCommand, AnalyzeChange):
             return defer.returnValue(SKIPPED)
 
         yield self._addToLog('stdio', f'Found {len(changed_files)} modified API test file(s):\n')
-        for file_path in changed_files:
+        for file_path in sorted(changed_files):
             yield self._addToLog('stdio', f'  - {file_path}\n')
 
-        # Extract test names from modified files, keyed by file for round-robin selection
         # Note: Files are on the worker, not master, so we use git show to read content
-        tests_by_file = {}
-        for file_path in changed_files:
-            # Create fresh log observer for each file to avoid accumulation
-            file_log_observer = logobserver.BufferLogObserver()
-            self.addLogObserver('stdio', file_log_observer)
-
-            self.command = ['git', 'show', f'HEAD:{file_path}']
-            rc = yield super().run()
-
-            if rc != SUCCESS:
+        all_tests = []
+        seen_tests = set()
+        for file_path in sorted(changed_files):
+            content = yield self._command_output(['git', 'show', f'HEAD:{file_path}'])
+            if content is None:
                 yield self._addToLog('stdio', f'  Warning: Could not read {file_path} via git show\n')
                 continue
+            diff = yield self._command_output(['git', 'diff', '-U0', merge_base_range, '--', file_path])
+            tests = [item for item in self._tests_in_file(file_path, content, diff or '') if item['test'] not in seen_tests]
+            seen_tests.update(item['test'] for item in tests)
+            touched_count = sum(1 for item in tests if item['touched'])
+            yield self._addToLog('stdio', f'  Extracted {len(tests)} test(s) from {file_path}, {touched_count} of them added or modified\n')
+            all_tests.extend(tests)
 
-            content = file_log_observer.getStdout()
-            binary = self._get_binary_for_test_path(file_path)
-            test_names = self._extract_test_names_from_content(content)
-            yield self._addToLog('stdio', f'  Extracted {len(test_names)} test(s) from {file_path}\n')
-
-            if test_names:
-                tests_by_file[file_path] = [(binary, test) for test in test_names]
-
-        if not tests_by_file:
+        if not all_tests:
             yield self._addToLog('stdio', '\nCould not extract test names from modified files, will skip parallel safety testing\n')
             self.setProperty('modified_api_tests', [])
             return defer.returnValue(SKIPPED)
 
-        # Collect all tests with file info for round-robin selection in later step
-        seen_tests = {}
-        for file_path, tests in tests_by_file.items():
-            for binary, test in tests:
-                full_test_name = f'{binary}.{test}'
-                if full_test_name not in seen_tests:
-                    seen_tests[full_test_name] = {'file': file_path, 'test': full_test_name}
-        all_tests = list(seen_tests.values())
-
-        MAX_TESTS = 250
-        if all_tests:
-            total_tests = len(all_tests)
-            if total_tests > MAX_TESTS:
-                yield self._addToLog('stdio', f'\nWarning: Truncating to {MAX_TESTS} tests (was {total_tests})\n')
-                all_tests = all_tests[:MAX_TESTS]
-            yield self._addToLog('stdio', f'\nIdentified {len(all_tests)} API test(s) for parallel safety testing:\n')
-            for item in all_tests:
-                yield self._addToLog('stdio', f'  - {item["test"]}\n')
+        all_tests.sort(key=lambda item: not item['touched'])
+        if len(all_tests) > self.MAX_TESTS:
+            yield self._addToLog('stdio', f'\nWarning: Truncating to {self.MAX_TESTS} tests (was {len(all_tests)})\n')
+            all_tests = all_tests[:self.MAX_TESTS]
+        yield self._addToLog('stdio', f'\nIdentified {len(all_tests)} API test(s) for parallel safety testing:\n')
+        for item in all_tests:
+            yield self._addToLog('stdio', f"  - {item['test']}{' (added or modified)' if item['touched'] else ''}\n")
 
         self.setProperty('modified_api_tests', all_tests)
-        defer.returnValue(SUCCESS if all_tests else SKIPPED)
+        defer.returnValue(SUCCESS)
 
     def find_test_names_from_changed_files(self, changed_files):
         """Find modified API test files from changed files"""
@@ -6684,6 +6721,7 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
     description = ['filtering api tests for platform']
     descriptionDone = ['filtered api tests']
     UNSUPPORTED_PLATFORMS = ['gtk', 'wpe']
+    DEFAULT_IOS_SIMULATORS = 3
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, timeout=120, **kwargs)
@@ -6706,8 +6744,7 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
         platform = self.getProperty('platform')
         configuration = self.getProperty('configuration', 'debug')
 
-        # iOS simulators have significant boot overhead, so use a lower cap
-        MAX_TESTS = 2 if platform == 'ios' else 30
+        MAX_TESTS = max(1, self.child_processes(self.getProperty('additionalArguments')) - 1) if platform == 'ios' else 30
 
         self.log_observer = logobserver.BufferLogObserver(wantStdout=True, wantStderr=True)
         self.addLogObserver('stdio', self.log_observer)
@@ -6715,6 +6752,7 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
         self.command = [
             'python3', 'Tools/Scripts/run-api-tests',
             '--dump',
+            '--skip-blocklisted',
             f'--{configuration}',
         ]
         self.command += customBuildFlag(platform, self.getProperty('fullPlatform'))
@@ -6740,38 +6778,26 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
 
         yield self._addToLog('stdio', f'\nFound {len(available_tests)} available tests on this platform\n')
 
-        # Filter by availability and group by file
-        tests_by_file = {}
+        touched_by_file = {}
+        untouched_by_file = {}
         filtered_out = 0
+        available_by_name = self.index_available_tests(available_tests)
         for item in modified_tests:
-            test_name = item['test']
-            file_path = item['file']
-            if test_name in available_tests:
-                if file_path not in tests_by_file:
-                    tests_by_file[file_path] = []
-                tests_by_file[file_path].append(test_name)
-            else:
+            test_names = self.available_test_names(item, available_by_name)
+            if not test_names:
                 filtered_out += 1
+                continue
+            tests_by_file = touched_by_file if item.get('touched') else untouched_by_file
+            tests_by_file.setdefault(item['file'], []).extend(test_names)
 
         if filtered_out:
             yield self._addToLog('stdio', f'Filtered out {filtered_out} test(s) not available on this platform\n')
 
-        # Round-robin selection up to MAX_TESTS
         selected_tests = []
-        file_iterators = {f: iter(tests) for f, tests in tests_by_file.items()}
-        active_files = list(file_iterators.keys())
+        for tests_by_file in (touched_by_file, untouched_by_file):
+            selected_tests += self.round_robin(tests_by_file, MAX_TESTS - len(selected_tests), set(selected_tests))
 
-        while active_files and len(selected_tests) < MAX_TESTS:
-            for file_path in list(active_files):
-                if len(selected_tests) >= MAX_TESTS:
-                    break
-                try:
-                    test = next(file_iterators[file_path])
-                    selected_tests.append(test)
-                except StopIteration:
-                    active_files.remove(file_path)
-
-        total_available = sum(len(tests) for tests in tests_by_file.values())
+        total_available = len({test for tests_by_file in (touched_by_file, untouched_by_file) for tests in tests_by_file.values() for test in tests})
         truncated_count = total_available - len(selected_tests)
 
         if selected_tests:
@@ -6785,6 +6811,51 @@ class FilterAPITestsForPlatform(shell.ShellCommand, AddToLogMixin):
 
         self.setProperty('modified_api_tests', selected_tests)
         defer.returnValue(SUCCESS if selected_tests else SKIPPED)
+
+    @staticmethod
+    def child_processes(additional_arguments):
+        for argument in additional_arguments or []:
+            if argument.startswith('--child-processes='):
+                return int(argument.split('=', 1)[1])
+        return FilterAPITestsForPlatform.DEFAULT_IOS_SIMULATORS
+
+    @staticmethod
+    def index_available_tests(available_tests):
+        by_name = {}
+        by_swift_function = {}
+        for test in available_tests:
+            if '.' not in test:
+                continue
+            name = test.split('.', 1)[1]
+            by_name.setdefault(name, []).append(test)
+            if '/' in name and name.endswith(')'):
+                components = name.split('/')
+                by_swift_function.setdefault(components[-1].split('(', 1)[0], []).append((components[:-1], test))
+        return by_name, by_swift_function
+
+    @staticmethod
+    def available_test_names(item, available_by_name):
+        by_name, by_swift_function = available_by_name
+        if item.get('swift'):
+            suite, function = item['swift']
+            return sorted(test for suites, test in by_swift_function.get(function, []) if suite in suites)
+        return sorted(by_name.get(item['test'].split('.', 1)[1], []))
+
+    @staticmethod
+    def round_robin(tests_by_file, limit, already_selected):
+        selected = []
+        iterators = [iter(tests) for tests in tests_by_file.values()]
+        while iterators and len(selected) < limit:
+            for iterator in list(iterators):
+                if len(selected) >= limit:
+                    break
+                test = next(iterator, None)
+                if test is None:
+                    iterators.remove(iterator)
+                elif test not in already_selected:
+                    already_selected.add(test)
+                    selected.append(test)
+        return selected
 
     def doStepIf(self, step):
         return bool(self.getProperty('modified_api_tests', []))
@@ -6819,6 +6890,8 @@ class RunAPITestsParallelSafety(RunAPITests):
 
     @defer.inlineCallbacks
     def run(self):
+        self.log_observer_json = logobserver.BufferLogObserver()
+        self.addLogObserver('json', self.log_observer_json)
         self.log_observer = ParseByLineLogObserver(self.parseOutputLine)
         self.addLogObserver('stdio', self.log_observer)
 
@@ -6853,13 +6926,15 @@ class RunAPITestsParallelSafety(RunAPITests):
             self.command.append('--skip-failing-tests')
 
         self.command += customBuildFlag(platform, self.getProperty('fullPlatform'))
+        self.command += self.getProperty('additionalArguments') or []
+        self.command.append('--skip-blocklisted')
 
         # Add each test with its own --test-parallel-safety flag
         for test in modified_tests:
             self.command += ['--test-parallel-safety', test]
 
         if SHOULD_FILTER_LOGS is True:
-            self.command = self.shell_command(' '.join(self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs api')
+            self.command = self.shell_command(' '.join(quote(str(argument)) for argument in self.command) + ' 2>&1 | Tools/Scripts/filter-test-logs api')
 
         yield self._addToLog('stdio', f'Running parallel safety testing on {len(modified_tests)} test(s)\n')
         yield self._addToLog('stdio', f'Command: {" ".join(self.command)}\n\n')
@@ -6868,6 +6943,11 @@ class RunAPITestsParallelSafety(RunAPITests):
 
         if self.failedTestCount:
             rc = FAILURE
+
+        if rc == FAILURE:
+            failures = yield self.parse_and_set_failures()
+            if failures:
+                self.report_tests_unsafe_in_parallel(sorted(failures))
 
         if SHOULD_FILTER_LOGS is True:
             self.steps_to_add += [
@@ -6889,6 +6969,19 @@ class RunAPITestsParallelSafety(RunAPITests):
     def doOnFailure(self):
         # No retry needed for parallel safety tests - failures are legitimate
         pass
+
+    def report_tests_unsafe_in_parallel(self, tests):
+        """Fail the build even though the API test runs passed, which would otherwise make SetBuildSummary report success."""
+        pluralSuffix = 's' if len(tests) > 1 else ''
+        pronoun = 'them' if len(tests) > 1 else 'it'
+        message = f"Found {len(tests)} API test{pluralSuffix} that failed when run in parallel: {', '.join(tests[:self.NUM_FAILURES_TO_DISPLAY])}"
+        if len(tests) > self.NUM_FAILURES_TO_DISPLAY:
+            message += ' ...'
+        message += f'. Fix {pronoun} or add {pronoun} to Tools/Scripts/webkitpy/api_tests/blocklist.txt'
+        self.descriptionDone = message
+        self.build.results = FAILURE
+        self.setProperty('force_build_success', False)
+        self.setProperty('build_summary', message)
 
     def analyze_failures_using_results_db(self, failures):
         # Skip results DB checking for parallel safety tests
@@ -7331,12 +7424,89 @@ class CleanWebKitBuildIfBaseChanged(steps.ShellSequence):
         return {'step': self.descriptionDone[0]}
 
 
-class PushCommitToWebKitRepo(shell.ShellCommand):
+class AcquireLandingLock(buildstep.BuildStep, AddToLogMixin):
+    # Builds must take turns from the rebase in Canonicalize to the push in PushCommitToWebKitRepo, and buildbot locks can
+    # only be held by a single step or by a whole build. PushCommitToWebKitRepo releases the lock; a build that stops
+    # earlier releases it by finishing.
+    name = 'acquire-landing-lock'
+    description = ['Waiting for other pull requests to land']
+    descriptionDone = ['Acquired landing lock']
+    POLL_INTERVAL = 2
+
+    holder = None
+    waiting = []
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.deferred = None
+
+    @classmethod
+    def release(cls, build):
+        if cls.holder is build:
+            cls.holder = None
+
+    @classmethod
+    def blocker(cls, build):
+        for other in [cls.holder] + cls.waiting:
+            if other is build:
+                return None
+            if other and not other.finished:
+                return other
+        return None
+
+    @defer.inlineCallbacks
+    def run(self):
+        start_time = time.time()
+        last_blocker = None
+        AcquireLandingLock.waiting.append(self.build)
+        try:
+            while blocker := self.blocker(self.build):
+                if self.stopped:
+                    return CANCELLED
+                if blocker is not last_blocker:
+                    last_blocker = blocker
+                    yield self._addToLog('stdio', f"Waiting for {blocker.getProperty('buildername', '')} build {blocker.getProperty('buildnumber', '')} (PR #{blocker.getProperty('github.number', '')}) to land.\n")
+                self.deferred = task.deferLater(reactor, self.POLL_INTERVAL, lambda: None)
+                try:
+                    yield self.deferred
+                except defer.CancelledError:
+                    return CANCELLED
+            AcquireLandingLock.holder = self.build
+        finally:
+            AcquireLandingLock.waiting.remove(self.build)
+
+        if last_blocker:
+            yield self._addToLog('stdio', f'Acquired the landing lock after {int(time.time() - start_time)} seconds.\n')
+        return SUCCESS
+
+    def getResultSummary(self):
+        if self.results == SUCCESS:
+            return {'step': 'Acquired landing lock'}
+        return {'step': 'Stopped waiting for landing lock'}
+
+    def interrupt(self, reason):
+        if self.deferred and not self.deferred.called:
+            self.deferred.cancel()
+        return super().interrupt(reason)
+
+
+class PushedCommitMixin(object):
+    # The push output doesn't name the commit when the remote already has it, as on a retry after GitHub applied a push
+    # but reported it as failed, so ask git.
+    @defer.inlineCallbacks
+    def pushed_commit(self):
+        command = yield self.makeRemoteShellCommand(command=['git', 'rev-parse', 'HEAD'], collectStdout=True)
+        yield self.runCommand(command)
+        sha = command.stdout.strip()
+        return sha if command.results() == SUCCESS and re.fullmatch(r'[0-9a-f]{40}', sha) else None
+
+
+class PushCommitToWebKitRepo(shell.ShellCommand, PushedCommitMixin):
     name = 'push-commit-to-webkit-repo'
     descriptionDone = ['Pushed commit to WebKit repository']
     haltOnFailure = False
     MAX_RETRY = 2
-    HASH_RE = re.compile(r'\s+[0-9a-f]+\.\.+(?P<hash>[0-9a-f]+)\s+')
+    RETRY_DELAY = 10
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, timeout=300, **kwargs)
@@ -7351,14 +7521,11 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
         self.env['GIT_USER'] = username
         self.env['GIT_PASSWORD'] = access_token
 
-        self.log_observer = logobserver.BufferLogObserver(wantStderr=True)
-        self.addLogObserver('stdio', self.log_observer)
-
         rc = yield super().run()
 
         if rc == SUCCESS:
-            log_text = self.log_observer.getStdout() + self.log_observer.getStderr()
-            landed_hash = self.hash_from_commit_text(log_text)
+            AcquireLandingLock.release(self.build)
+            landed_hash = yield self.pushed_commit()
             if landed_hash:
                 self.setProperty('landed_hash', landed_hash)
 
@@ -7376,22 +7543,15 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
             if retry_count < self.MAX_RETRY:
                 self.setProperty('retry_count', retry_count + 1)
                 if self.getProperty('github.number', ''):
+                    # This is for GitHub errors. Only merge queue builds push, and this build still holds the landing
+                    # lock, so the same commit can be pushed again.
                     self.build.addStepsAfterCurrentStep([
-                        CleanGitRepo(),
-                        CheckOutSource(),
-                        FetchBranches(),
-                        UpdateWorkingDirectory(),
-                        ShowIdentifier(),
-                        CheckOutPullRequest(),
-                        AddReviewerToCommitMessage(),
-                        Canonicalize(),
-                        ValidateChange(verifyMergeQueue=True, verifyNoDraftForMergeQueue=True, verifyObsolete=False, enableSkipEWSLabel=False),
-                        PushPullRequestBranch(),
-                        UpdatePullRequest(),
+                        WaitForDuration(duration=self.RETRY_DELAY),
                         PushCommitToWebKitRepo(),
                     ])
                 return defer.returnValue(rc)
 
+            AcquireLandingLock.release(self.build)
             self.setProperty('comment_text', 'merge-queue failed to commit PR to repository. To retry, remove any blocking labels and re-apply merge-queue label')
             self.setProperty('build_finish_summary', 'Failed to commit to WebKit repository')
             self.build.addStepsAfterCurrentStep([LeaveComment(), BlockPullRequest()])
@@ -7405,12 +7565,6 @@ class PushCommitToWebKitRepo(shell.ShellCommand):
 
     def doStepIf(self, step):
         return CURRENT_HOSTNAME in EWS_BUILD_HOSTNAMES
-
-    def hash_from_commit_text(self, commit_text):
-        match = self.HASH_RE.search(commit_text)
-        if match:
-            return match.group('hash')
-        return None
 
 
 class DetermineLandedIdentifier(shell.ShellCommand):
@@ -7457,8 +7611,11 @@ class DetermineLandedIdentifier(shell.ShellCommand):
             else:
                 rc = FAILURE
 
-        self.setProperty('comment_text', self.comment_text_for_bug(landed_hash, self.identifier))
-        commit_summary = f'Committed {self.identifier or landed_hash}'
+        # landed_hash is a full hash, and comments and summaries have always shown the 12 characters that git push prints.
+        # identifier_for_hash() returns the hash it was given when it can't find an identifier.
+        short_hash = landed_hash[:12] if landed_hash else landed_hash
+        self.setProperty('comment_text', self.comment_text_for_bug(short_hash, self.identifier))
+        commit_summary = f"Committed {self.identifier if self.identifier and '@' in self.identifier else short_hash}"
         self.descriptionDone = commit_summary
         self.setProperty('build_summary', commit_summary)
         self.addURL(self.identifier, self.url_for_identifier(self.identifier))
@@ -7489,10 +7646,8 @@ class DetermineLandedIdentifier(shell.ShellCommand):
 
     def comment_text_for_bug(self, hash=None, identifier=None):
         identifier_str = identifier if identifier and '@' in identifier else '?'
-        comment = '{} {} ({}): <{}>'.format(
-            'Test gardening commit' if self.getProperty('is_test_gardening') else 'Committed',
-            identifier_str, hash, self.url_for_identifier(identifier),
-        )
+        commit_type = 'Test gardening commit' if self.getProperty('is_test_gardening') else 'Committed'
+        comment = f'{commit_type} {identifier_str} ({hash}): <{self.url_for_identifier(identifier)}>'
 
         pr_number = self.getProperty('github.number', '')
         if pr_number:
@@ -7664,7 +7819,9 @@ class MapBranchAlias(shell.ShellCommand):
     def doStepIf(self, step):
         if not self.getProperty('github.number'):
             return False
-        return self.getProperty('github.base.ref', DEFAULT_BRANCH) != DEFAULT_BRANCH
+        # Feature branches may be contained by the default branch or a production branch, but should never be re-mapped
+        branch = self.getProperty('github.base.ref', DEFAULT_BRANCH)
+        return branch != DEFAULT_BRANCH and not is_feature_branch(branch)
 
     def hideStepIf(self, results, step):
         return not self.doStepIf(step)
@@ -8155,13 +8312,16 @@ class Canonicalize(steps.ShellSequence, ShellMixin, AddToLogMixin):
         return super().getResultSummary()
 
 
-class PushPullRequestBranch(shell.ShellCommand):
+class PushPullRequestBranch(shell.ShellCommand, PushedCommitMixin):
     name = 'push-pull-request-branch'
     haltOnFailure = True
+    MAX_RETRY = 2
+    RETRY_DELAY = 10
 
     def __init__(self, **kwargs):
         super().__init__(logEnviron=False, timeout=300, **kwargs)
 
+    @defer.inlineCallbacks
     def run(self, BufferLogObserverClass=logobserver.BufferLogObserver):
         remote, repo_name = self.getProperty('github.head.repo.full_name', DEFAULT_REMOTE).split('/', 1)
         if '-' in repo_name:
@@ -8173,7 +8333,26 @@ class PushPullRequestBranch(shell.ShellCommand):
         self.env['GIT_USER'] = username
         self.env['GIT_PASSWORD'] = access_token
 
-        return super().run()
+        rc = yield super().run()
+
+        if rc == SUCCESS:
+            # The pull request now points to this commit, which is the same change. Record it, so that BlockPullRequest
+            # doesn't take it for a newer version of the pull request.
+            pushed_sha = yield self.pushed_commit()
+            if pushed_sha:
+                self.setProperty('pushed_head_sha', pushed_sha)
+            return rc
+
+        # This is for GitHub errors. Other failures, such as a fork that doesn't let the merge queue push, fail again.
+        retry_count = int(self.getProperty('push_pull_request_branch_retry_count', 0))
+        if retry_count < self.MAX_RETRY:
+            self.setProperty('push_pull_request_branch_retry_count', retry_count + 1)
+            self.haltOnFailure = False
+            self.build.addStepsAfterCurrentStep([
+                WaitForDuration(duration=self.RETRY_DELAY),
+                PushPullRequestBranch(),
+            ])
+        return rc
 
     def getResultSummary(self):
         if self.results == SUCCESS:

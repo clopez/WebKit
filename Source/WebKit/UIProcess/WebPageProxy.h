@@ -117,6 +117,11 @@ class WebsitePolicies;
 
 namespace Inspector {
 enum class InspectorTargetType : uint8_t;
+enum class NetworkInterceptOwner : uint8_t;
+enum class NetworkInterceptionPhase : uint8_t;
+struct InterceptPattern;
+struct NetworkInterception;
+struct NetworkInterceptionResolution;
 }
 
 namespace IPC {
@@ -180,6 +185,7 @@ class IntRect;
 class IntSize;
 class LayoutPoint;
 class LayoutSize;
+class LegacyWebArchive;
 class NotificationResources;
 class PlatformSpeechSynthesisUtterance;
 class PlatformSpeechSynthesizer;
@@ -211,6 +217,7 @@ enum class LayoutMilestone : uint16_t;
 enum class PaginationMode : uint8_t;
 enum class ScrollDirection : uint8_t;
 enum class ScrollbarOverlayStyle : uint8_t;
+enum class ScrollbarStyle : uint8_t;
 
 enum class ActivityState : uint16_t;
 enum class AccessibilityMode : uint8_t;
@@ -247,7 +254,7 @@ enum class HasInsecureContent : bool;
 enum class HighlightRequestOriginatedInApp : bool;
 enum class HighlightVisibility : bool;
 enum class InputMode : uint8_t;
-enum class InterruptScrollAnimation : bool;
+enum class InterruptScrollAnimation : uint8_t;
 enum class NavigationUpgradeToHTTPSBehavior : uint8_t;
 enum class LayerTreeAsTextOptions : uint16_t;
 enum class LayoutViewportConstraint : bool;
@@ -475,6 +482,7 @@ using PlatformLayerIdentifier = ProcessQualified<ObjectIdentifier<PlatformLayerI
 using PlaybackTargetClientContextIdentifier = ProcessQualified<ObjectIdentifier<PlaybackTargetClientContextIdentifierType>>;
 using PointerID = uint32_t;
 using ResourceLoaderIdentifier = AtomicObjectIdentifier<ResourceLoaderIdentifierType>;
+using ScopedResourceLoaderIdentifier = ProcessQualified<ResourceLoaderIdentifier>;
 using SandboxFlags = OptionSet<SandboxFlag>;
 using ScrollingNodeID = ProcessQualified<ObjectIdentifier<ScrollingNodeIDType>>;
 using ScrollPosition = IntPoint;
@@ -588,6 +596,9 @@ class SessionHistoryTraversalQueue;
 class SpeechRecognitionPermissionManager;
 class SuspendedPageProxy;
 class SystemPreviewController;
+#if HAVE(WINDOW_CAPTURE)
+class TabCaptureWindow;
+#endif
 class TextExtractionAssertionScope;
 class TextExtractionCache;
 class UserData;
@@ -826,6 +837,12 @@ using WebPageProxyIdentifier = ObjectIdentifier<WebPageProxyIdentifierType>;
 using WebURLSchemeHandlerIdentifier = ObjectIdentifier<WebURLSchemeHandlerIdentifierType>;
 using WebUndoStepID = ObjectIdentifier<WebUndoStepIDType>;
 
+template<typename> struct ReplyWithConnectionType;
+template<typename... Arguments> struct ReplyWithConnectionType<CompletionHandler<void(Arguments...)>> {
+    using Type = CompletionHandler<void(IPC::Connection*, Arguments...)>;
+};
+template<typename Message> using ReplyWithConnection = typename ReplyWithConnectionType<typename Message::Reply>::Type;
+
 class WebPageProxy final : public API::ObjectImpl<API::Object::Type::Page>, public IPC::MessageReceiver {
 public:
     static Ref<WebPageProxy> create(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
@@ -872,7 +889,7 @@ public:
 
     WebNavigationState& navigationState() LIFETIME_BOUND { return m_navigationState; }
 
-    WebsiteDataStore& websiteDataStore() { return m_websiteDataStore; }
+    NODELETE WebsiteDataStore& websiteDataStore();
 
     std::optional<SharedPreferencesForWebProcess> sharedPreferencesForWebProcess(IPC::Connection&) const;
 
@@ -1001,7 +1018,7 @@ public:
 
 #if USE(SYSTEM_PREVIEW)
     SystemPreviewController* systemPreviewController() { return m_systemPreviewController.get(); }
-    void systemPreviewActionTriggered(const WebCore::SystemPreviewInfo&, const String&);
+    void systemPreviewActionTriggered(WebProcessProxy&, const WebCore::SystemPreviewInfo&, const String&);
 #endif
 
 #if ENABLE(APPLE_PAY)
@@ -1069,7 +1086,7 @@ public:
 
     bool preferFasterClickOverDoubleTap() const { return m_preferFasterClickOverDoubleTap; }
 
-    void closePage();
+    void askClientToClose();
 
     void addPlatformLoadParameters(WebProcessProxy&, LoadParameters&);
 
@@ -1436,6 +1453,7 @@ public:
     void insertionPointColorDidChange();
 
     void shouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint, CompletionHandler<void(bool)>&&);
+    void shouldDismissKeyboardAfterTapAtPointInFrame(std::optional<WebCore::FrameIdentifier>, WebCore::FloatPoint, CompletionHandler<void(bool)>&&);
 
 #if ENABLE(DRAG_SUPPORT)
     void requestDragStart(std::optional<WebCore::FrameIdentifier>, const WebCore::IntPoint& clientPosition, const WebCore::IntPoint& globalPosition, OptionSet<WebCore::DragSourceAction> allowedActionsMask, CompletionHandler<void(bool)>&&);
@@ -1605,21 +1623,21 @@ public:
     void recordUIProcessUserActivation(const WebEvent&);
     void dispatchMouseDidMoveOverElementForModifierFlagsChange(Ref<NativeWebMouseEvent>&&);
 
-    void doAfterProcessingAllPendingMouseEvents(Function<void()>&&);
+    void doAfterProcessingAllPendingMouseEvents(CompletionHandler<void()>&&);
     void didFinishProcessingAllPendingMouseEvents();
     void flushPendingMouseEventCallbacks();
 
-    void doAfterProcessingAllPendingKeyEvents(Function<void()>&&);
+    void doAfterProcessingAllPendingKeyEvents(CompletionHandler<void()>&&);
     void didFinishProcessingAllPendingKeyEvents();
     void flushPendingKeyEventCallbacks();
 
 #if ENABLE(TOUCH_EVENTS) && !ENABLE(IOS_TOUCH_EVENTS)
-    void doAfterProcessingAllPendingWheelEvents(Function<void()>&&);
+    void doAfterProcessingAllPendingWheelEvents(CompletionHandler<void()>&&);
     void didFinishProcessingAllPendingWheelEvents();
     void flushPendingWheelEventCallbacks();
 
     bool isProcessingTouchEvents() const;
-    void doAfterProcessingAllPendingTouchEvents(Function<void()>&&);
+    void doAfterProcessingAllPendingTouchEvents(CompletionHandler<void()>&&);
     void didFinishProcessingAllPendingTouchEvents();
     void flushPendingTouchEventCallbacks();
 #endif
@@ -1781,6 +1799,9 @@ public:
     void setSuppressScrollbarAnimations(bool);
     bool areScrollbarAnimationsSuppressed() const { return m_suppressScrollbarAnimations; }
 
+    void setScrollbarStyleOverride(std::optional<WebCore::ScrollbarStyle>);
+    std::optional<WebCore::ScrollbarStyle> scrollbarStyleOverride() const { return m_scrollbarStyleOverride; }
+
     NODELETE WebCore::RectEdges<bool> pinnedState() const;
     WebCore::RectEdges<bool> pinnedStateIncludingAncestorsAtPoint(WebCore::FloatPoint);
 
@@ -1924,6 +1945,11 @@ public:
     void clearContentWorld(API::ContentWorld&, CompletionHandler<void()>&&);
     void getAccessibilityTreeData(CompletionHandler<void(API::Data*)>&&);
     void updateRenderingWithForcedRepaint(CompletionHandler<void()>&&);
+
+#if HAVE(WINDOW_CAPTURE)
+    RefPtr<TabCaptureWindow> tabCaptureWindow();
+    void updateTabCaptureWindowSize();
+#endif
 
     float headerHeightForPrinting(WebFrameProxy&);
     float footerHeightForPrinting(WebFrameProxy&);
@@ -2306,6 +2332,7 @@ public:
     void takeSnapshotLegacy(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions, CompletionHandler<void(std::optional<WebCore::ShareableBitmapHandle>&&)>&&);
 #if PLATFORM(COCOA)
     void takeSnapshot(const WebCore::IntRect&, const WebCore::IntSize& bitmapSize, SnapshotOptions, CompletionHandler<void(CGImageRef)>&&);
+    bool shouldUseRemoteSnapshotting(const WebFrameProxy* rootFrame);
 #endif
 
     void navigationGestureDidBegin();
@@ -2574,7 +2601,7 @@ public:
     void startURLSchemeTaskShared(IPC::Connection&, Ref<WebProcessProxy>&&, WebCore::PageIdentifier, URLSchemeTaskParameters&&);
     void loadDataWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, Ref<WebCore::SharedBuffer>&&, const String& MIMEType, const String& encoding, const String& baseURL, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, RefPtr<API::WebsitePolicies>&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::SessionHistoryVisibility);
     void loadRequestWithNavigationShared(Ref<WebProcessProxy>&&, WebCore::PageIdentifier, API::Navigation&, WebCore::ResourceRequest&&, WebCore::ShouldOpenExternalURLsPolicy, WebCore::NavigationUpgradeToHTTPSBehavior, API::Object* userData, WebCore::ShouldTreatAsContinuingLoad, std::optional<NavigatingToAppBoundDomain>, RefPtr<API::WebsitePolicies>&&, std::optional<NetworkResourceLoadIdentifier> existingNetworkResourceLoadIdentifierToResume, MonotonicTime originalNavigationStartTime);
-    void backForwardAddItemShared(IPC::Connection&, Ref<FrameState>&&, LoadedWebArchive, BrowsingContextGroup&);
+    void backForwardAddItemShared(IPC::Connection&, Ref<FrameState>&&, BrowsingContextGroup&);
     void backForwardGoToItemShared(IPC::Connection&, WebCore::BackForwardItemIdentifier);
     void didDestroyNavigationShared(Ref<WebProcessProxy>&&, WebCore::NavigationIdentifier);
 #if USE(QUICK_LOOK)
@@ -2732,6 +2759,11 @@ public:
 
 #if ENABLE(CONTEXT_MENUS)
     void platformDidSelectItemFromActiveContextMenu(const WebContextMenuItemData&, std::optional<WebCore::FrameIdentifier>, CompletionHandler<void()>&&);
+#endif
+
+#if PLATFORM(MAC)
+    void executeUserInitiatedCopyCommand();
+    CompletionHandler<void()> grantUserInitiatedCopy(std::optional<WebCore::FrameIdentifier>);
 #endif
 
 #if ENABLE(MEDIA_USAGE)
@@ -3147,7 +3179,20 @@ public:
     template<typename M> IPC::ConnectionSendSyncResult<M> sendSyncToProcessContainingFrame(std::optional<WebCore::FrameIdentifier>, M&&, const IPC::Timeout&, OptionSet<IPC::SendSyncOption>);
     Ref<WebProcessProxy> processContainingFrame(std::optional<WebCore::FrameIdentifier>);
 
+    RefPtr<WebFrameProxy> frameForRemoteUserInputEventRedispatch(IPC::Connection* replyingConnection, std::optional<WebCore::FrameIdentifier> sourceFrameID, WebCore::FrameIdentifier targetFrameID);
+
     void forEachWebContentProcess(NOESCAPE const Function<void(WebProcessProxy&, WebCore::PageIdentifier)>&);
+
+    // Network interception authority. This page owns the one true copy of the interception
+    // configuration: the union of the patterns of every consumer. Each WebContent process hosting
+    // one of its frames holds a replica, refreshed on every write and seeded from the creation
+    // parameters of a process that joins the page later.
+    const Inspector::NetworkInterception& networkInterception() const;
+    // Replaces the patterns of one consumer. The handler runs once every hosting process has the new configuration.
+    void setNetworkInterceptPatterns(Inspector::NetworkInterceptOwner, Vector<Inspector::InterceptPattern>&&, CompletionHandler<void()>&&);
+    void updateNetworkInterception(CompletionHandler<void()>&&);
+    // Sends the resolution of a paused load to the process that paused it.
+    void resolveNetworkInterception(const WebCore::ScopedResourceLoaderIdentifier&, Inspector::NetworkInterceptOwner, Inspector::NetworkInterceptionPhase, Inspector::NetworkInterceptionResolution&&);
 
     void hitTestAtPoint(WebCore::FrameIdentifier, WebCore::FloatPoint, API::ContentWorld&, CompletionHandler<void(std::expected<std::optional<JSHandleInfo>, HitTestAtPointError>&&, WebHitTestResultData&&)>&&);
     void convertRectToMainFrameCoordinates(WebCore::FloatRect, std::optional<WebCore::FrameIdentifier>, CompletionHandler<void(std::optional<WebCore::FloatRect>)>&&);
@@ -3306,6 +3351,9 @@ public:
 
 private:
     WebPageProxy(PageClient&, WebProcessProxy&, Ref<API::PageConfiguration>&&);
+#if PLATFORM(COCOA)
+    void getWebArchiveForFrameTree(WebFrameProxy& rootFrame, const std::optional<HashSet<WebCore::FrameIdentifier>>& selectedFrameIdentifiers, const Vector<WebCore::MarkupExclusionRule>&, const String& mainResourceFileName, CompletionHandler<void(RefPtr<WebCore::LegacyWebArchive>&&)>&&);
+#endif
     void platformInitialize();
 
     template<typename M> void sendToEveryWebContentProcess();
@@ -3418,7 +3466,6 @@ private:
     void generatePageLoadTimingSoon();
 #if PLATFORM(COCOA)
     void didGeneratePageLoadTiming(const WebPageLoadTiming&);
-    bool shouldUseRemoteSnapshotting(const WebFrameProxy* rootFrame);
     bool shouldLaunchPrintProcess(const WebFrameProxy* rootFrame);
     void launchPrintProcessIfNeeded(const WebFrameProxy* rootFrame);
     CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)> launchPrintProcessForDrawingIfNeeded(const WebFrameProxy* rootFrame, CompletionHandler<void(RefPtr<WebCore::SharedBuffer>&&)>&&);
@@ -3746,6 +3793,7 @@ private:
     void setFocusedElementInputType(InputType);
 
     void handleAcceptsFirstMouse(Variant<bool, WebCore::RemoteUserInputEventData>&&);
+    bool askFramesUnderMouseEvent(WebMouseEvent&, IPC::MessageName, NOESCAPE const Function<std::optional<Variant<bool, WebCore::RemoteUserInputEventData>>(WebProcessProxy&, std::optional<WebCore::FrameIdentifier>)>&);
 #endif // PLATFORM(MAC)
 
 #if PLATFORM(IOS_FAMILY)
@@ -3800,6 +3848,7 @@ private:
 
 #if ENABLE(COORDINATED_TOUCH_EVENTS)
     void processNextQueuedTouchEvent();
+    void discardQueuedTouchEvents();
 #endif
 #if ENABLE(TOUCH_EVENTS)
     void touchEventHandlingCompleted(IPC::Connection*, std::optional<WebEventType>, bool handled);
@@ -3881,9 +3930,9 @@ private:
     void writePromisedAttachmentToPasteboard(IPC::Connection&, WebCore::PromisedAttachmentInfo&&, const String& authorizationToken);
 #endif
 
-    void requestAttachmentIcon(IPC::Connection&, const String& identifier, const String& type, const String& path, const String& title, const WebCore::FloatSize&);
+    void requestAttachmentIcon(IPC::Connection&, const String& identifier, const String& type, const String& fileExtension, const String& title, const WebCore::FloatSize&);
 
-    RefPtr<WebCore::ShareableBitmap> iconForAttachment(const String& fileName, const String& contentType, const String& title, WebCore::FloatSize&);
+    RefPtr<WebCore::ShareableBitmap> iconForAttachment(const String& fileExtension, const String& contentType, const String& title, WebCore::FloatSize&);
 #endif
 
     void reportPageLoadResult(const WebCore::ResourceError&);
@@ -3921,6 +3970,8 @@ private:
     void clearAudibleActivity();
 
     void tryCloseTimedOut();
+    void closePage(IPC::Connection&);
+    bool isConnectionOfMainFrame(const IPC::Connection&) const;
     void makeStorageSpaceRequest(WebCore::FrameIdentifier, const String& originIdentifier, const String& databaseName, const String& displayName, uint64_t currentQuota, uint64_t currentOriginUsage, uint64_t currentDatabaseUsage, uint64_t expectedUsage, CompletionHandler<void(uint64_t)>&&);
         
 #if ENABLE(APP_BOUND_DOMAINS)
@@ -4006,6 +4057,7 @@ private:
     void didEvictBackForwardFrameItem(WebCore::BackForwardFrameItemIdentifier);
     void didTakeBackForwardItemForRestoration(WebCore::BackForwardItemIdentifier);
     void restoreOrCancelPendingBackForwardIframes(const PendingBackForwardIframeRestore&, WebCore::RestoredFromBackForwardCache);
+    void takeBackForwardCacheEntryForAllowedNavigation(API::Navigation&, WebProcessProxy& mainFrameProcess);
 
     Vector<Ref<WebProcessProxy>> activeRemoteFrameProcesses() const;
     void discardBackForwardCacheEntry(WebCore::BackForwardItemIdentifier);
@@ -4078,7 +4130,7 @@ private:
 
 #if ENABLE(WEB_ARCHIVE)
     using DataStoreUpdateResult = std::pair<RefPtr<WebsiteDataStore>, LoadedWebArchive>;
-    std::expected<DataStoreUpdateResult, WebCore::ResourceError> updateDataStoreForWebArchiveLoad(WebFrameProxy&, WebCore::PolicyAction, WebCore::NavigationType, API::Navigation&);
+    std::expected<DataStoreUpdateResult, WebCore::ResourceError> dataStoreForWebArchiveLoad(WebFrameProxy&, WebCore::PolicyAction, WebCore::NavigationType, API::Navigation&);
 #endif
 
     void beginSiteHasStorageCheck(const URL&, API::Navigation&, WebFramePolicyListenerProxy&);
@@ -4154,6 +4206,9 @@ private:
 #endif
 
     RefPtr<DrawingAreaProxy> m_drawingArea;
+#if HAVE(WINDOW_CAPTURE)
+    WeakPtr<TabCaptureWindow> m_tabCaptureWindow;
+#endif
 #if PLATFORM(COCOA)
     std::unique_ptr<RemoteLayerTreeHost> m_frozenRemoteLayerTreeHost;
     RefPtr<RemoteScrollingCoordinatorProxy> m_scrollingCoordinatorProxy;
@@ -4170,8 +4225,6 @@ private:
 #endif
 
     const Ref<VisitedLinkStore> m_visitedLinkStore;
-    // FIXME: This should be the browsing context group's data store, once web archive loads no longer switch stores before their navigation commits.
-    Ref<WebsiteDataStore> m_websiteDataStore;
 #if ENABLE(WEB_ARCHIVE)
     RefPtr<WebsiteDataStore> m_replacedDataStoreForWebArchiveLoad;
 #endif
@@ -4233,6 +4286,7 @@ private:
 #endif
 
     bool m_isTakingSnapshotsForApplicationSuspension { false };
+    bool m_shouldSuppressHDR { false };
 
 #if PLATFORM(MAC)
     bool m_acceptsFirstMouse { false };
@@ -4367,6 +4421,7 @@ private:
     bool m_alwaysShowsVerticalScroller { false };
 
     bool m_suppressScrollbarAnimations { false };
+    std::optional<WebCore::ScrollbarStyle> m_scrollbarStyleOverride;
 
     WebCore::PaginationMode m_paginationMode { };
     bool m_paginationBehavesLikeColumns { false };
@@ -4595,7 +4650,7 @@ private:
 
     WeakHashSet<WebViewDidMoveToWindowObserver> m_webViewDidMoveToWindowObservers;
 
-    mutable RefPtr<Logger> m_logger;
+    const RefPtr<Logger> m_logger;
 
     RefPtr<SpeechRecognitionPermissionManager> m_speechRecognitionPermissionManager;
 

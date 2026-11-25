@@ -578,9 +578,6 @@ void InjectedBundlePage::dump()
         ALLOW_DEPRECATED_DECLARATIONS_END
     }
 
-    if (testRunner->shouldDumpBackForwardListsForAllWindows())
-        injectedBundle.dumpBackForwardListsForAllPages(stringBuilder);
-
     if (injectedBundle.shouldDumpPixels() && testRunner->shouldDumpPixels()) {
         bool shouldCreateSnapshot = injectedBundle.isPrinting();
         if (injectedBundle.shouldDumpCSSPageBoxes())
@@ -1045,15 +1042,6 @@ void InjectedBundlePage::didChangeSelection(WKStringRef notificationName)
     injectedBundle.outputText(makeString("EDITING DELEGATE: webViewDidChangeSelection:"_s, notificationName, '\n'));
 }
 
-String InjectedBundlePage::dumpHistory()
-{
-    return makeString(
-        "\n============== Back Forward List ==============\n"_s,
-        adoptWK(WKBundlePageDumpHistoryForTesting(m_page, toWK("/LayoutTests/").get())).get(),
-        "===============================================\n"_s
-    );
-}
-
 #if !PLATFORM(COCOA)
 void InjectedBundlePage::platformDidStartProvisionalLoadForFrame(WKBundleFrameRef)
 {
@@ -1100,7 +1088,7 @@ void InjectedBundlePage::frameDidChangeLocation(WKBundleFrameRef frame)
         return;
     }
 
-    if (frame != m_topLoadingFrame)
+    if (frame != m_topLoadingFrame.get())
         return;
 
     setTopLoadingFrame(nullptr);
@@ -1139,7 +1127,7 @@ void InjectedBundlePage::notifyDone()
 {
     // With site isolation, a provisional load that continues in another process (e.g. after a cross-site redirect)
     // never gets didFinishLoad or didFailProvisionalLoad in this process, so stop waiting once the frame is no longer loading here.
-    if (m_topLoadingFrame && WKBundleFrameGetFrameLoadState(m_topLoadingFrame) == kWKFrameLoadStateFinished)
+    if (m_topLoadingFrame && WKBundleFrameGetFrameLoadState(m_topLoadingFrame.get()) == kWKFrameLoadStateFinished)
         setTopLoadingFrame(nullptr);
     if (m_topLoadingFrame)
         return;

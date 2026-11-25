@@ -25,6 +25,7 @@
 
 #pragma once
 
+#include <JavaScriptCore/ConsoleTypes.h>
 #include <WebCore/DocumentEnums.h>
 #include <WebCore/EventTarget.h>
 #include <WebCore/EventTargetInterfaces.h>
@@ -73,6 +74,7 @@ class PushManager;
 class RequestAnimationFrameCallback;
 class RequestIdleCallback;
 class ScheduledAction;
+class Scheduler;
 class Screen;
 class SecurityOrigin;
 class Storage;
@@ -189,6 +191,7 @@ public:
     ExceptionOr<Ref<CSSStyleDeclaration>> getComputedStyle(Element&, const String& pseudoElt) const;
     ExceptionOr<RefPtr<WebCore::MediaQueryList>> matchMedia(const String&);
     ExceptionOr<Crypto&> crypto() const;
+    ExceptionOr<Scheduler&> scheduler() const;
     ExceptionOr<RefPtr<WindowProxy>> open(LocalDOMWindow& activeWindow, LocalDOMWindow& firstWindow, const String& urlString, const AtomString& frameName, const String& windowFeaturesString);
     ExceptionOr<void> alert(const String& message = emptyString());
     ExceptionOr<bool> confirmForBindings(const String& message);
@@ -240,7 +243,7 @@ public:
     // frame), we would like to zero out m_frame to avoid being confused
     // by the document that is currently active in m_frame.
     bool isCurrentlyDisplayedInFrame() const;
-    void printErrorMessage(const String&) const;
+    void printErrorMessage(const String&, MessageSource = MessageSource::JS) const;
     String crossDomainAccessErrorMessage(const LocalDOMWindow& activeWindow, IncludeTargetOrigin);
     bool isInsecureScriptAccess(const LocalDOMWindow& activeWindow, const URL&);
 

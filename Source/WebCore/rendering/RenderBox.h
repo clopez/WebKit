@@ -182,7 +182,7 @@ public:
     void computeInlineDirectionMargins(const RenderBoxModelObject& containingBlock, LayoutUnit containerWidth, std::optional<LayoutUnit> availableSpaceAdjustedWithFloats, LayoutUnit childWidth, LayoutUnit& marginStart, LayoutUnit& marginEnd) const;
 
     // Used to resolve margins in the containing block's block-flow direction.
-    void computeBlockDirectionMargins(const RenderBlock& containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const;
+    void computeBlockDirectionMargins(const RenderBoxModelObject& containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const;
     void computeAndSetBlockDirectionMargins(const RenderBlock& containingBlock);
 
     enum class VisualEffectOverflowOption : uint8_t {
@@ -548,7 +548,6 @@ public:
 
     RepaintRects localRectsForRepaint(RepaintOutlineBounds) const override;
     void repaintDuringLayoutIfMoved(const LayoutRect&);
-    virtual void repaintOverhangingFloats(bool paintAllDescendants);
 
     // Returns false if the rect has no intersection with the applied clip rect. When the context specifies edge-inclusive
     // intersection, this return value allows distinguishing between no intersection and zero-area intersection.
@@ -559,7 +558,6 @@ public:
     LayoutUnit containingBlockLogicalWidthForContent() const override;
     LayoutUnit containingBlockLogicalHeightForContent(AvailableLogicalHeightType) const;
     LayoutRange containingBlockRangeForPositioned(const RenderBoxModelObject& containingBlock, BoxAxis physicalAxis) const;
-    LayoutUnit containingBlockAvailableLineWidth() const;
     LayoutUnit perpendicularContainingBlockLogicalHeight() const;
 
     RenderFragmentContainer* clampToStartAndEndFragments(RenderFragmentContainer*) const;
@@ -610,8 +608,6 @@ public:
 
     void applyTransform(TransformationMatrix&, const Style::ComputedStyle&, const FloatRect& boundingBox, OptionSet<Style::TransformResolverOption>) const override;
     NODELETE bool computeHasTransformRelatedProperty(const Style::ComputedStyle&) const;
-
-    void updateFloatPainterAfterSelfPaintingLayerChange();
 
     ShapeOutsideInfo* shapeOutsideInfo() const LIFETIME_BOUND;
 

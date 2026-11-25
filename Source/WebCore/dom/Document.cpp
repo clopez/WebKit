@@ -607,7 +607,7 @@ static bool canAccessAncestor(const SecurityOrigin& activeSecurityOrigin, Frame*
 static void printNavigationErrorMessage(Document& document, Frame& frame, const URL& activeURL, ASCIILiteral reason)
 {
     auto documentURL = frame.urlForConsoleLog();
-    protect(document.window())->printErrorMessage(makeString("Unsafe JavaScript attempt to initiate navigation for frame with URL '"_s, documentURL.string(), "' from frame with URL '"_s, activeURL.string(), "'. "_s, reason, '\n'));
+    protect(document.window())->printErrorMessage(makeString("Unsafe JavaScript attempt to initiate navigation for frame with URL '"_s, documentURL.string(), "' from frame with URL '"_s, activeURL.string(), "'. "_s, reason, '\n'), MessageSource::Security);
 }
 
 uint64_t Document::s_globalTreeVersion = 0;
@@ -1286,7 +1286,7 @@ Editor& Document::ensureEditor()
 DeferredFetchRegistry& Document::ensureDeferredFetchRegistry()
 {
     if (!m_deferredFetchRegistry)
-        m_deferredFetchRegistry = DeferredFetchRegistry::create(*this);
+        lazyInitialize(m_deferredFetchRegistry, DeferredFetchRegistry::create(*this));
     return *m_deferredFetchRegistry;
 }
 
@@ -3058,7 +3058,7 @@ auto Document::updateLayout(OptionSet<LayoutOptions> layoutOptions, const Elemen
     UpdateLayoutResult result = UpdateLayoutResult::NoChange;
 
     {
-        RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
+        RenderView::RepaintRegionAccumulator repaintRegionAccumulator(protect(renderView()));
         ScriptDisallowedScope::InMainThread scriptDisallowedScope;
 
         if (!layoutOptions.contains(LayoutOptions::DoNotLayoutAncestorDocuments)) {
@@ -3210,7 +3210,7 @@ bool Document::updateLayoutIfDimensionsOutOfDate(Element& element, OptionSet<Dim
         return true;
     }
 
-    RenderView::RepaintRegionAccumulator repaintRegionAccumulator(renderView());
+    RenderView::RepaintRegionAccumulator repaintRegionAccumulator(protect(renderView()));
 
     // Mimic the structure of updateLayout(), but at each step, see if we have been forced into doing a full layout.
     if (RefPtr owner = ownerElement()) {
@@ -3574,23 +3574,30 @@ void Document::destroyRenderTree()
 
     // FIXME: RenderObject::view() uses m_renderView and we can't null it before destruction is completed
     {
-        RenderTreeBuilder builder(*m_renderView);
-        // FIXME: This is a workaround for leftover content (see webkit.org/b/182547).
-        while (WeakPtr child = m_renderView->firstChild())
-            builder.destroy(*child);
+        {
+            // The builder refers to the RenderView, so it must go away before the RenderView is destroyed.
+            RenderTreeBuilder builder(protect(*m_renderView));
+            // FIXME: This is a workaround for leftover content (see webkit.org/b/182547).
+            while (WeakPtr child = m_renderView->firstChild()) {
+                // destroy() deletes the renderer, so it cannot be protected.
+                SUPPRESS_UNCHECKED_ARG builder.destroy(*child);
+            }
 
-        if (RefPtr view = this->view()) {
-            CheckedRef layoutContext = view->layoutContext();
-            layoutContext->deleteDetachedRenderersNow();
-            layoutContext->deleteDetachedInlineContentNow();
+            if (RefPtr view = this->view()) {
+                CheckedRef layoutContext = view->layoutContext();
+                layoutContext->deleteDetachedRenderersNow();
+                layoutContext->deleteDetachedInlineContentNow();
+            }
         }
+
+        // The RenderView is anonymous so RenderObject::willBeDestroyed() doesn't clear the
+        // Document's renderer. Clear it before destroying the RenderView.
+        Node::setRenderer(nullptr);
 
         // destroy() deletes the RenderView, so it cannot be protected.
         SUPPRESS_UNCHECKED_ARG m_renderView->destroy();
     }
     m_renderView.release();
-
-    Node::setRenderer(nullptr);
 
     m_textAutoSizing = nullptr;
 
@@ -3606,8 +3613,8 @@ void Document::willBeRemovedFromFrame()
     // Activate any pending fetchLater() requests before the document goes away.
     // Must happen before we start tearing down subsystems the load path relies on
     // (e.g. the CachedResourceLoader / DocumentLoader below).
-    if (RefPtr registry = m_deferredFetchRegistry)
-        registry->documentIsBeingDestroyed();
+    if (m_deferredFetchRegistry)
+        m_deferredFetchRegistry->documentIsBeingDestroyed();
 
 #if ENABLE(WEB_RTC)
     if (RefPtr rtcNetworkManager = m_rtcNetworkManager)
@@ -4234,9 +4241,9 @@ void Document::implicitOpen()
     setReadyState(ReadyState::Loading);
 }
 
-RefPtr<FontLoadRequest> Document::fontLoadRequest(const String& url, bool isSVG, bool isInitiatingElementInUserAgentShadowTree, const CSS::URLModifiers& modifiers)
+RefPtr<FontLoadRequest> Document::fontLoadRequest(const CSS::URL& location, bool isSVG, bool isInitiatingElementInUserAgentShadowTree)
 {
-    RefPtr cachedFont = protect(fontLoader())->cachedFont(encodingParseURL(url), isSVG, isInitiatingElementInUserAgentShadowTree, modifiers);
+    RefPtr cachedFont = protect(fontLoader())->cachedFont(location, isSVG, isInitiatingElementInUserAgentShadowTree);
     if (!cachedFont)
         return nullptr;
     return CachedFontLoadRequest::create(*cachedFont, *this);
@@ -4815,7 +4822,7 @@ const URL& Document::urlForBindings()
                 if (areSameSiteIgnoringPublicSuffix(sourceURL.host(), currentHost))
                     return false;
             }
-            addConsoleMessage(MessageSource::JS, MessageLevel::Info, makeLogMessage(m_url, ScriptTrackingPrivacyCategory::QueryParameters));
+            addConsoleMessage(MessageSource::Security, MessageLevel::Info, makeLogMessage(m_url, ScriptTrackingPrivacyCategory::QueryParameters));
 
             return true;
         };
@@ -5170,7 +5177,7 @@ SocketProvider* Document::socketProvider()
 
 RefPtr<RTCDataChannelRemoteHandlerConnection> Document::createRTCDataChannelRemoteHandlerConnection()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     RefPtr page = this->page();
     if (!page)
         return nullptr;
@@ -5450,7 +5457,7 @@ void Document::processMetaHttpEquiv(const String& equiv, const AtomString& conte
 
     case HTTPHeaderName::SetCookie:
         if (isHTMLDocument())
-            addConsoleMessage(MessageSource::Security, MessageLevel::Error, "The Set-Cookie meta tag is obsolete and was ignored. Use the HTTP header Set-Cookie or document.cookie instead."_s);
+            addConsoleMessage(MessageSource::Storage, MessageLevel::Error, "The Set-Cookie meta tag is obsolete and was ignored. Use the HTTP header Set-Cookie or document.cookie instead."_s);
         break;
 
     case HTTPHeaderName::ContentLanguage:
@@ -5832,7 +5839,7 @@ void Document::processReferrerPolicy(const String& policy, ReferrerPolicySource 
     auto referrerPolicy = parseReferrerPolicy(policy, source);
     if (!referrerPolicy) {
         // Unknown policy values are ignored (https://w3c.github.io/webappsec-referrer-policy/#unknown-policy-values).
-        addConsoleMessage(MessageSource::Rendering, MessageLevel::Error, makeString("Failed to set referrer policy: The value '"_s, policy, "' is not one of 'no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'origin', 'strict-origin', 'origin-when-cross-origin', 'strict-origin-when-cross-origin' or 'unsafe-url'."_s));
+        addConsoleMessage(MessageSource::Network, MessageLevel::Error, makeString("Failed to set referrer policy: The value '"_s, policy, "' is not one of 'no-referrer', 'no-referrer-when-downgrade', 'same-origin', 'origin', 'strict-origin', 'origin-when-cross-origin', 'strict-origin-when-cross-origin' or 'unsafe-url'."_s));
         return;
     }
     setReferrerPolicy(referrerPolicy.value());
@@ -7371,7 +7378,7 @@ void Document::dispatchWindowEvent(Event& event, EventTarget* target)
 
 void Document::dispatchWindowLoadEvent()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    RELEASE_ASSERT(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     if (!m_domWindow)
         return;
     protect(window())->dispatchLoadEvent();
@@ -7615,7 +7622,7 @@ HTMLFrameOwnerElement* Document::ownerElement() const
 
 std::optional<OwnerPermissionsPolicyData> Document::ownerPermissionsPolicy() const
 {
-    if (WeakPtr currentFrame = frame())
+    if (RefPtr currentFrame = frame())
         return currentFrame->ownerPermissionsPolicy();
 
     return std::nullopt;
@@ -7944,8 +7951,8 @@ void Document::setBackForwardCacheState(BackForwardCacheState state)
             idbConnectionProxy->setContextSuspended(*this, false);
         break;
     case AboutToEnterBackForwardCache:
-        if (RefPtr registry = m_deferredFetchRegistry)
-            registry->documentIsAboutToEnterBackForwardCache();
+        if (m_deferredFetchRegistry)
+            m_deferredFetchRegistry->documentIsAboutToEnterBackForwardCache();
         break;
     }
 }
@@ -8091,8 +8098,8 @@ void Document::storageBlockingStateDidChange()
 // Used only by WebKitLegacy.
 void Document::privateBrowsingStateDidChange(PAL::SessionID sessionID)
 {
-    if (RefPtr logger = m_logger)
-        logger->setEnabled(this, isAlwaysOnLoggingAllowed());
+    if (m_logger)
+        m_logger->setEnabled(this, isAlwaysOnLoggingAllowed());
 
 #if ENABLE(VIDEO)
     forEachMediaElement([sessionID] (HTMLMediaElement& element) {
@@ -8274,7 +8281,7 @@ void Document::logXSLTDeprecationWarningIfNeeded()
     if (m_hasLoggedXSLTDeprecationWarning)
         return;
     m_hasLoggedXSLTDeprecationWarning = true;
-    addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "XSLT is deprecated and will be removed in a future version of WebKit."_s);
+    addConsoleMessage(MessageSource::XML, MessageLevel::Warning, "XSLT is deprecated and will be removed in a future version of WebKit."_s);
 }
 
 void Document::applyPendingXSLTransformsTimerFired()
@@ -8285,7 +8292,7 @@ void Document::applyPendingXSLTransformsTimerFired()
         return;
 
     m_hasPendingXSLTransforms = false;
-    ASSERT_WITH_SECURITY_IMPLICATION(ScriptDisallowedScope::InMainThread::isScriptAllowed());
+    RELEASE_ASSERT(ScriptDisallowedScope::InMainThread::isScriptAllowed());
     for (auto& processingInstruction : styleScope().collectXSLTransforms()) {
         ASSERT(processingInstruction->isXSL());
 
@@ -8334,7 +8341,7 @@ void Document::logXMLExternalEntityDeprecationWarningIfNeeded()
     if (document->m_hasLoggedXMLExternalEntityDeprecationWarning)
         return;
     document->m_hasLoggedXMLExternalEntityDeprecationWarning = true;
-    document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "XML external entities are deprecated and will be removed in a future version of WebKit."_s);
+    document->addConsoleMessage(MessageSource::XML, MessageLevel::Warning, "XML external entities are deprecated and will be removed in a future version of WebKit."_s);
 }
 
 String Document::designMode() const
@@ -8962,12 +8969,15 @@ bool Document::crossOriginIsolated() const
 
 void Document::setAgentClusterIdentifier(std::optional<AgentClusterIdentifier> identifier)
 {
-    ASSERT(!m_eventLoop);
+    ASSERT(!m_eventLoop || !isInWebProcess()); // Frame::setOpenerForWebKitLegacy violates this condition.
     m_agentClusterIdentifier = identifier;
 }
 
 String Document::agentClusterID() const
 {
+    if (RefPtr contextDocument = m_contextDocument)
+        return contextDocument->agentClusterID();
+
     Ref origin = securityOrigin();
     auto& data = origin->data();
     // FIXME: The UI process should know when a document ends up with an opaque origin, so its identifier can account for that.
@@ -8978,6 +8988,8 @@ String Document::agentClusterID() const
     if (m_agentClusterIdentifier)
         return makeString("agent-cluster-"_s, m_agentClusterIdentifier->toUInt64());
     // Without a UI process, as in WebKitLegacy, there is no identifier.
+    if (data.protocol() == "file"_s)
+        return "file://"_s;
     return Site(data).toString();
 }
 
@@ -9168,10 +9180,7 @@ WindowEventLoop& Document::windowEventLoop()
 {
     ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
     if (!m_eventLoop) [[unlikely]] {
-        if (RefPtr contextDocument = m_contextDocument)
-            m_eventLoop = contextDocument->windowEventLoop();
-        else
-            m_eventLoop = WindowEventLoop::eventLoopForSecurityOrigin(protect(securityOrigin()));
+        m_eventLoop = WindowEventLoop::eventLoopForAgentCluster(agentClusterID());
         protect(m_eventLoop)->addAssociatedContext(*this);
     }
     return *m_eventLoop;
@@ -10700,8 +10709,7 @@ void Document::removePlaybackTargetPickerClient(MediaPlaybackTargetClient& clien
     m_idToClientMap.remove(clientId);
     m_clientToIDMap.remove(client);
 
-    // Unable to ref the page as it may have started destruction.
-    if (WeakPtr page = this->page())
+    if (RefPtr page = this->page())
         page->removePlaybackTargetPickerClient(clientId);
 }
 
@@ -11314,7 +11322,7 @@ Logger& Document::logger()
 {
     if (!m_logger) {
         Ref logger = Logger::create(this);
-        m_logger = logger.copyRef();
+        lazyInitialize(m_logger, logger.copyRef());
         RefPtr page = this->page();
         logger->setEnabled(this, isAlwaysOnLoggingAllowed());
         logger->addObserver(*this);
@@ -12181,7 +12189,7 @@ bool Document::hitTest(const HitTestRequest& request, const HitTestLocation& loc
     // ScrollView scrollbars are not the same as RenderLayer scrollbars tested by RenderLayer::hitTestOverflowControls,
     // so we need to test ScrollView scrollbars separately here. In case of using overlay scrollbars, the layer hit test
     // will always work so we need to check the ScrollView scrollbars in that case too.
-    if (!resultLayer || ScrollbarTheme::theme().usesOverlayScrollbars()) {
+    if (!resultLayer || frameView->usesOverlayScrollbars()) {
         // FIXME: Consider if this test should be done unconditionally.
         if (request.allowsFrameScrollbars()) {
             IntPoint windowPoint = frameView->contentsToWindow(location.roundedPoint());
@@ -12784,7 +12792,7 @@ PermissionsPolicy Document::permissionsPolicy() const
 
 void Document::securityOriginDidChange()
 {
-    ASSERT(!m_eventLoop);
+    ASSERT(!m_eventLoop || !isInWebProcess()); // Frame::setOpenerForWebKitLegacy violates this condition.
     m_syncData->documentSecurityOrigin = SecurityContext::securityOrigin();
     m_permissionsPolicy = nullptr;
     if (m_hasUnpartitionedStorageAccess) {
@@ -12864,8 +12872,8 @@ ResourceMonitor* Document::parentResourceMonitorIfExists()
 double Document::lookupCSSRandomBaseValue(const CSSCalc::RandomCachingKey& key) const
 {
     if (!m_randomCachingKeyMap)
-        m_randomCachingKeyMap = CSSCalc::RandomCachingKeyMap::create();
-    return protect(m_randomCachingKeyMap)->lookupCSSRandomBaseValue(key);
+        lazyInitialize(m_randomCachingKeyMap, CSSCalc::RandomCachingKeyMap::create());
+    return m_randomCachingKeyMap->lookupCSSRandomBaseValue(key);
 }
 
 void Document::prefetch(const URL& url, const Vector<String>& tags, std::optional<ReferrerPolicy> referrerPolicy, bool lowPriority)

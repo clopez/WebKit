@@ -319,11 +319,11 @@ void GPUCanvasContextCocoa::updateScreenHeadroomFromScreenPropertiesIfNeeded()
         headroom = gatherScreenHeadroom();
     else {
         if (!m_offMainThreadScreenHeadroom)
-            m_offMainThreadScreenHeadroom = GPUOffMainThreadScreenHeadroom::create();
+            lazyInitialize(m_offMainThreadScreenHeadroom, GPUOffMainThreadScreenHeadroom::create());
         RefPtr scriptExecutionContext = protect(canvasBase())->scriptExecutionContext();
         if (!scriptExecutionContext)
             return;
-        auto cachedHeadroom = protect(m_offMainThreadScreenHeadroom)->read([contextIdentifier = scriptExecutionContext->identifier(), weakThis = WeakPtr { *this }](ScreenHeadroom headroom) mutable {
+        auto cachedHeadroom = m_offMainThreadScreenHeadroom->read([contextIdentifier = scriptExecutionContext->identifier(), weakThis = WeakPtr { *this }](ScreenHeadroom headroom) mutable {
             ScriptExecutionContext::postTaskTo(contextIdentifier, [weakThis = WTF::move(weakThis), headroom](ScriptExecutionContext&) {
                 if (RefPtr protectedThis = weakThis.get())
                     protectedThis->updateScreenHeadroom(headroom.maxEDRHeadroom, headroom.suppressEDR);
@@ -640,6 +640,10 @@ ExceptionOr<void> GPUCanvasContextCocoa::configure(GPUCanvasConfiguration&& conf
     auto renderBufferCount = protect(m_compositorIntegration)->recreateRenderBuffers(m_width, m_height, toWebCoreColorSpace(configuration.colorSpace, configuration.toneMapping), configuration.alphaMode == GPUCanvasAlphaMode::Premultiplied ? WebCore::AlphaPremultiplication::Premultiplied : WebCore::AlphaPremultiplication::Unpremultiplied, textureFormat, protect(configuration.device->backing()));
     // FIXME: This ASSERT() is wrong. It's totally possible for the IPC to the GPU process to timeout if the GPUP is busy, and return nothing here.
     ASSERT(renderBufferCount);
+
+#if HAVE(SUPPORT_HDR_DISPLAY)
+    updateScreenHeadroomFromScreenPropertiesIfNeeded();
+#endif
 
     bool reportValidationErrors = !dueToReshape;
     if (!protect(m_presentationContext)->configure(configuration, m_width, m_height, reportValidationErrors))

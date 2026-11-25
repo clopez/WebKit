@@ -32,7 +32,6 @@
 #include "AnalyserNode.h"
 #include "AsyncAudioDecoder.h"
 #include "AudioBuffer.h"
-#include "AudioBufferCallback.h"
 #include "AudioBufferOptions.h"
 #include "AudioBufferSourceNode.h"
 #include "AudioDestination.h"
@@ -53,6 +52,9 @@
 #include "ConstantSourceOptions.h"
 #include "ContextDestructionObserverInlines.h"
 #include "ConvolverNode.h"
+#include "DOMException.h"
+#include "DecodeErrorCallback.h"
+#include "DecodeSuccessCallback.h"
 #include "DelayNode.h"
 #include "DelayOptions.h"
 #include "DocumentPage.h"
@@ -70,6 +72,7 @@
 #include "IIRFilterOptions.h"
 #include "JSAudioBuffer.h"
 #include "JSDOMConvertInterface.h"
+#include "JSDOMException.h"
 #include "JSDOMPromiseDeferred.h"
 #include "LocalFrame.h"
 #include "Logging.h"
@@ -125,7 +128,7 @@ NODELETE static uint64_t generateContextID()
 
 NODELETE static HashSet<uint64_t>& liveAudioContexts()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     static NeverDestroyed<HashSet<uint64_t>> contexts;
     return contexts;
 }
@@ -322,11 +325,22 @@ ExceptionOr<Ref<AudioBuffer>> BaseAudioContext::createBuffer(unsigned numberOfCh
     return AudioBuffer::create(AudioBufferOptions {numberOfChannels, length, sampleRate});
 }
 
-void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<AudioBufferCallback>&& successCallback, RefPtr<AudioBufferCallback>&& errorCallback, Ref<DeferredPromise>&& promise)
+void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<DecodeSuccessCallback>&& successCallback, RefPtr<DecodeErrorCallback>&& errorCallback, Ref<DeferredPromise>&& promise)
 {
     RefPtr document = this->document();
     if (!document || !document->isFullyActive()) {
         promise->reject(Exception { ExceptionCode::InvalidStateError, "Document is not fully active"_s });
+        return;
+    }
+
+    if (audioData->isDetached()) {
+        Ref exception = DOMException::create(Exception { ExceptionCode::DataCloneError, "Cannot decode detached ArrayBuffer"_s });
+        promise->reject<IDLInterface<DOMException>>(exception);
+        if (errorCallback) {
+            queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [errorCallback = WTF::move(errorCallback), exception = WTF::move(exception)](auto&) mutable {
+                errorCallback->invoke(exception);
+            });
+        }
         return;
     }
 
@@ -337,20 +351,21 @@ void BaseAudioContext::decodeAudioData(Ref<ArrayBuffer>&& audioData, RefPtr<Audi
 
     auto p = m_audioDecoder->decodeAsync(audioData.copyRef(), sampleRate());
     p->whenSettled(RunLoop::currentSingleton(), [audioData = WTF::move(audioData), activity = makePendingActivity(*this), successCallback = WTF::move(successCallback), errorCallback = WTF::move(errorCallback), promise = WTF::move(promise)] (DecodingTaskPromise::Result&& result) mutable {
-        activity->object().queueTaskKeepingObjectAlive(activity->object(), TaskSource::InternalAsyncTask, [audioData = WTF::move(audioData), successCallback = WTF::move(successCallback), errorCallback = WTF::move(errorCallback), promise = WTF::move(promise), result = WTF::move(result)](auto&) mutable {
+        activity->object().queueTaskKeepingObjectAlive(activity->object(), TaskSource::MediaElement, [audioData = WTF::move(audioData), successCallback = WTF::move(successCallback), errorCallback = WTF::move(errorCallback), promise = WTF::move(promise), result = WTF::move(result)](auto&) mutable {
 
             audioData->unpin();
 
             if (!result) {
-                promise->reject(WTF::move(result.error()));
+                Ref exception = DOMException::create(result.error());
+                promise->reject<IDLInterface<DOMException>>(exception);
                 if (errorCallback)
-                    errorCallback->invoke(nullptr);
+                    errorCallback->invoke(exception);
                 return;
             }
             auto audioBuffer = WTF::move(result.value());
             promise->resolve<IDLInterface<AudioBuffer>>(audioBuffer.get());
             if (successCallback)
-                successCallback->invoke(audioBuffer.ptr());
+                successCallback->invoke(audioBuffer);
         });
     });
 }
@@ -583,13 +598,13 @@ void BaseAudioContext::derefFinishedSourceNodes()
 
 void BaseAudioContext::derefUnfinishedSourceNodes()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread() && isAudioThreadFinished());
+    RELEASE_ASSERT(isMainThread() && isAudioThreadFinished());
     m_referencedSourceNodes.clear();
 }
 
 void BaseAudioContext::addDeferredDecrementConnectionCount(AudioNode* node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
+    RELEASE_ASSERT(isAudioThread());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -598,7 +613,7 @@ void BaseAudioContext::addDeferredDecrementConnectionCount(AudioNode* node)
 
 void BaseAudioContext::addDeferredDeref(const AudioNode* node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isAudioThread());
+    RELEASE_ASSERT(isAudioThread());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -680,7 +695,7 @@ void BaseAudioContext::handleDeferredDerefs()
 
 void BaseAudioContext::addTailProcessingNode(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     if (node.isTailProcessing()) {
         ASSERT(m_tailProcessingNodes.contains(node) || m_finishedTailProcessingNodes.contains(node));
         return;
@@ -695,7 +710,7 @@ void BaseAudioContext::addTailProcessingNode(AudioNode& node)
 
 void BaseAudioContext::removeTailProcessingNode(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     ASSERT(node.isTailProcessing());
 
     if (m_tailProcessingNodes.removeFirst(node))
@@ -765,7 +780,7 @@ void BaseAudioContext::finishTailProcessing()
 
 void BaseAudioContext::markForDeletion(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     ASSERT_WITH_MESSAGE(node.nodeType() != AudioNode::NodeTypeDestination, "Destination node is owned by the BaseAudioContext");
 
     if (isAudioThreadFinished())
@@ -786,7 +801,7 @@ void BaseAudioContext::markForDeletion(AudioNode& node)
 
 void BaseAudioContext::unmarkForDeletion(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     ASSERT_WITH_MESSAGE(node.nodeType() != AudioNode::NodeTypeDestination, "Destination node is owned by the BaseAudioContext");
 
     m_nodesToDelete.removeFirst(&node);
@@ -818,7 +833,7 @@ void BaseAudioContext::scheduleNodeDeletion()
 
 void BaseAudioContext::deleteMarkedNodes()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
 
     // Protect this object from being deleted before we release the lock.
     Ref protectedThis { *this };
@@ -857,7 +872,7 @@ void BaseAudioContext::deleteMarkedNodes()
 
 void BaseAudioContext::markSummingJunctionDirty(AudioSummingJunction* summingJunction)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
     DisableMallocRestrictionsForCurrentThreadScope disableMallocRestrictions;
@@ -878,7 +893,7 @@ enum EventTargetInterfaceType BaseAudioContext::eventTargetInterface() const
 
 void BaseAudioContext::markAudioNodeOutputDirty(AudioNodeOutput* output)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
     m_dirtyAudioNodeOutputs.add(output);
 }
 
@@ -904,7 +919,7 @@ void BaseAudioContext::handleDirtyAudioNodeOutputs()
 
 void BaseAudioContext::addAutomaticPullNode(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
 
     // Heap allocations are forbidden on the audio thread for performance reasons so we need to
     // explicitly allow the following allocation(s).
@@ -915,7 +930,7 @@ void BaseAudioContext::addAutomaticPullNode(AudioNode& node)
 
 void BaseAudioContext::removeAutomaticPullNode(AudioNode& node)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isGraphOwner());
+    RELEASE_ASSERT(isGraphOwner());
 
     if (m_automaticPullNodes.remove(&node)) {
         if (m_isAudioThreadFinished) {
@@ -966,7 +981,7 @@ ScriptExecutionContext* BaseAudioContext::scriptExecutionContext() const
 
 void BaseAudioContext::postTask(Function<void()>&& task)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     if (!m_isStopScheduled)
         queueTaskKeepingObjectAlive(*this, TaskSource::MediaElement, [task = WTF::move(task)](auto&) mutable { task(); });
 }

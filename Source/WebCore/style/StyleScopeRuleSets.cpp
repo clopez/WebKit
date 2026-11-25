@@ -52,8 +52,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/PointerComparison.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 ScopeRuleSets::ScopeRuleSets(Resolver& styleResolver)
     : m_authorStyle(RuleSet::create())
@@ -74,10 +73,11 @@ RuleSet* ScopeRuleSets::userAgentMediaQueryStyle() const
 
 void ScopeRuleSets::updateUserAgentMediaQueryStyleIfNeeded() const
 {
-    if (!UserAgentStyle::mediaQueryStyleSheet)
+    auto& userAgentSheets = UserAgentStyle::sheets();
+    if (!userAgentSheets.mediaQueryStyleSheet)
         return;
 
-    auto ruleCount = UserAgentStyle::mediaQueryStyleSheet->ruleCount();
+    auto ruleCount = userAgentSheets.mediaQueryStyleSheet->ruleCount();
     if (m_userAgentMediaQueryStyle && ruleCount == m_userAgentMediaQueryRuleCountOnUpdate)
         return;
     m_userAgentMediaQueryRuleCountOnUpdate = ruleCount;
@@ -88,7 +88,7 @@ void ScopeRuleSets::updateUserAgentMediaQueryStyleIfNeeded() const
     m_userAgentMediaQueryStyle = RuleSet::create();
 
     RuleSetBuilder builder(protect(*m_userAgentMediaQueryStyle), mediaQueryEvaluator, protect(m_styleResolver).ptr());
-    SUPPRESS_UNCOUNTED_ARG builder.addRulesFromSheet(*UserAgentStyle::mediaQueryStyleSheet);
+    builder.addRulesFromSheet(*userAgentSheets.mediaQueryStyleSheet);
 }
 
 RuleSet* ScopeRuleSets::dynamicViewTransitionsStyle() const
@@ -297,8 +297,8 @@ void ScopeRuleSets::collectFeatures() const
     RELEASE_ASSERT(!m_isInvalidatingStyleWithRuleSets);
 
     m_features.clear();
-    if (UserAgentStyle::defaultStyle)
-        m_features.add(UserAgentStyle::defaultStyle->features());
+    if (auto& userAgentSheets = UserAgentStyle::sheets(); userAgentSheets.defaultStyle)
+        m_features.add(userAgentSheets.defaultStyle->features());
     m_defaultStyleVersionOnFeatureCollection = UserAgentStyle::defaultStyleVersion;
 
     if (RefPtr userAgentMediaQueryStyle = this->userAgentMediaQueryStyle())
@@ -534,5 +534,4 @@ bool ScopeRuleSets::hasMatchingUserOrAuthorStyle(NOESCAPE const WTF::Function<bo
     return false;
 }
 
-} // namespace Style
-} // namespace WebCore
+} // namespace WebCore::Style

@@ -25,6 +25,10 @@
 
 #pragma once
 
+#if !__has_feature(objc_arc)
+#error This header requires ARC. Include it only from files compiled with -fobjc-arc.
+#endif
+
 #import "Instance.h"
 #import <CoreVideo/CVPixelBuffer.h>
 #import <Metal/Metal.h>
@@ -83,14 +87,9 @@ public:
 
     ~Queue();
 
-    // The callback is called with false when the device is lost.
-    void onSubmittedWorkDone(CompletionHandler<void(bool)>&& callback);
+    void onSubmittedWorkDone(CompletionHandler<void(bool)>&&) final;
     void submit(Vector<Ref<WebGPU::Metal::CommandBuffer>>&& commands);
     void writeBuffer(Buffer&, uint64_t bufferOffset, std::span<uint8_t> data);
-    // For callers whose `data` dies as soon as writeBuffer() returns: at or above
-    // WGPU_LARGE_BUFFER_SIZE the staged copy only aliases the bytes, so those callers cannot use the
-    // borrowing overload above.
-    void writeBuffer(Buffer&, uint64_t bufferOffset, Vector<uint8_t>&& data);
     void writeBuffer(id<MTLBuffer>, uint64_t bufferOffset, std::span<uint8_t> data);
     void clearBuffer(id<MTLBuffer>, NSUInteger offset = 0, NSUInteger size = NSUIntegerMax);
     void copyBuffer(id<MTLBuffer> source, uint64_t sourceOffset, id<MTLBuffer> destination, uint64_t destinationOffset, uint64_t size);
@@ -99,7 +98,6 @@ public:
     void setLabel(String&&) final;
 
     void submit(Vector<Ref<WebGPU::CommandBuffer>>&&) final;
-    void onSubmittedWorkDone(CompletionHandler<void()>&&) final;
     void writeBuffer(WebGPU::Buffer&, uint64_t bufferOffset, std::span<const uint8_t> data) final;
     void writeTexture(const WebGPU::TexelCopyTextureInfo& destination, std::span<const uint8_t> data, const WebGPU::TexelCopyBufferLayout&, const WebGPU::Extent3D& writeSize) final;
 
@@ -109,8 +107,7 @@ public:
     void makeInvalid();
     void setCommittedSignalEvent(id<MTLSharedEvent>, size_t frameIndex);
 
-    const Device& device() const SWIFT_RETURNS_INDEPENDENT_VALUE;
-    void generateAValidationError(String&&);
+    RefPtr<WebGPU::Device> device() const final;
     void clearTextureIfNeeded(const WebGPU::TexelCopyTextureInfo&, NSUInteger);
     id<MTLCommandBuffer> _Nullable commandBufferWithDescriptor(MTLCommandBufferDescriptor*);
     void commitMTLCommandBuffer(id<MTLCommandBuffer>);
@@ -196,10 +193,6 @@ private:
     const ThreadSafeWeakPtr<Instance> m_instance;
     id<MTLBuffer> _Nullable m_temporaryBuffer;
     uint64_t m_temporaryBufferOffset;
-    // The bytes a pending staged copy aliases, waiting for finalizeBlitCommandEncoder() to attach
-    // them to the staging command buffer. Set only inside
-    // writeBuffer(Buffer&, uint64_t, Vector<uint8_t>&&).
-    Vector<uint8_t> m_noCopyStagingSource;
     Vector<ProvisionalTextureClear> m_provisionalTextureClears;
 } DERIVED_CLASS_SWIFT_SHARED_REFERENCE(refQueue, derefQueue) SWIFT_PRIVATE_FILEID("WebGPU/Queue.swift");
 

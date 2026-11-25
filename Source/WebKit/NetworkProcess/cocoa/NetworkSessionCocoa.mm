@@ -44,6 +44,7 @@
 #import "WKURLSessionTaskDelegate.h"
 #import "WebErrors.h"
 #import "WebPageNetworkParameters.h"
+#import "WebPreferencesDefaultValues.h"
 #import "WebPrivacyHelpers.h"
 #import "WebSocketTask.h"
 #import <Foundation/NSURLSession.h>
@@ -881,7 +882,7 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
 - (void)URLSession:(NSURLSession *)session task:(NSURLSessionTask *)task didReceiveInformationalResponse:(NSHTTPURLResponse *)response
 {
     if (auto networkDataTask = [self existingTask:task]) {
-        ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+        RELEASE_ASSERT(RunLoop::isMain());
 
         // Capture the timestamp when the first interim (1xx) response is received.
         // https://github.com/w3c/resource-timing/pull/408
@@ -906,7 +907,7 @@ static NSDictionary<NSString *, id> *extractResolutionReport(NSError *error)
     auto taskIdentifier = dataTask.taskIdentifier;
     LOG(NetworkSession, "%zu didReceiveResponse", taskIdentifier);
     if (auto networkDataTask = [self existingTask:dataTask]) {
-        ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+        RELEASE_ASSERT(RunLoop::isMain());
 
         NegotiatedLegacyTLS negotiatedLegacyTLS = NegotiatedLegacyTLS::No;
         RetainPtr<NSURLSessionTaskMetrics> taskMetrics = dataTask._incompleteTaskMetrics;
@@ -2153,8 +2154,7 @@ void NetworkSessionCocoa::applyProxyConfigurationToSessionConfiguration(NSURLSes
 
 bool NetworkSessionCocoa::hasCompressionDictionarySupport() const
 {
-    static SEL sel = NSSelectorFromString(@"_supportsCompressionDictionary");
-    return [NSURLSession.class respondsToSelector:sel];
+    return defaultCompressionDictionaryEnabled();
 }
 
 bool NetworkSessionCocoa::proxyConfigurationRequiresTCPProtocols() const

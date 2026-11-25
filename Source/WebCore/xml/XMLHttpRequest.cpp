@@ -66,7 +66,6 @@
 #include <JavaScriptCore/ArrayBufferView.h>
 #include <JavaScriptCore/JSCInlines.h>
 #include <JavaScriptCore/JSLock.h>
-#include <pal/text/TextCodecUTF8.h>
 #include <wtf/RuntimeApplicationChecks.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/TZoneMallocInlines.h>
@@ -94,13 +93,13 @@ static void replaceCharsetInMediaTypeIfNeeded(String& mediaType)
     mediaType = parsedContentType->serialize();
 }
 
-static void logConsoleError(ScriptExecutionContext* context, const String& message)
+static void logConsoleError(ScriptExecutionContext* context, const String& message, MessageSource source = MessageSource::JS)
 {
     if (!context)
         return;
     // FIXME: It's not good to report the bad usage without indicating what source line it came from.
     // We should pass additional parameters so we can tell the console where the mistake occurred.
-    context->addConsoleMessage(MessageSource::JS, MessageLevel::Error, message);
+    context->addConsoleMessage(source, MessageLevel::Error, message);
 }
 
 Ref<XMLHttpRequest> XMLHttpRequest::create(ScriptExecutionContext& context)
@@ -470,8 +469,7 @@ ExceptionOr<void> XMLHttpRequest::send(Ref<Document>&& document)
 
         // https://xhr.spec.whatwg.org/#dom-xmlhttprequest-send Step 4.2.
         auto serialized = serializeFragment(document, SerializedNodes::SubtreeIncludingNode);
-        auto converted = replaceUnpairedSurrogatesWithReplacementCharacter(WTF::move(serialized));
-        auto encoded = PAL::TextCodecUTF8::encodeUTF8(WTF::move(converted));
+        auto encoded = utf8Bytes(serialized);
         m_requestEntityBody = FormData::create(WTF::move(encoded));
         Locker locker { m_gcLock };
         if (m_upload)
@@ -541,7 +539,7 @@ ExceptionOr<void> XMLHttpRequest::sendStringData(String&& body, const String& de
             m_requestHeaders.set(HTTPHeaderName::ContentType, contentType);
         }
 
-        m_requestEntityBody = FormData::create(PAL::TextCodecUTF8::encodeUTF8(body));
+        m_requestEntityBody = FormData::create(utf8Bytes(body));
         Locker locker { m_gcLock };
         if (m_upload)
             m_requestEntityBody->setAlwaysStream(true);
@@ -818,7 +816,7 @@ ExceptionOr<void> XMLHttpRequest::setRequestHeader(const String& name, const Str
         return Exception { ExceptionCode::SyntaxError };
 
     if (isForbiddenHeader(name, normalizedValue)) {
-        logConsoleError(protect(scriptExecutionContext()).get(), makeString("Refused to set unsafe header \""_s, name, '"'));
+        logConsoleError(protect(scriptExecutionContext()).get(), makeString("Refused to set unsafe header \""_s, name, '"'), MessageSource::Security);
         return { };
     }
 

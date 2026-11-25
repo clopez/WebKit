@@ -26,6 +26,7 @@
 #include "config.h"
 #include "LayoutIntegrationInlineContentPainter.h"
 
+#include "BlockPainter.h"
 #include "EllipsisBoxPainter.h"
 #include "InlineBoxPainter.h"
 #include "InlineDisplayBoxInlines.h"
@@ -42,8 +43,7 @@
 #include "TextBoxPainter.h"
 #include <wtf/Assertions.h>
 
-namespace WebCore {
-namespace LayoutIntegration {
+namespace WebCore::LayoutIntegration {
 
 InlineContentPainter::InlineContentPainter(PaintInfo& paintInfo, const LayoutPoint& paintOffset, const RenderBoxModelObject* inlineBoxWithLayer, const InlineContent& inlineContent, const RenderBlockFlow& root)
     : m_paintInfo(paintInfo)
@@ -152,7 +152,7 @@ void InlineContentPainter::paintDisplayBox(const InlineDisplay::Box& box)
             auto childPaintOffset = paintOffsetForChild(*renderer);
             if (box.isBlockLevelBox()) {
                 // Blocks-in-inline.
-                auto paintInfoForChild = m_root->paintInfoForBlockChildren(m_paintInfo);
+                auto paintInfoForChild = Paint::BlockPainter::paintInfoForBlockChildren(m_root, m_paintInfo);
                 paintRenderer->paint(paintInfoForChild, childPaintOffset);
             } else
                 paintRenderer->paintAsInlineBlock(m_paintInfo, childPaintOffset);
@@ -198,6 +198,9 @@ void InlineContentPainter::paint()
             case PaintPhase::ChildBlockBackground:
             case PaintPhase::ChildBlockBackgrounds:
                 return box.isBlockLevelBox();
+            case PaintPhase::EventRegion:
+                // InlineBoxPainter is a no-op here; text and atomic inlines inherit its style.
+                return !box.isInlineBox();
             default:
                 return true;
             }
@@ -276,5 +279,3 @@ bool LayerPaintScope::testIsIncludesAndUpdate(const InlineDisplay::Box& box)
 }
 
 }
-}
-

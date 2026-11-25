@@ -33,7 +33,6 @@
 #include "RenderBlockFlowInlines.h"
 #include "RenderBoxInlines.h"
 #include "RenderChildIterator.h"
-#include "RenderListOutsideMarker.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include "StyleDisplay.h"
@@ -115,8 +114,8 @@ LineClampUpdater::LineClampUpdater(const RenderBlock& blockContainer)
             // A ruby annotation belongs to the line of its base: it is clamped with that line, not line by line on its own.
             if (blockContainer.style().display() == Style::DisplayType::RubyText)
                 return true;
-            // An outside list marker's content is laid out like an inline-block (see RenderListOutsideMarker::layoutContentContainer).
-            return is<RenderListOutsideMarker>(blockContainer.parent());
+            // The list item's line clamp does not reach into its outside marker, whose own line would otherwise use up the list item's lines.
+            return blockContainer.isOutsideListMarker();
         };
         if (shouldIgnoreLineClamp()) {
             layoutState->setLineClamp({ });
@@ -293,10 +292,11 @@ Vector<LineClampUpdater::AutoClampPoint> LineClampUpdater::autoClampPoints() con
             auto overflows = !parentFits && childLogicalTop + child->logicalHeight() > blockSizeLimit;
             if (overflows) {
                 // A block keeps its set height whatever its content, and its min-height keeps it at least that tall, so no clamp point inside it fits either.
+                // A height that behaves as auto (e.g. an indefinite percentage, or min-content) is not a set height: it is the height of the content.
                 CheckedRef childStyle = child->style();
                 auto fixedMinimumHeight = childStyle->logicalMinHeight().tryFixed();
                 auto minimumHeightOverflows = fixedMinimumHeight && childLogicalTop + LayoutUnit { fixedMinimumHeight->resolveZoom(childStyle->usedZoomForLength()) } > blockSizeLimit;
-                if (!childStyle->logicalHeight().isAuto() || minimumHeightOverflows) {
+                if (!child->logicalHeightBehavesAsAuto() || minimumHeightOverflows) {
                     // Not even after the first line that only fits when trimmed (see appendFittingLineClampPoints): trimming does not make the block shorter.
                     return { };
                 }

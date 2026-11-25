@@ -132,7 +132,7 @@
 #include "RenderLayer.h"
 #include "RenderLineBreak.h"
 #include "RenderListBox.h"
-#include "RenderListOutsideMarker.h"
+#include "RenderListItem.h"
 #include "RenderMathMLOperator.h"
 #include "RenderMeter.h"
 #include "RenderObjectInlines.h"
@@ -1419,7 +1419,7 @@ AccessibilityObject* AXObjectCache::getOrCreate(RenderObject& renderer)
     if (object->isDetached())
         return nullptr;
 
-    return object.unsafePtr();
+    return m_objects.get(object->objectID());
 }
 
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
@@ -2134,7 +2134,7 @@ void AXObjectCache::setDirtyStitchGroups(const RenderBlock& renderBlock)
 #if ENABLE(ACCESSIBILITY_ISOLATED_TREE)
 void AXObjectCache::onTextRunsChanged(const RenderObject& renderer)
 {
-    if (renderer.isInlineBox() || is<RenderListOutsideMarker>(renderer)) {
+    if (renderer.isInlineBox() || renderer.isOutsideListMarker()) {
         // Fast-path exit for common renderers that will never produce text runs.
         return;
     }
@@ -3196,8 +3196,14 @@ void AXObjectCache::onSelectedOptionChanged(Element& element)
         postNotification(&element, AXNotification::SelectedCellsChanged);
     else if (RefPtr option = dynamicDowncast<HTMLOptionElement>(element)) {
         postNotification(&element, AXNotification::SelectedStateChanged);
-        if (RefPtr select = option->ownerSelectElement(); select && !select->isDropdownBox())
-            deferSelectedChildrenChanged(*select);
+        if (RefPtr select = option->ownerSelectElement()) {
+            if (!select->isDropdownBox())
+                deferSelectedChildrenChanged(*select);
+            else if (select->multiple()) {
+                // Its value lists the selected options, which can change without their count changing.
+                deferMenuListValueChange(select.get());
+            }
+        }
     } else if (RefPtr axObject = getOrCreate(element)) {
         if (RefPtr ancestor = Accessibility::findAncestor<AccessibilityObject>(*axObject, false, [] (const auto& object) {
             return object.canHaveSelectedChildren();

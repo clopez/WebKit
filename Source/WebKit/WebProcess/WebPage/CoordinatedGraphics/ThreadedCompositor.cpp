@@ -83,9 +83,6 @@ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTre
 {
     ASSERT(RunLoop::isMain());
 
-    // Make sure rendering update is the highest priority task in worker loop.
-    m_renderTimer.setPriority(RunLoopSourcePriority::RunLoopTimer - 1);
-
     lazyInitialize(m_didCompositeRunLoopObserver, makeUnique<RunLoopObserver>(RunLoopObserver::WellKnownOrder::GraphicsCommit, [this] {
         this->didCompositeRunLoopObserverFired();
     }));
@@ -103,6 +100,9 @@ ThreadedCompositor::ThreadedCompositor(WebPage& webPage, LayerTreeHost& layerTre
     m_surface->didCreateCompositingRunLoop(m_workQueue->runLoop());
 
     m_workQueue->dispatchSync([this] {
+        // Make sure rendering update is the highest priority task in worker loop.
+        m_renderTimer.setPriority(RunLoopSourcePriority::RunLoopTimer - 1);
+
         // GLNativeWindowType depends on the EGL implementation: reinterpret_cast works
         // for pointers (only if they are 64-bit wide and not for other cases), and static_cast for
         // numeric types (and when needed they get extended to 64-bit) but not for pointers. Using
@@ -494,8 +494,17 @@ void ThreadedCompositor::renderLayerTree()
         deviceScaleFactor = m_attributes.deviceScaleFactor;
     }
 
-    if (viewportSize.isEmpty())
+    if (viewportSize.isEmpty()) {
+        // Nothing can be painted while the viewport is empty, for example while the view has no height.
+        // Still commit the layer state and complete the rendering update, so that the next one, which
+        // applies the new size when the view gets one, can run. No frame is sent, so frameComplete() is
+        // not called for this composition: call it here to leave the InProgress state.
+        flushCompositingState(reasons);
+        if (shouldNotifiyDidComposite)
+            m_didCompositeRunLoopObserver->schedule(&RunLoop::mainSingleton());
+        frameComplete();
         return;
+    }
 
     TransformationMatrix viewportTransform;
     viewportTransform.scale(deviceScaleFactor);

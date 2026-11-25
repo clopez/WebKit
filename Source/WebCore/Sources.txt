@@ -587,6 +587,9 @@ Modules/webtransport/WebTransportWriter.cpp
 Modules/webtransport/WorkerWebTransportSession.cpp
 Modules/webxr/NavigatorWebXR.cpp
 Modules/webxr/WebGLOpaqueTexture.cpp
+Modules/webxr/WebXRAnchor.cpp
+Modules/webxr/WebXRAnchorSet.cpp
+Modules/webxr/WebXRAnchorSpace.cpp
 Modules/webxr/WebXRBoundedReferenceSpace.cpp
 Modules/webxr/WebXRFrame.cpp
 Modules/webxr/WebXRGamepad.cpp
@@ -1051,6 +1054,7 @@ css/CSSStartingStyleRule.cpp
 css/CSSStringValue.cpp
 css/CSSStyleDeclaration.cpp
 css/CSSStyleProperties.cpp @cost:3
+css/CSSStyleResource.cpp
 css/CSSStyleRule.cpp
 css/CSSStyleSheet.cpp @cost:3
 css/CSSStyleSheetObservableArray.cpp @cost:4
@@ -1304,6 +1308,7 @@ css/values/primitives/CSSSymbol.cpp
 css/values/primitives/CSSTypeSpecifier.cpp
 css/values/primitives/CSSURL.cpp
 css/values/primitives/CSSURLModifiers.cpp
+css/values/primitives/CSSURLProvenance.cpp
 css/values/primitives/CSSUnevaluatedCalc.cpp
 css/values/sizing/CSSCalcSizeFunction.cpp
 css/values/shapes/CSSCircleFunction.cpp
@@ -1479,6 +1484,7 @@ dom/QualifiedNameCache.cpp
 dom/RadioButtonGroups.cpp
 dom/Range.cpp
 dom/RejectedPromiseTracker.cpp
+dom/Scheduler.cpp
 dom/ScopedEventQueue.cpp
 dom/ScriptElement.cpp
 dom/ScriptElementCachedScriptFetcher.cpp
@@ -2002,6 +2008,7 @@ inspector/InspectorInstrumentation.cpp @header:RenderStyleGetters
 inspector/InspectorInstrumentationPublic.cpp
 inspector/InspectorInstrumentationWebKit.cpp
 inspector/InspectorNetworkIntercept.cpp
+inspector/NetworkInterception.cpp
 inspector/InspectorNodeFinder.cpp
 inspector/InspectorOverlay.cpp @header:RenderStyleGetters
 inspector/InspectorOverlayConfigParser.cpp
@@ -2734,6 +2741,9 @@ platform/graphics/FontSelectionAlgorithm.cpp
 platform/graphics/FontSelector.cpp
 platform/graphics/FontTaggedSettings.cpp
 platform/graphics/FourCC.cpp
+platform/graphics/FreeformGradient.cpp
+platform/graphics/FreeformGradientRenderer.cpp
+platform/graphics/FreeformGradientRendererCPU.cpp
 platform/graphics/GeometryUtilities.cpp
 platform/graphics/Gradient.cpp
 platform/graphics/GradientColorStop.cpp
@@ -2848,6 +2858,7 @@ platform/graphics/displaylists/DisplayListItem.cpp
 platform/graphics/displaylists/DisplayListItems.cpp
 platform/graphics/displaylists/DisplayListRecorder.cpp
 platform/graphics/displaylists/DisplayListRecorderImpl.cpp
+platform/graphics/displaylists/DisplayListResourceCache.cpp
 platform/graphics/filters/DistantLightSource.cpp
 platform/graphics/filters/FEBlend.cpp
 platform/graphics/filters/FEColorMatrix.cpp
@@ -3107,7 +3118,6 @@ rendering/RenderLayoutState.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderLineBreak.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderListBox.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderListItem.cpp @header:RenderStyleGetters @cost:7
-rendering/RenderListOutsideMarker.cpp @header:RenderStyleGetters @cost:8
 rendering/RenderMarquee.cpp @header:RenderStyleGetters @cost:5
 rendering/RenderMedia.cpp @header:RenderStyleGetters @cost:6
 rendering/RenderMenuList.cpp @header:RenderStyleGetters @cost:8
@@ -3172,6 +3182,8 @@ rendering/mathml/RenderMathMLToken.cpp @header:RenderStyleGetters
 rendering/mathml/RenderMathMLUnderOver.cpp @header:RenderStyleGetters
 rendering/mathml/MathVariant.cpp
 rendering/paint/BackgroundPainter.cpp @header:RenderStyleGetters @cost:7
+rendering/paint/BlockHitTester.cpp @header:RenderStyleGetters @cost:3
+rendering/paint/BlockPainter.cpp @header:RenderStyleGetters @cost:8
 rendering/paint/BorderPainter.cpp @header:RenderStyleGetters @cost:6
 rendering/paint/BoxDecorationPainter.cpp @header:RenderStyleGetters @cost:5
 rendering/paint/ContentfulPaintChecker.cpp
@@ -3181,6 +3193,7 @@ rendering/paint/MaskPainter.cpp @header:RenderStyleGetters @cost:4
 rendering/paint/NinePieceImagePainter.cpp @header:RenderStyleGetters @cost:5
 rendering/paint/OutlinePainter.cpp @header:RenderStyleGetters @cost:6
 rendering/paint/PaintClipPathScope.cpp
+rendering/paint/PaintOrderIterator.cpp @header:RenderStyleGetters @cost:3
 rendering/paint/PaintTextStyle.cpp @header:RenderStyleGetters
 rendering/paint/TextBoxPainter.cpp @header:RenderStyleGetters
 rendering/paint/TextDecorationPainter.cpp @header:RenderStyleGetters
@@ -3437,7 +3450,6 @@ style/values/color/StyleColorLayers.cpp
 style/values/color/StyleColorMix.cpp
 style/values/color/StyleColorOptions.cpp
 style/values/color/StyleContrastColor.cpp
-style/values/color/StyleCurrentAccentColor.cpp
 style/values/color/StyleCurrentColor.cpp
 style/values/color/StyleDynamicRangeLimit.cpp
 style/values/color/StyleDynamicRangeLimitMix.cpp
@@ -3956,7 +3968,6 @@ JSAriaNotifyOptions.cpp
 JSAttestationConveyancePreference.cpp
 JSAttr.cpp
 JSAudioBuffer.cpp
-JSAudioBufferCallback.cpp
 JSAudioBufferOptions.cpp
 JSAudioBufferSourceNode.cpp
 JSAudioBufferSourceOptions.cpp
@@ -4267,6 +4278,8 @@ JSDataTransferItem.cpp
 JSDataTransferItemList.cpp
 JSDatabase.cpp
 JSDatabaseCallback.cpp
+JSDecodeErrorCallback.cpp
+JSDecodeSuccessCallback.cpp
 JSDecompressionStream.cpp
 JSDecompressionStreamDecoder.cpp
 JSDedicatedWorkerGlobalScope.cpp
@@ -5175,6 +5188,9 @@ JSSVGUseElement.cpp
 JSSVGViewElement.cpp
 JSSVGViewSpec.cpp
 JSSVGZoomAndPan.cpp
+JSScheduler.cpp
+JSSchedulerPostTaskCallback.cpp
+JSSchedulerPostTaskOptions.cpp
 JSScreen.cpp
 JSScreenOrientation.cpp
 JSScriptProcessorNode.cpp
@@ -5245,6 +5261,7 @@ JSSubscriberCallback.cpp
 JSSubscriptionObserver.cpp
 JSSubscriptionObserverCallback.cpp
 JSSubtleCrypto.cpp
+JSTaskPriority.cpp
 JSText.cpp
 JSTextDecoder.cpp
 JSTextDecoderStream.cpp

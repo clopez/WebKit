@@ -99,6 +99,9 @@ public:
     // first one connects.
     WEBCORE_EXPORT void inspect(Node&);
 
+    // The node that this frame's DOM agent gave this protocol id, if it still has one.
+    WEBCORE_EXPORT RefPtr<Node> nodeForId(int nodeId) const;
+
     InstrumentingAgents& instrumentingAgents() const { return m_instrumentingAgents.get(); }
     WebInjectedScriptManager& injectedScriptManager() const { return m_injectedScriptManager.get(); }
 
@@ -115,6 +118,8 @@ public:
     WTF::Stopwatch& executionStopwatch() const final;
     bool executionStopwatchIsSharedAcrossProcesses() const final { return m_executionStopwatchIsShared; }
     JSC::Debugger* debugger() override;
+    bool coversGlobalObjectForSampling(JSC::JSGlobalObject&) const override;
+    bool takesUncoveredSamples() const override { return false; }
     JSC::VM& vm() override;
 
 private:

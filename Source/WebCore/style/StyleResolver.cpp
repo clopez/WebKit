@@ -107,8 +107,7 @@
 #include <wtf/Vector.h>
 #include <wtf/text/AtomStringHash.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 using namespace HTMLNames;
 
@@ -266,7 +265,7 @@ auto Resolver::initializeStateAndStyle(const Element& element, const ResolutionC
             state.style()->inheritFrom(*state.parentStyle());
     } else {
         state.setStyle(defaultStyleForElement(&element));
-        state.setParentStyle(Style::ComputedStyle::clonePtr(*state.style()));
+        state.setParentStyle(Style::ComputedStyle::clonePtr(protect(*state.style())));
     }
 
     // BuilderState::useSVGZoomRulesForLength equivalent
@@ -274,15 +273,15 @@ auto Resolver::initializeStateAndStyle(const Element& element, const ResolutionC
         state.style()->setUseSVGZoomRulesForLength(true);
 
     if (element.isLink()) {
-        auto& style = *state.style();
-        style.setIsLink(true);
-        InsideLink linkState = protect(document())->visitedLinkState().determineLinkState(element);
+        CheckedRef style = *state.style();
+        style->setIsLink(true);
+        InsideLink linkState = protect(protect(document())->visitedLinkState())->determineLinkState(element);
         if (linkState != InsideLink::NotInside) {
             bool forceVisited = InspectorInstrumentation::forcePseudoState(element, CSSSelector::PseudoClass::Visited);
             if (forceVisited)
                 linkState = InsideLink::InsideVisited;
         }
-        style.setInsideLink(linkState);
+        style->setInsideLink(linkState);
     }
 
     return state;
@@ -455,7 +454,8 @@ std::unique_ptr<Style::ComputedStyle> Resolver::styleForKeyframe(Element& elemen
     if (state.style()->usesViewportUnits())
         element.document().setHasStyleWithViewportUnits();
 
-    Adjuster adjuster(protect(document()), *state.parentStyle(), nullptr, !pseudoElementIdentifier ? &element : nullptr);
+    CheckedRef parentStyle = *state.parentStyle();
+    Adjuster adjuster(protect(document()), parentStyle, nullptr, !pseudoElementIdentifier ? &element : nullptr);
     adjuster.adjust(style);
 
     blendingKeyframe.setHasPropertiesWithRevertRuleOrLayer(builder.state().hasRevertRuleOrLayerInKeyframeStyle());
@@ -634,19 +634,24 @@ static const Style::ComputedStyle* parentHighlightStyleIgnoringPendingUpdate(con
 
 std::optional<ResolvedStyle> Resolver::styleForPseudoElement(Element& element, const PseudoElementRequest& pseudoElementRequest, const ResolutionContext& context)
 {
-    auto parentHighlightStyle = context.parentHighlightStyle;
+    CheckedPtr parentHighlightStyle = context.parentHighlightStyle;
     if (!parentHighlightStyle && isHighlightPseudoElement(pseudoElementRequest.type()))
         parentHighlightStyle = parentHighlightStyleIgnoringPendingUpdate(element, pseudoElementRequest.identifier());
 
-    auto state = State(element, context.parentStyle, context.documentElementStyle, context.treeResolutionState.get(), parentHighlightStyle);
+    auto state = State(element, context.parentStyle, context.documentElementStyle, context.treeResolutionState.get(), parentHighlightStyle.get());
 
-    if (state.parentStyle()) {
-        state.setStyle(Style::ComputedStyle::createPtrWithRegisteredInitialValues(document().customPropertyRegistry()));
-        state.style()->inheritFrom(*state.parentStyle());
+    if (CheckedPtr existingParentStyle = state.parentStyle()) {
+        auto newStyle = Style::ComputedStyle::createPtrWithRegisteredInitialValues(document().customPropertyRegistry());
+        newStyle->inheritFrom(*existingParentStyle);
+        state.setStyle(WTF::move(newStyle));
     } else {
-        state.setStyle(defaultStyleForElement(&element));
-        state.setParentStyle(Style::ComputedStyle::clonePtr(*state.style()));
+        auto newStyle = defaultStyleForElement(&element);
+        state.setParentStyle(Style::ComputedStyle::clonePtr(*newStyle));
+        state.setStyle(WTF::move(newStyle));
     }
+
+    CheckedRef style = *state.style();
+    CheckedRef parentStyle = *state.parentStyle();
 
     ElementRuleCollector collector(element, m_ruleSets, context.selectorMatchingState);
     collector.setPseudoElementRequest(pseudoElementRequest);
@@ -666,14 +671,15 @@ std::optional<ResolvedStyle> Resolver::styleForPseudoElement(Element& element, c
     if (collector.matchResult().isEmpty() && !state.parentHighlightStyle())
         return { };
 
-    state.style()->setPseudoElementIdentifier(pseudoElementRequest.identifier());
+    style->setPseudoElementIdentifier(pseudoElementRequest.identifier());
 
-    applyMatchedProperties(state, collector.matchResult(), PropertyCascade::normalProperties());
+    applyMatchedProperties(state, protect(collector.matchResult()), PropertyCascade::normalProperties());
 
-    Adjuster adjuster(document(), *state.parentStyle(), context.parentBoxStyle, nullptr);
-    adjuster.adjust(*state.style());
+    CheckedPtr parentBoxStyle = context.parentBoxStyle;
+    Adjuster adjuster(protect(document()), parentStyle, parentBoxStyle.get(), nullptr);
+    adjuster.adjust(style);
 
-    Adjuster::adjustVisibilityForPseudoElement(*state.style(), element);
+    Adjuster::adjustVisibilityForPseudoElement(style, element);
 
     return ResolvedStyle { state.takeStyle(), nullptr, collector.releaseMatchResult() };
 }
@@ -843,8 +849,11 @@ void Resolver::applyMatchedProperties(State& state, const MatchResult& matchResu
 void Resolver::setGlobalStateAfterApplyingProperties(const BuilderState& builderState)
 {
     // FIXME: This stuff should be somewhere else.
-    auto* currentScope = builderState.element() ? &Scope::forNode(*builderState.element()) : nullptr;
-    for (auto& entry : builderState.registeredSubstitutionAttributes()) {
+    auto& registeredSubstitutionAttributes = builderState.registeredSubstitutionAttributes();
+    CheckedPtr<const Scope> currentScope;
+    if (!registeredSubstitutionAttributes.isEmpty() && builderState.element())
+        currentScope = &Scope::forNode(*protect(builderState.element()));
+    for (auto& entry : registeredSubstitutionAttributes) {
         // Register on the scope of the element the attribute is read from, which is where
         // AttributeChangeInvalidation looks when that attribute changes. For attr() applied to a
         // pseudo-element that may differ from the scope being styled (e.g. ::placeholder styled in
@@ -852,7 +861,7 @@ void Resolver::setGlobalStateAfterApplyingProperties(const BuilderState& builder
         // we only invalidate the host's shadow subtree when a shadow-piercing rule is the source of
         // the dependency.
         CheckedPtr targetScope = entry.targetScope.get();
-        auto* scope = targetScope ? targetScope.get() : currentScope;
+        CheckedPtr scope = targetScope ? targetScope : currentScope;
         if (!scope)
             continue;
         auto affectsShadowTree = scope != currentScope ? AttributeAffectsShadowTree::Yes : AttributeAffectsShadowTree::No;
@@ -956,5 +965,4 @@ CustomFunctionRegistry& Resolver::ensureCustomFunctionRegistry()
     return *m_customFunctionRegistry;
 }
 
-} // namespace Style
-} // namespace WebCore
+} // namespace WebCore::Style

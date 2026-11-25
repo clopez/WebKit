@@ -103,8 +103,8 @@ public:
     static RefPtr<VideoFrame> createBGRX(std::span<const uint8_t>, size_t width, size_t height, const ComputedPlaneLayout&, Init&&);
     static RefPtr<VideoFrame> createI420(std::span<const uint8_t>, size_t width, size_t height, const ComputedPlaneLayout&, const ComputedPlaneLayout&, const ComputedPlaneLayout&, Init&&);
     static RefPtr<VideoFrame> createI420A(std::span<const uint8_t>, size_t width, size_t height, const ComputedPlaneLayout&, const ComputedPlaneLayout&, const ComputedPlaneLayout&, const ComputedPlaneLayout&, Init&&);
-    // I422, I444 and the 10 and 12-bit formats of planarYUVFormatLayout().
-    static RefPtr<VideoFrame> createPlanarYUV(VideoPixelFormat, std::span<const uint8_t>, size_t width, size_t height, std::span<const ComputedPlaneLayout, 3>, Init&&);
+    // I422, I444, the formats with alpha other than I420A and the 10 and 12-bit formats of planarYUVFormatLayout(). One layout per plane.
+    static RefPtr<VideoFrame> createPlanarYUV(VideoPixelFormat, std::span<const uint8_t>, size_t width, size_t height, std::span<const ComputedPlaneLayout>, Init&&);
 
     MediaTime presentationTime() const { return m_presentationTime; }
     Rotation rotation() const { return m_rotation; }
@@ -185,6 +185,11 @@ private:
     const Rotation m_rotation;
     const PlatformVideoColorSpace m_colorSpace;
 };
+
+VideoFrameRotation parseVideoFrameRotation(double);
+VideoFrameRotation addVideoFrameRotations(VideoFrameRotation baseRotation, bool baseFlip, VideoFrameRotation rotation);
+VideoFrameRotation subtractVideoFrameRotations(VideoFrameRotation, VideoFrameRotation);
+VideoFrameRotation combineVideoFrameRotations(const VideoFrame&, double);
 
 }
 

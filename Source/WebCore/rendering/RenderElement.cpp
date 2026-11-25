@@ -89,6 +89,7 @@
 #include "RenderMultiColumnSpannerPlaceholder.h"
 #include "RenderObjectInlines.h"
 #include "RenderSVGResourceContainer.h"
+#include "RenderSVGText.h"
 #include "RenderSVGViewportContainer.h"
 #include "RenderTableCaption.h"
 #include "RenderTableCell.h"
@@ -1120,6 +1121,15 @@ void RenderElement::styleWillChange(Style::Difference diff, const Style::Compute
             view().decrementRendersWithOutline();
     }
 
+    bool hadNamedPage = oldStyle && oldStyle->pageName().isCustomIdent();
+    bool hasNamedPage = newStyle.pageName().isCustomIdent();
+    if (hadNamedPage != hasNamedPage) {
+        if (hasNamedPage)
+            view().frameView().layoutContext().incrementRenderersWithNamedPage();
+        else
+            view().frameView().layoutContext().decrementRenderersWithNamedPage();
+    }
+
     bool hadPixelMovingFilter = oldStyle && oldStyle->filter().hasFilterThatMovesPixels();
     bool hasPixelMovingFilter = newStyle.filter().hasFilterThatMovesPixels();
     if (hadPixelMovingFilter != hasPixelMovingFilter) {
@@ -1215,6 +1225,12 @@ void RenderElement::styleDidChange(Style::Difference diff, const Style::Computed
     }
 
     setNeedsLayoutForStyleDifference(diff, oldStyle);
+
+    // In paginated layout, descendants with page auto use this page value, and their break points are checked when their parent lays out.
+    if (oldStyle && oldStyle->pageName() != style().pageName() && document().paginated()) {
+        for (CheckedRef descendant : descendantsOfType<RenderBox>(*this))
+            descendant->setNeedsLayout(MarkingBehavior::OnlyThis);
+    }
 
     if (isOutOfFlowPositioned() && oldStyle && oldStyle->originalDisplay().isBlockType() != style().originalDisplay().isBlockType()) {
         if (CheckedPtr ancestor = RenderObject::containingBlockForPositionType(PositionType::Static, *this)) {
@@ -1401,6 +1417,9 @@ void RenderElement::willBeDestroyed()
 
         if (style().filter().hasFilterThatMovesPixels())
             view().decrementRenderersWithPixelMovingFilter();
+
+        if (style().pageName().isCustomIdent())
+            view().frameView().layoutContext().decrementRenderersWithNamedPage();
 
         if (auto* firstLineStyle = style().pseudoElementStyle({ PseudoElementType::FirstLine }))
             unregisterImages(*firstLineStyle);
@@ -2132,7 +2151,7 @@ Color RenderElement::selectionBackgroundColor() const
     auto styleColorOptions = this->styleColorOptions(StyleColorOptionsPurpose::Rendering);
 
     if (frame().selection().shouldShowBlockCursor() && frame().selection().isCaret())
-        return theme().transformSelectionBackgroundColor(style().visitedDependentColorApplyingColorFilter(), styleColorOptions);
+        return theme().transformSelectionBackgroundColor(protect(style())->visitedDependentColorApplyingColorFilter(), styleColorOptions);
 
     auto pseudoStyleCandidate = this;
     if (pseudoStyleCandidate->isAnonymous())
@@ -2164,10 +2183,25 @@ const Style::ComputedStyle* RenderElement::targetTextPseudoStyle() const
     return textSegmentPseudoStyle(PseudoElementType::TargetText);
 }
 
+FloatRect RenderElement::strokeBoundingBoxInLocalCoordinates() const
+{
+    // Map from SVG user space to the LBSE local coordinate system, anchored at nominalSVGLayoutLocation().
+    // FIXME: RenderSVGInline returns the bounding box of its <text>, not that of the <tspan> itself.
+    auto boundingBox = strokeBoundingBox();
+    if (!document().settings().layerBasedSVGEngineEnabled() || !isSVGLayerAwareDescendantRenderer())
+        return boundingBox;
+
+    if (auto* text = RenderSVGText::locateRenderSVGTextAncestor(*this))
+        boundingBox.moveBy(-text->nominalSVGLayoutLocation());
+    else
+        boundingBox.moveBy(-downcast<RenderLayerModelObject>(*this).nominalSVGLayoutLocation());
+    return boundingBox;
+}
+
 bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 {
     if (isSVGRenderer()) {
-        point = localToAbsoluteQuad(strokeBoundingBox(), MapCoordinatesMode::UseTransforms).boundingBox().minXMinYCorner();
+        point = localToAbsoluteQuad(strokeBoundingBoxInLocalCoordinates(), MapCoordinatesMode::UseTransforms).boundingBox().minXMinYCorner();
         return true;
     }
 
@@ -2179,7 +2213,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
     // find the next text/image child, to get a position
     const RenderObject* o = this;
     while (o) {
-        const RenderObject* p = o;
+        CheckedPtr p = o;
         if (RenderObject* child = o->firstChildSlow())
             o = child;
         else if (o->nextSibling())
@@ -2214,7 +2248,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
                     point.moveBy(textRenderer->linesBoundingBox().location());
             } else if (auto* box = dynamicDowncast<RenderBox>(*o))
                 point.moveBy(box->location());
-            point = o->container()->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
+            point = protect(o->container())->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
             return true;
         }
     }
@@ -2222,7 +2256,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
     // If the target doesn't have any children or siblings that could be used to calculate the scroll position, we must be
     // at the end of the document. Scroll to the bottom. FIXME: who said anything about scrolling?
     if (!o && document().view()) {
-        point = FloatPoint(0, document().view()->contentsHeight());
+        point = FloatPoint(0, protect(document().view())->contentsHeight());
         return true;
     }
     return false;
@@ -2231,7 +2265,7 @@ bool RenderElement::getLeadingCorner(FloatPoint& point, bool& insideFixed) const
 bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) const
 {
     if (isSVGRenderer()) {
-        point = localToAbsoluteQuad(strokeBoundingBox(), MapCoordinatesMode::UseTransforms).boundingBox().maxXMaxYCorner();
+        point = localToAbsoluteQuad(strokeBoundingBoxInLocalCoordinates(), MapCoordinatesMode::UseTransforms).boundingBox().maxXMaxYCorner();
         return true;
     }
 
@@ -2260,12 +2294,12 @@ bool RenderElement::getTrailingCorner(FloatPoint& point, bool& insideFixed) cons
         ASSERT(o);
         if (is<RenderText>(*o) || o->isBlockLevelReplacedOrAtomicInline()) {
             point = FloatPoint();
-            if (auto* textRenderer = dynamicDowncast<RenderText>(*o)) {
+            if (CheckedPtr textRenderer = dynamicDowncast<RenderText>(*o)) {
                 LayoutRect linesBox = textRenderer->linesBoundingBox();
                 if (!linesBox.maxX() && !linesBox.maxY())
                     continue;
                 point.moveBy(linesBox.maxXMaxYCorner());
-                point = o->container()->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
+                point = protect(o->container())->localToAbsolute(point, MapCoordinatesMode::UseTransforms, &insideFixed);
                 return true;
             }
             // Like the leading corner, map from the box itself, whose location may not be in the coordinate space of its container (e.g. an
@@ -2917,9 +2951,9 @@ void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer
     auto* renderBox = dynamicDowncast<RenderBox>(renderer);
     if (!renderBox || !renderBox->parent() || !containingBlockBeforeStyleResolution)
         return;
-    auto* newContainingBlock = renderBox->containingBlock();
+    CheckedPtr newContainingBlock = renderBox->containingBlock();
     ASSERT(newContainingBlock);
-    if (containingBlockBeforeStyleResolution == newContainingBlock)
+    if (containingBlockBeforeStyleResolution == newContainingBlock.get())
         return;
 
     // Let's carry out the same set of tasks we would normally do when containing block changes for out-of-flow content in RenderBox::styleWillChange.
@@ -2928,7 +2962,7 @@ void RenderElement::markRendererDirtyAfterTopLayerChange(RenderElement* renderer
 
     RenderBoxModelObject::removeOutOfFlowBox(*renderBox);
     // This is to make sure we insert the box to the correct containing block list during static position computation.
-    renderBox->parent()->setChildNeedsLayout();
+    protect(renderBox->parent())->setChildNeedsLayout();
     newContainingBlock->setChildNeedsLayout();
     renderBox->setNeedsLayout();
 }

@@ -25,25 +25,47 @@
 
 //# sourceURL=__InjectedScript_WebAutomationSessionProxy.js
 
-(function (sessionIdentifier, currentFrameIdentifier, evaluate, createUUID, isValidNodeIdentifier, isKnownReference, addKnownReference, shadowRootForElement, bidiRemoteValueType, frameIdentifierForWindowProxy, shadowRootMode) {
+(function (sessionIdentifier, currentFrameIdentifier, evaluate, createUUID, isValidNodeIdentifier, isKnownReference, addKnownReference, shadowRootForElement, bidiRemoteValueType, frameIdentifierForWindowProxy, shadowRootMode, accessibilityPropertiesForElement, callFunctionWithUserActivation, isPromise) {
 
 const sessionNodePropertyName = "session-node-" + sessionIdentifier;
 
 // FIXME: These are captured when the session first uses this global object, which can be after page
 // script has replaced them.
+const convertToString = String;
 const dateToISOString = Date.prototype.toISOString;
 const jsonStringify = JSON.stringify;
 const mapForEach = Map.prototype.forEach;
+const promiseThen = Promise.prototype.then;
 const reflectApply = Reflect.apply;
+const regExpTest = RegExp.prototype.test;
 const setForEach = Set.prototype.forEach;
 
 const elementNodeType = 1;
 const attributeNodeType = 2;
 const documentNodeType = 9;
+const documentFragmentNodeType = 11;
+
+const htmlNamespace = "http://www.w3.org/1999/xhtml";
+
+// XPathResult.ORDERED_NODE_SNAPSHOT_TYPE.
+const xpathOrderedNodeSnapshotType = 7;
+
+// Errors that browsingContext.locateNodes reports, named after the ErrorMessage values in Automation.json.
+const bidiLocateNodesErrorNames = new Set(["InvalidParameter", "InvalidSelector", "NodeNotFound", "InternalError"]);
 
 // The UI process can't parse JSON that is nested more than 1000 levels deep. This leaves room for
 // the message around a remote value, and for the levels inside the innermost remote value.
 const maxBidiRemoteValueJSONDepth = 900;
+
+// https://tc39.es/ecma262/#sec-date-time-string-format, including expanded years.
+// Date parsing checks the field ranges.
+const dateTimeStringFormat = (() => {
+    const year = String.raw`(?!-000000)(?:[+-]\d{6}|\d{4})`;
+    const date = String.raw`${year}(?:-\d{2}(?:-\d{2})?)?`;
+    const offset = String.raw`(?:Z|[+-]\d{2}:\d{2})`;
+    const time = String.raw`T\d{2}:\d{2}(?::\d{2}(?:\.\d{3})?)?${offset}?`;
+    return new RegExp(`^${date}(?:${time})?$`);
+})();
 
 // How deep in JSON the remote value being built is. Page script could intercept this if it were a property
 // of the proxy object.
@@ -72,6 +94,15 @@ function createBidiScriptError(error, name, fallbackMessage)
     };
 }
 
+class InvalidArgumentError extends Error
+{
+    constructor(message)
+    {
+        super(message);
+        this.name = "InvalidParameter";
+    }
+}
+
 let AutomationSessionProxy = class AutomationSessionProxy
 {
     constructor()
@@ -88,7 +119,13 @@ let AutomationSessionProxy = class AutomationSessionProxy
     {
         this._execute(functionString, argumentStrings, expectsImplicitCallbackArgument, callbackTimeout)
             .then(result => { resultCallback(frameID, callbackID, this._jsonStringify(result)); })
-            .catch(error => { resultCallback(frameID, callbackID, error); });
+            .catch(error => {
+                // A script can throw any value, but the callback treats a string as a successful result, and reads an error's name and message from an object.
+                // The object has its own name, so that page script can't supply one through Object.prototype.
+                if (error === null || (typeof error !== "object" && typeof error !== "function"))
+                    error = { name: "Error", message: convertToString(error) };
+                resultCallback(frameID, callbackID, error);
+            });
     }
 
     evaluateBidiScript(expression, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, frameID, callbackID, resultCallback, callbackTimeout)
@@ -120,6 +157,73 @@ let AutomationSessionProxy = class AutomationSessionProxy
             let fallbackMessage = name === "JavaScriptTimeout" ? "Script evaluation timed out." : "Script evaluation failed.";
             resultCallback(frameID, callbackID, createBidiScriptError(error, name, fallbackMessage));
         });
+    }
+
+    // https://w3c.github.io/webdriver-bidi/#command-browsingContext-locateNodes
+    // The UI process validates the parameters. Returns a JSON string, either { nodes } with each node serialized
+    // as a remote value, or { error, message } where error names an ErrorMessage value.
+    locateNodesForBidi(locatorString, startNodeIdentifiers, maxNodeCount, maxObjectDepth, maxDomDepth, includeShadowTree, containerElement)
+    {
+        try {
+            // Check the type of each start node before clearing stale nodes, since a node that isn't in the document, such as an
+            // attribute, is invalid as a start node rather than unknown.
+            if (startNodeIdentifiers)
+                startNodeIdentifiers.forEach(identifier => this._validateBidiLocateNodesStartNodeType(identifier));
+
+            this._clearStaleNodes();
+
+            let locator = JSON.parse(locatorString);
+            let contextNodes = startNodeIdentifiers ? startNodeIdentifiers.map(identifier => this._bidiLocateNodesStartNode(identifier)) : [document];
+            let nodes;
+            if (locator.type === "context") {
+                // The UI process checked that the context is a child of this one, and the web process found its container element.
+                if (startNodeIdentifiers)
+                    throw { name: "InvalidParameter", message: "The context locator can't be used with startNodes." };
+                nodes = containerElement ? [containerElement] : [];
+            } else
+                nodes = this._bidiLocateNodes(locator, contextNodes, maxNodeCount);
+
+            // Each node gets its own serialization internal map.
+            let serializedNodes = nodes.map(node => this.serializeBidiRemoteValue(node, maxObjectDepth, maxDomDepth, includeShadowTree, new Map));
+            return jsonStringify({ nodes: serializedNodes });
+        } catch (error) {
+            let name = safelyReadStringProperty(error, "name");
+            if (!bidiLocateNodesErrorNames.has(name))
+                name = "InternalError";
+            return jsonStringify({ error: name, message: safelyReadStringProperty(error, "message") || "" });
+        }
+    }
+
+    evaluateBidiCallFunction(functionDeclaration, argumentStrings, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, userActivation, frameID, callbackID, resultCallback, callbackTimeout)
+    {
+        // Chain with the built-in then, since page script can replace Promise.prototype.then.
+        reflectApply(promiseThen, this._executeBidiCallFunction(functionDeclaration, argumentStrings, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, userActivation, callbackTimeout), [result => {
+            let serializedResult;
+            let serializationError;
+            try {
+                serializedResult = jsonStringify(result);
+            } catch (error) {
+                serializationError = createBidiScriptError(error, "InternalError", "Script result serialization failed.");
+            }
+
+            if (serializationError) {
+                resultCallback(frameID, callbackID, serializationError);
+                return;
+            }
+
+            if (typeof serializedResult !== "string") {
+                resultCallback(frameID, callbackID, createBidiScriptError(undefined, "InternalError", "Script result serialization failed."));
+                return;
+            }
+
+            resultCallback(frameID, callbackID, serializedResult);
+        }, error => {
+            let name = safelyReadStringProperty(error, "name");
+            if (name !== "JavaScriptTimeout" && name !== "InvalidParameter")
+                name = "InternalError";
+            let fallbackMessage = name === "JavaScriptTimeout" ? "Script evaluation timed out." : "Script call failed.";
+            resultCallback(frameID, callbackID, createBidiScriptError(error, name, fallbackMessage));
+        }]);
     }
 
     nodeForIdentifier(identifier)
@@ -216,22 +320,7 @@ let AutomationSessionProxy = class AutomationSessionProxy
             this._clearStaleNodes();
 
             let resolveWithExceptionResult = error => {
-                let serializedException;
-                try {
-                    serializedException = this.serializeBidiRemoteValue(error);
-                } catch {
-                    // Report the exception without its contents instead of failing the command. Only an
-                    // object can fail to serialize.
-                    serializedException = { type: bidiRemoteValueType(error) ?? "object" };
-                }
-
-                let errorProperties = {
-                    exception: serializedException,
-                    name: safelyReadStringProperty(error, "name"),
-                    message: safelyReadStringProperty(error, "message"),
-                    stack: safelyReadStringProperty(error, "stack")
-                };
-                resolve({ success: false, error: errorProperties });
+                resolve(this._bidiExceptionResult(error));
             };
 
             let serializeAndResolveResult = value => {
@@ -278,6 +367,174 @@ let AutomationSessionProxy = class AutomationSessionProxy
                     clearTimeout(timeoutIdentifier);
                 }
             });
+    }
+
+    // Builds the exception result of script.evaluate and script.callFunction.
+    _bidiExceptionResult(error)
+    {
+        let serializedException;
+        try {
+            serializedException = this.serializeBidiRemoteValue(error);
+        } catch {
+            // Report the exception without its contents instead of failing the command. Only an
+            // object can fail to serialize.
+            serializedException = { type: bidiRemoteValueType(error) ?? "object" };
+        }
+
+        let errorProperties = {
+            exception: serializedException,
+            name: safelyReadStringProperty(error, "name"),
+            message: safelyReadStringProperty(error, "message"),
+            stack: safelyReadStringProperty(error, "stack")
+        };
+        return { success: false, error: errorProperties };
+    }
+
+    _executeBidiCallFunction(functionDeclaration, argumentStrings, awaitPromise, maxObjectDepth, maxDomDepth, includeShadowTree, userActivation, callbackTimeout)
+    {
+        let timeoutPromise;
+        let timeoutIdentifier = 0;
+        if (callbackTimeout >= 0) {
+            timeoutPromise = new Promise((resolve, reject) => {
+                timeoutIdentifier = setTimeout(() => {
+                    reject({ name: "JavaScriptTimeout", message: `script timed out after ${callbackTimeout}ms` });
+                }, callbackTimeout);
+            });
+        }
+
+        let executionPromise;
+        let serializeResult = value => {
+            try {
+                return { success: true, result: this.serializeBidiRemoteValue(value, maxObjectDepth, maxDomDepth, includeShadowTree) };
+            } catch (error) {
+                throw createBidiScriptError(error, "InternalError", "Script result serialization failed.");
+            }
+        };
+
+        try {
+            // https://w3c.github.io/webdriver-bidi/#command-script-callFunction
+            // The arguments are deserialized before the function declaration is evaluated, so an invalid argument
+            // fails the command before the declaration has any side effects.
+            this._clearStaleNodes();
+            // FIXME: <https://webkit.org/b/328581> Prevent page-defined globals and array iterators from affecting
+            // argument deserialization and the call.
+            let argumentValues = argumentStrings.map(argument => this._deserializeBidiLocalValue(JSON.parse(argument)));
+
+            let lines = functionDeclaration.split("\n");
+            let prefixLines = [];
+            while (lines.length && lines[0].startsWith("//"))
+                prefixLines.push(lines.shift());
+
+            let prefix = prefixLines.join("\n");
+            if (prefix)
+                prefix += "\n";
+
+            let functionValue = evaluate(prefix + "(" + lines.join("\n") + "\n)");
+            if (typeof functionValue !== "function")
+                throw new InvalidArgumentError("Function declaration did not evaluate to a callable value.");
+
+            let result = callFunctionWithUserActivation(userActivation, functionValue, null, ...argumentValues);
+
+            if (awaitPromise && isPromise(result))
+                // Await with the built-in then, which ECMAScript Await uses, not one that page script installed.
+                executionPromise = reflectApply(promiseThen, result, [serializeResult, error => this._bidiExceptionResult(error)]);
+            else {
+                try {
+                    executionPromise = Promise.resolve(serializeResult(result));
+                } catch (error) {
+                    executionPromise = Promise.reject(error);
+                }
+            }
+        } catch (error) {
+            if (error instanceof InvalidArgumentError)
+                executionPromise = Promise.reject(error);
+            else
+                executionPromise = Promise.resolve(this._bidiExceptionResult(error));
+        }
+
+        // Settle with whichever of the call and the timeout settles first. Promise.race() and finally() would
+        // look up then on Promise.prototype, which page script can replace.
+        return new Promise((resolve, reject) => {
+            let settleWith = settle => value => {
+                if (timeoutIdentifier)
+                    clearTimeout(timeoutIdentifier);
+                settle(value);
+            };
+            reflectApply(promiseThen, executionPromise, [settleWith(resolve), settleWith(reject)]);
+            if (timeoutPromise)
+                reflectApply(promiseThen, timeoutPromise, [settleWith(resolve), settleWith(reject)]);
+        });
+    }
+
+    _deserializeBidiLocalValue(localValue)
+    {
+        if (!localValue || typeof localValue !== "object")
+            throw new InvalidArgumentError("LocalValue must be an object.");
+
+        switch (localValue.type) {
+        case "undefined":
+            return undefined;
+        case "null":
+            return null;
+        case "string":
+        case "boolean":
+            return localValue.value;
+        case "number":
+            if (typeof localValue.value === "number")
+                return localValue.value;
+            switch (localValue.value) {
+            case "NaN":
+                return NaN;
+            case "-0":
+                return -0;
+            case "Infinity":
+                return Infinity;
+            case "-Infinity":
+                return -Infinity;
+            default:
+                throw new InvalidArgumentError("Invalid number LocalValue.");
+            }
+        case "bigint":
+            try {
+                return BigInt(localValue.value);
+            } catch {
+                throw new InvalidArgumentError("Invalid bigint LocalValue.");
+            }
+        case "array":
+            return localValue.value.map(value => this._deserializeBidiLocalValue(value));
+        case "date": {
+            // FIXME: <https://webkit.org/b/328581> RegExp.prototype.test calls the regular expression's exec, which
+            // page script can replace to make any string pass this check.
+            if (typeof localValue.value !== "string" || !reflectApply(regExpTest, dateTimeStringFormat, [localValue.value]))
+                throw new InvalidArgumentError("Invalid date LocalValue.");
+            let value = new Date(localValue.value);
+            if (Number.isNaN(value.valueOf()))
+                throw new InvalidArgumentError("Invalid date LocalValue.");
+            return value;
+        }
+        case "map":
+            return new Map(this._deserializeBidiLocalValueEntries(localValue.value));
+        case "object":
+            return Object.fromEntries(this._deserializeBidiLocalValueEntries(localValue.value));
+        case "regexp":
+            try {
+                return new RegExp(localValue.value.pattern, localValue.value.flags);
+            } catch {
+                throw new InvalidArgumentError("Invalid regexp LocalValue.");
+            }
+        case "set":
+            return new Set(localValue.value.map(value => this._deserializeBidiLocalValue(value)));
+        default:
+            throw new InvalidArgumentError("Unsupported LocalValue type.");
+        }
+    }
+
+    _deserializeBidiLocalValueEntries(entries)
+    {
+        return entries.map(entry => {
+            let key = typeof entry[0] === "string" ? entry[0] : this._deserializeBidiLocalValue(entry[0]);
+            return [key, this._deserializeBidiLocalValue(entry[1])];
+        });
     }
 
     _jsonParse(string)
@@ -426,6 +683,175 @@ let AutomationSessionProxy = class AutomationSessionProxy
         addKnownReference(currentFrameIdentifier, identifier);
 
         return identifier;
+    }
+
+    _validateBidiLocateNodesStartNodeType(identifier)
+    {
+        let node = this._idToNodeMap.get(identifier);
+        if (!node)
+            return;
+
+        let nodeType = node.nodeType;
+        if (nodeType !== elementNodeType && nodeType !== documentNodeType && nodeType !== documentFragmentNodeType)
+            throw { name: "InvalidParameter", message: "startNodes must be elements, documents or document fragments." };
+    }
+
+    _bidiLocateNodesStartNode(identifier)
+    {
+        // https://w3c.github.io/webdriver-bidi/#deserialize-shared-reference
+        try {
+            return this._nodeForIdentifier(identifier);
+        } catch {
+            throw { name: "NodeNotFound", message: `No node with sharedId '${identifier}' was found in this browsing context.` };
+        }
+    }
+
+    _bidiLocateNodes(locator, contextNodes, maxNodeCount)
+    {
+        switch (locator.type) {
+        case "css":
+            return this._bidiLocateNodesUsingCSS(contextNodes, locator.value, maxNodeCount);
+        case "xpath":
+            return this._bidiLocateNodesUsingXPath(contextNodes, locator.value, maxNodeCount);
+        case "innerText": {
+            if (!locator.value)
+                throw { name: "InvalidSelector", message: "The innerText locator value must not be empty." };
+            let ignoreCase = locator.ignoreCase ?? false;
+            let searchText = ignoreCase ? locator.value.toUpperCase() : locator.value;
+            return this._bidiLocateNodesUsingInnerText(contextNodes, searchText, locator.maxDepth ?? null, locator.matchType ?? "full", ignoreCase, maxNodeCount);
+        }
+        case "accessibility": {
+            let returnedNodes = [];
+            let state = { selector: locator.value, maxNodeCount, returnedNodes, needsCacheUpdate: true };
+            this._bidiCollectNodesUsingAccessibilityAttributes(contextNodes, state);
+            return returnedNodes;
+        }
+        }
+
+        throw { name: "InvalidParameter", message: `Unknown locator type '${locator.type}'.` };
+    }
+
+    _bidiLocateNodesUsingCSS(contextNodes, selector, maxNodeCount)
+    {
+        // https://w3c.github.io/webdriver-bidi/#locate-nodes-using-css
+        let returnedNodes = [];
+        for (let contextNode of contextNodes) {
+            let elements;
+            try {
+                elements = contextNode.querySelectorAll(selector);
+            } catch (error) {
+                throw { name: "InvalidSelector", message: `Invalid CSS selector: ${safelyReadStringProperty(error, "message")}` };
+            }
+
+            for (let element of elements) {
+                returnedNodes.push(element);
+                if (maxNodeCount !== null && returnedNodes.length === maxNodeCount)
+                    return returnedNodes;
+            }
+        }
+        return returnedNodes;
+    }
+
+    _bidiLocateNodesUsingXPath(contextNodes, selector, maxNodeCount)
+    {
+        // https://w3c.github.io/webdriver-bidi/#locate-nodes-using-xpath
+        let returnedNodes = [];
+        for (let contextNode of contextNodes) {
+            let evaluateResult;
+            try {
+                evaluateResult = document.evaluate(selector, contextNode, null, xpathOrderedNodeSnapshotType, null);
+            } catch (error) {
+                let message = safelyReadStringProperty(error, "message");
+                if (safelyReadStringProperty(error, "name") === "SyntaxError")
+                    throw { name: "InvalidSelector", message: `Invalid XPath expression: ${message}` };
+                throw { name: "InternalError", message: `Evaluating the XPath expression failed: ${message}` };
+            }
+
+            let length = evaluateResult.snapshotLength;
+            for (let index = 0; index < length; ++index) {
+                returnedNodes.push(evaluateResult.snapshotItem(index));
+                if (maxNodeCount !== null && returnedNodes.length === maxNodeCount)
+                    return returnedNodes;
+            }
+        }
+        return returnedNodes;
+    }
+
+    _bidiLocateNodesUsingInnerText(contextNodes, searchText, maxDepth, matchType, ignoreCase, maxNodeCount)
+    {
+        // https://w3c.github.io/webdriver-bidi/#locate-nodes-using-inner-text
+        // "Children" here are element children, as in other implementations and the WPT expectations.
+        let returnedNodes = [];
+        for (let contextNode of contextNodes) {
+            let nodeType = contextNode.nodeType;
+            if (nodeType === documentNodeType || nodeType === documentFragmentNodeType) {
+                // Max depth isn't decreased, so searching a document matches searching its document element.
+                returnedNodes.push(...this._bidiLocateNodesUsingInnerText([...contextNode.children], searchText, maxDepth, matchType, ignoreCase, maxNodeCount));
+                continue;
+            }
+
+            if (nodeType !== elementNodeType)
+                continue;
+
+            // Elements that aren't HTML elements, such as SVG text, have no innerText. Match their text content instead.
+            let nodeInnerText = contextNode.namespaceURI === htmlNamespace ? contextNode.innerText : contextNode.textContent;
+            let nodeText = ignoreCase ? nodeInnerText.toUpperCase() : nodeInnerText;
+            if (!nodeText.includes(searchText))
+                continue;
+
+            let childNodes = [...contextNode.children];
+            if (!childNodes.length || maxDepth === 0) {
+                if (matchType === "partial" || nodeText === searchText)
+                    returnedNodes.push(contextNode);
+                continue;
+            }
+
+            let childMaxDepth = maxDepth === null ? null : maxDepth - 1;
+            let childNodeMatches = this._bidiLocateNodesUsingInnerText(childNodes, searchText, childMaxDepth, matchType, ignoreCase, maxNodeCount);
+            if (!childNodeMatches.length && matchType === "partial")
+                returnedNodes.push(contextNode);
+            else
+                returnedNodes.push(...childNodeMatches);
+        }
+
+        if (maxNodeCount !== null && returnedNodes.length > maxNodeCount)
+            returnedNodes.length = maxNodeCount;
+        return returnedNodes;
+    }
+
+    // Returns true once the maximum returned node count is reached, so the whole walk stops.
+    _bidiCollectNodesUsingAccessibilityAttributes(contextNodes, state)
+    {
+        // https://w3c.github.io/webdriver-bidi/#collect-nodes-using-accessibility-attributes
+        let { selector, maxNodeCount, returnedNodes } = state;
+        let includeRole = selector.role !== undefined;
+        let includeName = selector.name !== undefined;
+        for (let contextNode of contextNodes) {
+            let match = contextNode.nodeType === elementNodeType;
+            if (match) {
+                let properties = accessibilityPropertiesForElement(contextNode, includeRole, includeName, state.needsCacheUpdate);
+                state.needsCacheUpdate = false;
+                if (!properties)
+                    match = false;
+                else {
+                    // Indexing, unlike destructuring, doesn't go through the array iterator, which page script can replace.
+                    if (includeRole && properties[0] !== selector.role)
+                        match = false;
+                    if (includeName && properties[1] !== selector.name)
+                        match = false;
+                }
+            }
+
+            if (match) {
+                returnedNodes.push(contextNode);
+                if (maxNodeCount !== null && returnedNodes.length === maxNodeCount)
+                    return true;
+            }
+
+            if (this._bidiCollectNodesUsingAccessibilityAttributes([...contextNode.children], state))
+                return true;
+        }
+        return false;
     }
 
     _clearStaleNodes()

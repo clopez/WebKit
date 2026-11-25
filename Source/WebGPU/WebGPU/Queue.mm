@@ -56,6 +56,14 @@ constexpr bool skipMemoryAttribution = true;
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Queue);
 
+// Nothing is valid to use with a queue whose device is gone.
+template<typename T>
+static bool isValidToUseWith(const T& object, const Queue& queue)
+{
+    RefPtr device = queue.device();
+    return device && isValidToUseWithDevice(object, *device);
+}
+
 Queue::Queue(id<MTLCommandQueue> commandQueue, Adapter& adapter, Device& device)
     : m_commandQueue(commandQueue)
     , m_device(device)
@@ -150,16 +158,6 @@ void Queue::finalizeBlitCommandEncoder()
     // Finalizes the queue-owned staging command buffer, whichever encoder type is
     // currently open on it (blit, or the compute staged-copy encoder).
     if (m_blitCommandEncoder || m_stagedCopyEncoder) {
-        // Hand the command buffer any bytes its copies only alias, before it is committed: Metal
-        // accepts completed handlers on uncommitted command buffers only. Nothing is parked unless a
-        // writeBuffer() staged a copy through a newBufferWithBytesNoCopy MTLBuffer, so this is a
-        // no-op for every other caller. Mirrors the noCopy tail of writeTexture().
-        if (!m_noCopyStagingSource.isEmpty()) {
-            __block Vector<uint8_t> retainedStagingSource = WTF::move(m_noCopyStagingSource);
-            [m_commandBuffer addCompletedHandler:^(id<MTLCommandBuffer>) {
-                retainedStagingSource = { };
-            }];
-        }
         id<MTLCommandEncoder> stagingEncoder = m_blitCommandEncoder;
         if (!stagingEncoder)
             stagingEncoder = m_stagedCopyEncoder;
@@ -956,17 +954,9 @@ NSString* Queue::errorValidatingWriteTexture(const WebGPU::TexelCopyTextureInfo&
     return nil;
 }
 
-const Device& Queue::device() const
+RefPtr<WebGPU::Device> Queue::device() const
 {
-    auto device = m_device.get();
-    RELEASE_ASSERT(device);
-    return *device.unsafeGet();
-}
-
-void Queue::generateAValidationError(String&& message)
-{
-    if (RefPtr device = m_device.get())
-        device->generateAValidationError(WTF::move(message));
+    return m_device.get();
 }
 
 void Queue::clearTextureIfNeeded(const WebGPU::TexelCopyTextureInfo& destination, NSUInteger slice)
@@ -1406,7 +1396,7 @@ void Queue::writeTexture(const WebGPU::TexelCopyTextureInfo& destination, std::s
     }
     if (!temporaryBuffer)
         return;
-    ASSERT_WITH_SECURITY_IMPLICATION(temporaryBuffer.length >= newBufferSize);
+    RELEASE_ASSERT(temporaryBuffer.length >= newBufferSize);
 
     switch (texture->dimension()) {
     case WebGPU::TextureDimension::_1d: {
@@ -2251,13 +2241,6 @@ void Queue::submit(Vector<Ref<WebGPU::CommandBuffer>>&& commands)
     }));
 }
 
-void Queue::onSubmittedWorkDone(CompletionHandler<void()>&& callback)
-{
-    onSubmittedWorkDone(CompletionHandler<void(bool)> { [callback = WTF::move(callback)](bool) mutable {
-        callback();
-    } });
-}
-
 // The WebGPU::Metal writes only read `data`. They take a mutable span because a large write wraps
 // it with newBufferWithBytesNoCopy.
 void Queue::writeBuffer(WebGPU::Buffer& buffer, uint64_t bufferOffset, std::span<const uint8_t> data)
@@ -2375,77 +2358,8 @@ void Queue::resolveProvisionalTextureClears(std::optional<uint64_t> committingCo
 
 id<MTLDevice> Queue::metalDevice() const
 {
-    return device().device();
+    RefPtr device = m_device;
+    return device ? device->device() : nil;
 }
 
 } // namespace WebGPU::Metal
-
-#pragma mark WGPU Stubs
-
-NODELETE void wgpuQueueAddRef(WGPUQueue queue)
-{
-    WebGPU::Metal::fromAPI(queue).ref();
-}
-
-void wgpuQueueRelease(WGPUQueue queue)
-{
-    @autoreleasepool {
-        WebGPU::Metal::fromAPI(queue).deref();
-    }
-}
-
-// Work that cannot complete, because the device is lost, is WGPUQueueWorkDoneStatus_Error.
-WGPUFuture wgpuQueueOnSubmittedWorkDone(WGPUQueue queue, WGPUQueueWorkDoneCallbackInfo callbackInfo)
-{
-    @autoreleasepool {
-        Ref protectedQueue = WebGPU::Metal::fromAPI(queue);
-        WebGPU::Metal::CAPIFuture future { protect(protectedQueue->device())->instance() };
-        protectedQueue->onSubmittedWorkDone(CompletionHandler<void(bool)> { [callbackInfo, future](bool success) {
-            if (success)
-                callbackInfo.callback(WGPUQueueWorkDoneStatus_Success, WebGPU::Metal::toAPI(""_s), callbackInfo.userdata1, callbackInfo.userdata2);
-            else
-                callbackInfo.callback(WGPUQueueWorkDoneStatus_Error, WebGPU::Metal::toAPI("The device is lost"_s), callbackInfo.userdata1, callbackInfo.userdata2);
-            future.complete();
-        } });
-        return future.future();
-    }
-}
-
-void wgpuQueueSubmit(WGPUQueue queue, size_t commandCount, const WGPUCommandBuffer* commands)
-{
-    @autoreleasepool {
-        Vector<Ref<WebGPU::Metal::CommandBuffer>> commandsToForward;
-        for (auto& command : unsafeMakeSpan(commands, commandCount))
-            commandsToForward.append(protect(WebGPU::Metal::fromAPI(command)));
-        protect(WebGPU::Metal::fromAPI(queue))->submit(WTF::move(commandsToForward));
-    }
-}
-
-void wgpuQueueWriteBuffer(WGPUQueue queue, WGPUBuffer buffer, uint64_t bufferOffset, const void* data, size_t size)
-{
-    @autoreleasepool {
-        auto bytes = unsafeMakeSpan(static_cast<const uint8_t*>(data), size);
-        protect(WebGPU::Metal::fromAPI(queue))->writeBuffer(protect(WebGPU::Metal::fromAPI(buffer)), bufferOffset, spanConstCast<uint8_t>(bytes));
-    }
-}
-
-void wgpuQueueWriteTexture(WGPUQueue queue, const WGPUTexelCopyTextureInfo* destination, const void* data, size_t dataSize, const WGPUTexelCopyBufferLayout* dataLayout, const WGPUExtent3D* writeSize)
-{
-    @autoreleasepool {
-        auto bytes = unsafeMakeSpan(static_cast<const uint8_t*>(data), dataSize);
-        Ref protectedQueue = WebGPU::Metal::fromAPI(queue);
-        auto apiDestination = WebGPU::Metal::fromAPI(*destination);
-        if (!apiDestination) {
-            protectedQueue->generateAValidationError("GPUQueue.writeTexture: the destination has a null texture or an invalid aspect"_s);
-            return;
-        }
-        protectedQueue->writeTexture(*apiDestination, bytes, WebGPU::Metal::fromAPI(*dataLayout), WebGPU::Metal::fromAPI(*writeSize));
-    }
-}
-
-void wgpuQueueSetLabel(WGPUQueue queue, WGPUStringView label)
-{
-    @autoreleasepool {
-        protect(WebGPU::Metal::fromAPI(queue))->setLabel(WebGPU::Metal::fromAPI(label));
-    }
-}

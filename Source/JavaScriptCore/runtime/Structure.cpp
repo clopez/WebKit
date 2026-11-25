@@ -341,6 +341,8 @@ Structure::Structure(VM& vm, StructureVariant variant, Structure* previous)
     setDictionaryKind(previous->dictionaryKind());
     setIsPinnedPropertyTable(false);
     setHasBeenFlattenedBefore(previous->hasBeenFlattenedBefore());
+    setGrewPastTransitionLimitThroughPutById(previous->grewPastTransitionLimitThroughPutById());
+    m_keyedAddsPastTransitionLimit = previous->m_keyedAddsPastTransitionLimit;
     setHasAnyKindOfGetterSetterProperties(previous->hasAnyKindOfGetterSetterProperties());
     setHasReadOnlyOrGetterSetterPropertiesExcludingProto(previous->hasReadOnlyOrGetterSetterPropertiesExcludingProto());
     setHasNonEnumerableProperties(previous->hasNonEnumerableProperties());
@@ -583,6 +585,12 @@ Structure* Structure::addNewPropertyTransition(VM& vm, Structure* structure, Pro
     }
     
     Structure* transition = Structure::create(vm, structure, deferred);
+    if (structure->transitionCountEstimate() >= s_maxTransitionLength) {
+        if (context == PutPropertySlot::PutById)
+            transition->setGrewPastTransitionLimitThroughPutById(true);
+        else if (structure->grewPastTransitionLimitThroughPutById())
+            ++transition->m_keyedAddsPastTransitionLimit;
+    }
 
     transition->m_cachedPrototypeChain.setMayBeNull(vm, transition, structure->m_cachedPrototypeChain.get());
     
@@ -952,9 +960,12 @@ Structure* Structure::nonPropertyTransitionSlow(VM& vm, Structure* structure, Tr
     if (preventsExtensions(transitionKind))
         transition->setDidPreventExtensions(true);
 
-    if (transitionKind == TransitionKind::BecomePrototype)
+    if (transitionKind == TransitionKind::BecomePrototype) {
         transition->setMayBePrototype(true);
-    
+        // Allow one more flattening, since inline caches give up on every access that goes through a dictionary prototype.
+        transition->setHasBeenFlattenedBefore(false);
+    }
+
     if (setsDontDeleteOnAllProperties(transitionKind) || setsReadOnlyOnNonAccessorProperties(transitionKind)) {
         // We pin the property table on transitions that do wholesale editing of the property
         // table, since our logic for walking the property transition chain to rematerialize the

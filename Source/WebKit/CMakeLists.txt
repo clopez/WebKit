@@ -87,6 +87,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/UIProcess/UserContent"
     "${WEBKIT_DIR}/UIProcess/WebAuthentication"
     "${WEBKIT_DIR}/UIProcess/WebAuthentication/Mock"
+    "${WEBKIT_DIR}/UIProcess/WebAuthentication/fido"
     "${WEBKIT_DIR}/UIProcess/WebsiteData"
     "${WEBKIT_DIR}/UIProcess/XR"
     "${WEBKIT_DIR}/WebProcess"
@@ -96,6 +97,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Cache"
     "${WEBKIT_DIR}/WebProcess/Databases"
     "${WEBKIT_DIR}/WebProcess/Databases/IndexedDB"
+    "${WEBKIT_DIR}/WebProcess/DigitalCredentials"
     "${WEBKIT_DIR}/WebProcess/EncryptedMedia"
     "${WEBKIT_DIR}/WebProcess/Extensions"
     "${WEBKIT_DIR}/WebProcess/Extensions/API"
@@ -132,6 +134,7 @@ set(WebKit_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/WebProcess/Speech"
     "${WEBKIT_DIR}/WebProcess/Storage"
     "${WEBKIT_DIR}/WebProcess/UserContent"
+    "${WEBKIT_DIR}/WebProcess/WebAuthentication"
     "${WEBKIT_DIR}/WebProcess/WebCoreSupport"
     "${WEBKIT_DIR}/WebProcess/WebPage"
     "${WEBKIT_DIR}/WebProcess/WebPage/RemoteLayerTree"
@@ -1422,6 +1425,7 @@ set(WebKit_WEBDRIVER_BIDI_PROTOCOL_GENERATOR_INPUTS
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiBrowser.json
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiBrowsingContext.json
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiDigitalCredentials.json
+    ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiEmulation.json
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiInput.json
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiLog.json
     ${WEBKIT_DIR}/UIProcess/Automation/protocol/BidiPermissions.json
@@ -1599,13 +1603,18 @@ if (SWIFT_REQUIRED)
         ${WEBKIT_DIR}/Shared/Foundation+Extras.swift
         ${WEBKIT_DIR}/Shared/IPCTesterReceiver.swift
         ${WEBKIT_DIR}/Shared/RunJavaScriptResult.swift
-        ${WEBKIT_DIR}/Shared/WTFCompletionHandler+Extras.swift
         ${WEBKIT_DIR}/Shared/WTFExpected+Extras.swift
         ${WebKit_DERIVED_SOURCES_DIR}/IPCTesterReceiverMessageReceiver.swift
     )
 endif ()
 
 list(APPEND WebKit_SOURCES ${WebKit_DERIVED_SOURCES})
+
+if (SWIFT_REQUIRED)
+    # WebKit_SwiftCxxHeader is created in a deferred call.
+    add_custom_target(WebKit_DerivedHeadersForSwift DEPENDS ${WebKit_HEADERS} ${WebKit_DERIVED_SOURCES})
+    cmake_language(DEFER CALL add_dependencies WebKit_SwiftCxxHeader WebKit_DerivedHeadersForSwift)
+endif ()
 
 WEBKIT_COMPUTE_SOURCES(WebKit)
 if (DEFINED WebKit_SWIFT_INTEROP_SOURCES)
@@ -1656,6 +1665,9 @@ if (DEFINED WebKit_SWIFT_INTEROP_SOURCES)
     WEBKIT_DEFINE_SUBTARGET(WebKit_SwiftInterop WebKit ${WebKit_SWIFT_INTEROP_SOURCES})
     WEBKIT_REUSE_PREFIX_HEADER(WebKit_SwiftInterop WebKit WebKitPrefix.h PREFIX_LANGUAGES CXX OBJCXX)
     target_compile_definitions(WebKit_SwiftInterop PRIVATE WK_COMPILING_SWIFT_INTEROP_SUBTARGET)
+    # Generate the derived headers (e.g. *Messages.h) first. This target is kept
+    # out of the WebKit build order (see below), so it would not wait for them.
+    add_dependencies(WebKit_SwiftInterop WebKit_DerivedHeadersForSwift)
     # Feed objects into the WebKit link via a response file + LINK_DEPENDS so
     # cmake_object_order_depends_target_WebKit doesn't pick up this sub-target
     # (and through it, WebKit_SwiftCxxHeader).

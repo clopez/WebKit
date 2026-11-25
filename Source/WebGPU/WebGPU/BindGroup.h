@@ -25,6 +25,10 @@
 
 #pragma once
 
+#if !__has_feature(objc_arc)
+#error This header requires ARC. Include it only from files compiled with -fobjc-arc.
+#endif
+
 #import "BindGroupLayout.h"
 #import "BindableResource.h"
 #import "ShaderStage.h"
@@ -127,7 +131,7 @@ private:
 
     const Ref<Device> m_device;
     Vector<BindableResources> m_resources;
-    RefPtr<const BindGroupLayout> m_bindGroupLayout;
+    const RefPtr<const BindGroupLayout> m_bindGroupLayout;
     DynamicBuffersContainer m_dynamicBuffers;
     HashMap<uint32_t, uint32_t> m_dynamicOffsetsIndices;
     mutable HashMap<uint64_t, uint32_t> m_validatedBindGroup;

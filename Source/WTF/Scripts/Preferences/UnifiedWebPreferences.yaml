@@ -617,6 +617,15 @@ AttachmentElementEnabled:
     WebKitLegacy: WebKit::defaultAttachmentElementEnabled()
   sharedPreferenceForWebProcess: true
 
+AttachmentInlineProgressEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Attachment inline download progress"
+  humanReadableDescription: "Use the inline download progress design for wide-layout attachments"
+  condition: ENABLE(ATTACHMENT_ELEMENT)
+  defaultValue: false
+
 AttachmentWideLayoutEnabled:
   type: bool
   status: embedder
@@ -1667,7 +1676,9 @@ CompressionDictionaryEnabled:
   category: networking
   humanReadableName: "Compression Dictionary Transport"
   humanReadableDescription: "Enable compression dictionary transport"
-  defaultValue: false
+  defaultValue:
+    default: false
+    WebKit: defaultCompressionDictionaryEnabled()
   sharedPreferenceForWebProcess: true
 
 CompressionStreamEnabled:
@@ -2251,7 +2262,10 @@ EnhancedSecurityEnabledByDefault:
   humanReadableDescription: "Enables Enhanced Security by default for WebViews that do not explicitly set it"
   webKitLegacyExposed: false
   excludeFrom: [ WebCore ]
-  defaultValue: false
+  defaultValue:
+    "PLATFORM(WATCHOS)": true
+    "PLATFORM(APPLETV)": true
+    default: false
 
 EnhancedSecurityEnabledByDefaultForSystemApps:
   type: bool
@@ -3735,11 +3749,13 @@ LazyImageLoadingEnabled:
 
 LazyMediaLoadingEnabled:
   type: bool
-  status: testable
+  status: stable
   category: html
   humanReadableName: "Lazy media loading"
   humanReadableDescription: "Enable lazy loading for audio and video elements via the loading attribute"
-  defaultValue: false
+  defaultValue:
+    default: false
+    WebKit: true
 
 LegacyEncryptedMediaAPIEnabled:
   type: bool
@@ -5149,6 +5165,14 @@ PreferSpatialAudioExperience:
   defaultsOverridable: true
   sharedPreferenceForWebProcess: true
 
+PrioritizedTaskSchedulingEnabled:
+  type: bool
+  status: unstable
+  category: dom
+  humanReadableName: "Prioritized Task Scheduling API"
+  humanReadableDescription: "Enable the Prioritized Task Scheduling API (scheduler.postTask() and scheduler.yield())"
+  defaultValue: false
+
 PrivateClickMeasurementDebugModeEnabled:
   type: bool
   status: developer
@@ -5564,6 +5588,15 @@ ScreenCaptureEnabled:
   defaultValue:
     default: false
     WebKit: WebKit::defaultShouldEnableScreenCapture()
+
+ScreenCaptureForTabEnabled:
+  type: bool
+  status: unstable
+  category: media
+  condition: ENABLE(MEDIA_STREAM)
+  humanReadableName: "Screen Capture for Tab"
+  humanReadableDescription: "Enable sharing a tab with getDisplayMedia"
+  defaultValue: false
 
 ScreenOrientationAPIEnabled:
   type: bool
@@ -6094,11 +6127,11 @@ SiteIsolationEnabled:
 
 SiteIsolationHighValueFraudTargetDomainsEnabled:
   type: bool
-  status: unstable
+  status: internal
   category: security
   humanReadableName: "High-value fraud target domains for Site Isolation"
   humanReadableDescription: "Exclude sites on the high-value fraud target domains list from the shared web process"
-  defaultValue: false
+  defaultValue: true
 
 SiteIsolationInPlaceBackForwardCacheEnabled:
   type: bool
@@ -6754,10 +6787,7 @@ UseAVCaptureDeviceRotationCoordinatorAPI:
   humanReadableDescription: "Use AVCaptureDeviceRotationCoordinator API"
   condition: HAVE(AVCAPTUREDEVICEROTATIONCOORDINATOR)
   excludeFrom: [ WebKitLegacy, WebCore ]
-  defaultValue:
-    "PLATFORM(APPLETV)": true
-    default: false
-  sharedPreferenceForWebProcess: true
+  defaultValue: true
 
 UseAlternatePDFHUD:
   type: bool
@@ -7330,6 +7360,7 @@ WebAuthenticationEnabled:
   humanReadableDescription: "Enable Web Authentication support"
   condition: ENABLE(WEB_AUTHN)
   defaultValue:
+    "PLATFORM(GTK) || PLATFORM(WPE)": false
     default: true
     WebKitLegacy: false
   sharedPreferenceForWebProcess: true
@@ -7415,12 +7446,14 @@ WebCodecsVideoEnabled:
 
 WebCodecsVideoFrameRotationEnabled:
   type: bool
-  status: testable
+  status: stable
   category: media
   humanReadableName: "WebCodecs VideoFrame rotation"
   humanReadableDescription: "Enable the rotation attribute and init members of WebCodecs VideoFrame"
   condition: ENABLE(WEB_CODECS)
-  defaultValue: false
+  defaultValue:
+    "PLATFORM(COCOA)": true
+    default: false
 
 WebContentRestrictionsAskToEnabled:
   type: bool
@@ -7565,6 +7598,15 @@ WebLocksAPIEnabled:
   disableInLockdownMode: true
   sharedPreferenceForWebProcess: true
   richJavaScript: true
+
+WebProcessGPUProcessTimeoutForTesting:
+  comment: Overrides the GPU process IPC timeout of the web process
+  type: double
+  status: internal
+  humanReadableName: "Web Process GPU Process Timeout For Testing"
+  humanReadableDescription: "Test override for the GPU process IPC timeout, in seconds (0 keeps the default)"
+  webKitLegacyExposed: false
+  defaultValue: 0
 
 WebRTCAV1CodecEnabled:
   type: bool
@@ -7834,6 +7876,17 @@ WebTransportEnabled:
   sharedPreferenceForWebProcess: true
   richJavaScript: true
   disableInLockdownMode: true
+
+WebXRAnchorsModuleEnabled:
+  type: bool
+  status: testable
+  category: dom
+  humanReadableName: "WebXR Anchors Module"
+  humanReadableDescription: "Adds support for the Anchors Module for WebXR"
+  condition: ENABLE(WEBXR_ANCHORS)
+  defaultValue:
+    "PLATFORM(GTK) || PLATFORM(WPE)": true
+    default: false
 
 WebXRAugmentedRealityModuleEnabled:
   type: bool

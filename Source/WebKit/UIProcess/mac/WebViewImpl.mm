@@ -1952,6 +1952,10 @@ void WebViewImpl::setFrameSize(CGSize)
 #if ENABLE(HORIZONTAL_BANNER_VIEW_OVERLAYS)
     updateWebContentDistancesFromEdges();
 #endif
+
+#if HAVE(WINDOW_CAPTURE)
+    m_page->updateTabCaptureWindowSize();
+#endif
 }
 
 void WebViewImpl::disableFrameSizeUpdates()
@@ -3118,6 +3122,7 @@ static String commandNameForSelector(SEL selector)
 bool WebViewImpl::executeSavedCommandBySelector(SEL selector)
 {
     LOG(TextInput, "Executing previously saved command %s", sel_getName(selector));
+    SetForScope isExecutingSavedCommand { m_isExecutingSavedCommandBySelector, true };
     // The sink does two things: 1) Tells us if the responder went unhandled, and
     // 2) prevents any NSBeep; we don't ever want to beep here.
     RetainPtr<WKResponderChainSink> sink = adoptNS([[WKResponderChainSink alloc] initWithResponderChain:m_view.get().get()]);
@@ -3128,6 +3133,10 @@ bool WebViewImpl::executeSavedCommandBySelector(SEL selector)
 
 void WebViewImpl::executeEditCommandForSelector(SEL selector, const String& argument)
 {
+    if (selector == @selector(copy:) && !m_isExecutingSavedCommandBySelector) {
+        m_page->executeUserInitiatedCopyCommand();
+        return;
+    }
     m_page->executeEditCommand(commandNameForSelector(selector), argument);
 }
 
@@ -5269,7 +5278,6 @@ void WebViewImpl::provideDataForPasteboard(NSPasteboard *pasteboard, NSString *t
             [pasteboard setData:(__bridge NSData *)platformData.get() forType:type];
     }
 
-    // FIXME: Need to support NSRTFDPboardType.
     if ([type isEqual:WebCore::legacyTIFFPasteboardTypeSingleton()])
         [pasteboard setData:(__bridge NSData *)RetainPtr { promisedImage->adapter().tiffRepresentation(WebCore::ImageDrawDescriptor { WebCore::ConcreteObjectSize::fixed(promisedImage->size()) }) }.get() forType:WebCore::legacyTIFFPasteboardTypeSingleton()];
 }
@@ -7915,7 +7923,7 @@ void WebViewImpl::endPreviewPanelControl(QLPreviewPanel *panel)
 void WebViewImpl::handleClickForDataDetectionResult(const WebCore::DataDetectorElementInfo& info, const WebCore::IntPoint& clickLocation)
 {
 #if ENABLE(REVEAL)
-    m_revealItemPresenter = adoptNS([[WKRevealItemPresenter alloc] initWithWebViewImpl:*this item:adoptNS([PAL::allocRVItemInstance() initWithDDResult:info.result.get()]).get() frame:info.elementBounds menuLocation:clickLocation]);
+    m_revealItemPresenter = adoptNS([[WKRevealItemPresenter alloc] initWithWebView:protect(view()) item:adoptNS([PAL::allocRVItemInstance() initWithDDResult:info.result.get()]).get() frame:info.elementBounds menuLocation:clickLocation]);
     [m_revealItemPresenter setShouldUseDefaultHighlight:NO];
     [protect(m_revealItemPresenter) showContextMenu];
 #else

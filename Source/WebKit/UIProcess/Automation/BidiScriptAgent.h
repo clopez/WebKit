@@ -89,6 +89,7 @@ public:
     // Realm lifecycle events.
     void notifyRealmCreatedFromBrowsingContext(RealmIdentifier, WebCore::FrameIdentifier, Inspector::Protocol::BidiBrowsingContext::BrowsingContext, Inspector::Protocol::BidiBrowsingContext::BrowsingContext topLevelContext, const WebCore::SecurityOriginData&);
     void notifyRealmDestroyedFromBrowsingContext(RealmIdentifier, Inspector::Protocol::BidiBrowsingContext::BrowsingContext);
+    void notifyRealmsDestroyedForProcess(WebCore::ProcessIdentifier);
     void notifyRealmCreatedFromWorker(const WorkerIdentifier&, WebCore::FrameIdentifier ownerFrameIdentifier, RealmIdentifier, RealmIdentifier ownerRealmIdentifier, Inspector::Protocol::BidiBrowsingContext::BrowsingContext ownerBrowsingContext, const WebCore::SecurityOriginData&);
     void notifyRealmDestroyedFromWorker(const WorkerIdentifier&, WebCore::FrameIdentifier ownerFrameIdentifier, RealmIdentifier, RealmIdentifier ownerRealmIdentifier);
     void removeDedicatedWorkerRealmsForBrowsingContext(const Inspector::Protocol::BidiBrowsingContext::BrowsingContext&);
@@ -143,7 +144,7 @@ private:
         unsigned topColumnNumber { 0 };
     };
 
-    void finishEvaluateBidiScriptResult(const String& realmID, const String& expression, Inspector::CommandResult<String>&&, Inspector::CommandCallbackOf<Inspector::Protocol::BidiScript::EvaluateResultType, String, RefPtr<Inspector::Protocol::BidiScript::RemoteValue>, RefPtr<Inspector::Protocol::BidiScript::ExceptionDetails>>&&);
+    void finishEvaluateBidiScriptResult(const String& realmID, Inspector::CommandResult<String>&&, Inspector::CommandCallbackOf<Inspector::Protocol::BidiScript::EvaluateResultType, String, RefPtr<Inspector::Protocol::BidiScript::RemoteValue>, RefPtr<Inspector::Protocol::BidiScript::ExceptionDetails>>&&);
 
     ParsedStackTrace parseStackTrace(const String& stackTraceString);
     Ref<Inspector::Protocol::BidiScript::ExceptionDetails> buildExceptionDetailsFromExceptionObject(const JSON::Object& exceptionObject);

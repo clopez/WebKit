@@ -116,10 +116,10 @@ public:
     void prepareForLayout(bool initial);
     // Begin laying out content for this column set. This happens at the beginning of flow thread
     // layout, and when advancing from a previous column set or spanner to this one.
-    void beginFlow(RenderBlock* container);
+    void beginFlow(RenderBox* container);
     // Finish laying out content for this column set. This happens at end of flow thread layout, and
     // when advancing to the next column set or spanner.
-    void endFlow(RenderBlock* container, LayoutUnit bottomInContainer);
+    void endFlow(RenderBox* container, LayoutUnit bottomInContainer);
     // Has this set been flowed in this layout pass?
     bool hasBeenFlowed() const { return logicalBottomInFragmentedFlow() != RenderFragmentedFlow::maxLogicalHeight(); }
 
@@ -129,7 +129,7 @@ public:
 
     LayoutPoint columnTranslationForOffset(const LayoutUnit&) const;
     
-    void paintColumnRules(PaintInfo&, const LayoutPoint& paintOffset) override;
+    void paintColumnRules(PaintInfo&, const LayoutPoint& paintOffset);
 
     enum ColumnHitTestTranslationMode {
         ClampHitTestTranslationToColumns,

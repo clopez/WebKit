@@ -132,6 +132,7 @@
 #include "ResourceLoadInfo.h"
 #include "ResourceLoadObserver.h"
 #include "ScheduledAction.h"
+#include "Scheduler.h"
 #include "Screen.h"
 #include "ScrollAnimator.h"
 #include "ScrollToOptions.h"
@@ -648,8 +649,8 @@ void LocalDOMWindow::suspendForBackForwardCache()
     SetForScope isSuspendingObservers(m_isSuspendingObservers, true);
     RELEASE_ASSERT(frame());
 
-    if (RefPtr navigation = m_navigation)
-        navigation->discardOngoingNavigationForBackForwardCache();
+    if (m_navigation)
+        m_navigation->discardOngoingNavigationForBackForwardCache();
 
     m_observers.forEach([](auto& observer) {
         Ref { observer }->suspendForBackForwardCache();
@@ -757,21 +758,21 @@ IntDegrees LocalDOMWindow::orientation() const
 Screen& LocalDOMWindow::screen()
 {
     if (!m_screen)
-        m_screen = Screen::create(*this);
+        lazyInitialize(m_screen, Screen::create(*this));
     return *m_screen;
 }
 
 History& LocalDOMWindow::history()
 {
     if (!m_history)
-        m_history = History::create(*this);
+        lazyInitialize(m_history, History::create(*this));
     return *m_history;
 }
 
 SUPPRESS_NODELETE Navigation& LocalDOMWindow::navigation()
 {
     if (!m_navigation)
-        m_navigation = Navigation::create(*this);
+        lazyInitialize(m_navigation, Navigation::create(*this));
     return *m_navigation;
 }
 
@@ -783,45 +784,53 @@ Crypto& LocalDOMWindow::crypto() const
     return *m_crypto;
 }
 
+Scheduler& LocalDOMWindow::scheduler() const
+{
+    if (!m_scheduler)
+        lazyInitialize(m_scheduler, Scheduler::create(protect(document()).get()));
+    ASSERT(m_scheduler->scriptExecutionContext() == document());
+    return *m_scheduler;
+}
+
 BarProp& LocalDOMWindow::locationbar()
 {
     if (!m_locationbar)
-        m_locationbar = BarProp::create(*this);
+        lazyInitialize(m_locationbar, BarProp::create(*this));
     return *m_locationbar;
 }
 
 BarProp& LocalDOMWindow::menubar()
 {
     if (!m_menubar)
-        m_menubar = BarProp::create(*this);
+        lazyInitialize(m_menubar, BarProp::create(*this));
     return *m_menubar;
 }
 
 BarProp& LocalDOMWindow::personalbar()
 {
     if (!m_personalbar)
-        m_personalbar = BarProp::create(*this);
+        lazyInitialize(m_personalbar, BarProp::create(*this));
     return *m_personalbar;
 }
 
 BarProp& LocalDOMWindow::scrollbars()
 {
     if (!m_scrollbars)
-        m_scrollbars = BarProp::create(*this);
+        lazyInitialize(m_scrollbars, BarProp::create(*this));
     return *m_scrollbars;
 }
 
 BarProp& LocalDOMWindow::statusbar()
 {
     if (!m_statusbar)
-        m_statusbar = BarProp::create(*this);
+        lazyInitialize(m_statusbar, BarProp::create(*this));
     return *m_statusbar;
 }
 
 BarProp& LocalDOMWindow::toolbar()
 {
     if (!m_toolbar)
-        m_toolbar = BarProp::create(*this);
+        lazyInitialize(m_toolbar, BarProp::create(*this));
     return *m_toolbar;
 }
 
@@ -868,14 +877,14 @@ ReducedResolutionSeconds LocalDOMWindow::frozenNowTimestamp() const
 Viewport& LocalDOMWindow::viewport()
 {
     if (!m_viewport)
-        m_viewport = Viewport::create(*this);
+        lazyInitialize(m_viewport, Viewport::create(*this));
     return *m_viewport;
 }
 
 VisualViewport& LocalDOMWindow::visualViewport()
 {
     if (!m_visualViewport)
-        m_visualViewport = VisualViewport::create(*this);
+        lazyInitialize(m_visualViewport, VisualViewport::create(*this));
     return *m_visualViewport;
 }
 
@@ -922,7 +931,7 @@ WebKitNamespace* LocalDOMWindow::webkitNamespace()
     if (!userContentProvider)
         return nullptr;
     if (!m_webkitNamespace)
-        m_webkitNamespace = WebKitNamespace::create(*this, *userContentProvider);
+        lazyInitialize(m_webkitNamespace, WebKitNamespace::create(*this, *userContentProvider));
     return m_webkitNamespace.get();
 }
 
@@ -951,7 +960,7 @@ ExceptionOr<Storage*> LocalDOMWindow::sessionStorage()
         return nullptr;
 
     Ref storageArea = page->storageNamespaceProvider().sessionStorageArea(*document);
-    m_sessionStorage = Storage::create(*this, WTF::move(storageArea));
+    lazyInitialize(m_sessionStorage, Storage::create(*this, WTF::move(storageArea)));
     if (hasEventListeners(eventNames().storageEvent))
         windowsInterestedInStorageEvents().add(*this);
     return m_sessionStorage.get();
@@ -987,7 +996,7 @@ ExceptionOr<Storage*> LocalDOMWindow::localStorage()
         return nullptr;
 
     Ref storageArea = page->storageNamespaceProvider().localStorageArea(*document);
-    m_localStorage = Storage::create(*this, WTF::move(storageArea));
+    lazyInitialize(m_localStorage, Storage::create(*this, WTF::move(storageArea)));
     if (hasEventListeners(eventNames().storageEvent))
         windowsInterestedInStorageEvents().add(*this);
     return m_localStorage.get();
@@ -1111,7 +1120,7 @@ DOMSelection* LocalDOMWindow::getSelection()
     if (!isCurrentlyDisplayedInFrame())
         return nullptr;
     if (!m_selection)
-        m_selection = DOMSelection::create(*this);
+        lazyInitialize(m_selection, DOMSelection::create(*this));
     return m_selection.get();
 }
 
@@ -1250,7 +1259,7 @@ void LocalDOMWindow::alert(const String& message)
 
     RefPtr document = this->document();
     if (document->isSandboxed(SandboxFlag::Modals)) {
-        printErrorMessage("Use of window.alert is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
+        printErrorMessage("Use of window.alert is not allowed in a sandboxed frame when the allow-modals flag is not set."_s, MessageSource::Security);
         return;
     }
 
@@ -1279,7 +1288,7 @@ bool LocalDOMWindow::confirmForBindings(const String& message)
 
     RefPtr document = this->document();
     if (document->isSandboxed(SandboxFlag::Modals)) {
-        printErrorMessage("Use of window.confirm is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
+        printErrorMessage("Use of window.confirm is not allowed in a sandboxed frame when the allow-modals flag is not set."_s, MessageSource::Security);
         return false;
     }
 
@@ -1308,7 +1317,7 @@ String LocalDOMWindow::prompt(const String& message, const String& defaultValue)
 
     RefPtr document = this->document();
     if (document->isSandboxed(SandboxFlag::Modals)) {
-        printErrorMessage("Use of window.prompt is not allowed in a sandboxed frame when the allow-modals flag is not set."_s);
+        printErrorMessage("Use of window.prompt is not allowed in a sandboxed frame when the allow-modals flag is not set."_s, MessageSource::Security);
         return String();
     }
 
@@ -1777,7 +1786,7 @@ void LocalDOMWindow::notifyActivated(UserGestureToken& token)
 StyleMedia& LocalDOMWindow::styleMedia()
 {
     if (!m_media)
-        m_media = StyleMedia::create(*this);
+        lazyInitialize(m_media, StyleMedia::create(*this));
     return *m_media;
 }
 
@@ -2375,7 +2384,7 @@ void LocalDOMWindow::startListeningForDeviceOrientationIfNecessary()
     String innerMessage;
     if (!isAllowedToUseDeviceOrientation(innerMessage) || !hasPermissionToReceiveDeviceMotionOrOrientationEvents(innerMessage)) {
         if (RefPtr document = this->document())
-            document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, makeString("No device orientation events will be fired, reason: "_s, innerMessage, '.'));
+            document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, makeString("No device orientation events will be fired, reason: "_s, innerMessage, '.'));
         return;
     }
 
@@ -2404,7 +2413,7 @@ void LocalDOMWindow::startListeningForDeviceMotionIfNecessary()
     if (!isAllowedToUseDeviceMotion(innerMessage) || !hasPermissionToReceiveDeviceMotionOrOrientationEvents(innerMessage)) {
         failedToRegisterDeviceMotionEventListener();
         if (RefPtr document = this->document())
-            document->addConsoleMessage(MessageSource::JS, MessageLevel::Warning, makeString("No device motion events will be fired, reason: "_s, innerMessage, '.'));
+            document->addConsoleMessage(MessageSource::Security, MessageLevel::Warning, makeString("No device motion events will be fired, reason: "_s, innerMessage, '.'));
         return;
     }
 
@@ -3279,7 +3288,7 @@ DocumentPictureInPicture& LocalDOMWindow::documentPictureInPicture()
 CloseWatcherManager& LocalDOMWindow::closeWatcherManager()
 {
     if (!m_closeWatcherManager)
-        m_closeWatcherManager = adoptRef(*new CloseWatcherManager());
+        lazyInitialize(m_closeWatcherManager, adoptRef(*new CloseWatcherManager()));
     return *m_closeWatcherManager;
 }
 

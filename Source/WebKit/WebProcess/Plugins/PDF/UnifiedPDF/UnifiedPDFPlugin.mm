@@ -1456,7 +1456,7 @@ void UnifiedPDFPlugin::deviceOrPageScaleFactorChanged(CheckForMagnificationGestu
 IntRect UnifiedPDFPlugin::availableContentsRect() const
 {
     auto availableRect = IntRect({ }, size());
-    if (ScrollbarTheme::theme().usesOverlayScrollbars())
+    if (usesOverlayScrollbars())
         return availableRect;
 
     int verticalScrollbarSpace = 0;
@@ -4539,7 +4539,7 @@ void UnifiedPDFPlugin::installDataDetectorOverlay(PageOverlay& overlay)
         return;
 
     Ref rootFrame { frame->coreLocalFrame()->rootFrame() };
-    overlay.setAssociatedFrame(rootFrame.ptr());
+    overlay.setAssociatedFrame(rootFrame);
     webPage->corePage()->pageOverlayController().installPageOverlay(overlay, PageOverlay::FadeMode::DoNotFade);
 }
 

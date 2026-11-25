@@ -30,6 +30,7 @@
 #include "CachedImage.h"
 #include "CanvasRenderingContext.h"
 #include "ElementAncestorIteratorInlines.h"
+#include "EventLoop.h"
 #include "GPUBuffer.h"
 #include "GPUDevice.h"
 #include "GPUDrawElementImageDestination.h"
@@ -114,10 +115,16 @@ void GPUQueue::submit(Vector<Ref<GPUCommandBuffer>>&& commandBuffers)
     }
 }
 
-void GPUQueue::onSubmittedWorkDone(OnSubmittedWorkDonePromise&& promise)
+void GPUQueue::onSubmittedWorkDone(ScriptExecutionContext& scriptExecutionContext, OnSubmittedWorkDonePromise&& promise)
 {
-    m_backing->onSubmittedWorkDone([promise = WTF::move(promise)]() mutable {
-        promise.resolve();
+    // The promise resolves also when the work cannot complete because the device is lost.
+    m_backing->onSubmittedWorkDone([weakContext = WeakPtr { scriptExecutionContext }, promise = WTF::move(promise)](bool) mutable {
+        RefPtr context = weakContext;
+        if (!context)
+            return;
+        protect(context->eventLoop())->queueTask(TaskSource::WebGPU, [promise = WTF::move(promise)] mutable {
+            promise.resolve();
+        });
     });
 }
 

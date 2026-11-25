@@ -461,6 +461,22 @@ class RunTest(unittest.TestCase, StreamTestingMixin):
         self.assertTrue(mock_upload.called)
         self.assertIsNotNone(details.initial_results)
 
+    def test_report_uploads_failure_output(self):
+        uploads = []
+
+        def capture_upload(upload, hostname, log_line_func=None):
+            uploads.append(upload)
+            return False
+
+        extra_args = ['--report', 'http://example.invalid/', 'failures/unexpected/text.html', 'failures/unexpected/crash-with-stderr.html', 'passes/text.html']
+        with patch.object(Upload, 'upload', autospec=True, side_effect=capture_upload):
+            logging_run(extra_args=extra_args, tests_included=True)
+
+        results = uploads[0].results
+        self.assertEqual('@@ -1 +1 @@\n-text-txt\n No newline at end of file\n+text_fail-txt\n No newline at end of file\n', results['failures']['unexpected']['text.html']['log'])
+        self.assertEqual('mock-std-error-output', results['failures']['unexpected']['crash-with-stderr.html']['log'])
+        self.assertNotIn('log', results['passes']['text.html'])
+
     def test_natural_order(self):
         tests_to_run = ['passes/audio.html', 'failures/expected/text.html', 'failures/expected/missing_text.html', 'passes/args.html']
         tests_run = get_tests_run(['--order=natural'] + tests_to_run)
@@ -1582,6 +1598,69 @@ class PortTest(unittest.TestCase):
 
     def disabled_test_mac_lion(self):
         self.assert_mock_port_works('mac-lion')
+
+
+class FlavorOptionsTest(unittest.TestCase):
+    def set_up_flavor_options(self, port_name, args, **option_values):
+        options, _ = run_webkit_tests.parse_args(args)
+        for name, value in option_values.items():
+            setattr(options, name, value)
+        port = MockHost().port_factory.get(port_name, options)
+        run_webkit_tests.set_up_flavor_options(port, options, checkout_root='/checkout')
+        return options
+
+    def test_mac_site_isolation(self):
+        options = self.set_up_flavor_options('mac', ['--site-isolation-enabled-by-default'])
+        self.assertEqual(options.additional_expectations, ['/checkout/LayoutTests/platform/mac-site-isolation/TestExpectations'])
+        self.assertEqual(options.additional_platform_directory, ['/checkout/LayoutTests/platform/mac-site-isolation'])
+        self.assertEqual(options.result_report_flavor, 'site-isolation')
+
+    def test_ios_site_isolation(self):
+        options = self.set_up_flavor_options('iphone-simulator', ['--site-isolation'])
+        self.assertEqual(options.additional_expectations, ['/checkout/LayoutTests/platform/ios-site-isolation/TestExpectations'])
+        self.assertEqual(options.additional_platform_directory, ['/checkout/LayoutTests/platform/ios-site-isolation'])
+        self.assertEqual(options.result_report_flavor, 'site-isolation')
+
+    def test_site_isolation_on_other_ports(self):
+        options = self.set_up_flavor_options('visionos-simulator', ['--site-isolation-enabled-by-default'])
+        self.assertEqual(options.additional_expectations, [])
+        self.assertIsNone(options.result_report_flavor)
+
+    def test_accessibility_isolated_tree(self):
+        options = self.set_up_flavor_options('mac', ['--accessibility-isolated-tree', '--additional-expectations', '/user/TestExpectations'])
+        self.assertEqual(options.additional_expectations, ['/checkout/LayoutTests/accessibility-isolated-tree/TestExpectations', '/user/TestExpectations'])
+        self.assertEqual(options.additional_platform_directory, [])
+        self.assertEqual(options.result_report_flavor, 'accessibility-isolated-tree')
+
+    def test_gpu_process_and_site_isolation(self):
+        options = self.set_up_flavor_options('mac', ['--remote-layer-tree', '--site-isolation-enabled-by-default'], use_gpu_process=True)
+        self.assertEqual(options.additional_expectations, [
+            '/checkout/LayoutTests/platform/mac-site-isolation/TestExpectations',
+            '/checkout/LayoutTests/platform/mac-gpup/TestExpectations',
+        ])
+        self.assertEqual(options.additional_platform_directory, [
+            '/checkout/LayoutTests/platform/mac-site-isolation',
+            '/checkout/LayoutTests/platform/mac-gpup',
+        ])
+
+    def test_flavor_cannot_be_overridden(self):
+        with self.assertRaisesRegex(RuntimeError, '--site-isolation-enabled-by-default implicitly sets the result flavor'):
+            self.set_up_flavor_options('mac', ['--site-isolation-enabled-by-default', '--result-report-flavor', 'other'])
+
+    def test_checkout_root_defaults_to_current_checkout(self):
+        options, _ = run_webkit_tests.parse_args(['--site-isolation-enabled-by-default'])
+        port = MockHost().port_factory.get('mac', options)
+        with patch('webkitpy.layout_tests.run_webkit_tests.Host', MockHost):
+            run_webkit_tests.set_up_flavor_options(port, options)
+        self.assertEqual(options.additional_expectations, ['/mock-checkout/LayoutTests/platform/mac-site-isolation/TestExpectations'])
+
+    def test_no_flavor_needs_no_checkout(self):
+        options, _ = run_webkit_tests.parse_args([])
+        port = MockHost().port_factory.get('mac', options)
+        with patch('webkitpy.layout_tests.run_webkit_tests.Host') as host:
+            run_webkit_tests.set_up_flavor_options(port, options)
+        host.assert_not_called()
+        self.assertEqual(options.additional_expectations, [])
 
 
 class MainTest(unittest.TestCase):

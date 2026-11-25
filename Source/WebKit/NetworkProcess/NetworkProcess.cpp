@@ -685,6 +685,12 @@ bool NetworkProcess::allowsFirstPartyForCookies(WebCore::ProcessIdentifier proce
     return set.contains(firstPartyDomain);
 }
 
+bool NetworkProcess::hostsDomain(WebCore::ProcessIdentifier processIdentifier, const RegistrableDomain& domain) const
+{
+    RefPtr connection = webProcessConnection(processIdentifier);
+    return connection && connection->hostsDomain(domain);
+}
+
 // Dropped when the connection does not exist yet: NetworkProcessConnectionParameters carries the current value.
 void NetworkProcess::setHostedDomains(WebCore::ProcessIdentifier processIdentifier, std::optional<HashSet<WebCore::RegistrableDomain>>&& domains)
 {
@@ -701,7 +707,13 @@ bool NetworkProcess::allowsFirstPartySite(WebCore::ProcessIdentifier processIden
     if (iterator->value.loadedWebArchive == LoadedWebArchive::Yes)
         return true;
 
-    return iterator->value.sites.contains(site);
+    auto& sites = iterator->value.sites;
+    if (sites.contains(site))
+        return true;
+
+    // The web content process may upgrade an http navigation to https (HTTPS-by-default, content
+    // blocker make-https) after the UI process recorded the http site of the navigation request.
+    return site.protocol() == "https"_s && sites.contains(WebCore::Site { String { "http"_s }, WebCore::RegistrableDomain { site.domain() } });
 }
 
 void NetworkProcess::addAllowedWebPageProxyIdentifier(WebCore::ProcessIdentifier processIdentifier, WebPageProxyIdentifier pageID)
@@ -915,19 +927,19 @@ void NetworkProcess::forEachNetworkStorageSession(NOESCAPE const Function<void(N
 
 NetworkSession* NetworkProcess::networkSession(PAL::SessionID sessionID) const
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
     return m_networkSessions.get(sessionID);
 }
 
 void NetworkProcess::setSession(PAL::SessionID sessionID, std::unique_ptr<NetworkSession>&& session)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
     m_networkSessions.set(sessionID, WTF::move(session));
 }
 
 void NetworkProcess::destroySession(PAL::SessionID sessionID, CompletionHandler<void()>&& completionHandler)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
 
     if (auto session = m_networkSessions.take(sessionID)) {
         auto dataStoreIdentifier = session->dataStoreIdentifier();

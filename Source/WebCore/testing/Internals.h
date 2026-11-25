@@ -336,6 +336,7 @@ public:
     void setUserAgentPart(Element&, const AtomString&);
 
     // DOMTimers throttling testing.
+    int timerNestingLevel();
     ExceptionOr<bool> isTimerThrottled(int timeoutId);
     ExceptionOr<bool> isTimerAligned(int timeoutId);
     String requestAnimationFrameThrottlingReasons() const;
@@ -687,6 +688,7 @@ public:
     // BaseAudioContext lifetime testing.
     NODELETE static uint64_t baseAudioContextIdentifier(const BaseAudioContext&);
     static bool isBaseAudioContextAlive(uint64_t contextID);
+    static bool hasAudioWorkletGlobalScope(const Document&);
 
     Vector<float> waveShaperProcessCurveWithData(Vector<float> source, Vector<float> curve);
 
@@ -942,6 +944,7 @@ public:
     ExceptionOr<bool> isCanvasContextHDR(const HTMLCanvasElement&);
 
     ExceptionOr<void> setPageShouldSuppressHDR(bool);
+    bool pageIsTakingSnapshotsForApplicationSuspension();
 
     ExceptionOr<void> setIsPlayingToBluetoothOverride(std::optional<bool>);
 
@@ -1036,7 +1039,10 @@ public:
     unsigned inflightBeaconsCount() const;
 
     enum class PageOverlayType { View, Document };
-    ExceptionOr<Ref<MockPageOverlay>> installMockPageOverlay(PageOverlayType);
+    struct MockPageOverlayOptions {
+        bool associateWithLocalRoot { false };
+    };
+    ExceptionOr<Ref<MockPageOverlay>> installMockPageOverlay(PageOverlayType, const MockPageOverlayOptions&);
     ExceptionOr<String> pageOverlayLayerTreeAsText(unsigned short flags) const;
 
     void setPageMuted(StringView);
@@ -1629,6 +1635,7 @@ public:
     bool supportsPictureInPicture();
 
     String focusRingColor();
+    String autocorrectionReplacementMarkerColor(Node&);
 
     double switchAnimationVisuallyOnDuration() const;
 
@@ -1647,6 +1654,7 @@ public:
 #if ENABLE(APP_HIGHLIGHTS)
     Vector<String> appHighlightContextMenuItemTitles() const;
     unsigned numberOfAppHighlights();
+    bool appHighlightsVisible();
 #endif
 
     Vector<Ref<AbstractRange>> textExtractionHighlightRanges() const;
@@ -1777,6 +1785,7 @@ public:
     void getImageBufferResourceLimits(ImageBufferResourceLimitsPromise&&);
 
     void setResourceCachingDisabledByWebInspector(bool);
+    bool isNetworkInterceptionConfiguredForTesting(const String& url);
     ExceptionOr<void> lowerAllFrameMemoryMonitorLimits();
 
 #if ENABLE(DAMAGE_TRACKING)
@@ -1803,8 +1812,10 @@ public:
 
 #if ENABLE(SPATIAL_PORTAL)
     NODELETE unsigned numberOfHostedModelsInSpatialPortal(Element&);
+    unsigned numberOfHostedPromotedChildrenInSpatialPortal(Element&);
     NODELETE bool establishesSpatialPortal(Element&);
     NODELETE RefPtr<Element> spatialPortalAnchorForModel(HTMLModelElement&);
+    RefPtr<Element> spatialPortalAnchorForPromotedChild(Element&);
     NODELETE std::optional<Vector<double>> spatialPortalResolvedTransform(Element&);
     NODELETE String effectiveEnvironmentMap(Element&);
 #endif

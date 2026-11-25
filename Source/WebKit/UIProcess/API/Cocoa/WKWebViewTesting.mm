@@ -62,6 +62,7 @@
 #import <WebCore/AttributedString.h>
 #import <WebCore/BoxSides.h>
 #import <WebCore/Color.h>
+#import <WebCore/HighlightVisibility.h>
 #import <WebCore/NowPlayingInfo.h>
 #import <WebCore/ScrollingNodeID.h>
 #import <WebCore/SharedBuffer.h>
@@ -83,6 +84,9 @@
 
 #if HAVE(LIBPROC)
 #include <libproc.h>
+#else
+extern "C" int proc_pidpath(int pid, void* buffer, uint32_t bufferSize);
+#define PROC_PIDPATHINFO_MAXSIZE (4 * MAXPATHLEN)
 #endif
 
 #if PLATFORM(MAC)
@@ -206,6 +210,24 @@ static RetainPtr<NSArray<NSDictionary<NSString *, NSString *> *>> devicesForTest
     return nsStringNilIfEmpty(protect(_prompt)->selectedCameraID()).autorelease();
 #else
     return nil;
+#endif
+}
+
+- (BOOL)cameraMenuEnabled
+{
+#if ENABLE(MEDIA_STREAM)
+    return protect(_prompt)->cameraMenuEnabled();
+#else
+    return NO;
+#endif
+}
+
+- (BOOL)microphoneMenuEnabled
+{
+#if ENABLE(MEDIA_STREAM)
+    return protect(_prompt)->microphoneMenuEnabled();
+#else
+    return NO;
 #endif
 }
 
@@ -359,6 +381,25 @@ static RetainPtr<NSArray<NSDictionary<NSString *, NSString *> *>> devicesForTest
 #else
     return [self _caLayerTreeAsTextForLayer:retainPtr(self.layer).get() options:options];
 #endif
+}
+
+- (void)_enableMirrorLayerTreeForTesting:(void (^)(CALayer *))completionHandler
+{
+    RefPtr drawingArea = dynamicDowncast<WebKit::RemoteLayerTreeDrawingAreaProxy>(_page->drawingArea());
+    if (!drawingArea) {
+        completionHandler(nil);
+        return;
+    }
+
+    drawingArea->enableMirrorLayerTree()->whenSettled(RunLoop::mainSingleton(), [completionHandler = makeBlockPtr(completionHandler)](auto&& result) {
+        completionHandler(result ? result->layer.get() : nil);
+    });
+}
+
+- (void)_disableMirrorLayerTreeForTesting
+{
+    if (RefPtr drawingArea = dynamicDowncast<WebKit::RemoteLayerTreeDrawingAreaProxy>(_page->drawingArea()))
+        drawingArea->disableMirrorLayerTree();
 }
 
 static bool shouldDumpLayer(CALayer *layer, _WKCALayerTreeAsTextOptions options)
@@ -601,6 +642,15 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse, _WKCALaye
 - (void)_setUseDarkAppearanceForTesting:(BOOL)useDarkAppearance
 {
     _page->setUseDarkAppearanceForTesting(useDarkAppearance);
+}
+
+- (void)_setAppHighlightsVisibleForTesting:(BOOL)visible
+{
+#if ENABLE(APP_HIGHLIGHTS)
+    _page->setAppHighlightsVisibility(visible ? WebCore::HighlightVisibility::Visible : WebCore::HighlightVisibility::Hidden);
+#else
+    UNUSED_PARAM(visible);
+#endif
 }
 
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem
@@ -1817,7 +1867,6 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse, _WKCALaye
 
     Ref connection = process->connection();
 
-#if HAVE(LIBPROC)
     // The connection's peer pid is unavailable for ExtensionKit processes.
     if (auto pid = process->processID()) {
         char path[PROC_PIDPATHINFO_MAXSIZE] = "\0";
@@ -1834,7 +1883,6 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse, _WKCALaye
                 return @"standard";
         }
     }
-#endif // HAVE(LIBPROC)
 
 #if USE(APPLE_INTERNAL_SDK)
 
@@ -1938,6 +1986,11 @@ static void dumpCALayer(TextStream& ts, CALayer *layer, bool traverse, _WKCALaye
     Ref object = JSON::Object::create();
     object->setArray("timelines"_s, WTF::move(convertedTimelines));
     return object->toJSONString().createNSString().autorelease();
+}
+
+- (bool)_schedulesUpdatesForMonotonicAnimations
+{
+    return downcast<WebKit::RemoteLayerTreeDrawingAreaProxy>(protect(_page->drawingArea()))->schedulesUpdatesForMonotonicAnimationsForTesting();
 }
 #endif
 

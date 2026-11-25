@@ -105,9 +105,9 @@
 #include "WebPrivacyHelpers.h"
 #endif
 
-#if ENABLE(WEB_AUTHN)
+#if ENABLE(WEB_AUTHN) && PLATFORM(COCOA)
 #include "VirtualAuthenticatorManager.h"
-#endif // ENABLE(WEB_AUTHN)
+#endif
 
 namespace WebKit {
 
@@ -821,8 +821,8 @@ private:
 
 void WebsiteDataStore::fetchDataForRegistrableDomains(OptionSet<WebsiteDataType> dataTypes, OptionSet<WebsiteDataFetchOption> fetchOptions, Vector<WebCore::RegistrableDomain>&& domains, CompletionHandler<void(Vector<WebsiteDataRecord>&&, HashSet<WebCore::RegistrableDomain>&&)>&& completionHandler)
 {
-    fetchDataAndApply(dataTypes, fetchOptions, protect(m_queue), [domains = crossThreadCopy(domains), completionHandler = WTF::move(completionHandler)] (auto&& existingDataRecords) mutable {
-        ASSERT(!RunLoop::isMain());
+    fetchDataAndApply(dataTypes, fetchOptions, protect(m_queue), [queue = m_queue, domains = crossThreadCopy(domains), completionHandler = WTF::move(completionHandler)](auto&& existingDataRecords) mutable {
+        assertIsCurrent(queue);
         
         Vector<WebsiteDataRecord> matchingDataRecords;
         HashSet<WebCore::RegistrableDomain> domainsWithMatchingDataRecords;
@@ -1550,7 +1550,7 @@ void WebsiteDataStore::setTimeToLiveUserInteraction(Seconds seconds, CompletionH
 
 IsolatedSiteStore& WebsiteDataStore::isolatedSiteStore()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
 
     if (!m_isolatedSiteStore) {
         IsolatedSiteStore::UserInteractionDomainFetcher fetcher = [weakThis = WeakPtr { *this }](CompletionHandler<void(std::optional<HashMap<WebCore::RegistrableDomain, WallTime>>&&)>&& completionHandler) mutable {
@@ -1570,7 +1570,8 @@ IsolatedSiteStore& WebsiteDataStore::isolatedSiteStore()
 bool WebsiteDataStore::computeSiteIsolationHighValueFraudTargetDomainsEnabled() const
 {
     for (Ref page : m_pages) {
-        if (protect(page->preferences())->siteIsolationHighValueFraudTargetDomainsEnabled())
+        Ref preferences = page->preferences();
+        if (preferences->siteIsolationEnabled() && preferences->siteIsolationSharedProcessEnabled() && preferences->siteIsolationHighValueFraudTargetDomainsEnabled())
             return true;
     }
 
@@ -2538,12 +2539,14 @@ void WebsiteDataStore::setMockWebAuthenticationConfiguration(WebCore::MockWebAut
         m_authenticatorManager = MockAuthenticatorManager::create(WTF::move(configuration));
 }
 
+#if PLATFORM(COCOA)
 VirtualAuthenticatorManager& WebsiteDataStore::virtualAuthenticatorManager()
 {
     if (!is<VirtualAuthenticatorManager>(m_authenticatorManager.get()))
         m_authenticatorManager = VirtualAuthenticatorManager::create();
     return downcast<VirtualAuthenticatorManager>(m_authenticatorManager.get());
 }
+#endif
 #endif
 
 API::HTTPCookieStore& WebsiteDataStore::cookieStore()

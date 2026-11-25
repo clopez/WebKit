@@ -25,10 +25,12 @@
 #include "config.h"
 #include "CSSPropertyParserConsumer+Image.h"
 
+#include "CSSAbsoluteColor.h"
 #include "CSSCalcSymbolTable.h"
 #include "CSSCanvasValue.h"
 #include "CSSColor.h"
 #include "CSSColorImageValue.h"
+#include "CSSColorInlines.h"
 #include "CSSColorInterpolationMethod.h"
 #include "CSSCrossfadeValue.h"
 #include "CSSCursorImageValue.h"
@@ -74,8 +76,7 @@
 #include "CSSVariableData.h"
 #include <wtf/SortedArrayMap.h>
 
-namespace WebCore {
-namespace CSSPropertyParserHelpers {
+namespace WebCore::CSSPropertyParserHelpers {
 
 // Used by radial gradient consumers internally.
 enum class ShapeKeyword : bool { Circle, Ellipse };
@@ -335,9 +336,21 @@ template<SupportsColorHints supportsColorHints> static std::optional<CSS::Gradie
     });
 }
 
+// https://www.w3.org/TR/css-color-4/#color-interpolation-method
 static bool stopColorIs8Bit(const CSS::Color& color)
 {
-    return color.isKeyword() || color.absoluteColor().tryGetAsSRGBABytes();
+    return color.switchOn(
+        [](const CSS::ResolvedColor& resolved) { return !!resolved.value.tryGetAsSRGBABytes(); },
+        [](const CSS::KeywordColor&) { return true; },
+        [](const CSS::HexColor&) { return true; },
+        [](const CSS::AbsoluteColor<RGBFunctionLegacy<CSS::Number<>>>&) { return true; },
+        [](const CSS::AbsoluteColor<RGBFunctionLegacy<CSS::Percentage<>>>&) { return true; },
+        [](const CSS::AbsoluteColor<RGBFunctionModernAbsolute>&) { return true; },
+        [](const CSS::AbsoluteColor<HSLFunctionLegacy>&) { return true; },
+        [](const CSS::AbsoluteColor<HSLFunctionModern>&) { return true; },
+        [](const CSS::AbsoluteColor<HWBFunction>&) { return true; },
+        [](const auto&) { return false; }
+    );
 }
 
 static bool stopColorIs8Bit(const Markable<CSS::Color>& color)
@@ -1602,5 +1615,4 @@ std::optional<CSS::ImageOrNone> consumeUnresolvedImageOrNone(CSSParserTokenRange
     return CSS::ImageOrNone { CSS::ImageWrapper { image.releaseNonNull() } };
 }
 
-} // namespace CSSPropertyParserHelpers
-} // namespace WebCore
+} // namespace WebCore::CSSPropertyParserHelpers

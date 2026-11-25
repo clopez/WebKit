@@ -76,6 +76,7 @@ set(WebCore_PRIVATE_INCLUDE_DIRECTORIES
     "${WEBCORE_DIR}/Modules/web-locks"
     "${WEBCORE_DIR}/Modules/webaudio"
     "${WEBCORE_DIR}/Modules/webauthn"
+    "${WEBCORE_DIR}/Modules/webauthn/apdu"
     "${WEBCORE_DIR}/Modules/webauthn/cbor"
     "${WEBCORE_DIR}/Modules/webauthn/fido"
     "${WEBCORE_DIR}/Modules/webcodecs"
@@ -763,7 +764,6 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webaudio/AnalyserNode.idl
     Modules/webaudio/AnalyserOptions.idl
     Modules/webaudio/AudioBuffer.idl
-    Modules/webaudio/AudioBufferCallback.idl
     Modules/webaudio/AudioBufferOptions.idl
     Modules/webaudio/AudioBufferSourceNode.idl
     Modules/webaudio/AudioBufferSourceOptions.idl
@@ -806,6 +806,8 @@ set(WebCore_NON_SVG_IDL_FILES
     Modules/webaudio/ConstantSourceOptions.idl
     Modules/webaudio/ConvolverNode.idl
     Modules/webaudio/ConvolverOptions.idl
+    Modules/webaudio/DecodeErrorCallback.idl
+    Modules/webaudio/DecodeSuccessCallback.idl
     Modules/webaudio/DelayNode.idl
     Modules/webaudio/DelayOptions.idl
     Modules/webaudio/DistanceModelType.idl
@@ -1237,6 +1239,9 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/Range.idl
     dom/ReducerCallback.idl
     dom/RequestAnimationFrameCallback.idl
+    dom/Scheduler.idl
+    dom/SchedulerPostTaskCallback.idl
+    dom/SchedulerPostTaskOptions.idl
     dom/SecurityPolicyViolationEvent.idl
     dom/SecurityPolicyViolationEventDisposition.idl
     dom/ShadowRoot.idl
@@ -1251,6 +1256,7 @@ set(WebCore_NON_SVG_IDL_FILES
     dom/SubscriberCallback.idl
     dom/SubscriptionObserver.idl
     dom/SubscriptionObserverCallback.idl
+    dom/TaskPriority.idl
     dom/Text.idl
     dom/TextDecoder.idl
     dom/TextDecoderStream.idl
@@ -1736,9 +1742,13 @@ if (ENABLE_GAMEPAD)
 endif ()
 
 list(APPEND WebCore_NON_SVG_IDL_FILES
+    Modules/webxr/WebXRAnchor.idl
+    Modules/webxr/WebXRAnchorSet.idl
     Modules/webxr/WebXRBoundedReferenceSpace.idl
+    Modules/webxr/WebXRFrame+Anchors.idl
     Modules/webxr/WebXRFrame.idl
     Modules/webxr/WebXRHand.idl
+    Modules/webxr/WebXRHitTestResult+Anchors.idl
     Modules/webxr/WebXRHitTestResult.idl
     Modules/webxr/WebXRHitTestSource.idl
     Modules/webxr/WebXRInputSource.idl
@@ -2124,6 +2134,7 @@ set(WebCore_SUPPLEMENTAL_IDL_FILES
     dom/Range+DOMParsing.idl
     dom/Slotable.idl
     dom/ViewTransition+Types.idl
+    dom/WindowOrWorkerGlobalScope+Scheduler.idl
     dom/WindowOrWorkerGlobalScope+TrustedTypes.idl
 
     html/HTMLBodyElement+Compat.idl
@@ -2269,6 +2280,7 @@ set(WebCore_USER_AGENT_STYLE_SHEETS
     ${WEBCORE_DIR}/css/selectMultipleAndListBox.css
     ${WEBCORE_DIR}/css/svg.css
     ${WEBCORE_DIR}/css/viewTransitions.css
+    ${WEBCORE_DIR}/html/shadow/attachmentElementInlineProgressShadow.css
     ${WEBCORE_DIR}/html/shadow/attachmentElementShadow.css
     ${WEBCORE_DIR}/html/shadow/detailsElementShadow.css
     ${WEBCORE_DIR}/html/shadow/imageOverlay.css
@@ -2685,6 +2697,8 @@ list(APPEND WebCoreTestSupport_SOURCES
 
 if (ENABLE_WEBXR)
     list(APPEND WebCoreTestSupport_IDL_FILES
+        testing/FakeXRAnchorCreationCallback.idl
+        testing/FakeXRAnchorCreationParameters.idl
         testing/FakeXRBoundsPoint.idl
         testing/FakeXRButtonStateInit.idl
         testing/FakeXRJointStateInit.idl
@@ -2692,12 +2706,14 @@ if (ENABLE_WEBXR)
         testing/FakeXRRigidTransformInit.idl
         testing/FakeXRViewInit.idl
         testing/FakeXRWorldInit.idl
+        testing/WebFakeXRAnchorController.idl
         testing/WebFakeXRDevice.idl
         testing/WebFakeXRInputController.idl
         testing/WebXRTest.idl
         testing/XRSimulateUserActivationFunction.idl
     )
     list(APPEND WebCoreTestSupport_SOURCES
+        testing/WebFakeXRAnchorController.cpp
         testing/WebFakeXRDevice.cpp
         testing/WebFakeXRInputController.cpp
         testing/WebXRTest.cpp

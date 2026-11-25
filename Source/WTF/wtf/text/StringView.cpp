@@ -30,8 +30,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <unicode/ubrk.h>
 #include <unicode/unorm2.h>
 #include <wtf/ASCIICType.h>
+#include <wtf/Borrow.h>
 #include <wtf/HashMap.h>
 #include <wtf/Lock.h>
+#include <wtf/SIMDUTF.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/ZippedRange.h>
 #include <wtf/text/AdaptiveStringSearcher.h>
@@ -127,6 +129,21 @@ UTF8CString StringView::utf8(ConversionMode mode) const
     auto expectedString = tryGetUTF8(mode);
     RELEASE_ASSERT(expectedString);
     return expectedString.value();
+}
+
+Vector<uint8_t> utf8Bytes(StringView string)
+{
+    if (string.is8Bit()) {
+        auto characters = byteCast<uint8_t>(string.span8());
+        Vector<uint8_t> bytes(simdutf::utf8_length_from_latin1(characters));
+        auto bytesWritten = simdutf::convert_latin1_to_utf8(characters, borrow(bytes)->mutableSpan());
+        ASSERT_UNUSED(bytesWritten, bytesWritten == bytes.size());
+        return bytes;
+    }
+    Vector<uint8_t> bytes;
+    auto result = StringImpl::convertToUTF8(string.span16(), bytes, ConversionMode::Lenient);
+    RELEASE_ASSERT(result);
+    return bytes;
 }
 
 size_t StringView::find(StringView matchString, unsigned start) const
@@ -434,6 +451,13 @@ String normalizedNFC(const String& string)
     if (result.underlyingString.isNull())
         return string;
     return result.underlyingString;
+}
+
+size_t utf8Length(StringView string)
+{
+    if (string.is8Bit())
+        return simdutf::utf8_length_from_latin1(byteCast<uint8_t>(string.span8()));
+    return StringImpl::utf8LengthFromUTF16ReplacingUnpairedSurrogates(string.span16());
 }
 
 bool equalRespectingNullity(StringView a, StringView b)

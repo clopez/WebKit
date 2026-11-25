@@ -32,8 +32,7 @@
 #include "StyleInvalidationFunctions.h"
 #include <wtf/BitVector.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 enum class ClassChangeType : bool { Add, Remove };
 
@@ -164,7 +163,7 @@ void ClassChangeInvalidation::computeInvalidation(const SpaceSplitString& oldCla
     collect(m_element->styleResolver().ruleSets());
 
     if (RefPtr shadowRoot = m_element->shadowRoot())
-        collect(shadowRoot->styleScope().resolver().ruleSets(), MatchElement::Relation::Host);
+        collect(protect(shadowRoot->styleScope())->resolver().ruleSets(), MatchElement::Relation::Host);
 }
 
 void ClassChangeInvalidation::invalidateBeforeChange()
@@ -177,5 +176,4 @@ void ClassChangeInvalidation::invalidateAfterChange()
     Invalidator::invalidateWithMatchElementRuleSets(m_element, m_afterChangeRuleSets);
 }
 
-}
 }

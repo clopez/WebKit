@@ -64,6 +64,7 @@
 #include "MediaPlaybackState.h"
 #include "MessageSenderInlines.h"
 #include "NetworkConnectionToWebProcessMessages.h"
+#include "NetworkInterceptionSink.h"
 #include "NetworkProcessConnection.h"
 #include "NodeHitTestResult.h"
 #include "NotificationPermissionRequestManager.h"
@@ -373,6 +374,7 @@
 #include <ranges>
 #include <wtf/Borrow.h>
 #include <wtf/CoroutineUtilities.h>
+#include <wtf/FileSystem.h>
 #include <wtf/ProcessID.h>
 #include <wtf/RunLoop.h>
 #include <wtf/SaturatingArithmetic.h>
@@ -1102,6 +1104,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 #endif
 
     page->setControlledByAutomation(parameters.controlledByAutomation);
+    page->setNetworkInterception(Inspector::NetworkInterception { parameters.networkInterception });
     page->setHasResourceLoadClient(parameters.hasResourceLoadClient);
 
     page->setCanStartMedia(false);
@@ -1110,6 +1113,8 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
         page->suspendAllMediaPlayback();
     if (parameters.areActiveDOMObjectsAndAnimationsSuspended)
         page->suspendActiveDOMObjectsAndAnimations();
+    page->setShouldSuppressHDR(parameters.shouldSuppressHDR);
+    page->setIsTakingSnapshotsForApplicationSuspension(parameters.isTakingSnapshotsForApplicationSuspension);
 
     if (parameters.openedByDOM)
         page->setOpenedByDOM();
@@ -1139,6 +1144,7 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
     setMaximumUnobscuredSize(parameters.maximumUnobscuredSize);
 
     setUnderlayColor(parameters.underlayColor);
+    setScrollbarStyleOverride(parameters.scrollbarStyleOverride);
 
     setPaginationMode(parameters.paginationMode);
     setPaginationBehavesLikeColumns(parameters.paginationBehavesLikeColumns);
@@ -1215,6 +1221,9 @@ WebPage::WebPage(PageIdentifier pageID, WebPageCreationParameters&& parameters)
 
     if (parameters.viewScaleFactor != 1)
         scaleView(parameters.viewScaleFactor);
+
+    if (parameters.remotePageParameters && parameters.remotePageParameters->pageScaleFactor != 1)
+        didScalePage(parameters.remotePageParameters->pageScaleFactor, { });
 
     page->addLayoutMilestones(parameters.observedLayoutMilestones);
 
@@ -1439,11 +1448,8 @@ void WebPage::frameGeometryChangedInAnotherProcess(Vector<FrameGeometryUpdate>&&
         if (!coreFrame)
             continue;
 
-        if (update.viewportInfo) {
+        if (update.viewportInfo)
             coreFrame->updateFrameTreeSyncData(FrameTreeSyncSerializationData { WTF::move(*update.viewportInfo) });
-            if (RefPtr view = coreFrame->virtualView())
-                view->scrollTo(coreFrame->frameTreeSyncData().frameViewportInfo.scrollPosition);
-        }
 
         if (update.geometry) {
             coreFrame->updateFrameTreeSyncData(FrameTreeSyncSerializationData { WTF::move(*update.geometry) });
@@ -1888,6 +1894,7 @@ void WebPage::reinitializeWebPage(WebPageCreationParameters&& parameters)
 
     setUseColorAppearance(parameters.useDarkAppearance, parameters.useElevatedUserInterfaceLevel);
     setContentInversion(parameters.contentInversion);
+    setScrollbarStyleOverride(parameters.scrollbarStyleOverride);
 
     if (auto& remotePageParameters = parameters.remotePageParameters) {
         if (RefPtr page = m_page; page && is<RemoteFrame>(page->mainFrame()))
@@ -1929,6 +1936,13 @@ bool WebPage::isThrottleable() const
     bool isVisuallyIdle = m_activityState.contains(ActivityState::IsVisuallyIdle);
 
     return m_isAppNapEnabled && !isActive && isVisuallyIdle;
+}
+
+NetworkInterceptionSink& WebPage::networkInterceptionSink()
+{
+    if (!m_networkInterceptionSink)
+        m_networkInterceptionSink = makeUnique<NetworkInterceptionSink>(*this);
+    return *m_networkInterceptionSink;
 }
 
 WebPage::~WebPage()
@@ -2639,6 +2653,16 @@ void WebPage::tryClose(CompletionHandler<void(bool)>&& completionHandler)
     completionHandler(coreFrame->loader().shouldClose());
 }
 
+void WebPage::closeFromRemoteFrame()
+{
+    RefPtr localMainFrame = this->localMainFrame();
+    if (!localMainFrame)
+        return;
+
+    if (RefPtr window = localMainFrame->window())
+        window->close();
+}
+
 void WebPage::dispatchCrossOriginBeforeUnloadCheckForFrame(WebCore::FrameIdentifier frameID, WebCore::SecurityOriginData&& navigatingFrameOrigin)
 {
     RefPtr webFrame = WebProcess::singleton().webFrame(frameID);
@@ -2657,7 +2681,7 @@ void WebPage::dispatchCrossOriginBeforeUnloadCheckForFrame(WebCore::FrameIdentif
     if (frameOrigin->isSameOriginDomain(navigatingFrameOrigin.securityOrigin()))
         return;
 
-    document->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "Blocked attempt to show beforeunload confirmation dialog on behalf of a frame with different security origin. Protocols, domains, and ports must match."_s);
+    document->addConsoleMessage(MessageSource::Security, MessageLevel::Error, "Blocked attempt to show beforeunload confirmation dialog on behalf of a frame with different security origin. Protocols, domains, and ports must match."_s);
 }
 
 void WebPage::sendClose()
@@ -3112,6 +3136,10 @@ void WebPage::goToBackForwardItem(GoToBackForwardItemParameters&& parameters, Co
     if (RefPtr targetLocalFrame = targetFrame->provisionalFrame() ? targetFrame->provisionalFrame() : targetFrame->coreLocalFrame()) {
         if (targetFrame.ptr() == m_mainFrame.ptr())
             targetLocalFrame->loader().setNavigationUpgradeToHTTPSBehavior(item->url().protocolIs("http"_s) ? NavigationUpgradeToHTTPSBehavior::Disabled : NavigationUpgradeToHTTPSBehavior::BasedOnPolicy);
+        targetLocalFrame->loader().setRedirectedRequestForContinuingHistoryLoad(WTF::move(parameters.redirectedRequest));
+        auto redirectedRequestScope = makeScopeExit([targetLocalFrame] {
+            targetLocalFrame->loader().setRedirectedRequestForContinuingHistoryLoad(std::nullopt);
+        });
         protect(corePage())->goToItem(*targetLocalFrame, item, parameters.backForwardType, parameters.shouldTreatAsContinuingLoad, parameters.shouldRestoreFromBackForwardCache, [weakTargetLocalFrame = WeakPtr { *targetLocalFrame }, item, navigationID = parameters.navigationID, completionHandler = WTF::move(completionHandler)] mutable {
             RefPtr targetLocalFrame = weakTargetLocalFrame;
             if (!targetLocalFrame) {
@@ -3249,71 +3277,6 @@ void WebPage::didSetPageZoomFactor(double zoomFactor)
 
     for (WeakRef frame : m_page->rootFrames())
         frame->setPageZoomFactor(static_cast<float>(zoomFactor));
-}
-
-static void dumpHistoryItem(HistoryItem& item, size_t indent, bool isCurrentItem, StringBuilder& stringBuilder, const String& directoryName)
-{
-    if (isCurrentItem)
-        stringBuilder.append("curr->  "_s);
-    else {
-        for (size_t i = 0; i < indent; ++i)
-            stringBuilder.append(' ');
-    }
-
-    auto url = item.url();
-    if (url.protocolIsFile()) {
-        size_t start = url.string().find(directoryName);
-        if (start == WTF::notFound)
-            start = 0;
-        else
-            start += directoryName.length();
-        stringBuilder.append("(file test):"_s, StringView { url.string() }.substring(start));
-    } else
-        stringBuilder.append(url.string());
-
-    auto& target = item.target();
-    if (target.length())
-        stringBuilder.append(" (in frame \""_s, target, "\")"_s);
-
-    stringBuilder.append('\n');
-
-    auto children = item.children();
-    std::ranges::stable_sort(children, [](auto& a, auto& b) {
-        return codePointCompare(a->target(), b->target()) < 0;
-    });
-    for (auto& child : borrow(children))
-        dumpHistoryItem(child, indent + 4, false, stringBuilder, directoryName);
-}
-
-String WebPage::dumpHistoryForTesting(const String& directory)
-{
-    if (!m_page)
-        return { };
-
-    CheckedRef list = m_page->backForward();
-
-    // A page with no current item has nothing to dump. That is the state a window.open() page is
-    // in before its initial load commits, and WebKitTestRunner dumps every page it knows about.
-    if (!list->currentItem())
-        return { };
-
-    // itemAtIndex() takes an offset relative to the current item, so the range of valid offsets is
-    // [-backCount(), forwardCount()] inclusive. It is a synchronous round trip to the UI process,
-    // while backCount() and forwardCount() are served from a cache in this process, so the bounds
-    // and the items are sampled at different times and an item can be absent at an offset the
-    // bounds include. Skip those rather than crashing.
-    int begin = -static_cast<int>(list->backCount());
-    int end = static_cast<int>(list->forwardCount());
-
-    if (RefPtr item = list->itemAtIndex(begin); item && item->url() == aboutBlankURL())
-        ++begin;
-
-    StringBuilder builder;
-    for (int i = begin; i <= end; ++i) {
-        if (RefPtr item = list->itemAtIndex(i))
-            dumpHistoryItem(*item, 8, !i, builder, directory);
-    }
-    return builder.toString();
 }
 
 String WebPage::frameTextForTestingIncludingSubframes(bool includeSubframes)
@@ -3710,6 +3673,18 @@ void WebPage::listenForLayoutMilestones(OptionSet<WebCore::LayoutMilestone> mile
 void WebPage::setSuppressScrollbarAnimations(bool suppressAnimations)
 {
     protect(corePage())->setShouldSuppressScrollbarAnimations(suppressAnimations);
+}
+
+void WebPage::setScrollbarStyleOverride(std::optional<ScrollbarStyle> styleOverride)
+{
+    RefPtr corePage = this->corePage();
+    if (corePage->scrollbarStyleOverride() == styleOverride)
+        return;
+
+    corePage->setScrollbarStyleOverride(styleOverride);
+#if PLATFORM(MAC)
+    updateScrollerPairsForScrollbarStyleOverride();
+#endif
 }
 
 void WebPage::setEnableVerticalRubberBanding(bool enableVerticalRubberBanding)
@@ -4995,6 +4970,20 @@ void WebPage::setControlledByAutomation(bool controlled)
     m_page->setControlledByAutomation(controlled);
 }
 
+void WebPage::setNetworkInterception(Inspector::NetworkInterception&& configuration, CompletionHandler<void()>&& completionHandler)
+{
+    // The UI process is the authority. Every process hosting a frame of the page stores the
+    // configuration on its page, where loading code consults it.
+    if (RefPtr page = m_page)
+        page->setNetworkInterception(WTF::move(configuration));
+    completionHandler();
+}
+
+void WebPage::resolveNetworkInterception(WebCore::ResourceLoaderIdentifier identifier, Inspector::NetworkInterceptOwner owner, Inspector::NetworkInterceptionPhase phase, Inspector::NetworkInterceptionResolution&& resolution)
+{
+    networkInterceptionSink().resolveInterception(identifier, owner, phase, WTF::move(resolution));
+}
+
 CheckedRef<PageInspectorTarget> WebPage::ensureInspectorTarget()
 {
     if (!m_inspectorTarget)
@@ -5041,8 +5030,10 @@ void WebPage::setBackgroundColor(const std::optional<WebCore::Color>& background
 
     m_backgroundColor = backgroundColor;
 
-    if (RefPtr frameView = localMainFrameView())
-        frameView->updateBackgroundRecursively(backgroundColor);
+    for (Ref rootFrame : copyToVectorOf<Ref<LocalFrame>>(m_page->rootFrames())) {
+        if (RefPtr frameView = rootFrame->view())
+            frameView->updateBackgroundRecursively(backgroundColor);
+    }
 
     RefPtr drawingArea = m_drawingArea;
 #if USE(COORDINATED_GRAPHICS) || USE(TEXTURE_MAPPER)
@@ -5635,7 +5626,7 @@ void WebPage::getMainResourceDataOfFrame(FrameIdentifier frameID, CompletionHand
         if (!buffer)
 #endif
         {
-            if (RefPtr loader = coreFrame->loader().documentLoader())
+            if (RefPtr loader = coreFrame ? coreFrame->loader().documentLoader() : nullptr)
                 buffer = loader->mainResourceData();
         }
     }
@@ -5645,6 +5636,9 @@ void WebPage::getMainResourceDataOfFrame(FrameIdentifier frameID, CompletionHand
 
 static RefPtr<FragmentedSharedBuffer> resourceDataForFrame(LocalFrame* frame, const URL& resourceURL)
 {
+    if (!frame)
+        return nullptr;
+
     RefPtr loader = frame->loader().documentLoader();
     if (!loader)
         return nullptr;
@@ -5665,20 +5659,6 @@ void WebPage::getResourceDataFromFrame(FrameIdentifier frameID, const String& re
     }
 
     callback(IPC::SharedBufferReference(WTF::move(buffer)));
-}
-
-void WebPage::getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier frameID, const Vector<WebCore::MarkupExclusionRule>& exclusionRules, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& completionHandler)
-{
-    std::optional<IPC::SharedBufferReference> result;
-#if PLATFORM(COCOA)
-    if (RefPtr frame = WebProcess::singleton().webFrame(frameID)) {
-        if (RetainPtr<CFDataRef> data = frame->webArchiveData(nullptr, nullptr, exclusionRules, fileName))
-            result = IPC::SharedBufferReference(SharedBuffer::create(data.get()));
-    }
-#else
-    UNUSED_PARAM(frameID);
-#endif
-    completionHandler(result);
 }
 
 void WebPage::getAccessibilityTreeData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&& callback)
@@ -7147,10 +7127,11 @@ void WebPage::failedToShowPopupMenu()
 #endif
 
 #if ENABLE(CONTEXT_MENUS)
-void WebPage::didSelectItemFromActiveContextMenu(const WebContextMenuItemData& item)
+void WebPage::didSelectItemFromActiveContextMenu(const WebContextMenuItemData& item, CompletionHandler<void()>&& completionHandler)
 {
     if (auto contextMenu = std::exchange(m_contextMenu, nullptr))
         contextMenu->itemSelected(item);
+    completionHandler();
 }
 #endif
 
@@ -7318,7 +7299,7 @@ void WebPage::setMainFrameIsScrollable(bool isScrollable)
     m_mainFrameIsScrollable = isScrollable;
     protect(drawingArea())->mainFrameScrollabilityChanged(isScrollable);
 
-    if (RefPtr frameView = m_mainFrame->coreLocalFrame()->view()) {
+    if (RefPtr frameView = localMainFrameView()) {
         frameView->setCanHaveScrollbars(isScrollable);
         frameView->setProhibitsScrolling(!isScrollable);
     }
@@ -8624,7 +8605,10 @@ void WebPage::setAlwaysShowsHorizontalScroller(bool alwaysShowsHorizontalScrolle
 
     m_alwaysShowsHorizontalScroller = alwaysShowsHorizontalScroller;
 
-    RefPtr view = protect(protect(corePage())->mainFrame())->virtualView();
+    RefPtr view = localMainFrameView();
+    if (!view)
+        return;
+
     if (!alwaysShowsHorizontalScroller)
         view->setHorizontalScrollbarLock(false);
     view->setHorizontalScrollbarMode(alwaysShowsHorizontalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsHorizontalScroller || !m_mainFrameIsScrollable);
@@ -8637,7 +8621,10 @@ void WebPage::setAlwaysShowsVerticalScroller(bool alwaysShowsVerticalScroller)
 
     m_alwaysShowsVerticalScroller = alwaysShowsVerticalScroller;
 
-    RefPtr view = protect(protect(corePage())->mainFrame())->virtualView();
+    RefPtr view = localMainFrameView();
+    if (!view)
+        return;
+
     if (!alwaysShowsVerticalScroller)
         view->setVerticalScrollbarLock(false);
     view->setVerticalScrollbarMode(alwaysShowsVerticalScroller ? ScrollbarMode::AlwaysOn : m_mainFrameIsScrollable ? ScrollbarMode::Auto : ScrollbarMode::AlwaysOff, alwaysShowsVerticalScroller || !m_mainFrameIsScrollable);
@@ -8908,7 +8895,7 @@ void WebPage::didCommitLoad(WebFrame* frame)
         reportUsedFeatures();
 
     // Only restore the scale factor for standard frame loads (of the main frame).
-    if (frame->coreLocalFrame()->loader().loadType() == FrameLoadType::Standard) {
+    if (frame->isMainFrame() && frame->coreLocalFrame()->loader().loadType() == FrameLoadType::Standard) {
         RefPtr page = frame->coreLocalFrame()->page();
 
 #if PLATFORM(MAC)
@@ -8964,29 +8951,31 @@ void WebPage::didCommitLoad(WebFrame* frame)
 
     RefPtr coreFrame = frame->coreLocalFrame();
 #if ENABLE(META_VIEWPORT)
-    m_isMobileDoctype = false;
-    resetViewportDefaultConfiguration(frame);
+    if (frame->isMainFrame()) {
+        m_isMobileDoctype = false;
+        resetViewportDefaultConfiguration(frame);
 
-    bool viewportChanged = false;
+        bool viewportChanged = false;
 
-    setCanIgnoreViewportArgumentsToAvoidExcessiveZoomIfNeeded(m_viewportConfiguration, coreFrame.get(), shouldIgnoreMetaViewport());
-    setCanIgnoreViewportArgumentsToAvoidEnlargedViewIfNeeded(m_viewportConfiguration, coreFrame.get());
-    setUseDynamicViewportUnitsAsDefaultIfNeeded(coreFrame.get());
+        setCanIgnoreViewportArgumentsToAvoidExcessiveZoomIfNeeded(m_viewportConfiguration, coreFrame.get(), shouldIgnoreMetaViewport());
+        setCanIgnoreViewportArgumentsToAvoidEnlargedViewIfNeeded(m_viewportConfiguration, coreFrame.get());
+        setUseDynamicViewportUnitsAsDefaultIfNeeded(coreFrame.get());
 
-    m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
+        m_viewportConfiguration.setPrefersHorizontalScrollingBelowDesktopViewportWidths(shouldEnableViewportBehaviorsForResizableWindows());
 
-    LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
-    if (m_viewportConfiguration.setContentsSize(protect(coreFrame->view())->contentsSize()))
-        viewportChanged = true;
+        LOG_WITH_STREAM(VisibleRects, stream << "WebPage " << m_identifier.toUInt64() << " didCommitLoad setting content size to " << coreFrame->view()->contentsSize());
+        if (m_viewportConfiguration.setContentsSize(protect(coreFrame->view())->contentsSize()))
+            viewportChanged = true;
 
-    if (m_viewportConfiguration.setViewportArguments(protect(coreFrame->document())->viewportArguments()))
-        viewportChanged = true;
+        if (m_viewportConfiguration.setViewportArguments(protect(coreFrame->document())->viewportArguments()))
+            viewportChanged = true;
 
-    if (m_viewportConfiguration.setIsKnownToLayOutWiderThanViewport(false))
-        viewportChanged = true;
+        if (m_viewportConfiguration.setIsKnownToLayOutWiderThanViewport(false))
+            viewportChanged = true;
 
-    if (viewportChanged)
-        viewportConfigurationChanged();
+        if (viewportChanged)
+            viewportConfigurationChanged();
+    }
 #endif // ENABLE(META_VIEWPORT)
 
     m_textAutoSizingAdjustmentTimer.stop();
@@ -10088,10 +10077,14 @@ void WebPage::updateAttachmentIcon(const String& identifier, std::optional<Share
 void WebPage::requestAttachmentIcon(const String& identifier, const WebCore::FloatSize& size)
 {
     if (RefPtr attachment = attachmentElementWithIdentifier(identifier)) {
-        String fileName;
-        if (RefPtr file = attachment->file())
-            fileName = file->path();
-        send(Messages::WebPageProxy::RequestAttachmentIcon(identifier, attachment->attachmentType(), fileName, attachment->attachmentTitle(), size));
+        String type = attachment->attachmentType();
+        String fileExtension;
+        if (RefPtr file = attachment->file()) {
+            fileExtension = FileSystem::pathExtension(file->name()).toString();
+            if (type.isEmpty() && file->isDirectory())
+                type = "public.folder"_s;
+        }
+        send(Messages::WebPageProxy::RequestAttachmentIcon(identifier, type, fileExtension, attachment->attachmentTitle(), size));
     }
 }
 
@@ -10990,12 +10983,14 @@ void WebPage::restoreAppHighlightsAndScrollToIndex(Vector<SharedMemory::Handle>&
 void WebPage::setAppHighlightsVisibility(WebCore::HighlightVisibility appHighlightVisibility)
 {
     m_appHighlightsVisible = appHighlightVisibility;
-    for (RefPtr<Frame> frame = m_mainFrame->coreLocalFrame(); frame; frame = frame->tree().traverseNextRendered()) {
-        RefPtr localFrame = dynamicDowncast<LocalFrame>(frame.get());
-        if (!localFrame)
-            continue;
-        if (RefPtr document = localFrame->document())
-            protect(document->appHighlightRegistry())->setHighlightVisibility(appHighlightVisibility);
+    for (Ref rootFrame : copyToVectorOf<Ref<LocalFrame>>(m_page->rootFrames())) {
+        for (RefPtr<Frame> frame = rootFrame.ptr(); frame; frame = frame->tree().traverseNextRendered(rootFrame.ptr())) {
+            RefPtr localFrame = dynamicDowncast<LocalFrame>(frame);
+            if (!localFrame)
+                continue;
+            if (RefPtr document = localFrame->document())
+                protect(document->appHighlightRegistry())->setHighlightVisibility(appHighlightVisibility);
+        }
     }
 }
 

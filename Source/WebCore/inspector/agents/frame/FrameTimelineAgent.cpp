@@ -30,11 +30,13 @@
 #include "Element.h"
 #include "FloatQuad.h"
 #include "FrameDOMAgent.h"
+#include "FrameDebuggerAgent.h"
 #include "InspectorWebAgentBase.h"
 #include "InstrumentingAgents.h"
 #include "LayoutRect.h"
 #include "LocalFrameView.h"
 #include "Node.h"
+#include "NodeDocument.h"
 #include "RenderElementInlines.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
@@ -82,10 +84,11 @@ void FrameTimelineAgent::internalStop()
 
 bool FrameTimelineAgent::shouldToggleInstrument(Inspector::Protocol::Timeline::Instrument instrument) const
 {
+    // CPU stays off: its data covers the whole process, so the frontend picks which target in a process tracks it.
     // The other instruments belong to domains that frame targets do not have yet, so their getters would reach
     // the page's agents.
-    // FIXME: <https://webkit.org/b/329360> Also toggle ScriptProfiler once frame targets have that domain.
-    return instrument == Inspector::Protocol::Timeline::Instrument::Timeline;
+    return instrument == Inspector::Protocol::Timeline::Instrument::Timeline
+        || instrument == Inspector::Protocol::Timeline::Instrument::ScriptProfiler;
 }
 
 void FrameTimelineAgent::willInvalidateLayout(const RenderObject& renderer)
@@ -207,6 +210,13 @@ void FrameTimelineAgent::didEnqueueFirstContentfulPaint()
 void FrameTimelineAgent::didEnqueueLargestContentfulPaint(Element* element, unsigned area)
 {
     appendRecord(TimelineRecordFactory::createLargestContentfulPaintData(nodeIdForNode(element), area), TimelineRecordType::LargestContentfulPaint, false);
+}
+
+WebDebuggerAgent* FrameTimelineAgent::debuggerAgentForProgrammaticCapture() const
+{
+    // Unlike `enabledWebDebuggerAgent()`, this does not fall back to the page's agent, so a frame's capture never
+    // turns off the page target's breakpoints.
+    return protect(m_instrumentingAgents)->enabledFrameDebuggerAgent();
 }
 
 Inspector::Protocol::DOM::NodeId FrameTimelineAgent::nodeIdForNode(Node* node) const

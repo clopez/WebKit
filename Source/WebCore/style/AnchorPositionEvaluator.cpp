@@ -31,6 +31,7 @@
 #include "ContainerNodeInlines.h"
 #include "Document.h"
 #include "Element.h"
+#include "LayoutIntegrationLineLayout.h"
 #include "Node.h"
 #include "NodeRenderStyle.h"
 #include "PopoverData.h"
@@ -525,8 +526,10 @@ static LayoutRect boundingRectForFragmentedAnchor(const RenderBoxModelObject& an
     // Compute the bounding box of the fragments.
     // Location is relative to the fragmented flow.
     CheckedPtr anchorRenderBox = dynamicDowncast<RenderBox>(&anchorBox);
-    if (!anchorRenderBox)
-        anchorRenderBox = anchorBox.containingBlock();
+    if (!anchorRenderBox) {
+        // An inline box anchor is in the coordinate space of its block container.
+        anchorRenderBox = LayoutIntegration::LineLayout::blockContainer(anchorBox);
+    }
 
     LayoutPoint offsetRelativeToFragmentedFlow = fragmentedFlow.mapFromLocalToFragmentedFlow(anchorRenderBox.get(), { }).location();
     auto unfragmentedBorderBox = anchorBox.borderBoundingBox();
@@ -1310,7 +1313,7 @@ void AnchorPositionEvaluator::updateAnchorPositioningStatesAfterInterleavedLayou
                     });
                 }
 
-                anchorPositionedToAnchorMap.set(*anchorPositioned, AnchorPositionedToAnchorEntry {
+                anchorPositionedToAnchorMap.set(renderer, AnchorPositionedToAnchorEntry {
                     .anchors = WTF::move(anchors)
                 });
             }
@@ -1354,7 +1357,7 @@ void AnchorPositionEvaluator::updateAnchorPositioningStatesAfterInterleavedLayou
         if (!anchorPositionedRenderer)
             continue;
 
-        auto it = anchorPositionedToAnchorMap.find(*anchorPositioned);
+        auto it = anchorPositionedToAnchorMap.find(*anchorPositionedRenderer);
         if (it == anchorPositionedToAnchorMap.end())
             continue;
         auto& anchorPositionedToAnchorEntry = it->value;
@@ -1425,8 +1428,8 @@ auto AnchorPositionEvaluator::makeAnchorPositionedForAnchorMap(AnchorPositionedT
 {
     AnchorToAnchorPositionedMap map;
 
-    for (auto& [weakStyleable, anchors] : toAnchorMap) {
-        auto styleable = weakStyleable.styleable();
+    for (auto [anchorPositionedRenderer, anchors] : toAnchorMap) {
+        auto styleable = Styleable::fromRenderer(protect(anchorPositionedRenderer));
         if (!styleable)
             continue;
 
@@ -1774,7 +1777,7 @@ CheckedPtr<RenderBoxModelObject> AnchorPositionEvaluator::defaultAnchorForBox(co
         return nullptr;
 
     auto& anchorPositionedMap = box.document().styleScope().anchorPositionedToAnchorMap();
-    auto it = anchorPositionedMap.find(*styleable);
+    auto it = anchorPositionedMap.find(box);
     if (it == anchorPositionedMap.end())
         return nullptr;
     auto& anchors = it->value;

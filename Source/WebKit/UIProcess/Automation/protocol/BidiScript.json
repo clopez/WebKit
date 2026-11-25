@@ -44,8 +44,10 @@
             "spec": "https://w3c.github.io/webdriver-bidi/#type-script-LocalValue",
             "type": "object",
             "properties": [
-                { "name": "type", "$ref": "BidiScript.LocalValueType" },
-                { "name": "value", "type": "any" }
+                { "name": "type", "$ref": "BidiScript.LocalValueType", "optional": true },
+                { "name": "value", "type": "any", "optional": true },
+                { "name": "sharedId", "$ref": "BidiScript.SharedId", "optional": true },
+                { "name": "handle", "$ref": "BidiScript.Handle", "optional": true }
             ]
         },
         {
@@ -55,10 +57,18 @@
             "type": "string",
             "enum": [
                 "array",
+                "bigint",
+                "boolean",
+                "channel",
                 "date",
                 "map",
+                "null",
+                "number",
                 "object",
-                "set"
+                "regexp",
+                "set",
+                "string",
+                "undefined"
             ]
         },
         {
@@ -275,7 +285,7 @@
             "description": "Disowns the given handles. This removes the handles from the realm, allowing the garbage collector to reclaim the associated objects.",
             "spec": "https://w3c.github.io/webdriver-bidi/#command-script-disown",
             "wpt": "https://github.com/web-platform-tests/wpt/tree/master/webdriver/tests/bidi/script/disown",
-            "bug": "https://bugs.webkit.org/show_bug.cgi?id=288059",
+            "bug": "https://bugs.webkit.org/show_bug.cgi?id=328254",
             "async": true,
             "parameters": [
                 { "name": "handles", "type": "array", "items": { "$ref": "BidiScript.Handle" }, "description": "The handles to disown." },
@@ -316,8 +326,7 @@
             "description": "Event fired when a script realm is destroyed.",
             "spec": "https://w3c.github.io/webdriver-bidi/#event-script-realmDestroyed",
             "parameters": [
-                { "name": "realm", "$ref": "BidiScript.Realm", "description": "Unique identifier of the destroyed realm." },
-                { "name": "context", "$ref": "BidiBrowsingContext.BrowsingContext", "optional": true, "description": "Browsing context associated with the realm. Not present for worklet/worker realms." }
+                { "name": "realm", "$ref": "BidiScript.Realm", "description": "Unique identifier of the destroyed realm." }
             ]
         }
     ]

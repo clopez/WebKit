@@ -34,6 +34,7 @@
 #include <WebCore/IntRectHash.h>
 #include <WebCore/LoadSchedulingMode.h>
 #include <WebCore/MediaSessionGroupIdentifier.h>
+#include <WebCore/NetworkInterception.h>
 #include <WebCore/NetworkLoadPolicy.h>
 #include <WebCore/PageIdentifier.h>
 #include <WebCore/Pagination.h>
@@ -763,6 +764,10 @@ public:
     WEBCORE_EXPORT void setShouldSuppressScrollbarAnimations(bool suppressAnimations);
     void lockAllOverlayScrollbarsToHidden(bool lockOverlayScrollbars);
 
+    std::optional<ScrollbarStyle> scrollbarStyleOverride() const { return m_scrollbarStyleOverride; }
+    WEBCORE_EXPORT void setScrollbarStyleOverride(std::optional<ScrollbarStyle>);
+    ScrollbarStyle scrollbarStyle() const;
+
     WEBCORE_EXPORT void setVerticalScrollElasticity(ScrollElasticity);
     ScrollElasticity verticalScrollElasticity() const { return static_cast<ScrollElasticity>(m_verticalScrollElasticity); }
 
@@ -1169,6 +1174,12 @@ public:
 
     bool isResourceCachingDisabledByWebInspector() const { return m_resourceCachingDisabledByWebInspector; }
     void setResourceCachingDisabledByWebInspector(bool disabled) { m_resourceCachingDisabledByWebInspector = disabled; }
+
+    // The network interception configuration active in this process for this page. Under Site
+    // Isolation the authoritative copy lives in the UI process, which pushes it down to every
+    // process hosting one of the page's frames.
+    const Inspector::NetworkInterception& networkInterception() const { return m_networkInterception; }
+    void setNetworkInterception(Inspector::NetworkInterception&& interception) { m_networkInterception = WTF::move(interception); }
 
     std::optional<EventThrottlingBehavior> eventThrottlingBehaviorOverride() const { return m_eventThrottlingBehaviorOverride; }
     void setEventThrottlingBehaviorOverride(std::optional<EventThrottlingBehavior> throttling) { m_eventThrottlingBehaviorOverride = throttling; }
@@ -1665,6 +1676,7 @@ private:
     float m_initialScaleIgnoringContentSize { 1.0f };
 
     bool m_suppressScrollbarAnimations { false };
+    std::optional<ScrollbarStyle> m_scrollbarStyleOverride;
 
 #if HAVE(NSREFRESHCONTROLLER)
     bool m_hasRefreshController { false };
@@ -1774,6 +1786,7 @@ private:
     bool m_showAllPlugins { false };
     bool m_controlledByAutomation { false };
     bool m_resourceCachingDisabledByWebInspector { false };
+    Inspector::NetworkInterception m_networkInterception;
     bool m_isUtilityPage;
     bool m_shouldEnableICECandidateFilteringByDefault { true };
     bool m_mediaPlaybackIsSuspended { false };

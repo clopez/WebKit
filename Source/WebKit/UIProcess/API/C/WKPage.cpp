@@ -599,7 +599,7 @@ static void restoreFromSessionState(WKPageRef pageRef, WKTypeRef sessionStateRef
         if (!decodeLegacySessionState(toImpl(static_cast<WKDataRef>(sessionStateRef))->span(), sessionState))
             return;
     } else {
-        ASSERT_WITH_SECURITY_IMPLICATION(toImpl(sessionStateRef)->type() == API::Object::Type::SessionState);
+        RELEASE_ASSERT(protect(toImpl(sessionStateRef))->type() == API::Object::Type::SessionState);
 
         sessionState = toImpl(static_cast<WKSessionStateRef>(sessionStateRef))->sessionState();
     }
@@ -3632,6 +3632,14 @@ void WKPageClearBackForwardListForTesting(WKPageRef pageRef, void* context, WKPa
     pageForTesting->clearBackForwardList([context, completionHandler] {
         completionHandler(context);
     });
+}
+
+WKStringRef WKPageCopyBackForwardListDumpForTesting(WKPageRef pageRef, WKStringRef directory)
+{
+    RefPtr pageForTesting = toImpl(pageRef)->pageForTesting();
+    if (!pageForTesting)
+        return toCopiedAPI(String { });
+    return toCopiedAPI(pageForTesting->dumpBackForwardList(toWTFString(directory)));
 }
 
 void WKPageSetTracksRepaintsForTesting(WKPageRef pageRef, void* context, bool trackRepaints, WKPageSetTracksRepaintsForTestingFunction completionHandler)

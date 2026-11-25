@@ -445,7 +445,7 @@ if (ENABLE_WPE_LEGACY_API)
 endif ()
 
 if (ANDROID)
-    list(APPEND WebKit_PRIVATE_LIBRARIES intl)
+    list(APPEND WebKit_PRIVATE_LIBRARIES Intl::Intl)
 endif ()
 
 if (USE_ATK)
@@ -487,6 +487,8 @@ else ()
 endif ()
 
 list(APPEND WebKit_MESSAGES_IN_FILES
+    UIProcess/WebAuthentication/WebAuthenticatorCoordinatorProxy
+
     WebProcess/glib/SystemSettingsManager
 )
 

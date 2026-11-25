@@ -1222,6 +1222,7 @@ void run(const TestConfig* config)
     RUN(testWasmBoundsCheck(std::numeric_limits<unsigned>::max() - 5));
 
     RUN(testWasmAddress());
+    RUN(testWasmAddressWithConstantIndex());
     RUN(testWasmAddressZeroExtendScaledIndex());
     RUN(testWasmAddressZeroExtend32BitShiftWraps());
     RUN(testWasmAddressScaledIndexWithLockedShlChild());
@@ -1596,6 +1597,7 @@ void run(const TestConfig* config)
         RUN(testUMulHigh64());
         RUN(testMemoryMove());
         RUN(testMemoryMoveConstant());
+        RUN(testMemoryMoveShort(false));
         RUN(testGCSafeMemoryMove(false));
         RUN(testMemoryFill(MemoryFill8, false, false));
         RUN(testMemoryFill(MemoryFill16, false, false));
@@ -1603,6 +1605,7 @@ void run(const TestConfig* config)
         RUN(testMemoryFill(MemoryFill64, false, false));
         RUN(testMemoryFill(MemoryFill64, true, false));
         if (Options::useWasmSIMD()) {
+            RUN(testMemoryMoveShort(true));
             RUN(testGCSafeMemoryMove(true));
             RUN(testMemoryFill(MemoryFill8, false, true));
             RUN(testMemoryFill(MemoryFill16, false, true));

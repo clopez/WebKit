@@ -60,8 +60,7 @@
 #include <wtf/TZoneMallocInlines.h>
 #include <wtf/text/TextStream.h>
 
-namespace WebCore {
-namespace Layout {
+namespace WebCore::Layout {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InlineContentCache);
 WTF_MAKE_TZONE_ALLOCATED_IMPL(InlineFormattingContext);
@@ -98,13 +97,15 @@ NODELETE static bool isEmptyInlineContent(const InlineItemList& inlineItemList)
 InlineFormattingContext::InlineFormattingContext(const ElementBox& rootBlockContainer, LayoutState& globalLayoutState, BlockLayoutState& parentBlockLayoutState)
     : m_rootBlockContainer(rootBlockContainer)
     , m_globalLayoutState(globalLayoutState)
-    , m_floatingContext(rootBlockContainer, globalLayoutState, parentBlockLayoutState.placedFloats())
+    , m_floatingContext(rootBlockContainer, parentBlockLayoutState.placedFloats(), { }, { })
     , m_inlineFormattingUtils(*this)
     , m_inlineQuirks(*this)
     , m_integrationUtils(globalLayoutState)
     , m_inlineContentCache(globalLayoutState.inlineContentCache(rootBlockContainer))
     , m_inlineLayoutState(parentBlockLayoutState)
 {
+    // The placed floats are the root's own, so the root's top-left is their origin, and the inline directions match.
+    ASSERT(&parentBlockLayoutState.placedFloats().blockFormattingContextRoot() == &rootBlockContainer);
     initializeInlineLayoutState(globalLayoutState);
 }
 
@@ -118,8 +119,8 @@ std::unique_ptr<InlineLayoutResult> InlineFormattingContext::layout(const Constr
         return { };
     }
 
-    auto hasExcludedMarker = !layoutState().excludedMarkerLayoutBounds().isEmpty();
-    if (!root().hasInFlowChild() && !root().hasOutOfFlowChild() && !hasExcludedMarker) {
+    auto hasOutsideMarker = !layoutState().outsideMarkerLayoutBounds().isEmpty();
+    if (!root().hasInFlowChild() && !root().hasOutOfFlowChild() && !hasOutsideMarker) {
         // Float only content does not support partial layout.
         ASSERT(!InlineInvalidation::mayOnlyNeedPartialLayout(lineDamage));
         layoutFloatContentOnly(constraints);
@@ -128,7 +129,7 @@ std::unique_ptr<InlineLayoutResult> InlineFormattingContext::layout(const Constr
 
     auto& inlineItems = inlineContentCache().inlineItems();
     auto& inlineItemList = inlineItems.content();
-    if (inlineItemList.isEmpty() && hasExcludedMarker) {
+    if (inlineItemList.isEmpty() && hasOutsideMarker) {
         auto layoutResult = makeUniqueRef<InlineLayoutResult>();
         createDisplayContentForEmptyInlineContent(constraints, inlineItemList, layoutResult.get());
         layoutResult->range = InlineLayoutResult::Range::Full;
@@ -402,9 +403,10 @@ void InlineFormattingContext::layoutFloatContentOnly(const ConstraintsForInlineC
             staticPosition.move(floatBoxGeometry.marginStart(), floatBoxGeometry.marginBefore());
             floatBoxGeometry.setTopLeft(staticPosition);
 
-            auto floatBoxTopLeft = floatingContext.positionForFloat(floatBox, floatBoxGeometry, constraints.horizontal());
+            auto containingBlock = FloatingContext::ContainingBlock { { }, constraints.horizontal() };
+            auto floatBoxTopLeft = floatingContext.positionForFloat(floatBox, floatBoxGeometry, containingBlock);
             floatBoxGeometry.setTopLeft(floatBoxTopLeft);
-            placedFloats.add(floatingContext.makeFloatItem(floatBox, floatBoxGeometry));
+            placedFloats.add(floatingContext.makeFloatItem(floatBox, floatBoxGeometry, containingBlock));
             continue;
         }
         ASSERT_NOT_REACHED();
@@ -677,5 +679,3 @@ void InlineFormattingContext::rebuildInlineItemListIfNeeded(InlineDamage* lineDa
 }
 
 }
-}
-

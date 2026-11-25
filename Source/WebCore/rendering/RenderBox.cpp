@@ -85,7 +85,6 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderLayoutState.h"
 #include "RenderListItem.h"
-#include "RenderListOutsideMarker.h"
 #include "RenderMathMLBlock.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderObjectInlines.h"
@@ -736,7 +735,7 @@ void RenderBox::layout()
 int RenderBox::scrollWidth() const
 {
     if (hasPotentiallyScrollableOverflow() && layer())
-        return layer()->scrollWidth();
+        return protect(layer())->scrollWidth();
     // For objects with visible overflow, this matches IE.
     if (writingMode().isLogicalLeftInlineStart()) {
         // FIXME: This should use snappedIntSize() instead with absolute coordinates.
@@ -748,7 +747,7 @@ int RenderBox::scrollWidth() const
 int RenderBox::scrollHeight() const
 {
     if (hasPotentiallyScrollableOverflow() && layer())
-        return layer()->scrollHeight();
+        return protect(layer())->scrollHeight();
     // For objects with visible overflow, this matches IE.
     // FIXME: Need to work right with writing modes.
     // FIXME: This should use snappedIntSize() instead with absolute coordinates.
@@ -1369,14 +1368,14 @@ bool RenderBox::usesCompositedScrolling() const
 void RenderBox::autoscroll(const IntPoint& position)
 {
     if (layer())
-        layer()->autoscroll(position);
+        protect(layer())->autoscroll(position);
 }
 
 // There are two kinds of renderer that can autoscroll.
 bool RenderBox::canAutoscroll() const
 {
     if (isRenderView())
-        return view().frameView().isScrollable();
+        return protect(view().frameView())->isScrollable();
 
     // Check for a box that can be scrolled in its own right.
     if (canBeScrolledAndHasScrollableArea())
@@ -1390,8 +1389,9 @@ bool RenderBox::canAutoscroll() const
 IntSize RenderBox::calculateAutoscrollDirection(const IntPoint& windowPoint) const
 {
     IntRect box(absoluteBoundingBoxRect());
-    box.moveBy(view().frameView().scrollPosition());
-    IntRect windowBox = view().frameView().contentsToWindow(box);
+    Ref frameView = view().frameView();
+    box.moveBy(frameView->scrollPosition());
+    IntRect windowBox = frameView->contentsToWindow(box);
 
     IntPoint windowAutoscrollPoint = windowPoint;
 
@@ -1411,7 +1411,7 @@ IntSize RenderBox::calculateAutoscrollDirection(const IntPoint& windowPoint) con
 RenderBox* RenderBox::findAutoscrollable(RenderObject* renderer)
 {
     while (renderer) {
-        if (auto* box = dynamicDowncast<RenderBox>(*renderer); box && box->canAutoscroll())
+        if (CheckedPtr box = dynamicDowncast<RenderBox>(*renderer); box && box->canAutoscroll())
             break;
         if (is<RenderView>(*renderer) && renderer->document().ownerElement())
             renderer = renderer->document().ownerElement()->renderer();
@@ -1430,7 +1430,7 @@ void RenderBox::panScroll(const IntPoint& source)
 
 bool RenderBox::canUseOverlayScrollbars() const
 {
-    return !style().usesLegacyScrollbarStyle() && ScrollbarTheme::theme().usesOverlayScrollbars();
+    return !style().usesLegacyScrollbarStyle() && protect(page())->scrollbarStyle() == ScrollbarStyle::Overlay;
 }
 
 bool RenderBox::hasAutoScrollbar(ScrollbarOrientation orientation) const
@@ -1497,7 +1497,7 @@ ScrollPosition RenderBox::constrainedScrollPosition() const
         return { 0, 0 };
 
     ASSERT(hasLayer());
-    auto* scrollableArea = layer()->scrollableArea();
+    CheckedPtr scrollableArea = layer()->scrollableArea();
     if (!scrollableArea)
         return { 0, 0 };
 
@@ -2451,11 +2451,6 @@ LayoutUnit RenderBox::containingBlockLogicalHeightForContent(AvailableLogicalHei
     return 0_lu;
 }
 
-LayoutUnit RenderBox::containingBlockAvailableLineWidth() const
-{
-    return containingBlock()->availableLogicalWidthForLine(logicalTop(), availableLogicalHeight(AvailableLogicalHeightType::IncludeMarginBorderPadding));
-}
-
 LayoutUnit RenderBox::perpendicularContainingBlockLogicalHeight() const
 {
     if (isGridItem()) {
@@ -2529,12 +2524,12 @@ LayoutSize RenderBox::offsetFromContainer(const RenderElement& container, const 
 
     if (isOutOfFlowPositioned() && container.isInlineBox()) {
         // An out-of-flow box is only mapped to an inline box when the inline box is its containing block. The box is positioned relative
-        // to the border box of the inline box's first fragment, which is in the coordinate space of the inline box's own containing block.
+        // to the border box of the inline box's first fragment, which is in the coordinate space of the inline box's block container.
         auto& inlineBox = downcast<RenderBoxModelObject>(container);
         auto borderBoxRect = LayoutRect { location() + toLayoutSize(inlineBox.blockStartRelativeFirstFragmentBorderBoxRect().location()), borderBoxSize() };
         if (inlineBox.writingMode().isBlockFlipped()) {
-            if (CheckedPtr containingBlock = inlineBox.containingBlock())
-                containingBlock->blockStartRelativeToPhysical(borderBoxRect);
+            if (CheckedPtr blockContainer = LayoutIntegration::LineLayout::blockContainer(inlineBox))
+                blockContainer->blockStartRelativeToPhysical(borderBoxRect);
         }
         return offset + toLayoutSize(borderBoxRect.location());
     }
@@ -2581,15 +2576,9 @@ void RenderBox::repaintDuringLayoutIfMoved(const LayoutRect& oldRect)
         // since the object may not have gotten a layout.
         m_borderBoxRectInContainer = oldRect;
         repaint();
-        repaintOverhangingFloats(true);
         m_borderBoxRectInContainer = newRect;
         repaint();
-        repaintOverhangingFloats(true);
     }
-}
-
-void RenderBox::repaintOverhangingFloats(bool)
-{
 }
 
 void RenderBox::updateLogicalWidth()
@@ -2679,7 +2668,7 @@ void RenderBox::computeLogicalWidth(LogicalExtentComputedValues& computedValues)
         return;
     }
 
-    auto& containingBlock = *this->containingBlock();
+    const RenderBoxModelObject& containingBlock = *this->containingBlock();
     bool hasPerpendicularContainingBlock = containingBlock.isHorizontalWritingMode() != isHorizontalWritingMode();
 
     // Width calculations
@@ -2717,8 +2706,8 @@ void RenderBox::computeLogicalWidth(LogicalExtentComputedValues& computedValues)
         }
     } else {
         auto containerLogicalWidthForAutoMargins = containerLogicalWidth;
-        if (avoidsFloats() && containingBlock.containsFloats())
-            containerLogicalWidthForAutoMargins = containingBlockAvailableLineWidth();
+        if (CheckedPtr block = dynamicDowncast<RenderBlock>(containingBlock); block && avoidsFloats() && block->containsFloats())
+            containerLogicalWidthForAutoMargins = block->availableLogicalWidthForLine(logicalTop(), availableLogicalHeight(AvailableLogicalHeightType::IncludeMarginBorderPadding));
         bool hasInvertedDirection = containingBlock.writingMode().isInlineOpposing(writingMode());
         computeInlineDirectionMargins(containingBlock, containerLogicalWidth, containerLogicalWidthForAutoMargins, computedValues.extent,
             hasInvertedDirection ? computedValues.margins.end : computedValues.margins.start,
@@ -3012,7 +3001,7 @@ template<typename SizeType> LayoutUnit RenderBox::computeLogicalWidthUsingGeneri
 template<typename SizeType> LayoutUnit RenderBox::computeCalcSizeOnAutoLogicalWidth(const SizeType& logicalWidth, LayoutUnit autoLogicalWidth, LayoutUnit availableLogicalWidth) const
 {
     if (sizesLogicalWidthToFitContent()) {
-        auto intrinsicWidthComputationScope = IntrinsicLogicalWidthComputationScope { view().frameView().layoutContext(), *this };
+        auto intrinsicWidthComputationScope = IntrinsicLogicalWidthComputationScope { protect(view().frameView().layoutContext()), *this };
         auto [minContentLogicalWidth, maxContentLogicalWidth] = computeIntrinsicLogicalWidths();
         auto borderAndPadding = borderAndPaddingLogicalWidth();
         autoLogicalWidth = std::max(minContentLogicalWidth + borderAndPadding, std::min(maxContentLogicalWidth + borderAndPadding, autoLogicalWidth));
@@ -4186,7 +4175,7 @@ LayoutUnit RenderBox::availableLogicalHeightUsing(const Style::PreferredSize& lo
     return availableHeight;
 }
 
-void RenderBox::computeBlockDirectionMargins(const RenderBlock& containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const
+void RenderBox::computeBlockDirectionMargins(const RenderBoxModelObject& containingBlock, LayoutUnit& marginBefore, LayoutUnit& marginAfter) const
 {
     // First assert that we're not calling this method on box types that don't support margins.
     ASSERT(!isRenderTableCell());
@@ -4250,13 +4239,16 @@ LayoutRange RenderBox::containingBlockRangeForPositioned(const RenderBoxModelObj
     }
 
     // Inline containing blocks are formed by positioned (e.g. relative, sticky) inline boxes and by inline boxes with (backdrop-)filter.
-    if (container.isInlineBox()) {
+    // A replaced element with children (e.g. a positioned canvas with drawable content) is a containing block as well.
+    if (container.isInlineBox() || is<RenderReplaced>(container)) {
         return isContainerInlineAxis
             ? LayoutRange(startEdge, container.paddingBoxLogicalWidth())
             : LayoutRange(startEdge, container.paddingBoxLogicalHeight());
     }
 
-    auto* containingBlock = dynamicDowncast<RenderBlock>(container) ? : container.containingBlock();
+    // The block that keeps this out-of-flow box: the container itself, or the nearest non-anonymous block for a container that
+    // is not a block (e.g. a positioned table section).
+    auto* containingBlock = container.nearestNonAnonymousContainingBlockIncludingSelf();
     if (!containingBlock) {
         ASSERT_NOT_REACHED();
         return { };
@@ -4619,24 +4611,24 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
     LayoutUnit minDist = LayoutUnit::max();
     RenderBox* closestRenderer = nullptr;
 
-    for (auto& renderer : childrenOfType<RenderBox>(*this)) {
+    for (CheckedRef renderer : childrenOfType<RenderBox>(*this)) {
         if (CheckedPtr fragmentedFlow = dynamicDowncast<RenderFragmentedFlow>(*this)) {
             ASSERT(fragment || fragmentedFlow->isSkippedContent());
-            if (!fragmentedFlow->objectShouldFragmentInFlowFragment(&renderer, fragment))
+            if (!fragmentedFlow->objectShouldFragmentInFlowFragment(renderer.ptr(), fragment))
                 continue;
         }
 
-        if ((!renderer.firstChild() && !renderer.isInline() && !is<RenderBlockFlow>(renderer))
-            || (source == HitTestSource::Script ? renderer.style().visibility() != Visibility::Visible : renderer.usedStyle().visibility() != UsedVisibility::Visible))
+        if ((!renderer->firstChild() && !renderer->isInline() && !is<RenderBlockFlow>(renderer))
+            || (source == HitTestSource::Script ? renderer->style().visibility() != Visibility::Visible : renderer->usedStyle().visibility() != UsedVisibility::Visible))
             continue;
 
-        LayoutUnit top = renderer.borderTop() + renderer.paddingTop() + renderer.y();
-        LayoutUnit bottom = top + renderer.contentBoxHeight();
-        LayoutUnit left = renderer.borderLeft() + renderer.paddingLeft() + renderer.x();
-        LayoutUnit right = left + renderer.contentBoxWidth();
+        LayoutUnit top = renderer->borderTop() + renderer->paddingTop() + renderer->y();
+        LayoutUnit bottom = top + renderer->contentBoxHeight();
+        LayoutUnit left = renderer->borderLeft() + renderer->paddingLeft() + renderer->x();
+        LayoutUnit right = left + renderer->contentBoxWidth();
         
         if (point.x() <= right && point.x() >= left && point.y() >= top && point.y() <= bottom) {
-            return renderer.positionForPoint(point - renderer.locationOffset(), source, fragment);
+            return renderer->positionForPoint(point - renderer->locationOffset(), source, fragment);
         }
 
         // Find the distance from (x, y) to the box.  Split the space around the box into 8 pieces
@@ -4667,7 +4659,7 @@ PositionWithAffinity RenderBox::positionForPoint(const LayoutPoint& point, HitTe
 
         LayoutUnit dist = difference.width() * difference.width() + difference.height() * difference.height();
         if (dist < minDist) {
-            closestRenderer = &renderer;
+            closestRenderer = renderer.ptr();
             minDist = dist;
         }
     }
@@ -4793,7 +4785,7 @@ LayoutRect RenderBox::applyVisualEffectOverflow(const LayoutRect& borderBox, Enu
 void RenderBox::addOverflowFromInFlowChildren(OptionSet<ComputeOverflowOptions> options)
 {
     for (auto& child : childrenOfType<RenderBox>(*this)) {
-        if (child.isExcludedMarker() || child.isForceHiddenByLineClamp())
+        if (child.isOutsideListMarker() || child.isForceHiddenByLineClamp())
             continue;
         if (!child.isFloatingOrOutOfFlowPositioned())
             addOverflowFromContainedBox(child, options);
@@ -5031,14 +5023,7 @@ bool RenderBox::isUnsplittableForPagination() const
 
 LayoutUnit RenderBox::lineHeight() const
 {
-    auto shouldUseLineHeightFromStyle = [&] {
-        if (is<RenderBlock>(*this))
-            return true;
-        if (CheckedPtr listMarkerRenderer = dynamicDowncast<RenderListOutsideMarker>(*this))
-            return !listMarkerRenderer->isImage();
-        return false;
-    };
-    if (shouldUseLineHeightFromStyle())
+    if (is<RenderBlock>(*this))
         return LayoutUnit::fromFloatCeil(firstLineStyle().usedLineHeight());
 
     if (isBlockLevelReplacedOrAtomicInline())
@@ -5539,15 +5524,13 @@ LayoutUnit RenderBox::offsetFromLogicalTopOfFirstPage() const
     if ((layoutState && !layoutState->isPaginated()) || (!layoutState && !enclosingFragmentedFlow()))
         return 0;
 
-    CheckedPtr containingBlock = this->containingBlock();
-    auto logicalTopInContainingBlock = logicalTop();
     if (CheckedPtr inlineBox = dynamicDowncast<RenderBoxModelObject>(container()); inlineBox && inlineBox->isInlineBox() && isOutOfFlowPositioned()) {
-        // The box is positioned relative to the inline box, which is positioned in its own containing block.
+        // The box is positioned relative to the inline box, which is positioned in its block container.
         auto inlineBoxOffset = toLayoutSize(inlineBox->blockStartRelativeFirstFragmentBorderBoxRect().location());
-        logicalTopInContainingBlock += inlineBox->isHorizontalWritingMode() ? inlineBoxOffset.height() : inlineBoxOffset.width();
-        containingBlock = inlineBox->containingBlock();
+        auto logicalTopInBlockContainer = logicalTop() + (inlineBox->isHorizontalWritingMode() ? inlineBoxOffset.height() : inlineBoxOffset.width());
+        return protect(LayoutIntegration::LineLayout::blockContainer(*inlineBox))->offsetFromLogicalTopOfFirstPage() + logicalTopInBlockContainer;
     }
-    return containingBlock->offsetFromLogicalTopOfFirstPage() + logicalTopInContainingBlock;
+    return protect(containingBlock())->offsetFromLogicalTopOfFirstPage() + logicalTop();
 }
 
 LayoutBoxExtent RenderBox::scrollPaddingForViewportRect(const LayoutRect& viewportRect)
@@ -5637,50 +5620,6 @@ bool RenderBox::requiresLayer() const
         || !style().usedZIndex().isAuto();
 }
 
-void RenderBox::updateFloatPainterAfterSelfPaintingLayerChange()
-{
-    ASSERT(isFloating());
-    ASSERT(!hasLayer() || !layer()->isSelfPaintingLayer());
-
-    // Find the ancestor renderer that is supposed to paint this float now that it is not self painting anymore.
-    auto floatingObjectForFloatPainting = [&]() -> FloatingObject* {
-        auto& layoutContext = view().frameView().layoutContext();
-        if (!layoutContext.isInLayout() || layoutContext.subtreeLayoutRoot() != this)
-            return nullptr;
-
-        FloatingObject* floatPainter = nullptr;
-        for (auto* ancestor = containingBlock(); ancestor; ancestor = ancestor->containingBlock()) {
-            auto* blockFlow = dynamicDowncast<RenderBlockFlow>(*ancestor);
-            if (!blockFlow) {
-                ASSERT_NOT_REACHED();
-                break;
-            }
-            auto* floatingObjects = blockFlow->floatingObjectSet();
-            if (!floatingObjects)
-                break;
-            auto blockFlowContainsThisFloat = false;
-            for (auto& floatingObject : *floatingObjects) {
-                if (!floatingObject->renderer())
-                    continue;
-                blockFlowContainsThisFloat = floatingObject->renderer() == this;
-                if (blockFlowContainsThisFloat) {
-                    floatPainter = floatingObject.get();
-                    if (blockFlow->hasLayer() && blockFlow->layer()->isSelfPaintingLayer())
-                        return floatPainter;
-                    break;
-                }
-            }
-            if (!blockFlowContainsThisFloat)
-                break;
-        }
-        // There has to be an ancestor with a floating object assigned to this renderer.
-        ASSERT(floatPainter);
-        return floatPainter;
-    };
-    if (auto* floatingObject = floatingObjectForFloatPainting())
-        floatingObject->setPaintsFloat(true);
-}
-
 using ShapeOutsideInfoMap = SingleThreadWeakHashMap<const RenderBox, std::unique_ptr<ShapeOutsideInfo>>;
 NODELETE static ShapeOutsideInfoMap& shapeOutsideInfoMap()
 {
@@ -5758,7 +5697,7 @@ bool RenderBox::overflowChangesMayAffectLayout() const
     if (!ScrollbarTheme::theme().isMockTheme())
         return false;
 #endif
-    return !ScrollbarTheme::theme().usesOverlayScrollbars();
+    return protect(page())->scrollbarStyle() != ScrollbarStyle::Overlay;
 
 }
 

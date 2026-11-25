@@ -92,6 +92,8 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
 // Each has "id" and "label". Empty without a preview.
 @property (nonatomic, readonly, copy) NSArray<NSDictionary<NSString *, NSString *> *> *cameras;
 @property (nonatomic, readonly, copy) NSArray<NSDictionary<NSString *, NSString *> *> *microphones;
+@property (nonatomic, readonly) BOOL cameraMenuEnabled;
+@property (nonatomic, readonly) BOOL microphoneMenuEnabled;
 @property (nonatomic, readonly, copy, nullable) NSString *selectedCameraID;
 @property (nonatomic, readonly, copy, nullable) NSString *selectedMicrophoneID;
 
@@ -118,6 +120,9 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
 - (NSString *)_caLayerTreeAsTextWithOptions:(_WKCALayerTreeAsTextOptions)options;
 - (NSString *)_caLayerTreeAsTextForLayer:(CALayer *)layer options:(_WKCALayerTreeAsTextOptions)options;
 
+- (void)_enableMirrorLayerTreeForTesting:(void (^)(CALayer * _Nullable mirrorLayer))completionHandler;
+- (void)_disableMirrorLayerTreeForTesting;
+
 - (NSDictionary<NSString *, id> *)_propertiesOfLayerWithID:(unsigned long long)layerID;
 
 // The transient zoom override on the scrolled-contents layer, empty when there is none. macOS only.
@@ -136,6 +141,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
 - (void)_setContinuousSpellCheckingEnabledForTesting:(BOOL)enabled;
 - (void)_setGrammarCheckingEnabledForTesting:(BOOL)enabled;
 - (void)_setUseDarkAppearanceForTesting:(BOOL)useDarkAppearance;
+- (void)_setAppHighlightsVisibleForTesting:(BOOL)visible;
 - (NSDictionary *)_contentsOfUserInterfaceItem:(NSString *)userInterfaceItem;
 
 - (void)_requestActiveNowPlayingSessionInfo:(void(^)(BOOL, BOOL, NSString*, double, double, NSInteger, NSUInteger))callback;
@@ -304,6 +310,7 @@ WK_CLASS_AVAILABLE(macos(WK_MAC_TBA), ios(WK_IOS_TBA))
 - (NSString *)_animationStackForLayerWithID:(unsigned long long)layerID processID:(uint64_t)processID;
 - (NSString *)_progressBasedTimelinesForScrollingNodeID:(uint64_t)scrollingNodeID processID:(uint64_t)processID;
 - (NSString *)_monotonicTimelinesForProcessID:(uint64_t)processID;
+- (bool)_schedulesUpdatesForMonotonicAnimations;
 #endif
 - (bool)_displayLinkWantsHighFrameRate;
 

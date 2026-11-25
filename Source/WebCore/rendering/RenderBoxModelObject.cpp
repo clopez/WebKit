@@ -188,7 +188,7 @@ void RenderBoxModelObject::setSelectionState(HighlightState state)
     // FIXME: We should consider whether it is OK propagating to ancestor inline boxes.
     // This is a workaround for http://webkit.org/b/32123
     // The containing block can be null in case of an orphaned tree.
-    RenderBoxModelObject* containingBlock = this->containingBlock();
+    CheckedPtr<RenderBoxModelObject> containingBlock = this->containingBlock();
     if (containingBlock && !containingBlock->isRenderView())
         containingBlock->setSelectionState(state);
 }
@@ -250,6 +250,7 @@ bool RenderBoxModelObject::hasVisibleBoxDecorationStyle() const
 {
     return hasBackground()
         || style().border().hasVisibleBorderDecoration()
+        || style().hasBorderShape()
         || style().hasUsedAppearance()
         || !style().boxShadow().isNone();
 }
@@ -417,11 +418,11 @@ DecodingMode RenderBoxModelObject::decodingModeForImageDraw(const Image& image, 
 }
 
 #if ASSERT_ENABLED
-static void verifyDefiniteHeightConsistencyBetweenStyleAndContainingBlockChain(const RenderBlock& containingBlock, bool hasDefiniteHeightByStyleOnly)
+static void verifyDefiniteHeightConsistencyBetweenStyleAndContainingBlockChain(const RenderBox& containingBlock, bool hasDefiniteHeightByStyleOnly)
 {
     // The fast path is more correct than the slow path for these cases.
     auto& logicalHeight = containingBlock.style().logicalHeight();
-    if (containingBlock.shouldComputeLogicalHeightFromAspectRatio() || containingBlock.stretchesToViewport() || logicalHeight.isStretch() || logicalHeight.isPercentOrCalculated() || logicalHeight.isIntrinsic())
+    if (is<RenderView>(containingBlock) || containingBlock.shouldComputeLogicalHeightFromAspectRatio() || containingBlock.stretchesToViewport() || logicalHeight.isStretch() || logicalHeight.isPercentOrCalculated() || logicalHeight.isIntrinsic())
         return;
 
     for (auto* ancestor = containingBlock.parent(); ancestor; ancestor = ancestor->parent()) {
@@ -538,8 +539,8 @@ LayoutPoint RenderBoxModelObject::adjustedPositionRelativeToOffsetParent(const L
     // If the offsetParent of the element is null, or is the HTML body element,
     // return the distance between the canvas origin and the left border edge 
     // of the element and stop this algorithm.
-    if (const RenderBoxModelObject* offsetParent = this->offsetParent()) {
-        if (auto* renderBox = dynamicDowncast<RenderBox>(*offsetParent); renderBox && !offsetParent->isBody() && !is<RenderTable>(*offsetParent))
+    if (CheckedPtr<const RenderBoxModelObject> offsetParent = this->offsetParent()) {
+        if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*offsetParent); renderBox && !offsetParent->isBody() && !is<RenderTable>(*offsetParent))
             referencePoint.move(-renderBox->borderLeft(), -renderBox->borderTop());
         else if (offsetParent->isInlineBox() && !isOutOfFlowPositioned()) {
             // In-flow content is positioned relative to the inline formatting context root, while out-of-flow boxes are already positioned
@@ -554,23 +555,23 @@ LayoutPoint RenderBoxModelObject::adjustedPositionRelativeToOffsetParent(const L
             else if (isStickilyPositioned())
                 referencePoint.move(stickyPositionOffset());
             
-            auto* ancestor = parent();
-            while (ancestor != offsetParent) {
+            CheckedPtr ancestor = parent();
+            while (ancestor != offsetParent.get()) {
                 // FIXME: What are we supposed to do inside SVG content?
                 
-                if (auto* renderMultiColumnFlow = dynamicDowncast<RenderMultiColumnFlow>(*ancestor)) {
+                if (CheckedPtr renderMultiColumnFlow = dynamicDowncast<RenderMultiColumnFlow>(*ancestor)) {
                     // Translate from the flow into the column the point falls in.
-                    if (auto* fragment = renderMultiColumnFlow->physicalTranslationFromFlowToFragment(referencePoint))
+                    if (CheckedPtr fragment = renderMultiColumnFlow->physicalTranslationFromFlowToFragment(referencePoint))
                         referencePoint.moveBy(fragment->topLeftLocation());
                 } else if (!isOutOfFlowPositioned()) {
-                    if (auto* renderBox = dynamicDowncast<RenderBox>(*ancestor))
+                    if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*ancestor))
                         referencePoint.moveBy(renderBox->topLeftLocation());
                 }
                 
                 ancestor = ancestor->parent();
             }
             
-            if (auto* renderBox = dynamicDowncast<RenderBox>(*offsetParent); renderBox && offsetParent->isBody() && !offsetParent->isPositioned())
+            if (CheckedPtr renderBox = dynamicDowncast<RenderBox>(*offsetParent); renderBox && offsetParent->isBody() && !offsetParent->isPositioned())
                 referencePoint.moveBy(renderBox->topLeftLocation());
         }
     }
@@ -788,7 +789,7 @@ void RenderBoxModelObject::paintMaskForTextFillBox(GraphicsContext& context, con
         for (auto& box : inlineBox->leafDescendants()) {
             if (!box.isText())
                 continue;
-            Paint::TextBoxPainter { box.inlineContent(), box.displayBox(), box.displayBox().style(), maskInfo, paintOffset }.paint();
+            Paint::TextBoxPainter { box.inlineContent(), box.displayBox(), protect(box.displayBox().style()), maskInfo, paintOffset }.paint();
         }
         return;
     }

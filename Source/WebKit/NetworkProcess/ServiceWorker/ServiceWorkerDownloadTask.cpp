@@ -76,7 +76,7 @@ void ServiceWorkerDownloadTask::startListeningForIPC()
 
 void ServiceWorkerDownloadTask::close()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainRunLoop());
+    RELEASE_ASSERT(isMainRunLoop());
 
     if (RefPtr serviceWorkerConnection = m_serviceWorkerConnection.get()) {
         protect(serviceWorkerConnection->ipcConnection())->removeMessageReceiver(Messages::ServiceWorkerDownloadTask::messageReceiverName(), fetchIdentifier().toUInt64());
@@ -185,7 +185,7 @@ void ServiceWorkerDownloadTask::start()
 
 void ServiceWorkerDownloadTask::didReceiveData(const IPC::SharedBufferReference& data)
 {
-    ASSERT(!isMainRunLoop());
+    assertIsCurrent(serviceWorkerDownloadTaskQueueSingleton());
 
     if (!m_downloadFile)
         return;
@@ -206,7 +206,7 @@ void ServiceWorkerDownloadTask::didReceiveData(const IPC::SharedBufferReference&
 
 void ServiceWorkerDownloadTask::didReceiveFormData(const IPC::FormDataReference& formData)
 {
-    ASSERT(!isMainRunLoop());
+    assertIsCurrent(serviceWorkerDownloadTaskQueueSingleton());
 
     // FIXME: Support writing formData in downloads.
     RELEASE_LOG_ERROR(ServiceWorker, "ServiceWorkerDownloadTask::didReceiveFormData not implemented");
@@ -215,7 +215,7 @@ void ServiceWorkerDownloadTask::didReceiveFormData(const IPC::FormDataReference&
 
 void ServiceWorkerDownloadTask::didFinish()
 {
-    ASSERT(!isMainRunLoop());
+    assertIsCurrent(serviceWorkerDownloadTaskQueueSingleton());
 
     m_downloadFile = { };
 
@@ -243,14 +243,14 @@ void ServiceWorkerDownloadTask::didFinish()
 
 void ServiceWorkerDownloadTask::didFail(ResourceError&& error)
 {
-    ASSERT(!isMainRunLoop());
+    assertIsCurrent(serviceWorkerDownloadTaskQueueSingleton());
 
     didFailDownload(WTF::move(error));
 }
 
 void ServiceWorkerDownloadTask::didFailDownload(std::optional<ResourceError>&& error)
 {
-    ASSERT(!isMainRunLoop());
+    assertIsCurrent(serviceWorkerDownloadTaskQueueSingleton());
 
     m_downloadFile = { };
 

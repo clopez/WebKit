@@ -42,8 +42,7 @@
 #include <wtf/TZoneMalloc.h>
 #include <wtf/unicode/CharacterNames.h>
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 struct SameSizeAsBorderValue {
     Color m_color;
@@ -575,10 +574,7 @@ BlendMode ComputedStyle::usedBlendMode() const
 
 Color ComputedStyle::usedBackgroundColor() const
 {
-    if (auto overrideColor = m_nonInheritedData->rareData->overrideBackgroundColor) [[unlikely]]
-        return *overrideColor;
-
-    return backgroundColor();
+    return m_nonInheritedData->backgroundData->usedBackgroundColor();
 }
 
 WebCore::Color ComputedStyle::usedBackgroundColorResolvingCurrentColor(StyleColorOptionsPurpose purpose) const
@@ -716,5 +712,4 @@ const BorderValue& ComputedStyle::borderEnd(const WritingMode writingMode) const
     return writingMode.isInlineTopToBottom() ? borderBottom() : borderTop();
 }
 
-} // namespace Style
-} // namespace WebCore
+} // namespace WebCore::Style

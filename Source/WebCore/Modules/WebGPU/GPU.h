@@ -39,8 +39,7 @@ class GPUAdapter;
 class GPUCompositorIntegration;
 class GPUPresentationContext;
 struct GPUPresentationContextDescriptor;
-class GraphicsContext;
-class NativeImage;
+class ScriptExecutionContext;
 class WGSLLanguageFeatures;
 
 enum class GPUTextureFormat : uint8_t;
@@ -60,7 +59,7 @@ public:
     WEBCORE_EXPORT ~GPU();
 
     using RequestAdapterPromise = DOMPromiseDeferred<IDLNullable<IDLInterface<GPUAdapter>>>;
-    void requestAdapter(const std::optional<GPURequestAdapterOptions>&, RequestAdapterPromise&&);
+    void requestAdapter(ScriptExecutionContext&, const std::optional<GPURequestAdapterOptions>&, RequestAdapterPromise&&);
 
     NODELETE GPUTextureFormat getPreferredCanvasFormat() const;
     WGSLLanguageFeatures& wgslLanguageFeatures() const { return m_wgslLanguageFeatures; }
@@ -69,7 +68,6 @@ public:
 
     static RefPtr<GPUCompositorIntegration> createCompositorIntegration(WebGPUIntegration&);
 
-    void paintToCanvas(NativeImage&, const IntSize&, GraphicsContext&);
     // The backing to make new objects from: the current one, or a new one in its place if it is lost.
     // Everything that makes objects from the GPU, such as adapters, canvas contexts and models, has to
     // go through here, so that none of them is made from a backing that cannot create anything.
@@ -78,7 +76,7 @@ public:
 private:
     GPU(Ref<WebGPUIntegration>&&, CreateBacking&&);
 
-    void requestAdapter(::WebGPU::RequestAdapterOptions&&, RequestAdapterPromise&&, bool retryIfBackingIsLost);
+    void requestAdapter(ScriptExecutionContext&, ::WebGPU::RequestAdapterOptions&&, RequestAdapterPromise&&, bool retryIfBackingIsLost);
 
     struct PendingRequestAdapterArguments;
     Ref<WebGPUIntegration> m_backing;

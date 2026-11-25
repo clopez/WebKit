@@ -139,7 +139,7 @@ static constexpr Seconds networkProcessResponsivenessTimeout = 6_s;
 
 NODELETE static WeakHashSet<NetworkProcessProxy>& networkProcessesSet()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
     static NeverDestroyed<WeakHashSet<NetworkProcessProxy>> set;
     return set;
 }
@@ -253,7 +253,9 @@ void NetworkProcessProxy::sendCreationParametersToNewProcess()
     parameters.defaultRequestTimeoutInterval = API::URLRequest::defaultTimeoutInterval();
 
     WebProcessPool::platformInitializeNetworkProcess(parameters);
-    sendWithAsyncReply(Messages::NetworkProcess::InitializeNetworkProcess(WTF::move(parameters)), [weakThis = WeakPtr { *this }, initializationActivityAndGrant = initializationActivityAndGrant()] {
+    sendWithAsyncReply(Messages::NetworkProcess::InitializeNetworkProcess(WTF::move(parameters)), [weakThis = WeakPtr { *this }, initializationActivityAndGrant = initializationActivityAndGrant()](IPC::Connection* connection) {
+        if (!connection)
+            return;
         if (RefPtr protectedThis = weakThis.get())
             protectedThis->beginResponsivenessChecks();
     });

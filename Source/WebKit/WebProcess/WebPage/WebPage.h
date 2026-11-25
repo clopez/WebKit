@@ -182,6 +182,13 @@ class FormDataReference;
 class SharedBufferReference;
 }
 
+namespace Inspector {
+enum class NetworkInterceptOwner : uint8_t;
+enum class NetworkInterceptionPhase : uint8_t;
+struct NetworkInterception;
+struct NetworkInterceptionResolution;
+}
+
 namespace WebCore {
 
 class AXIsolatedTree;
@@ -301,6 +308,7 @@ enum ScrollLogicalDirection : uint8_t;
 enum class ScrollPinningBehavior : uint8_t;
 enum class ScrollbarMode : uint8_t;
 enum class ScrollbarOverlayStyle : uint8_t;
+enum class ScrollbarStyle : uint8_t;
 enum class ShouldTreatAsContinuingLoad : uint8_t;
 enum class StorageAccessScope : bool;
 enum class SyntheticClickResult : uint8_t;
@@ -496,6 +504,7 @@ class WebFrame;
 class WebFullScreenManager;
 class WebGestureEvent;
 class WebImage;
+class NetworkInterceptionSink;
 class WebInspectorBackend;
 class WebInspectorBackendClient;
 class WebInspectorUI;
@@ -896,6 +905,10 @@ public:
     void updateTextIndicator(RefPtr<WebCore::TextIndicator>&&);
 
     WebFrame& mainWebFrame() const { return m_mainFrame; }
+
+    // Receives the page's network interception configuration from the UI process
+    // authority. Created on first use, since most pages are never inspected.
+    NetworkInterceptionSink& networkInterceptionSink();
     const URL& mainFrameOpenerURL() const { return m_mainFrameOpenerURL; }
 
     NODELETE WebCore::Frame* mainFrame() const;
@@ -957,7 +970,6 @@ public:
     double pageZoomFactor() const;
     void didSetPageZoomFactor(double);
     void windowScreenDidChange(WebCore::PlatformDisplayID, std::optional<unsigned> nominalFramesPerSecond);
-    String dumpHistoryForTesting(const String& directory);
 
     void accessibilitySettingsDidChange();
 #if PLATFORM(COCOA)
@@ -1001,6 +1013,7 @@ public:
     NODELETE void listenForLayoutMilestones(OptionSet<WebCore::LayoutMilestone>);
 
     void setSuppressScrollbarAnimations(bool);
+    void setScrollbarStyleOverride(std::optional<WebCore::ScrollbarStyle>);
 
     void setHasActiveAnimatedScrolls(bool);
 
@@ -1193,6 +1206,7 @@ public:
     Awaitable<std::optional<WebCore::FrameIdentifier>> commitPotentialTap(std::optional<WebCore::FrameIdentifier>, OptionSet<WebKit::WebEventModifier>, TransactionID lastLayerTreeTransactionId, WebCore::PointerID, CompletesDoubleClick);
     void cancelPotentialTap();
     void cancelPotentialTapInFrame(WebFrame&);
+    void clearPotentialTap();
     void commitPotentialTapFailed(WebCore::LocalFrame* localRootFrame);
     void didHandleTapAsHover(WebCore::Node& nodeRespondingToClick);
 #if HAVE(APPKIT_GESTURES_SUPPORT)
@@ -1657,7 +1671,7 @@ public:
 
     bool canShowWhileLocked() const;
 
-    void shouldDismissKeyboardAfterTapAtPoint(WebCore::FloatPoint, CompletionHandler<void(bool)>&&);
+    void shouldDismissKeyboardAfterTapAtPoint(std::optional<WebCore::FrameIdentifier>, WebCore::FloatPoint, std::optional<float> unobscuredContentWidth, CompletionHandler<void(Variant<bool, WebCore::RemoteUserInputEventData>&&)>&&);
 #endif
 
 #if ENABLE(CONTENT_CHANGE_OBSERVER)
@@ -1803,6 +1817,8 @@ public:
 
     NODELETE bool isControlledByAutomation() const;
     NODELETE void setControlledByAutomation(bool);
+    void setNetworkInterception(Inspector::NetworkInterception&&, CompletionHandler<void()>&&);
+    void resolveNetworkInterception(WebCore::ResourceLoaderIdentifier, Inspector::NetworkInterceptOwner, Inspector::NetworkInterceptionPhase, Inspector::NetworkInterceptionResolution&&);
 
     void connectInspector(Inspector::FrontendChannel::ConnectionType);
     void disconnectInspector();
@@ -2452,6 +2468,7 @@ private:
 
 #if PLATFORM(MAC)
     bool executeKeypressCommandsInternal(const Vector<WebCore::KeypressCommand>&, WebCore::KeyboardEvent*);
+    void updateScrollerPairsForScrollbarStyleOverride();
 #endif
 
     void testProcessIncomingSyncMessagesWhenWaitingForSyncReply(CompletionHandler<void(bool)>&&);
@@ -2475,6 +2492,7 @@ private:
 
     // Actions
     void tryClose(CompletionHandler<void(bool)>&&);
+    void closeFromRemoteFrame();
     void dispatchPendingNavigateEventForProcessSwap(WebCore::FrameIdentifier, WebCore::PendingNavigateEventIdentifier, CompletionHandler<void(bool)>&&);
     void dispatchCrossOriginBeforeUnloadCheckForFrame(WebCore::FrameIdentifier, WebCore::SecurityOriginData&&);
     void platformDidReceiveLoadParameters(const LoadParameters&);
@@ -2588,10 +2606,9 @@ private:
     void getSourceForFrame(WebCore::FrameIdentifier, CompletionHandler<void(const String&)>&&);
 #if PLATFORM(COCOA)
     void getWebArchiveData(CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
-    void getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& frameIdentifiers, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&&)>&&);
+    void getWebArchivesForFrames(const Vector<WebCore::FrameIdentifier>& frameIdentifiers, const Vector<WebCore::MarkupExclusionRule>&, const String& mainResourceFileName, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, Ref<WebCore::LegacyWebArchive>>&&)>&&);
     void getContentsAsAttributedStringForFrames(const Vector<WebCore::FrameIdentifier>& frameIdentifiers, CompletionHandler<void(HashMap<WebCore::FrameIdentifier, WebCore::AttributedString>&&)>&&);
 #endif
-    void getWebArchiveOfFrameWithFileName(WebCore::FrameIdentifier, const Vector<WebCore::MarkupExclusionRule>&, const String& fileName, CompletionHandler<void(const std::optional<IPC::SharedBufferReference>&)>&&);
     void runJavaScript(WebFrame*, RunJavaScriptParameters&&, ContentWorldIdentifier, bool, CompletionHandler<void(RunJavaScriptResult&&)>&&);
     void runJavaScriptInFrameInScriptWorld(RunJavaScriptParameters&&, std::optional<WebCore::FrameIdentifier>, const ContentWorldData&, bool, CompletionHandler<void(RunJavaScriptResult&&)>&&);
     void clearContentWorld(ContentWorldIdentifier, CompletionHandler<void()>&&);
@@ -2748,7 +2765,7 @@ private:
     NODELETE void setCanUseCredentialStorage(bool);
 
 #if ENABLE(CONTEXT_MENUS)
-    void didSelectItemFromActiveContextMenu(const WebContextMenuItemData&);
+    void didSelectItemFromActiveContextMenu(const WebContextMenuItemData&, CompletionHandler<void()>&&);
 #endif
 
     void changeSelectedIndex(int32_t index);
@@ -2989,6 +3006,7 @@ private:
     RefPtr<WebPageTesting> m_webPageTesting;
 
     const Ref<WebFrame> m_mainFrame;
+    std::unique_ptr<NetworkInterceptionSink> m_networkInterceptionSink;
     std::optional<WebCore::FrameIdentifier> m_unresolvedMainFrameOpenerIdentifier;
     URL m_mainFrameOpenerURL;
 

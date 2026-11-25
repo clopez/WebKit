@@ -242,6 +242,30 @@ macro(WEBKIT_COMPUTE_SOURCES _framework)
     endif ()
 endmacro()
 
+# Lists a target's plain sources for WEBKIT_COMPUTE_SOURCES except <target>_NO_UNIFY_SOURCES.
+function(WEBKIT_ADD_UNIFIED_SOURCE_LIST _target)
+    set(_sources ${${_target}_SOURCES})
+    list(REMOVE_DUPLICATES _sources)
+    set(_list "")
+    foreach (_source IN LISTS _sources)
+        if (NOT _source MATCHES "\\.(c|cc|cpp|mm)$" OR _source IN_LIST ${_target}_NO_UNIFY_SOURCES)
+            continue ()
+        endif ()
+        set(_unify ON)
+        foreach (_property COMPILE_DEFINITIONS COMPILE_FLAGS COMPILE_OPTIONS HEADER_FILE_ONLY INCLUDE_DIRECTORIES OBJECT_DEPENDS SKIP_PRECOMPILE_HEADERS)
+            get_source_file_property(_value "${_source}" ${_property})
+            if (NOT _value STREQUAL "NOTFOUND")
+                set(_unify OFF)
+            endif ()
+        endforeach ()
+        if (_unify)
+            string(APPEND _list "${_source} @cost:16\n")
+        endif ()
+    endforeach ()
+    file(CONFIGURE OUTPUT "${${_target}_DERIVED_SOURCES_DIR}/${_target}CMakeSources.txt" CONTENT "${_list}" @ONLY)
+    set(${_target}_UNIFIED_SOURCE_LIST_FILES ${${_target}_UNIFIED_SOURCE_LIST_FILES} ${_target}CMakeSources.txt PARENT_SCOPE)
+endfunction()
+
 macro(WEBKIT_INCLUDE_CONFIG_FILES_IF_EXISTS)
     set(_file ${CMAKE_CURRENT_SOURCE_DIR}/Platform${PORT}.cmake)
     if (EXISTS ${_file})
@@ -1404,6 +1428,10 @@ function(_webkit_platform_args_clang_prefix _outvar _depfile _mt_target _wtf_inc
         -include cmakeconfig.h
         -include wtf/Platform.h
     )
+    # Custom commands don't get CMAKE_SYSROOT either.
+    if (CMAKE_SYSROOT)
+        list(APPEND _cmd "--sysroot=${CMAKE_SYSROOT}")
+    endif ()
     # Custom commands don't inherit add_compile_options, so mirror the SDK stubs
     # and headers OptionsCocoa.cmake feeds C-family compiles, which Platform.h
     # needs too.
@@ -1548,8 +1576,9 @@ endfunction()
 # Generates ${_resp_path}, a swiftc @-response file with the platform-derived
 # flags. Mirrors the Xcode "Generate Swift platform args" build phase.
 # Format (one token per line): -DNAME for truthy HAVE_/USE_/ENABLE_/
-# WTF_PLATFORM_/ASSERT_ macros from wtf/Platform.h, plus -Xcc -DNAME=VALUE
-# for every cmakeconfig.h entry. DEPFILE re-runs it on Platform header changes.
+# WTF_PLATFORM_/ASSERT_/LOG_/RELEASE_LOG_ macros from wtf/Platform.h, plus
+# -Xcc -DNAME=VALUE for every cmakeconfig.h entry. DEPFILE re-runs it on
+# Platform header changes.
 function(_webkit_generate_platform_swift_args _target _resp_path)
     set(_depfile "${_resp_path}.d")
     _webkit_platform_args_empty_input(_empty_input)
@@ -1560,7 +1589,12 @@ function(_webkit_generate_platform_swift_args _target _resp_path)
             ${WEBKIT_SDK_SYSTEM_SEARCH_FLAGS}
             "-iframework" "${CMAKE_OSX_SYSROOT}/System/Library/PrivateFrameworks")
     endif ()
-    if (CMAKE_Swift_COMPILER_TARGET)
+    # Cross toolchains pass --target and --sysroot in CMAKE_CXX_COMPILER_ARG1.
+    if (CMAKE_CXX_COMPILER_ARG1)
+        separate_arguments(_cxx_compiler_arg1 NATIVE_COMMAND "${CMAKE_CXX_COMPILER_ARG1}")
+        list(APPEND _clang_cmd ${_cxx_compiler_arg1})
+    endif ()
+    if (CMAKE_Swift_COMPILER_TARGET AND NOT CMAKE_CXX_COMPILER_ARG1)
         list(APPEND _clang_cmd "-target" "${CMAKE_Swift_COMPILER_TARGET}")
     endif ()
     if (WEBKIT_ADDITIONS_INCLUDE_PATH)
@@ -1615,7 +1649,7 @@ function(_webkit_setup_swift_header_deps _target _stamp _header _resp)
     endif ()
     set(_deps "")
     foreach (_lib IN LISTS _candidates)
-        foreach (_suffix IN ITEMS _CopyHeaders _CopyPrivateHeaders)
+        foreach (_suffix IN ITEMS _CopyHeaders _CopyPrivateHeaders _GLibAPIHeaders)
             if (TARGET "${_lib}${_suffix}")
                 list(APPEND _deps "${_lib}${_suffix}")
             endif ()
@@ -1687,6 +1721,11 @@ function(WEBKIT_QUERY_SWIFT_TARGET_INFO _result _swift_compiler)
     set(_swift_target_info_args "")
     if (CMAKE_Swift_COMPILER_TARGET)
         list(APPEND _swift_target_info_args "-target" "${CMAKE_Swift_COMPILER_TARGET}")
+    endif ()
+    # Pass -sdk, -resource-dir etc. so the reported paths are the ones from the target.
+    if (CMAKE_Swift_FLAGS)
+        separate_arguments(_swift_flags NATIVE_COMMAND "${CMAKE_Swift_FLAGS}")
+        list(APPEND _swift_target_info_args ${_swift_flags})
     endif ()
     execute_process(
         COMMAND "${_swift_compiler}" -print-target-info ${_swift_target_info_args}
@@ -1765,7 +1804,9 @@ macro(WEBKIT_SETUP_SWIFT_AND_GENERATE_SWIFT_CPP_INTEROP_HEADER _target _module_n
         # module.modulemap, and Swift's embedded clang already loads the one from
         # /opt/swift/usr/lib/swift/clang/include. Forwarding both makes every
         # _Builtin_* / opencl_c module get defined twice and aborts -emit-module.
-        if (NOT APPLE AND NOT WIN32)
+        # Skip this when cross-compiling. The target sysroot already provides these
+        # headers, and the list can contain host paths such as /usr/include.
+        if (NOT APPLE AND NOT WIN32 AND NOT CMAKE_CROSSCOMPILING)
             foreach (_dir IN LISTS CMAKE_CXX_IMPLICIT_INCLUDE_DIRECTORIES)
                 if (_dir MATCHES "^/usr/lib/gcc/")
                     continue ()

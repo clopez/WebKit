@@ -13,25 +13,6 @@
             }
         }
     },
-    "TestWebKitAccessibility": {
-        "subtests": {
-            "/webkit/WebKitAccessibility/accessible/basic-hierarchy": {
-                "expected": {"gtk": {"status": ["PASS", "TIMEOUT"], "bug": "webkit.org/b/246471"}}
-            },
-            "/webkit/WebKitAccessibility/text/state-changed": {
-                "expected": {"gtk": {"status": ["PASS", "TIMEOUT"], "bug": "webkit.org/b/256557"}}
-            },
-            "/webkit/WebKitAccessibility/selection/listbox": {
-                "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/273682"}}
-            },
-            "/webkit/WebKitAccessibility/document/load-events": {
-                "expected": {"gtk": {"status": ["FAIL"], "bug": "webkit.org/b/273682"}}
-            },
-            "/webkit/WebKitAccessibility/accessible/state-changed/focus": {
-                "expected": {"gtk": {"status": ["FAIL", "PASS"], "bug": "webkit.org/b/279009"}}
-            }
-        }
-    },
     "TestPrinting": {
         "subtests": {
             "/webkit/WebKitPrintOperation/custom-widget": {
@@ -83,6 +64,13 @@
     },
     "TestInspectorServer": {
         "expected": {"all": {"slow": true}}
+    },
+    "TestAutomationSession": {
+        "subtests": {
+            "/webkit/WebKitAutomationSession/request-session": {
+                "expected": {"all": {"slow": true }}
+            }
+        }
     },
     "TestLoaderClient": {
         "subtests": {

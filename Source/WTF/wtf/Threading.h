@@ -138,7 +138,7 @@ public:
     WTF_EXPORT_PRIVATE static RefPtr<Thread> tryCreate(ASCIILiteral threadName, Function<void()>&&, ThreadType = ThreadType::Unknown, QOS = defaultQOS, SchedulingPolicy = defaultSchedulingPolicy, StackAllocationSpecification = { });
 
     // Returns Thread object.
-    static Thread& currentSingleton();
+    NODELETE static Thread& currentSingleton();
 
     // Set of all WTF::Thread created threads.
     NODELETE WTF_EXPORT_PRIVATE static ThreadSafeWeakHashSet<Thread>& allThreads();
@@ -202,6 +202,7 @@ public:
 #if OS(LINUX)
     WTF_EXPORT_PRIVATE static ThreadIdentifier currentID();
     ThreadIdentifier id() const { return m_id; }
+    WTF_EXPORT_PRIVATE static bool mayLowerNiceLevelToZero();
 #endif
     WTF_EXPORT_PRIVATE bool signal(int signalNumber);
 #endif
@@ -291,6 +292,11 @@ public:
         m_savedLastStackTop = lastStackTop;
     }
 
+#if OS(WINDOWS)
+    void* lowestPreCommittedStackAddress() const { return m_lowestPreCommittedStackAddress; }
+    void setLowestPreCommittedStackAddress(void* address) { m_lowestPreCommittedStackAddress = address; }
+#endif
+
 #if OS(DARWIN)
     mach_port_t machThread() { return m_platformThread; }
 #endif
@@ -305,9 +311,9 @@ public:
 
     // Returns nullptr if thread-specific storage was not initialized.
 #if OS(WINDOWS)
-    WTF_EXPORT_PRIVATE static Thread* currentMayBeNull();
+    NODELETE WTF_EXPORT_PRIVATE static Thread* currentMayBeNull();
 #else
-    static Thread* currentMayBeNull();
+    NODELETE static Thread* currentMayBeNull();
 #endif
 
 private:
@@ -389,7 +395,7 @@ protected:
 
     // Creates and puts an instance of Thread into thread-specific storage.
     static Thread& initializeTLS(Ref<Thread>&&);
-    WTF_EXPORT_PRIVATE static Thread& initializeCurrentTLS();
+    NODELETE WTF_EXPORT_PRIVATE static Thread& initializeCurrentTLS();
 
     JoinableState m_joinableState { Joinable };
     bool m_isShuttingDown : 1 { false };
@@ -437,6 +443,9 @@ protected:
 #endif
     void* m_savedStackPointerAtVMEntry { nullptr };
     void* m_savedLastStackTop;
+#if OS(WINDOWS)
+    void* m_lowestPreCommittedStackAddress { nullptr };
+#endif
 public:
     void* m_apiData { nullptr };
     RefPtr<ClientData> m_clientData { nullptr };
@@ -454,7 +463,7 @@ inline Thread* Thread::currentMayBeNull()
 }
 #endif
 
-inline Thread& Thread::currentSingleton()
+SUPPRESS_NODELETE inline Thread& Thread::currentSingleton()
 {
     // WRT WebCore:
     //    Thread::currentSingleton() is used on main thread before it could possibly be used

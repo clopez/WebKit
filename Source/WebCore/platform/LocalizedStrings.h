@@ -324,6 +324,9 @@ namespace WebCore {
 
     WEBCORE_EXPORT String multipleFileUploadText(unsigned numberOfFiles);
     String unknownFileSizeText();
+#if ENABLE(ATTACHMENT_ELEMENT)
+    String attachmentDownloadingText();
+#endif
 
     String htmlSelectMultipleItems(size_t num);
 
@@ -434,7 +437,7 @@ namespace WebCore {
     WEBCORE_EXPORT String inputWeekLabel(const DateComponents&);
 #endif
 
-#if ENABLE(WEB_AUTHN)
+#if ENABLE(WEB_AUTHN) && PLATFORM(COCOA)
     WEBCORE_EXPORT String makeCredentialTouchIDPromptTitle(const String& bundleName, const String& domain);
     WEBCORE_EXPORT String getAssertionTouchIDPromptTitle(const String& bundleName, const String& domain);
     WEBCORE_EXPORT String genericTouchIDPromptTitle();

@@ -221,7 +221,8 @@ enum class HTMLFastPathResult : uint8_t {
     FailedOnAttribute,
     FailedMaxDepth,
     FailedBigText,
-    FailedCssPseudoDirEnabledAndDirAttributeDirty
+    FailedCssPseudoDirEnabledAndDirAttributeDirty,
+    FailedCustomElementRegistryAttribute
 };
 
 template<typename CharacterType> NODELETE static inline bool isQuoteCharacter(CharacterType character)
@@ -629,12 +630,10 @@ private:
             auto* it = SIMD::find(span, vectorMatch, scalarMatch);
             return span.subspan(it - span.data());
         } else {
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_BEGIN
             auto vectorMatch = [&](auto input) ALWAYS_INLINE_LAMBDA {
                 constexpr simde_uint8x16_t zeros = SIMD::splat8(0);
                 return SIMD::findFirstNonZeroIndex(SIMD::bitAnd(vectorEquals8Bit(input.val[0]), SIMD::equal(input.val[1], zeros)));
             };
-WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
             auto* it = SIMD::findInterleaved(span, vectorMatch, scalarMatch);
             return span.subspan(it - span.data());
         }
@@ -962,6 +961,8 @@ WTF_ALLOW_UNSAFE_BUFFER_USAGE_END
                 }
                 return didFail(HTMLFastPathResult::FailedParsingAttributes);
             }
+            if (attributeName == HTMLNames::customelementregistryAttr) [[unlikely]]
+                return didFail(HTMLFastPathResult::FailedCustomElementRegistryAttribute);
             skipWhile<isASCIIWhitespace>(m_parsingBuffer);
             AtomString attributeValue;
             if (skipExactly(m_parsingBuffer, '=')) {

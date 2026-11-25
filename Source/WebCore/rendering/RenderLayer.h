@@ -1327,6 +1327,12 @@ private:
         const LayoutRect& hitTestRect, const HitTestLocation&,
         const HitTestingTransformState* containerTransformState,
         const LayoutSize& translationOffset = LayoutSize()) const;
+#if ENABLE(SPATIAL_PORTAL)
+    bool isHostedInSpatialPortalScene() const;
+    std::optional<TransformationMatrix> hostedPortalContentProjection(const RenderLayer& space) const;
+    HitLayer hitTestFrontmostHostedChild(RenderLayer* rootLayer, const HitTestRequest&, HitTestResult&,
+        const LayoutRect& hitTestRect, const HitTestLocation&, const HitTestingTransformState*);
+#endif
     
     bool hitTestContents(const HitTestRequest&, HitTestResult&, const LayoutRect& layerBounds, const HitTestLocation&, HitTestFilter) const;
     bool hitTestContentsForFragments(const LayerFragments&, const HitTestRequest&, HitTestResult&, const HitTestLocation&, HitTestFilter, bool& insideClipRect) const;
@@ -1342,6 +1348,7 @@ private:
     NODELETE void dirtyAncestorChainVisibleDescendantStatus();
     
     bool computeHasVisibleContent() const;
+    void updateCompositingForViewportConstrainedLayerWithNoVisibleContent();
 
     bool has3DTransformedDescendant() const { ASSERT(!m_3DTransformedDescendantStatusDirty); return m_has3DTransformedDescendant; }
     bool has3DTransformedAncestor() const { return m_has3DTransformedAncestor; }

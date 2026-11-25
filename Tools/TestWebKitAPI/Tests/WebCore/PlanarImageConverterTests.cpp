@@ -218,9 +218,17 @@ static constexpr std::array conversionCases {
     ConversionCase { tenBitLSB, tenBitMSB, 1023, 0xFFC0 },
     ConversionCase { tenBitLSB, tenBitMSB, 1, 0x0040 },
     ConversionCase { twelveBitLSB, twelveBitMSB, 4095, 0xFFF0 },
+    ConversionCase { tenBitLSB, sixteenBit, 1023, 0xFFFF },
+    ConversionCase { tenBitLSB, sixteenBit, 512, 0x8020 },
+    ConversionCase { tenBitLSB, sixteenBit, 1, 0x0040 },
+    ConversionCase { twelveBitLSB, sixteenBit, 4095, 0xFFFF },
+    ConversionCase { twelveBitLSB, sixteenBit, 2048, 0x8008 },
+    ConversionCase { twelveBitLSB, sixteenBit, 1, 0x0010 },
     ConversionCase { tenBitMSB, tenBitLSB, 0xFFC0, 1023 },
     ConversionCase { twelveBitMSB, twelveBitLSB, 0xFFF0, 4095 },
     ConversionCase { sixteenBit, twelveBitLSB, 0x0010, 1 },
+    ConversionCase { sixteenBit, tenBitLSB, 0xFFFF, 1023 },
+    ConversionCase { sixteenBit, twelveBitLSB, 0xFFFF, 4095 },
 };
 
 TEST(PlanarImageConverter, CopyPlaneConvertsBitDepthAndAlignment)
@@ -480,6 +488,91 @@ TEST(PlanarImageConverter, FullRangeRoundTripIsExact)
         EXPECT_EQ(sampleAt(asSource(u), x, 0), x);
         EXPECT_EQ(sampleAt(asSource(v), x, 0), 255 - x);
     }
+}
+
+// 10-bit LSB samples convert to the same values as their MSB aligned equivalents, and samples above 1023 as 1023.
+TEST(PlanarImageConverter, FullToVideoRangeFromTenBitLSB)
+{
+    // Every 10-bit level, once each.
+    constexpr size_t width = 64;
+    constexpr size_t height = 16;
+    auto level = [](size_t x, size_t y) {
+        return static_cast<uint16_t>(y * width + x);
+    };
+
+    Vector<uint8_t> msbStorage;
+    auto msb = allocatePlane(msbStorage, width, height, tenBitMSB);
+    for (size_t y = 0; y < height; ++y) {
+        for (size_t x = 0; x < width; ++x)
+            setSampleAt(msb, x, y, level(x, y) << 6);
+    }
+
+    for (auto component : { Component::Luma, Component::Chroma }) {
+        Vector<uint8_t> fromMSBStorage;
+        auto fromMSB = allocatePlane(fromMSBStorage, width, height, tenBitMSB);
+        ASSERT_TRUE(copyPlane(asSource(msb), fromMSB, RangeConversion::FullToVideo, component));
+
+        // A padded stride, then rows that aren't 2-byte aligned.
+        for (auto [offset, padding] : { std::pair<size_t, size_t> { 0, 6 }, std::pair<size_t, size_t> { 1, 3 } }) {
+            Vector<uint8_t> lsbStorage;
+            Vector<uint8_t> fromLSBStorage;
+            auto lsb = allocatePlane(lsbStorage, width, height, tenBitLSB, 1, offset, padding);
+            auto fromLSB = allocatePlane(fromLSBStorage, width, height, tenBitMSB, 1, offset, padding);
+            for (size_t y = 0; y < height; ++y) {
+                for (size_t x = 0; x < width; ++x)
+                    setSampleAt(lsb, x, y, level(x, y));
+            }
+            ASSERT_TRUE(copyPlane(asSource(lsb), fromLSB, RangeConversion::FullToVideo, component));
+            for (size_t y = 0; y < height; ++y) {
+                for (size_t x = 0; x < width; ++x)
+                    EXPECT_EQ(sampleAt(asSource(fromLSB), x, y), sampleAt(asSource(fromMSB), x, y)) << "at " << x << "," << y;
+            }
+            EXPECT_EQ(countModifiedBytesOutsideRows(fromLSBStorage.span(), offset, asSource(fromLSB)), 0u);
+        }
+
+        Vector<uint8_t> strayStorage;
+        Vector<uint8_t> clampedStorage;
+        auto stray = allocatePlane(strayStorage, 3, 1, tenBitLSB);
+        auto clamped = allocatePlane(clampedStorage, 3, 1, tenBitMSB);
+        setSampleAt(stray, 0, 0, 1023);
+        setSampleAt(stray, 1, 0, 1024);
+        setSampleAt(stray, 2, 0, 0xFFFF);
+        ASSERT_TRUE(copyPlane(asSource(stray), clamped, RangeConversion::FullToVideo, component));
+        EXPECT_EQ(sampleAt(asSource(clamped), 0, 0), sampleAt(asSource(fromMSB), width - 1, height - 1));
+        EXPECT_EQ(sampleAt(asSource(clamped), 1, 0), sampleAt(asSource(clamped), 0, 0));
+        EXPECT_EQ(sampleAt(asSource(clamped), 2, 0), sampleAt(asSource(clamped), 0, 0));
+    }
+
+    if (!isBackendAvailable(Backend::LibYUV))
+        return;
+
+    Vector<uint8_t> chromaStorage;
+    auto chroma = allocatePlane(chromaStorage, width, height, tenBitMSB);
+    ASSERT_TRUE(copyPlane(asSource(msb), chroma, RangeConversion::FullToVideo, Component::Chroma));
+    auto expectedChroma = [&](uint16_t value) {
+        return sampleAt(asSource(chroma), value % width, value / width);
+    };
+
+    Vector<uint8_t> uStorage;
+    Vector<uint8_t> vStorage;
+    Vector<uint8_t> uvStorage;
+    auto u = allocatePlane(uStorage, width, height, tenBitLSB, 1, 1, 1);
+    auto v = allocatePlane(vStorage, width, height, tenBitLSB);
+    auto uv = allocatePlane(uvStorage, width, height, tenBitMSB, 2, 1, 3);
+    for (size_t y = 0; y < height; ++y) {
+        for (size_t x = 0; x < width; ++x) {
+            setSampleAt(u, x, y, level(x, y));
+            setSampleAt(v, x, y, 1023 - level(x, y));
+        }
+    }
+    ASSERT_TRUE(interleave(asSource(u), asSource(v), uv, RangeConversion::FullToVideo));
+    for (size_t y = 0; y < height; ++y) {
+        for (size_t x = 0; x < width; ++x) {
+            EXPECT_EQ(sampleAt(asSource(uv), x, y, 0), expectedChroma(level(x, y))) << "at " << x << "," << y;
+            EXPECT_EQ(sampleAt(asSource(uv), x, y, 1), expectedChroma(1023 - level(x, y))) << "at " << x << "," << y;
+        }
+    }
+    EXPECT_EQ(countModifiedBytesOutsideRows(uvStorage.span(), 1, asSource(uv)), 0u);
 }
 
 #endif // USE(ACCELERATE)

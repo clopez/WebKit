@@ -28,6 +28,7 @@
 
 #include "BlockFormattingState.h"
 #include "BlockLayoutState.h"
+#include "BlockPainter.h"
 #include "EventRegion.h"
 #include "FloatingObjects.h"
 #include "FontCascadeInlines.h"
@@ -65,7 +66,6 @@
 #include "RenderLayoutState.h"
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
-#include "RenderListOutsideMarker.h"
 #include "RenderObjectInlines.h"
 #include "RenderView.h"
 #include "SVGTextDisplayContentBuilder.h"
@@ -76,8 +76,7 @@
 #include <wtf/Assertions.h>
 #include <wtf/Range.h>
 
-namespace WebCore {
-namespace LayoutIntegration {
+namespace WebCore::LayoutIntegration {
 
 DEFINE_ALLOCATOR_WITH_HEAP_IDENTIFIER(LayoutIntegration_LineLayout);
 
@@ -517,26 +516,24 @@ static inline std::optional<Layout::BlockLayoutState::LineGrid> lineGrid(const R
     return { };
 }
 
-LineLayout::ExcludedMarkerList LineLayout::excludedMarkersForFirstFormattedLine(Layout::InlineLayoutState& layoutState)
+LineLayout::OutsideMarkerList LineLayout::outsideMarkersForFirstFormattedLine(Layout::InlineLayoutState& layoutState)
 {
-    auto listItems = RenderListItem::listItemsWithExcludedMarkerFor(protect(flow()), flow().view().frameView().layoutContext().listItemsWithExcludedMarker());
+    auto listItems = RenderListItem::listItemsWithOutsideMarkerFor(protect(flow()), flow().view().frameView().layoutContext().listItemsWithOutsideMarker());
     if (listItems.isEmpty())
         return { };
 
     auto layoutBounds = Vector<Layout::InlineLayoutState::AscentAndDescent> { };
     layoutBounds.reserveInitialCapacity(listItems.size());
-    for (auto& listItem : listItems) {
-        CheckedPtr marker = listItem->markerBox();
-        layoutBounds.append(marker->layoutBounds());
-    }
-    layoutState.setExcludedMarkerLayoutBounds(WTF::move(layoutBounds));
+    for (auto& listItem : listItems)
+        layoutBounds.append(listItem->markerLayoutBounds());
+    layoutState.setOutsideMarkerLayoutBounds(WTF::move(layoutBounds));
 
     return listItems;
 }
 
-void LineLayout::setExcludedMarkerPositions(const ExcludedMarkerList& excludedMarkers)
+void LineLayout::setOutsideMarkerPositions(const OutsideMarkerList& outsideMarkers)
 {
-    if (excludedMarkers.isEmpty() || !m_inlineContent || !m_inlineContent->hasContentfulInFlowBox())
+    if (outsideMarkers.isEmpty() || !m_inlineContent || !m_inlineContent->hasContentfulInFlowBox())
         return;
 
     // The first line with content on it: a line holding nothing but collapsible whitespace or empty inline boxes is
@@ -560,6 +557,8 @@ void LineLayout::setExcludedMarkerPositions(const ExcludedMarkerList& excludedMa
     }
 
     auto lineBoxLogicalRect = firstContentfulLine->lineBoxLogicalRect();
+    // From the block-start edge, like the marker's first baseline.
+    auto lineBaseline = rootLayoutBox().writingMode().isLineInverted() ? lineBoxLogicalRect.height() - firstContentfulLine->baseline() : firstContentfulLine->baseline();
     auto isLeftToRight = flow().writingMode().isLogicalLeftInlineStart();
     // text-indent is a margin on the line box, not content the marker hangs off.
     ASSERT(m_inlineContentConstraints);
@@ -573,30 +572,32 @@ void LineLayout::setExcludedMarkerPositions(const ExcludedMarkerList& excludedMa
         for (auto& floatItem : ensureBlockFormattingState().placedFloats().list()) {
             if (!floatItem.isInFormattingContextOf(protect(rootLayoutBox())))
                 continue;
-            auto floatRect = floatItem.absoluteRectWithMargin();
-            if (floatRect.bottom() <= lineBoxLogicalRect.y() || floatRect.top() >= lineBoxLogicalRect.maxY())
+            // These placed floats are relative to rootLayoutBox() (see ensureBlockFormattingState()).
+            if (floatItem.marginBoxBottom().value() <= lineBoxLogicalRect.y() || floatItem.marginBoxTop().value() >= lineBoxLogicalRect.maxY())
                 continue;
-            edge += isLeftToRight ? -floatRect.width() : floatRect.width();
+            auto floatWidth = floatItem.marginBoxSize().width();
+            edge += isLeftToRight ? -floatWidth : floatWidth;
         }
         return edge;
     }();
 
     auto contentBoxStartEdge = isLeftToRight ? 0.f : protect(flow())->contentBoxLogicalWidth().toFloat();
     auto isLineStartConstrainedByFloat = lineStartEdge != contentBoxStartEdge;
-    for (auto& listItem : excludedMarkers) {
+    for (auto& listItem : outsideMarkers) {
         CheckedPtr marker = listItem->markerBox();
         if (!marker)
             continue;
-        auto markerLogicalTop = [&]() -> float {
-            if (firstContentfulLine->baselineType() == FontBaseline::Ideographic)
-                return lineBoxLogicalRect.y() + (lineBoxLogicalRect.height() - marker->logicalHeight().toFloat()) / 2;
-            auto markerAscent = marker->isImage() ? marker->logicalHeight().toFloat() : protect(marker->style())->metricsOfPrimaryFont().ascent(FontBaseline::Alphabetic);
-            return lineBoxLogicalRect.y() + firstContentfulLine->baseline() - markerAscent;
-        }();
-        auto markerMarginStart = marker->marginStart(flow().writingMode()).toFloat();
-        auto markerLogicalLeft = isLeftToRight ? lineStartEdge + markerMarginStart : lineStartEdge - markerMarginStart - marker->logicalWidth().toFloat();
+        // The marker's first baseline goes on the line's.
+        auto markerLogicalTop = lineBoxLogicalRect.y() + lineBaseline - marker->firstLineBaseline().value_or(marker->logicalHeight()).toFloat();
+        // The marker goes on the inline start side of its list item, in the list item's writing mode (css-lists-3
+        // marker-side: match-self), which is the line's end side when the line runs the other way.
+        auto listItemIsLeftToRight = listItem->writingMode().isLogicalLeftInlineStart();
+        auto isOnLineStart = listItemIsLeftToRight == isLeftToRight;
+        auto markerEdge = isOnLineStart ? lineStartEdge : listItemIsLeftToRight ? lineBoxLogicalRect.x() : lineBoxLogicalRect.maxX();
+        auto markerMarginStart = outsideMarkerMarginStart(*marker).toFloat();
+        auto markerLogicalLeft = listItemIsLeftToRight ? markerEdge + markerMarginStart : markerEdge - markerMarginStart - marker->logicalWidth().toFloat();
         auto topLeft = FloatPoint { markerLogicalLeft, markerLogicalTop };
-        listItem->setExcludedMarkerPosition({ flow(), topLeft, isLineStartConstrainedByFloat });
+        listItem->setOutsideMarkerPosition({ flow(), topLeft, isOnLineStart && isLineStartConstrainedByFloat });
     }
 }
 
@@ -652,7 +653,7 @@ std::optional<LayoutRect> LineLayout::layout(RenderBlockFlow::MarginInfo& margin
     };
     auto inlineFormattingContext = Layout::InlineFormattingContext { protect(rootLayoutBox()), protect(layoutState()), parentBlockLayoutState };
     // Temporary, integration only.
-    auto excludedMarkers = excludedMarkersForFirstFormattedLine(inlineFormattingContext.layoutState());
+    auto outsideMarkers = outsideMarkersForFirstFormattedLine(inlineFormattingContext.layoutState());
 
     auto layoutResult = inlineFormattingContext.layout(inlineContentConstraints(), m_lineDamage.get());
 
@@ -660,7 +661,7 @@ std::optional<LayoutRect> LineLayout::layout(RenderBlockFlow::MarginInfo& margin
     auto didDiscardContent = layoutResult ? layoutResult->lineClamp.didDiscardContent : inlineFormattingContext.formattingUtils().shouldDiscardRemainingContentInBlockDirection();
     auto repaintRect = constructContent(inlineFormattingContext.layoutState(), WTF::move(layoutResult));
 
-    setExcludedMarkerPositions(excludedMarkers);
+    setOutsideMarkerPositions(outsideMarkers);
 
     m_lineDamage = { };
 
@@ -801,6 +802,7 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
         }
     }
 
+    auto hasFloats = false;
     for (CheckedRef layoutBox : formattingContextBoxes(rootLayoutBox())) {
         if (didDiscardContent) {
             CheckedRef renderer = *layoutBox->rendererForIntegration();
@@ -828,6 +830,7 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             renderer->setIsClippedByLineClamp(LineClampUpdater::isInsideLineClampContainer(renderer));
             auto isInitialLetter = layoutBox->style().pseudoElementType() == PseudoElementType::FirstLetter;
             auto& floatingObject = blockFlow->insertFloatingBox(renderer);
+            hasFloats = true;
             auto [marginBoxVisualRect, borderBoxVisualRect] = Layout::IntegrationUtils::toMarginAndBorderBoxVisualRect(logicalGeometry, m_inlineContentConstraints->formattingRootBorderBoxSize(), placedFloatsWritingMode);
 
             auto paginationOffset = floatPaginationOffsetMap.getOptional(layoutBox);
@@ -866,19 +869,18 @@ void LineLayout::updateRenderTreePositions(const Vector<LineAdjustment>& lineAdj
             auto borderBoxLogicalTopLeft = Layout::BoxGeometry::borderBoxTopLeft(logicalGeometry);
             auto previousStaticPosition = LayoutPoint { layer->staticInlinePosition(), layer->staticBlockPosition() };
             auto delta = borderBoxLogicalTopLeft - previousStaticPosition;
-            auto hasStaticInlinePositioning = layoutBox->style().hasStaticInlinePosition(renderer->isHorizontalWritingMode());
-
-            if (layoutBox->style().originalDisplay().isInlineType()) {
-                blockFlow->setStaticInlinePositionForChild(renderer, borderBoxLogicalTopLeft.x());
-                if (hasStaticInlinePositioning)
-                    renderer->move(delta.width(), delta.height());
-            }
+            auto isHorizontalWritingMode = blockFlow->writingMode().isHorizontal();
+            auto inlineDelta = layoutBox->style().hasStaticInlinePosition(isHorizontalWritingMode) ? delta.width() : 0_lu;
+            auto blockDelta = layoutBox->style().hasStaticBlockPosition(isHorizontalWritingMode) ? delta.height() : 0_lu;
+            renderer->move(isHorizontalWritingMode ? inlineDelta : blockDelta, isHorizontalWritingMode ? blockDelta : inlineDelta);
 
             layer->setStaticBlockPosition(borderBoxLogicalTopLeft.y());
             layer->setStaticInlinePosition(borderBoxLogicalTopLeft.x());
             continue;
         }
     }
+    if (m_inlineContent)
+        m_inlineContent->setHasFloats(hasFloats);
 }
 
 bool LineLayout::layoutSVGText()
@@ -961,14 +963,18 @@ FloatRect LineLayout::applySVGTextFragments()
 
     popParent(nullptr);
 
-    // Move so the top-left text box is at (0, 0).
+    // Move the boxes into the local coordinate system of the RenderSVGText. In LBSE its origin is
+    // RenderSVGText::nominalSVGLayoutLocation(), the floored top-left of the text boundaries.
+    auto origin = fullBoundaries.location();
+    if (flow().settings().layerBasedSVGEngineEnabled())
+        origin = flooredLayoutPoint(origin);
     for (auto& box : boxes) {
-        box.moveHorizontally(-fullBoundaries.x());
-        box.moveVertically(-fullBoundaries.y());
+        box.moveHorizontally(-origin.x());
+        box.moveVertically(-origin.y());
     }
 
     if (lines.size())
-        lines[0].setLineBoxRectForSVGText(FloatRect { { }, fullBoundaries.size() });
+        lines[0].setLineBoxRectForSVGText(FloatRect { toFloatPoint(fullBoundaries.location() - origin), fullBoundaries.size() });
 
     return fullBoundaries;
 }
@@ -1321,7 +1327,7 @@ Vector<LineAdjustment> LineLayout::adjustContentForPagination(const Layout::Bloc
             m_lineDamage = { };
     }
 
-    return adjustments;
+    return WTF::move(adjustments);
 }
 
 void LineLayout::collectOverflow()
@@ -1558,7 +1564,7 @@ void LineLayout::paint(PaintInfo& paintInfo, const LayoutPoint& paintOffset, con
             return;
         if (!layerRenderer) {
             // Shortcut block-only painting.
-            protect(flow())->paintBlockLevelContentInInline(paintInfo, paintOffset);
+            Paint::BlockPainter::paintBlockLevelContentInInline(protect(flow()), paintInfo, paintOffset);
             return;
         }
     }
@@ -1681,16 +1687,16 @@ void LineLayout::shiftLinesByInBlockDirection(LayoutUnit blockShift)
     for (size_t lineIndex = 0; lineIndex < displayContent.lines.size(); ++lineIndex)
         displayContent.moveLineInBlockDirection(lineIndex, blockShift);
 
-    // An excluded marker is on one of these lines without being part of the content that moves with them, so the
-    // position it was given has to move too (see RenderListItem::placeExcludedMarker). Nested list items can have
+    // An outside marker is on one of these lines without being part of the content that moves with them, so the
+    // position it was given has to move too (see RenderListItem::placeOutsideMarker). Nested list items can have
     // their markers on the same line.
-    for (auto& listItemWithExcludedMarker : flow().view().frameView().layoutContext().listItemsWithExcludedMarker()) {
-        CheckedPtr listItem = listItemWithExcludedMarker.get();
-        auto excludedPosition = listItem->excludedMarkerPosition();
-        if (!excludedPosition || excludedPosition->firstFormattedLineRoot.get() != &flow())
+    for (auto& listItemWithOutsideMarker : flow().view().frameView().layoutContext().listItemsWithOutsideMarker()) {
+        CheckedPtr listItem = listItemWithOutsideMarker.get();
+        auto markerPosition = listItem->outsideMarkerPosition();
+        if (!markerPosition || markerPosition->firstFormattedLineRoot.get() != &flow())
             continue;
-        excludedPosition->topLeft.move(0, blockShift.toFloat());
-        listItem->setExcludedMarkerPosition(WTF::move(*excludedPosition));
+        markerPosition->topLeft.move(0, blockShift.toFloat());
+        listItem->setOutsideMarkerPosition(WTF::move(*markerPosition));
     }
 
     auto deltaX = isHorizontalWritingMode ? 0_lu : blockShift;
@@ -1922,6 +1928,46 @@ bool LineLayout::hasBlocks() const
     return m_inlineContent && m_inlineContent->hasBlockLevelBoxes();
 }
 
+bool LineLayout::hasFloats() const
+{
+    return m_inlineContent && m_inlineContent->hasFloats();
+}
+
+Vector<CheckedRef<RenderBox>> LineLayout::floatsAndBlockLevelBoxesInTreeOrder() const
+{
+    auto isInsideInlineBoxWithSelfPaintingLayer = [&](const Layout::Box& layoutBox) {
+        for (CheckedPtr ancestor = &layoutBox.parent(); ancestor != &rootLayoutBox(); ancestor = &ancestor->parent()) {
+            if (CheckedPtr inlineBox = dynamicDowncast<RenderLayerModelObject>(ancestor->rendererForIntegration()); inlineBox && inlineBox->hasSelfPaintingLayer())
+                return true;
+        }
+        return false;
+    };
+
+    auto isFullyTruncated = [&](const Layout::Box& layoutBox) {
+        if (!m_inlineContent)
+            return false;
+        auto* box = m_inlineContent->firstBoxForLayoutBox(layoutBox);
+        return box && box->isFullyTruncated();
+    };
+
+    // Floats have no display boxes, so their order among the block-level boxes comes from the layout tree.
+    auto boxes = Vector<CheckedRef<RenderBox>> { };
+    for (CheckedRef layoutBox : formattingContextBoxes(rootLayoutBox())) {
+        if (layoutBox->isOutOfFlowPositioned())
+            continue;
+        if (!layoutBox->isFloatingPositioned()) {
+            // Atomic inline-level boxes are painted and hit tested in the foreground phase.
+            if (!layoutBox->isBlockLevelBox())
+                continue;
+            // Like InlineContentPainter. The layer of an inline box paints and hit tests the block-level boxes inside it (see LayerPaintScope).
+            if (isInsideInlineBoxWithSelfPaintingLayer(layoutBox) || isFullyTruncated(layoutBox))
+                continue;
+        }
+        boxes.append(CheckedRef { downcast<RenderBox>(*layoutBox->rendererForIntegration()) });
+    }
+    return boxes;
+}
+
 #if ENABLE(TREE_DEBUGGING)
 void LineLayout::outputLineTree(WTF::TextStream& stream, size_t depth) const
 {
@@ -1930,5 +1976,4 @@ void LineLayout::outputLineTree(WTF::TextStream& stream, size_t depth) const
 }
 #endif
 
-}
 }

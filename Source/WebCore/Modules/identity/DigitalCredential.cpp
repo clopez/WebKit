@@ -115,8 +115,11 @@ static ExceptionOr<std::optional<UnvalidatedDigitalCredentialRequest>> jsToCrede
     if (!protocol)
         return std::optional<UnvalidatedDigitalCredentialRequest> { std::nullopt }; // Skip requests with an unsupported protocol.
 
-    auto scope = DECLARE_THROW_SCOPE(document.globalObject()->vm());
     auto* globalObject = document.globalObject();
+    if (!globalObject)
+        return Exception { ExceptionCode::AbortError, "The document is no longer active."_s };
+
+    auto scope = DECLARE_THROW_SCOPE(globalObject->vm());
 
     // Check that the object is JSON stringifiable.
     auto jsonString = JSC::JSONStringify(globalObject, request.data.get(), 0);
@@ -151,6 +154,7 @@ static ExceptionOr<std::optional<UnvalidatedDigitalCredentialRequest>> jsToCrede
             return Exception { ExceptionCode::TypeError, "The request is not JSON-serializable."_s };
         return std::make_optional<UnvalidatedDigitalCredentialRequest>(OpenID4VPUnsignedRequest { jsonString });
     }
+    RELEASE_ASSERT_NOT_REACHED();
 }
 
 ExceptionOr<Vector<UnvalidatedDigitalCredentialRequest>> DigitalCredential::convertObjectsToDigitalPresentationRequests(const Document& document, const Vector<DigitalCredentialGetRequest>& requests)

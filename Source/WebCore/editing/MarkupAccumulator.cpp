@@ -474,6 +474,31 @@ void MarkupAccumulator::appendCustomAttributes(StringBuilder&, const Element&, N
 {
 }
 
+// https://html.spec.whatwg.org/#look-up-a-custom-element-registry
+static CustomElementRegistry* lookUpCustomElementRegistry(const Node& node)
+{
+    if (auto* element = dynamicDowncast<Element>(node))
+        return CustomElementRegistry::registryForElement(*element);
+    if (node.isTreeScope())
+        return node.treeScope().customElementRegistry();
+    return nullptr;
+}
+
+// https://html.spec.whatwg.org/#serialising-html-fragments
+static bool shouldAppendCustomElementRegistryAttribute(const Element& element)
+{
+    if (!element.isHTMLElement())
+        return false;
+    if (auto* registry = CustomElementRegistry::registryForElement(element); registry && !registry->isScoped()) [[likely]]
+        return false;
+    RefPtr parent = element.parentNode();
+    if (parent && parent->isDocumentFragment() && !parent->isShadowRoot())
+        parent = nullptr;
+    if (CustomElementRegistry::registryForElement(element) == (parent ? lookUpCustomElementRegistry(*parent) : element.document().customElementRegistry()))
+        return false;
+    return !element.hasAttributeWithoutSynchronization(HTMLNames::customelementregistryAttr);
+}
+
 static bool shouldAddNamespaceElement(const Element& element)
 {
     // Don't add namespace attribute if it is already defined for this elem.
@@ -651,6 +676,9 @@ void MarkupAccumulator::appendStartTag(StringBuilder& result, const Element& ele
 {
     appendOpenTag(result, element, namespaces);
 
+    if (!inXMLFragmentSerialization() && shouldAppendCustomElementRegistryAttribute(element)) [[unlikely]]
+        result.append(" customelementregistry=\"\""_s);
+
     if (m_serializationContext) {
         // This function might change ordering of attributes in markup, so it should only be used for URL replacement case.
         appendStartTagWithURLReplacement(result, element, namespaces);
@@ -766,7 +794,7 @@ QualifiedName MarkupAccumulator::xmlAttributeSerialization(const Attribute& attr
     return prefixedName;
 }
 
-LocalFrame* MarkupAccumulator::frameForAttributeReplacement(const Element& element) const
+Frame* MarkupAccumulator::frameForAttributeReplacement(const Element& element) const
 {
     if (inXMLFragmentSerialization())
         return nullptr;
@@ -775,7 +803,7 @@ LocalFrame* MarkupAccumulator::frameForAttributeReplacement(const Element& eleme
     if (!frameElement)
         return nullptr;
 
-    return dynamicDowncast<LocalFrame>(frameElement->contentFrame());
+    return frameElement->contentFrame();
 }
 
 Attribute MarkupAccumulator::replaceAttributeIfNecessary(const Element& element, const Attribute& attribute)
@@ -784,7 +812,7 @@ Attribute MarkupAccumulator::replaceAttributeIfNecessary(const Element& element,
         return attribute;
 
     if (element.isHTMLContentAttribute(attribute)) {
-        RefPtr frame = frameForAttributeReplacement(element);
+        RefPtr frame = dynamicDowncast<LocalFrame>(frameForAttributeReplacement(element));
         if (!frame || !frame->loader().documentLoader()->response().url().isAboutSrcDoc())
             return attribute;
 

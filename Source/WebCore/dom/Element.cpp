@@ -770,7 +770,7 @@ Ref<Element> Element::cloneElementWithChildren(Document& document, CustomElement
 Ref<Element> Element::cloneElementWithoutChildren(Document& document, CustomElementRegistry* fallbackRegistry) const
 {
     RefPtr registry = CustomElementRegistry::registryForElement(*this);
-    if (!registry)
+    if (!registry && !keepsCustomElementRegistryNull())
         registry = fallbackRegistry;
     if (registry && !registry->isScoped() && registry != document.customElementRegistry())
         registry = document.effectiveGlobalCustomElementRegistry();
@@ -783,7 +783,10 @@ Ref<Element> Element::cloneElementWithoutChildren(Document& document, CustomElem
 
     clone->cloneDataFromElement(*this);
 
-    if (!registry && document.customElementRegistry())
+    if (keepsCustomElementRegistryNull()) [[unlikely]] {
+        clone->setUsesNullCustomElementRegistry();
+        clone->setKeepsCustomElementRegistryNull();
+    } else if (!registry && document.customElementRegistry())
         clone->setUsesNullCustomElementRegistry();
 
     return clone;
@@ -957,6 +960,31 @@ bool Element::hasFocusableStyle() const
     return isFocusableStyle(style.get());
 }
 
+// https://w3c.github.io/svgwg/svg2-draft/render.html#TermNeverRenderedElement
+// https://drafts.csswg.org/filter-effects-1/#FilterElement
+static bool isNeverRenderedSVGElement(const Element& element)
+{
+    switch (element.elementName()) {
+    case ElementNames::SVG::clipPath:
+    case ElementNames::SVG::defs:
+    case ElementNames::SVG::desc:
+    case ElementNames::SVG::filter:
+    case ElementNames::SVG::linearGradient:
+    case ElementNames::SVG::marker:
+    case ElementNames::SVG::mask:
+    case ElementNames::SVG::metadata:
+    case ElementNames::SVG::pattern:
+    case ElementNames::SVG::radialGradient:
+    case ElementNames::SVG::script:
+    case ElementNames::SVG::style:
+    case ElementNames::SVG::symbol:
+    case ElementNames::SVG::title:
+        return true;
+    default:
+        return false;
+    }
+}
+
 bool Element::isFocusable() const
 {
     if (!isConnected() || !supportsFocus())
@@ -970,11 +998,15 @@ bool Element::isFocusable() const
             return false;
     }
 
-    // Never-rendered SVG elements (e.g. <defs>, <clipPath>, <symbol>) and any
-    // elements inside them are never rendered and should not be focusable per
-    // the SVG spec. Walk from this element's own renderer upwards so that both
-    // a hidden container and its descendants are rejected.
     // https://w3c.github.io/svgwg/svg2-draft/render.html#Rendered-vs-NonRendered
+    if (is<SVGElement>(*this)) {
+        for (auto* ancestor = parentElementInComposedTree(); ancestor; ancestor = ancestor->parentElementInComposedTree()) {
+            if (isNeverRenderedSVGElement(*ancestor))
+                return false;
+        }
+    }
+
+    // Children of a display: none <g> keep renderers, inside a hidden container.
     for (auto* ancestor = renderer(); ancestor; ancestor = ancestor->parent()) {
         if (ancestor->isRenderSVGHiddenContainer() || ancestor->isLegacyRenderSVGHiddenContainer())
             return false;
@@ -2567,10 +2599,11 @@ void Element::attributeChanged(const QualifiedName& name, const AtomString& oldV
         break;
     }
     case AttributeNames::customelementregistryAttr:
-        if (reason == AttributeModificationReason::Parser && !isDefinedCustomElement()) {
+        if (reason == AttributeModificationReason::Parser && isHTMLElement() && !isDefinedCustomElement()) {
             if (usesScopedCustomElementRegistryMap())
                 CustomElementRegistry::removeFromScopedCustomElementRegistryMap(*this);
             setUsesNullCustomElementRegistry();
+            setKeepsCustomElementRegistryNull();
         }
         break;
     default: {
@@ -2867,7 +2900,7 @@ Style::Resolver& Element::styleResolver()
     if (RefPtr shadowRoot = containingShadowRoot())
         return protect(shadowRoot->styleScope())->resolver();
 
-    return document().styleScope().resolver();
+    return protect(document().styleScope())->resolver();
 }
 
 Style::UnadjustedStyle Element::resolveStyle(const Style::ResolutionContext& resolutionContext)
@@ -3167,10 +3200,8 @@ void Element::updateEffectiveLangState()
         return;
     }
 
-    if (hasLangAttrKnownToMatchDocumentElement()) {
-        // Unable to protect the document as it may have started destruction.
-        document().removeElementWithLangAttrMatchingDocumentElement(*this);
-    }
+    if (hasLangAttrKnownToMatchDocumentElement())
+        protect(document())->removeElementWithLangAttrMatchingDocumentElement(*this);
 
     setEffectiveLangKnownToMatchDocumentElement(false);
     ensureElementRareData().setEffectiveLang(lang);
@@ -4848,8 +4879,7 @@ void Element::removeFromTopLayer()
         }
     }
 
-    // Unable to protect the document as it may have started destruction.
-    document().removeTopLayerElement(*this);
+    protect(document())->removeTopLayerElement(*this);
     clearEventTargetFlag(EventTargetFlag::IsInTopLayer);
 
     // User-action pseudo-classes should now propagate past this element since it is

@@ -217,6 +217,7 @@ public:
     void emitContextCreatedEvent(const WebPageProxy&);
     void didCreateFrame(const WebFrameProxy&);
     void willDestroyFrame(const WebFrameProxy&);
+    void webProcessDidTerminate(WebCore::ProcessIdentifier);
     void contextCreatedForFrame(const WebFrameProxy&);
     void contextDestroyedForPage(const WebPageProxy&);
     void contextDestroyedForFrame(const WebFrameProxy&);
@@ -289,8 +290,10 @@ public:
     // Unlike the classic command, a user prompt does not end the evaluation: it completes when the script does.
     void evaluateJavaScriptFunctionForBidi(const Inspector::Protocol::Automation::BrowsingContextHandle&, const Inspector::Protocol::Automation::FrameHandle&, const String& function, Ref<JSON::Array>&& arguments, std::optional<bool>&& forceUserGesture, Inspector::CommandCallback<String>&&);
     void evaluateBidiScript(const Inspector::Protocol::Automation::BrowsingContextHandle&, const Inspector::Protocol::Automation::FrameHandle&, const String& expression, bool awaitPromise, std::optional<double> maxObjectDepth, std::optional<double> maxDomDepth, const String& includeShadowTree, std::optional<double>&& callbackTimeout, Inspector::CommandCallback<String>&&);
+    void locateNodesForBidi(const Inspector::Protocol::Automation::BrowsingContextHandle&, const Inspector::Protocol::Automation::FrameHandle&, const String& locator, std::optional<Vector<String>>&& startNodeIdentifiers, std::optional<uint64_t> maxNodeCount, std::optional<double> maxObjectDepth, std::optional<double> maxDomDepth, const String& includeShadowTree, std::optional<WebCore::FrameIdentifier> containerFrameID, Inspector::CommandCallback<String>&&);
 #if ENABLE(WEBDRIVER_BIDI)
     void getBidiRealmInfo(const Inspector::Protocol::Automation::BrowsingContextHandle&, const Inspector::Protocol::Automation::FrameHandle&, CompletionHandler<void(std::optional<RealmIdentifier>&&)>&&);
+    void evaluateBidiCallFunction(const Inspector::Protocol::Automation::BrowsingContextHandle&, const Inspector::Protocol::Automation::FrameHandle&, std::optional<RealmIdentifier>, const String& functionDeclaration, Ref<JSON::Array>&& arguments, bool awaitPromise, std::optional<double> maxObjectDepth, std::optional<double> maxDomDepth, const String& includeShadowTree, bool userActivation, std::optional<double>&& callbackTimeout, Inspector::CommandCallbackOf<String, RealmIdentifier>&&);
 #endif
     void performMouseInteraction(const Inspector::Protocol::Automation::BrowsingContextHandle&, Ref<JSON::Object>&& requestedPosition, Inspector::Protocol::Automation::MouseButton, Inspector::Protocol::Automation::MouseInteraction, Ref<JSON::Array>&& keyModifiers, Inspector::CommandCallback<Ref<Inspector::Protocol::Automation::Point>>&&) override;
     void performKeyboardInteractions(const Inspector::Protocol::Automation::BrowsingContextHandle&, Ref<JSON::Array>&& interactions, Inspector::CommandCallback<void>&&) override;
@@ -380,6 +383,7 @@ public:
 
     RefPtr<WebPageProxy> webPageProxyForHandle(const String&);
     std::optional<WebCore::FrameIdentifier> webFrameIDForHandle(const String&, bool& frameNotFound);
+    static bool isInFrameTreeOfItsPage(const WebFrameProxy&);
     String effectiveHandleForWebFrameProxy(const WebFrameProxy&);
 #if ENABLE(WEBDRIVER_BIDI)
     HashSet<String> bidiSubscriptionScopeForFrame(const WebFrameProxy&) const;
@@ -391,9 +395,13 @@ public:
 
 #if ENABLE(WEBDRIVER_BIDI)
     bool isValidUserContext(const String& userContextID) const;
+    std::expected<String, AutomationCommandError> nodeHandleForSharedReference(const JSON::Object& sharedReference) const;
+    void setFilesForBidi(const String& pageHandle, const String& frameHandle, const String& nodeHandle, Vector<String>&& paths, AutomationCompletionHandler&&);
 #endif
 
 private:
+    void clearNetworkInterceptionForAllPages();
+
     Ref<Inspector::Protocol::Automation::BrowsingContext> buildBrowsingContextForPage(WebPageProxy&, WebCore::FloatRect windowFrame);
     void getNextContext(Vector<Ref<WebPageProxy>>&&, Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>>, Inspector::CommandCallback<Ref<JSON::ArrayOf<Inspector::Protocol::Automation::BrowsingContext>>>&&);
 
@@ -410,6 +418,8 @@ private:
         Inspector::CommandCallback<void> callback;
     };
     enum class UnboundWaits : bool { Keep, Complete };
+    void forgetFrameHandles(NOESCAPE const Function<bool(const WebFrameProxy*)>&);
+    void forgetDestroyedFrames();
     Vector<Inspector::CommandCallback<void>> takePendingPageNavigationCallbacks(HashMap<WebPageProxyIdentifier, Vector<PendingPageNavigationCallback>>&, const WebPageProxy&, API::Navigation* finishedNavigation, UnboundWaits, NavigationNotification = NavigationNotification::LoadEnded);
     enum class SameDocumentNavigation : bool { No, Yes };
     enum class UserPromptEndsEvaluation : bool { No, Yes };
@@ -426,6 +436,7 @@ private:
     void respondToPendingPageNavigationCallbacksWithTimeout(HashMap<WebPageProxyIdentifier, Vector<PendingPageNavigationCallback>>&);
     void respondToPendingFrameNavigationCallbacksWithTimeout(HashMap<WebCore::FrameIdentifier, Vector<Inspector::CommandCallback<void>>>&);
     void respondToPendingNavigationCallbacksWithSuccess(Vector<Inspector::CommandCallback<void>>&&);
+    void startLoadTimer(Seconds);
     void loadTimerFired();
 
     void exitFullscreenWindowForPage(WebPageProxy&, WTF::CompletionHandler<void()>&&);
@@ -472,6 +483,7 @@ private:
     void platformSimulateKeySequence(WebPageProxy&, const String&);
 #endif // ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
 #if ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
+    void dispatchWheelInteraction(WebPageProxy&, const WebCore::IntPoint& locationInViewport, const WebCore::IntSize& delta, AutomationCompletionHandler&&);
     void platformSimulateWheelInteraction(WebPageProxy&, const WebCore::IntPoint& locationInViewport, const WebCore::IntSize& delta);
 #endif // ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
 
@@ -597,9 +609,12 @@ private:
 
     uint64_t m_nextEvaluateJavaScriptCallbackID { 1 };
     HashMap<uint64_t, Inspector::CommandCallback<String>> m_evaluateJavaScriptFunctionCallbacks;
-    // Kept apart from m_evaluateJavaScriptFunctionCallbacks because a user prompt must not end a BiDi script.evaluate
-    // or script.callFunction early; it keeps running until the script finishes after the prompt is handled.
+    // BiDi script callbacks are kept apart from m_evaluateJavaScriptFunctionCallbacks because a user prompt must not end a BiDi command early;
+    // script execution continues until the prompt is handled and the script finishes.
     HashMap<uint64_t, Inspector::CommandCallback<String>> m_evaluateBidiScriptCallbacks;
+#if ENABLE(WEBDRIVER_BIDI)
+    HashMap<uint64_t, Inspector::CommandCallbackOf<String, RealmIdentifier>> m_evaluateBidiCallFunctionCallbacks;
+#endif
 
     enum class WindowTransitionedToState {
         Fullscreen,
@@ -618,7 +633,7 @@ private:
     HashMap<String, Ref<SimulatedInputSource>> m_inputSources;
     HashMap<WebPageProxyIdentifier, Ref<SimulatedInputDispatcher>> m_inputDispatchersByPage;
 #endif
-#if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS)
+#if ENABLE(WEBDRIVER_KEYBOARD_INTERACTIONS) || ENABLE(WEBDRIVER_MOUSE_INTERACTIONS) || ENABLE(WEBDRIVER_WHEEL_INTERACTIONS)
     // Keep track of currently active modifiers across multiple keystrokes.
     // Most platforms do not track current modifiers from synthesized events.
     unsigned m_currentModifiers { 0 };

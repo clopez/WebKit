@@ -40,6 +40,7 @@
 #include <WebCore/BitmapImage.h>
 #include <WebCore/FEImage.h>
 #include <WebCore/FilterResults.h>
+#include <WebCore/FreeformGradient.h>
 #include <WebCore/MeshGradient.h>
 #include <WebCore/SVGFilterRenderer.h>
 #include <wtf/URL.h>
@@ -161,7 +162,7 @@ void RemoteGraphicsContext::setFillColor(const Color& color)
     context().setFillColor(color);
 }
 
-void RemoteGraphicsContext::setFillCachedGradient(RemoteGradientIdentifier identifier, const AffineTransform& spaceTransform)
+void RemoteGraphicsContext::setFillCachedGradient(GradientIdentifier identifier, const AffineTransform& spaceTransform)
 {
     RefPtr gradient = resourceCache().cachedGradient(identifier);
     MESSAGE_CHECK(gradient);
@@ -202,7 +203,7 @@ void RemoteGraphicsContext::setStrokeColor(const WebCore::Color& color)
     context().setStrokeColor(color);
 }
 
-void RemoteGraphicsContext::setStrokeCachedGradient(RemoteGradientIdentifier identifier, const AffineTransform& spaceTransform)
+void RemoteGraphicsContext::setStrokeCachedGradient(GradientIdentifier identifier, const AffineTransform& spaceTransform)
 {
     RefPtr gradient = resourceCache().cachedGradient(identifier);
     MESSAGE_CHECK(gradient);
@@ -532,6 +533,14 @@ void RemoteGraphicsContext::drawLinesForText(const FloatPoint& point, float thic
 void RemoteGraphicsContext::drawDotsForDocumentMarker(const FloatRect& rect, const DocumentMarkerLineStyle& style)
 {
     context().drawDotsForDocumentMarker(rect, style);
+}
+
+void RemoteGraphicsContext::drawFreeformGradient(RemoteFreeformGradientIdentifier identifier, const FloatRect& destination)
+{
+    RefPtr gradient = resourceCache().cachedFreeformGradient(identifier);
+    MESSAGE_CHECK(gradient);
+
+    context().drawFreeformGradient(*gradient, destination);
 }
 
 void RemoteGraphicsContext::drawMeshGradient(RemoteMeshGradientIdentifier identifier, const FloatRect& destination)

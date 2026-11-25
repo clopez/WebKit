@@ -162,6 +162,10 @@ public:
     FloatRect applySVGTextFragments();
 
     NODELETE bool hasBlocks() const;
+    // Whether this inline content places floats of its own (not ones intruding from outside).
+    NODELETE bool hasFloats() const;
+    // The floats and the block-level boxes of this inline content, in tree order, which the Float paint phase and hit test action visit.
+    Vector<CheckedRef<RenderBox>> floatsAndBlockLevelBoxesInTreeOrder() const;
 
     // The last layout() pass. A pagination restart runs a second pass from inside layout().
     struct LayoutInfoForTesting {
@@ -206,10 +210,10 @@ private:
 
     NODELETE bool isContentConsideredStale() const;
 
-    // The list items whose excluded marker aligns with our first formatted line.
-    using ExcludedMarkerList = Vector<CheckedPtr<RenderListItem>>;
-    ExcludedMarkerList excludedMarkersForFirstFormattedLine(Layout::InlineLayoutState&);
-    void setExcludedMarkerPositions(const ExcludedMarkerList&);
+    // The list items whose outside marker aligns with our first formatted line.
+    using OutsideMarkerList = Vector<CheckedPtr<RenderListItem>>;
+    OutsideMarkerList outsideMarkersForFirstFormattedLine(Layout::InlineLayoutState&);
+    void setOutsideMarkerPositions(const OutsideMarkerList&);
 
 private:
     CheckedPtr<Layout::ElementBox> m_rootLayoutBox;

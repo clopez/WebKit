@@ -98,7 +98,7 @@ WebCodecsVideoFrame::~WebCodecsVideoFrame()
         return;
     if (RefPtr context = scriptExecutionContext()) {
         context->postTask([](auto& context) {
-            context.addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "A VideoFrame was destroyed without having been closed explicitly"_s);
+            context.addConsoleMessage(MessageSource::Media, MessageLevel::Warning, "A VideoFrame was destroyed without having been closed explicitly"_s);
         });
     }
 }
@@ -359,6 +359,16 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::create(ScriptExecutio
     case VideoPixelFormat::I444P12:
         videoFrame = VideoFrame::createPlanarYUV(pixelFormat, data.span(), parsedRect.width, parsedRect.height, borrow(layout.computedLayouts)->span().first<3>(), WTF::move(videoFrameInit));
         break;
+    case VideoPixelFormat::I420AP10:
+    case VideoPixelFormat::I420AP12:
+    case VideoPixelFormat::I422A:
+    case VideoPixelFormat::I422AP10:
+    case VideoPixelFormat::I422AP12:
+    case VideoPixelFormat::I444A:
+    case VideoPixelFormat::I444AP10:
+    case VideoPixelFormat::I444AP12:
+        videoFrame = VideoFrame::createPlanarYUV(pixelFormat, data.span(), parsedRect.width, parsedRect.height, borrow(layout.computedLayouts)->span().first<4>(), WTF::move(videoFrameInit));
+        break;
     default:
         return Exception { ExceptionCode::NotSupportedError, "VideoPixelFormat is not supported"_s };
     }
@@ -416,6 +426,14 @@ Ref<WebCodecsVideoFrame> WebCodecsVideoFrame::create(ScriptExecutionContext& con
     return result;
 }
 
+std::optional<VideoPixelFormat> WebCodecsVideoFrame::videoPixelFormatForContext(const ScriptExecutionContext& context, const VideoFrame& frame)
+{
+    auto format = convertVideoFramePixelFormat(frame.pixelFormat());
+    if (format && isHighBitDepthVideoPixelFormat(*format) && !context.settingsValues().webCodecsHighBitDepthEnabled)
+        return { };
+    return format;
+}
+
 NODELETE static VideoPixelFormat computeVideoPixelFormat(VideoPixelFormat baseFormat, bool shouldDiscardAlpha)
 {
     if (!shouldDiscardAlpha)
@@ -436,6 +454,22 @@ NODELETE static VideoPixelFormat computeVideoPixelFormat(VideoPixelFormat baseFo
         return baseFormat;
     case VideoPixelFormat::I420A:
         return VideoPixelFormat::I420;
+    case VideoPixelFormat::I420AP10:
+        return VideoPixelFormat::I420P10;
+    case VideoPixelFormat::I420AP12:
+        return VideoPixelFormat::I420P12;
+    case VideoPixelFormat::I422A:
+        return VideoPixelFormat::I422;
+    case VideoPixelFormat::I422AP10:
+        return VideoPixelFormat::I422P10;
+    case VideoPixelFormat::I422AP12:
+        return VideoPixelFormat::I422P12;
+    case VideoPixelFormat::I444A:
+        return VideoPixelFormat::I444;
+    case VideoPixelFormat::I444AP10:
+        return VideoPixelFormat::I444P10;
+    case VideoPixelFormat::I444AP12:
+        return VideoPixelFormat::I444P12;
     case VideoPixelFormat::RGBA:
         return VideoPixelFormat::RGBX;
     case VideoPixelFormat::BGRA:
@@ -483,7 +517,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::initializeFrameFromOt
 {
     auto codedWidth = internalVideoFrame->presentationSize().width();
     auto codedHeight = internalVideoFrame->presentationSize().height();
-    auto initialFormat = convertVideoFramePixelFormat(internalVideoFrame->pixelFormat());
+    auto initialFormat = videoPixelFormatForContext(context, internalVideoFrame);
     auto format = initialFormat ? std::make_optional(computeVideoPixelFormat(*initialFormat, init.alpha == WebCodecsAlphaOption::Discard)) : std::nullopt;
     if (!validateVideoFrameInit(init, codedWidth, codedHeight, format.value_or(VideoPixelFormat::I420)))
         return Exception { ExceptionCode::TypeError,  "VideoFrameInit is not valid"_s };
@@ -521,7 +555,7 @@ ExceptionOr<Ref<WebCodecsVideoFrame>> WebCodecsVideoFrame::initializeFrameWithRe
 
     auto codedWidth = image->size().width();
     auto codedHeight = image->size().height();
-    auto initialFormat = convertVideoFramePixelFormat(internalVideoFrame->pixelFormat());
+    auto initialFormat = videoPixelFormatForContext(context, *internalVideoFrame);
     auto format = initialFormat ? std::make_optional(computeVideoPixelFormat(*initialFormat, init.alpha == WebCodecsAlphaOption::Discard)) : std::nullopt;
     if (!validateVideoFrameInit(init, codedWidth, codedHeight, format.value_or(VideoPixelFormat::I420)))
         return Exception { ExceptionCode::TypeError,  "VideoFrameInit is not valid"_s };

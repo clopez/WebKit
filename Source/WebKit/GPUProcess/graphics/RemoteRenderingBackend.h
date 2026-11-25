@@ -37,7 +37,7 @@
 #include "MessageSender.h"
 #include "RemoteDisplayListIdentifier.h"
 #include "RemoteDisplayListRecorderIdentifier.h"
-#include "RemoteGradientIdentifier.h"
+#include "RemoteFreeformGradientIdentifier.h"
 #include "RemoteGraphicsContextIdentifier.h"
 #include "RemoteMeshGradientIdentifier.h"
 #include "RemotePathImplIdentifier.h"
@@ -57,6 +57,7 @@
 #include "StreamServerConnection.h"
 #include <WebCore/FontBase.h>
 #include <WebCore/FrameIdentifier.h>
+#include <WebCore/GradientIdentifier.h>
 #include <WebCore/PixelFormat.h>
 #include <WebCore/ProcessIdentity.h>
 #include <WebCore/RenderingResourceIdentifier.h>
@@ -135,6 +136,7 @@ public:
     IPC::StreamConnectionWorkQueue& workQueue() const { return m_workQueue; }
 
     RefPtr<WebCore::ImageBuffer> imageBuffer(WebCore::RenderingResourceIdentifier);
+    RefPtr<RemoteImageBufferSet> imageBufferSet(ImageBufferSetIdentifier);
 
     RefPtr<WebCore::ImageBuffer> allocateImageBuffer(const WebCore::FloatSize& logicalSize, WebCore::RenderingMode, WebCore::RenderingPurpose, float resolutionScale, const WebCore::ColorSpace&, WebCore::ImageBufferFormat, WebCore::ImageBufferCreationContext, std::optional<ImageBufferBackendHandle>&& providedBackingStore = std::nullopt);
 
@@ -174,8 +176,10 @@ private:
     void releaseNativeImage(WebCore::RenderingResourceIdentifier);
     void cachePathImpl(Ref<WebCore::PathImpl>&&, RemotePathImplIdentifier);
     void releasePathImpl(RemotePathImplIdentifier);
-    void cacheGradient(Ref<const WebCore::Gradient>&&, RemoteGradientIdentifier);
-    void releaseGradient(RemoteGradientIdentifier);
+    void cacheGradient(Ref<const WebCore::Gradient>&&, WebCore::GradientIdentifier);
+    void releaseGradient(WebCore::GradientIdentifier);
+    void cacheFreeformGradient(Ref<WebCore::FreeformGradient>&&, RemoteFreeformGradientIdentifier);
+    void releaseFreeformGradient(RemoteFreeformGradientIdentifier);
     void cacheMeshGradient(Ref<WebCore::MeshGradient>&&, RemoteMeshGradientIdentifier);
     void releaseMeshGradient(RemoteMeshGradientIdentifier);
     void cacheFilter(Ref<WebCore::Filter>&&);

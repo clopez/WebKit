@@ -120,7 +120,7 @@ MediaStreamTrack::~MediaStreamTrack()
     if (isCaptureTrack() && !ended()) {
         if (RefPtr context = scriptExecutionContext()) {
             context->postTask([](auto& context) {
-                context.addConsoleMessage(MessageSource::JS, MessageLevel::Warning, "A capture MediaStreamTrack was destroyed without having been stopped explicitly"_s);
+                context.addConsoleMessage(MessageSource::Media, MessageLevel::Warning, "A capture MediaStreamTrack was destroyed without having been stopped explicitly"_s);
             });
         }
     }
@@ -278,6 +278,18 @@ MediaStreamTrack::TrackSettings MediaStreamTrack::getSettings() const
 {
     auto& settings = m_private->settings();
     TrackSettings result;
+
+    // https://w3c.github.io/mediacapture-main/#dom-mediastreamtrack-getsettings
+    if (m_readyState == State::Ended) {
+        if (settings.supportsFacingMode())
+            result.facingMode = convertEnumerationToString(settings.facingMode());
+        if (settings.supportsDeviceId())
+            result.deviceId = settings.deviceId();
+        if (settings.supportsGroupId())
+            result.groupId = settings.groupId();
+        return result;
+    }
+
     if (settings.supportsWidth() && settings.width())
         result.width = settings.width();
     if (settings.supportsHeight() && settings.height())
@@ -513,7 +525,7 @@ void MediaStreamTrack::trackEnded(MediaStreamTrackPrivate&)
     ALWAYS_LOG(LOGIDENTIFIER);
 
     if (m_isCaptureTrack && m_private->captureDidFail() && m_readyState != State::Ended)
-        protect(scriptExecutionContext())->addConsoleMessage(MessageSource::JS, MessageLevel::Error, "A MediaStreamTrack ended due to a capture failure"_s);
+        protect(scriptExecutionContext())->addConsoleMessage(MessageSource::Media, MessageLevel::Error, "A MediaStreamTrack ended due to a capture failure"_s);
 
     // http://w3c.github.io/mediacapture-main/#life-cycle
     // When a MediaStreamTrack track ends for any reason other than the stop() method being invoked, the User Agent must

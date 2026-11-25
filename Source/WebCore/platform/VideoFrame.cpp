@@ -28,6 +28,7 @@
 
 #if ENABLE(VIDEO)
 
+#include <cmath>
 #include <wtf/StdLibExtras.h>
 
 #if USE(GSTREAMER)
@@ -206,6 +207,38 @@ bool VideoFrame::copyToPlanarBuffer(std::span<uint8_t> destination, VideoPixelFo
     return true;
 }
 
+static int makeSureRotationIsBetween0And360(int rotation)
+{
+    return ((rotation % 360) + 360) % 360;
+}
+
+// https://w3c.github.io/webcodecs/#videoframe-parse-rotation
+VideoFrameRotation parseVideoFrameRotation(double rotation)
+{
+    ASSERT(std::isfinite(rotation));
+
+    int rotation360 = makeSureRotationIsBetween0And360(static_cast<int>(std::floor(std::fmod(rotation, 360))));
+    return static_cast<VideoFrameRotation>(makeSureRotationIsBetween0And360(((rotation360 + 45) / 90) * 90));
+}
+
+// https://w3c.github.io/webcodecs/#videoframe-add-rotations
+VideoFrame::Rotation addVideoFrameRotations(VideoFrame::Rotation baseRotation, bool baseFlip, VideoFrame::Rotation rotation)
+{
+    int combinedRotation = static_cast<int>(baseRotation) + (baseFlip ? - static_cast<int>(rotation) : static_cast<int>(rotation));
+    return static_cast<VideoFrame::Rotation>(makeSureRotationIsBetween0And360(combinedRotation));
+}
+
+VideoFrameRotation subtractVideoFrameRotations(VideoFrameRotation baseRotation, VideoFrameRotation rotation)
+{
+    constexpr bool baseFlipToEmulateSubtract = true;
+    return addVideoFrameRotations(baseRotation, baseFlipToEmulateSubtract, rotation);
+}
+
+VideoFrame::Rotation combineVideoFrameRotations(const VideoFrame& frame, double initRotation)
+{
+    return addVideoFrameRotations(frame.rotation(), frame.isMirrored(), parseVideoFrameRotation(initRotation));
+}
+
 #if PLATFORM(COCOA)
 bool VideoFrame::is10bits() const
 {
@@ -269,7 +302,7 @@ RefPtr<VideoFrame> VideoFrame::createI420A(std::span<const uint8_t>, size_t, siz
     return nullptr;
 }
 
-RefPtr<VideoFrame> VideoFrame::createPlanarYUV(VideoPixelFormat, std::span<const uint8_t>, size_t, size_t, std::span<const ComputedPlaneLayout, 3>, Init&&)
+RefPtr<VideoFrame> VideoFrame::createPlanarYUV(VideoPixelFormat, std::span<const uint8_t>, size_t, size_t, std::span<const ComputedPlaneLayout>, Init&&)
 {
     // FIXME: Add support.
     return nullptr;

@@ -354,6 +354,7 @@ public:
 
     void setPageScaleFactor(float scaleFactor, int x, int y, CompletionHandler<void(WKTypeRef)>&&);
     void updatePresentation(CompletionHandler<void(WKTypeRef)>&&);
+    void setScrollbarStyleOverride(const String&, CompletionHandler<void(WKTypeRef)>&&);
 
     void reloadFromOrigin();
 
@@ -454,6 +455,7 @@ public:
     bool isEnhancedSecurity() const;
 
     String dumpPrivateClickMeasurement();
+    String dumpBackForwardListsForAllPages();
     void clearPrivateClickMeasurement();
     void clearPrivateClickMeasurementsThroughWebsiteDataRemoval();
     void setPrivateClickMeasurementOverrideTimerForTesting(bool value);

@@ -36,6 +36,7 @@
 
 namespace WebCore {
 class IntPoint;
+enum class ScrollbarStyle : uint8_t;
 }
 
 namespace WebKit {
@@ -69,6 +70,10 @@ public:
     void screenIsBeingCaptured(WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
 #endif
 
+#if USE(UICONTEXTMENU)
+    void hasActiveContextMenuInteraction(WebCore::FrameIdentifier, CompletionHandler<void(bool)>&&);
+#endif
+
     void dumpPrivateClickMeasurement(CompletionHandler<void(const String&)>&&);
     void clearPrivateClickMeasurement(CompletionHandler<void()>&&);
     void setPrivateClickMeasurementOverrideTimer(bool value, CompletionHandler<void()>&&);
@@ -100,8 +105,10 @@ public:
 #endif
 
     void setObscuredContentInsets(float top, float right, float bottom, float left, CompletionHandler<void()>&&);
+    void setScrollbarStyleOverride(std::optional<WebCore::ScrollbarStyle>, CompletionHandler<void()>&&);
 
     void clearBackForwardList(CompletionHandler<void()>&&);
+    String dumpBackForwardList(const String& directory);
 
     void setTracksRepaints(bool, CompletionHandler<void()>&&);
     void displayAndTrackRepaints(CompletionHandler<void()>&&);

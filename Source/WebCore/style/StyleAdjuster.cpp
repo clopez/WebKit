@@ -103,8 +103,7 @@
 #include <WebKitAdditions/StyleAdjusterAdditions.cpp>
 #endif
 
-namespace WebCore {
-namespace Style {
+namespace WebCore::Style {
 
 using namespace CSS::Literals;
 using namespace HTMLNames;
@@ -239,64 +238,126 @@ bool Adjuster::adjustEventListenerRegionTypesForRootStyle(Style::ComputedStyle& 
     return changed;
 }
 
+#if ENABLE(WHEEL_EVENT_REGIONS) || ENABLE(TOUCH_EVENT_REGIONS)
+struct EventListenerRegionTypePair {
+    EventListenerRegionType type;
+    EventListenerRegionType nonPassiveType;
+};
+#endif
+
+#if ENABLE(TOUCH_EVENT_REGIONS)
+static std::optional<EventListenerRegionTypePair> touchEventListenerRegionTypes(EventType eventType)
+{
+    switch (eventType) {
+    case EventType::touchstart:
+        return { { EventListenerRegionType::TouchStart, EventListenerRegionType::NonPassiveTouchStart } };
+    case EventType::touchend:
+        return { { EventListenerRegionType::TouchEnd, EventListenerRegionType::NonPassiveTouchEnd } };
+    case EventType::touchcancel:
+        // `touchcancel` is sent after the event has already been cancelled. Calling
+        // preventDefault() has no effect, so we don't need a synchronous version.
+        return { { EventListenerRegionType::TouchCancel, EventListenerRegionType::TouchCancel } };
+    case EventType::touchmove:
+        return { { EventListenerRegionType::TouchMove, EventListenerRegionType::NonPassiveTouchMove } };
+    case EventType::touchforcechange:
+        return { { EventListenerRegionType::TouchForceChange, EventListenerRegionType::NonPassiveTouchForceChange } };
+    case EventType::pointerdown:
+        return { { EventListenerRegionType::PointerDown, EventListenerRegionType::NonPassivePointerDown } };
+    case EventType::pointerenter:
+        return { { EventListenerRegionType::PointerEnter, EventListenerRegionType::NonPassivePointerEnter } };
+    case EventType::pointerleave:
+        return { { EventListenerRegionType::PointerLeave, EventListenerRegionType::NonPassivePointerLeave } };
+    case EventType::pointermove:
+        return { { EventListenerRegionType::PointerMove, EventListenerRegionType::NonPassivePointerMove } };
+    case EventType::pointerout:
+        return { { EventListenerRegionType::PointerOut, EventListenerRegionType::NonPassivePointerOut } };
+    case EventType::pointerover:
+        return { { EventListenerRegionType::PointerOver, EventListenerRegionType::NonPassivePointerOver } };
+    case EventType::pointerup:
+        return { { EventListenerRegionType::PointerUp, EventListenerRegionType::NonPassivePointerUp } };
+    case EventType::gesturechange:
+        return { { EventListenerRegionType::GestureChange, EventListenerRegionType::NonPassiveGestureChange } };
+    case EventType::gestureend:
+        return { { EventListenerRegionType::GestureEnd, EventListenerRegionType::NonPassiveGestureEnd } };
+    case EventType::gesturestart:
+        return { { EventListenerRegionType::GestureStart, EventListenerRegionType::NonPassiveGestureStart } };
+    default:
+        return std::nullopt;
+    }
+}
+
+static std::optional<EventListenerRegionTypePair> simulatedMouseEventListenerRegionTypes(EventType eventType)
+{
+    switch (eventType) {
+    case EventType::mousedown:
+        return { { EventListenerRegionType::MouseDown, EventListenerRegionType::NonPassiveMouseDown } };
+    case EventType::mouseup:
+        return { { EventListenerRegionType::MouseUp, EventListenerRegionType::NonPassiveMouseUp } };
+    case EventType::mousemove:
+        return { { EventListenerRegionType::MouseMove, EventListenerRegionType::NonPassiveMouseMove } };
+    default:
+        return std::nullopt;
+    }
+}
+#endif
+
+#if ENABLE(WHEEL_EVENT_REGIONS) || ENABLE(TOUCH_EVENT_REGIONS)
+static bool hasOnlyPassiveListeners(const EventListenerVector& listeners)
+{
+    for (auto& listener : listeners) {
+        if (!listener->isPassive())
+            return false;
+    }
+    return true;
+}
+#endif
+
 OptionSet<EventListenerRegionType> Adjuster::computeEventListenerRegionTypes(const Document& document, const Style::ComputedStyle& style, const EventTarget& eventTarget, OptionSet<EventListenerRegionType> parentTypes)
 {
     auto types = parentTypes;
 
 #if ENABLE(WHEEL_EVENT_REGIONS) || ENABLE(TOUCH_EVENT_REGIONS)
-    auto findListeners = [&](auto& eventName, auto type, auto nonPassiveType) {
-        auto* eventListenerVector = eventTarget.eventTargetData()->eventListenerMap.find(eventName);
-        if (!eventListenerVector)
-            return;
-
-        types.add(type);
-
-        auto isPassiveOnly = [&] {
-            for (auto& listener : *eventListenerVector) {
-                if (!listener->isPassive())
-                    return false;
-            }
-            return true;
-        }();
-
-        if (!isPassiveOnly)
-            types.add(nonPassiveType);
-    };
-#endif
-#if ENABLE(WHEEL_EVENT_REGIONS)
     if (eventTarget.hasEventListeners()) {
-        findListeners(eventNames().wheelEvent, EventListenerRegionType::Wheel, EventListenerRegionType::NonPassiveWheel);
-        findListeners(eventNames().mousewheelEvent, EventListenerRegionType::Wheel, EventListenerRegionType::NonPassiveWheel);
+        auto& eventNames = WebCore::eventNames();
+#if ENABLE(TOUCH_EVENT_REGIONS)
+        bool useTouchEventRegions = document.shouldUseTouchEventRegions();
+        std::optional<bool> shouldDispatchSimulatedMouseEvents;
+#endif
+        auto regionTypesForEventType = [&](EventType eventType) -> std::optional<EventListenerRegionTypePair> {
+#if ENABLE(WHEEL_EVENT_REGIONS)
+            if (eventType == EventType::wheel || eventType == EventType::mousewheel)
+                return { { EventListenerRegionType::Wheel, EventListenerRegionType::NonPassiveWheel } };
+#endif
+#if ENABLE(TOUCH_EVENT_REGIONS)
+            if (!useTouchEventRegions)
+                return std::nullopt;
+            if (auto regionTypes = touchEventListenerRegionTypes(eventType))
+                return regionTypes;
+            auto regionTypes = simulatedMouseEventListenerRegionTypes(eventType);
+            if (!regionTypes)
+                return std::nullopt;
+            if (!shouldDispatchSimulatedMouseEvents)
+                shouldDispatchSimulatedMouseEvents = document.quirks().shouldDispatchSimulatedMouseEvents(&eventTarget);
+            if (!*shouldDispatchSimulatedMouseEvents)
+                return std::nullopt;
+            return regionTypes;
+#else
+            return std::nullopt;
+#endif
+        };
+
+        for (auto& [eventName, listeners] : eventTarget.eventTargetData()->eventListenerMap) {
+            auto regionTypes = regionTypesForEventType(eventNames.typeInfoForEvent(eventName).type());
+            if (!regionTypes)
+                continue;
+
+            types.add(regionTypes->type);
+            if (!hasOnlyPassiveListeners(listeners))
+                types.add(regionTypes->nonPassiveType);
+        }
     }
 #endif
 #if ENABLE(TOUCH_EVENT_REGIONS)
-    if (document.shouldUseTouchEventRegions() && eventTarget.hasEventListeners()) {
-        findListeners(eventNames().touchstartEvent, EventListenerRegionType::TouchStart, EventListenerRegionType::NonPassiveTouchStart);
-        findListeners(eventNames().touchendEvent, EventListenerRegionType::TouchEnd, EventListenerRegionType::NonPassiveTouchEnd);
-        // `touchcancel` is sent after the event has already been cancelled. Calling preventDefault() has no effect, so we don't
-        // need a synchronous version.
-        findListeners(eventNames().touchcancelEvent, EventListenerRegionType::TouchCancel, EventListenerRegionType::TouchCancel);
-        findListeners(eventNames().touchmoveEvent, EventListenerRegionType::TouchMove, EventListenerRegionType::NonPassiveTouchMove);
-        findListeners(eventNames().touchforcechangeEvent, EventListenerRegionType::TouchForceChange, EventListenerRegionType::NonPassiveTouchForceChange);
-
-        findListeners(eventNames().pointerdownEvent, EventListenerRegionType::PointerDown, EventListenerRegionType::NonPassivePointerDown);
-        findListeners(eventNames().pointerenterEvent, EventListenerRegionType::PointerEnter, EventListenerRegionType::NonPassivePointerEnter);
-        findListeners(eventNames().pointerleaveEvent, EventListenerRegionType::PointerLeave, EventListenerRegionType::NonPassivePointerLeave);
-        findListeners(eventNames().pointermoveEvent, EventListenerRegionType::PointerMove, EventListenerRegionType::NonPassivePointerMove);
-        findListeners(eventNames().pointeroutEvent, EventListenerRegionType::PointerOut, EventListenerRegionType::NonPassivePointerOut);
-        findListeners(eventNames().pointeroverEvent, EventListenerRegionType::PointerOver, EventListenerRegionType::NonPassivePointerOver);
-        findListeners(eventNames().pointerupEvent, EventListenerRegionType::PointerUp, EventListenerRegionType::NonPassivePointerUp);
-        if (document.quirks().shouldDispatchSimulatedMouseEvents(&eventTarget)) {
-            findListeners(eventNames().mousedownEvent, EventListenerRegionType::MouseDown, EventListenerRegionType::NonPassiveMouseDown);
-            findListeners(eventNames().mouseupEvent, EventListenerRegionType::MouseUp, EventListenerRegionType::NonPassiveMouseUp);
-            findListeners(eventNames().mousemoveEvent, EventListenerRegionType::MouseMove, EventListenerRegionType::NonPassiveMouseMove);
-        }
-
-        findListeners(eventNames().gesturechangeEvent, EventListenerRegionType::GestureChange, EventListenerRegionType::NonPassiveGestureChange);
-        findListeners(eventNames().gestureendEvent, EventListenerRegionType::GestureEnd, EventListenerRegionType::NonPassiveGestureEnd);
-        findListeners(eventNames().gesturestartEvent, EventListenerRegionType::GestureStart, EventListenerRegionType::NonPassiveGestureStart);
-    }
-
     if (eventTarget.hasInternalTouchEventHandling()) {
         types.add(EventListenerRegionType::TouchCancel);
         types.add(EventListenerRegionType::TouchEnd);
@@ -597,8 +658,8 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
     // Same for the additional translation component present in RenderSVGTransformableContainer (that stems from <use> x/y
     // properties, that are transferred to the internal RenderSVGTransformableContainer), or for the viewBox-induced transformation
     // in RenderSVGViewportContainer. They all need to return true for 'hasTransformRelatedProperty'.
-    auto hasTransformRelatedProperty = [](const Style::ComputedStyle& style, const Element* element, const Style::ComputedStyle& parentStyle) {
-        if (element && element->document().settings().css3DTransformBackfaceVisibilityInteroperabilityEnabled() && style.backfaceVisibility() == BackfaceVisibility::Hidden && parentStyle.usedTransformStyle3D() == TransformStyle3D::Preserve3D)
+    auto hasTransformRelatedProperty = [](const Style::ComputedStyle& style, const Element* element, bool parentPreserves3D) {
+        if (element && element->document().settings().css3DTransformBackfaceVisibilityInteroperabilityEnabled() && style.backfaceVisibility() == BackfaceVisibility::Hidden && parentPreserves3D)
             return true;
 
         if (style.hasTransformRelatedProperty())
@@ -619,7 +680,7 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
         if ((m_element && m_document->documentElement() == m_element.get())
             || (m_element && m_element->isCanvasDrawable())
             || (is<HTMLCanvasElement>(m_element.get()) && downcast<HTMLCanvasElement>(*m_element).hasDrawableContent())
-            || hasTransformRelatedProperty(style, m_element.get(), m_parentStyle)
+            || hasTransformRelatedProperty(style, m_element.get(), m_parentStyle.usedTransformStyle3D() == TransformStyle3D::Preserve3D)
             || shouldTreatAutoZIndexAsZero(style)
             || isInTopLayerOrBackdrop(style, m_element.get()))
             style.setUsedZIndex(0);
@@ -738,7 +799,7 @@ void Adjuster::adjust(Style::ComputedStyle& style) const
 
     // Let the theme also have a crack at adjusting the style.
     if (style.appearance() != StyleAppearance::None && style.appearance() != StyleAppearance::Base)
-        adjustThemeStyle(style, m_parentStyle);
+        adjustThemeStyle(style, protect(m_parentStyle));
 
     bool hasBaseAppearance = style.usedAppearance() == StyleAppearance::Base;
     if ((hasBaseAppearance || style.inBaseAppearanceSubtree()) && !style.pseudoElementType() && m_element && m_element->supportsBaseAppearance(StyleAppearance::Base)) {
@@ -1102,6 +1163,8 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
     if (!documentQuirks.hasRelevantQuirks())
         return;
 
+    CheckedRef parentStyle = m_parentStyle;
+
     if (documentQuirks.needsBodyScrollbarWidthNoneDisabledQuirk() && is<HTMLBodyElement>(*m_element)) {
         if (style.scrollbarWidth() == ScrollbarWidth::None)
             style.setScrollbarWidth(ScrollbarWidth::Auto);
@@ -1143,7 +1206,7 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
         style.setDisplayMaintainingOriginalDisplay(DisplayType::BlockFlex);
 #endif // PLATFORM(IOS_FAMILY)
 
-    if (auto tikTokOverflowingContentQuery = documentQuirks.needsTikTokOverflowingContentQuirk(protect(*m_element), m_parentStyle)) {
+    if (auto tikTokOverflowingContentQuery = documentQuirks.needsTikTokOverflowingContentQuirk(protect(*m_element), parentStyle)) {
         if (*tikTokOverflowingContentQuery == Quirks::TikTokOverflowingContentQuirkType::CommentsSectionQuirk)  {
             style.setFlexShrink({ 1 });
             style.setMinWidth(0_css_px);
@@ -1187,7 +1250,7 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
             style.setHeight(PreferredSize::Fixed { *openRiceAdPopupHeight->clampedHeight });
     }
 
-    if (documentQuirks.needsAmazonDesignMenuViewportUnitQuirk(style, m_parentStyle)) {
+    if (documentQuirks.needsAmazonDesignMenuViewportUnitQuirk(style, parentStyle)) {
         if (auto fixedHeight = style.height().tryFixed()) {
             auto resolvedHeight = fixedHeight->resolveZoom(ZoomFactor::none());
             CheckedPtr renderView = m_document->renderView();
@@ -1208,7 +1271,7 @@ void Adjuster::adjustForSiteSpecificQuirks(Style::ComputedStyle& style) const
     }
 #endif
 
-    if (documentQuirks.needsInstagramResizingReelsQuirk(protect(*m_element), style, m_parentStyle))
+    if (documentQuirks.needsInstagramResizingReelsQuirk(protect(*m_element), style, parentStyle))
         style.setFlexGrow(1);
 }
 
@@ -1473,5 +1536,4 @@ void Adjuster::adjustViewTimelines(Style::ComputedStyle& style)
     style.ensureViewTimelines().prepareForUse();
 }
 
-} // namespace Style
-} // namespace WebCore
+} // namespace WebCore::Style

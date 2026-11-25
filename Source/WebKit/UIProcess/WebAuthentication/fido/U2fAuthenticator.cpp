@@ -124,7 +124,7 @@ void U2fAuthenticator::issueSignCommand(size_t index)
 
 void U2fAuthenticator::issueNewCommand(Vector<uint8_t>&& command, CommandType type)
 {
-    U2F_RELEASE_LOG("issueNewCommand, type=%hhu", type);
+    U2F_RELEASE_LOG("issueNewCommand, type=%hhu", std::to_underlying(type));
     m_lastCommand = WTF::move(command);
     m_lastCommandType = type;
     issueCommand(m_lastCommand, m_lastCommandType);
@@ -134,7 +134,7 @@ void U2fAuthenticator::issueCommand(const Vector<uint8_t>& command, CommandType 
 {
     U2F_RELEASE_LOG("issueCommand: Sending %s", base64EncodeToString(command).utf8());
     protect(driver())->transact(Vector<uint8_t>(command), [weakThis = WeakPtr { *this }, type](Vector<uint8_t>&& data) {
-        ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+        RELEASE_ASSERT(RunLoop::isMain());
         if (RefPtr protectedThis = weakThis)
             protectedThis->responseReceived(WTF::move(data), type);
     });

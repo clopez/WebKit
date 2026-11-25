@@ -194,6 +194,36 @@ id<MTLLibrary> compileLibrary(id<MTLDevice> device, const LibraryCompileRequest&
     return ShaderModule::createLibrary(device, request.msl, request.label, error, request.deviceState);
 }
 
+// The instance that the Metal completion handler of an asynchronous compile holds. Instance::destroy()
+// waits for every compile to signal that its handler no longer holds the instance, so the handler
+// never releases the last reference to the instance on Metal's threads. It signals when it is
+// destroyed, after it has released the instance, so a handler that is never called signals too.
+class AsyncCompileInstance {
+    WTF_MAKE_NONCOPYABLE(AsyncCompileInstance);
+public:
+    explicit AsyncCompileInstance(Instance& instance)
+        : m_instance(&instance)
+        , m_completions(instance.didStartAsyncCompile())
+    {
+    }
+
+    AsyncCompileInstance(AsyncCompileInstance&&) = default;
+
+    ~AsyncCompileInstance()
+    {
+        m_instance = nullptr;
+        if (m_completions)
+            m_completions->signal();
+    }
+
+    // The returned reference must be released before this is destroyed.
+    RefPtr<Instance> take() { return std::exchange(m_instance, nullptr); }
+
+private:
+    RefPtr<Instance> m_instance;
+    Box<Semaphore> m_completions;
+};
+
 template<typename Result>
 static CompletionHandler<void(Result, NSError *)> callOnWebGPUThread(Instance& instance, CompletionHandler<void(Result, NSError *)>&& callback)
 {
@@ -202,8 +232,8 @@ static CompletionHandler<void(Result, NSError *)> callOnWebGPUThread(Instance& i
     auto* callbackToHopBack = new Callback(WTF::move(callback));
     // Metal runs its completion handlers on its own queues, so the returned handler is called on an
     // arbitrary thread. It is the hop below which returns to the thread `callback` was created on.
-    return Callback { [protectedInstance = Ref { instance }, callbackToHopBack](Result result, NSError *error) mutable {
-        protectedInstance->scheduleWork([callbackToHopBack, result, error]() mutable {
+    return Callback { [asyncCompileInstance = AsyncCompileInstance { instance }, callbackToHopBack](Result result, NSError *error) mutable {
+        asyncCompileInstance.take()->scheduleWork([callbackToHopBack, result, error] mutable {
             std::unique_ptr<Callback> callback(callbackToHopBack);
             (*callback)(result, error);
         });
@@ -273,7 +303,7 @@ Device::LibraryCompilation Device::asynchronousIfPossible()
 void Device::compileLibrary(const LibraryCompileRequest& request, LibraryCompilation libraryCompilation, CompletionHandler<void(id<MTLLibrary>, NSError *)>&& callback)
 {
     if (libraryCompilation == LibraryCompilation::Asynchronous) {
-        if (RefPtr protectedInstance = instance()) {
+        if (RefPtr protectedInstance = weakInstance()) {
             compileLibraryAsync(m_device, *protectedInstance, request, WTF::move(callback));
             return;
         }
@@ -292,7 +322,7 @@ void Device::createComputePipelineState(MTLComputePipelineDescriptor *descriptor
     };
 
     if (libraryCompilation == LibraryCompilation::Asynchronous) {
-        if (RefPtr protectedInstance = instance()) {
+        if (RefPtr protectedInstance = weakInstance()) {
             createComputePipelineStateAsync(m_device, *protectedInstance, descriptor, [reportError, callback = WTF::move(callback)](id<MTLComputePipelineState> computePipelineState, NSError *error) mutable {
                 reportError(error);
                 callback(computePipelineState);

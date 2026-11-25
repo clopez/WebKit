@@ -69,6 +69,7 @@ function parametersForLog(data)
 
 // Keep fetched links and requests here, by query, not on the run: each click copies the runs, and their fields come from the upload
 const linksForRun = new Map();
+const linksRequestForRun = new Map();
 const logForRun = new Map();
 
 function logKey(suite, test, data)
@@ -94,6 +95,23 @@ function linksAllRowsAgreeOn(urlsByConfiguration)
     if (!linksPerRow.length || !linksPerRow.every(links => deepCompare(links, linksPerRow[0])))
         return [];
     return linksPerRow[0];
+}
+
+// One request per run for the drawer and the timeline's tooltip; returned only while it's on its way
+function requestLinks(suite, run)
+{
+    if (!run.start_time || !numberOfLinks(run))
+        return null;
+    const query = parametersForInstance(suite, run);
+    if (!linksForRun.has(query)) {
+        linksForRun.set(query, null);
+        linksRequestForRun.set(query, fetch(`api/urls?${query}`)
+            .then(response => response.json())
+            .then(linksAllRowsAgreeOn)
+            .then(links => linksForRun.set(query, links), () => linksForRun.delete(query))
+            .finally(() => linksRequestForRun.delete(query)));
+    }
+    return linksRequestForRun.get(query) || null;
 }
 
 function anchorFor([name, url])
@@ -172,6 +190,8 @@ function prioritizedFailures(failures, max = 0, willFilterExpected = false)
         if (failure === null) {
             const params = failures.toParams();
             params.unexpected = [willFilterExpected];
+            if (InvestigateDrawer.subSuite)
+                params.sub_suite = [`${failures.suite}/${InvestigateDrawer.subSuite}`];
             return `<a style="margin-left: calc(var(--mediumSize) + 16px)" target="_blank" href="/investigate?${paramsToQuery(params)}">More...</a>`;
         }
         return `<div>
@@ -351,6 +371,7 @@ class _InvestigateDrawer {
         this.test = null;
         this.agregate = null;
         this.data = [];
+        this.subSuite = null;
 
         this.willFilterExpected = false;
 
@@ -424,12 +445,13 @@ class _InvestigateDrawer {
             document.documentElement.style.removeProperty('--drawerHeight');
         }
     }
-    expand(suite, agregateData, allData, test) {
+    expand(suite, agregateData, allData, test, subSuite) {
         if (!this.isRendered())
             return;
         this.setDisplayed(true);
         this.suite = suite;
         this.test = test;
+        this.subSuite = subSuite;
         this.agregate = agregateData;
         this.data = allData;
         this.dispatch();
@@ -460,6 +482,8 @@ class _InvestigateDrawer {
         }
         if (branch)
             params.branch = [branch];
+        if (this.subSuite)
+            params.sub_suite = [this.subSuite];
 
         // Leave members that differ between the aggregated runs unset so every matching run is returned
         const queryConfiguration = Configuration.combine(...this.data.map(datum => datum.configuration));
@@ -491,21 +515,15 @@ class _InvestigateDrawer {
         });
     }
     fetchLinks(run) {
-        if (!run.start_time || !numberOfLinks(run))
+        const request = requestLinks(this.suite, run);
+        if (!request)
             return;
         const query = parametersForInstance(this.suite, run);
-        if (linksForRun.has(query))
-            return;
-        linksForRun.set(query, null);
-        fetch(`api/urls?${query}`)
-            .then(response => response.json())
-            .then(linksAllRowsAgreeOn)
-            .then(links => linksForRun.set(query, links), () => linksForRun.delete(query))
-            .then(() => {
-                const selectedRun = this.selectedRun();
-                if (selectedRun && parametersForInstance(this.suite, selectedRun) === query)
-                    this.content.setState(contentForData(this.suite, selectedRun, this.willFilterExpected, this.test));
-            });
+        request.then(() => {
+            const selectedRun = this.selectedRun();
+            if (selectedRun && parametersForInstance(this.suite, selectedRun) === query)
+                this.content.setState(contentForData(this.suite, selectedRun, this.willFilterExpected, this.test));
+        });
     }
     fetchLog(run) {
         if (!this.test || !run.start_time || !run.has_log)
@@ -583,4 +601,4 @@ class _InvestigateDrawer {
 
 const InvestigateDrawer = new _InvestigateDrawer();
 
-export {InvestigateDrawer};
+export {InvestigateDrawer, requestLinks, testRunLink};

@@ -1621,7 +1621,9 @@ RefPtr<GPUProcessConnection> WebProcess::existingGPUProcessConnectionOffMainThre
 Seconds WebProcess::gpuProcessTimeoutDuration() const
 {
     constexpr Seconds defaultTimeoutDuration = 15_s;
-    return m_childProcessDebuggabilityEnabled ? Seconds::infinity() : defaultTimeoutDuration;
+    if (m_childProcessDebuggabilityEnabled)
+        return Seconds::infinity();
+    return m_gpuProcessTimeoutForTesting > 0_s ? m_gpuProcessTimeoutForTesting : defaultTimeoutDuration;
 }
 
 void WebProcess::gpuProcessConnectionClosed()
@@ -2528,7 +2530,7 @@ void WebProcess::setAppBadge(WebCore::Frame* frame, const WebCore::SecurityOrigi
 #if HAVE(DISPLAY_LINK)
 void WebProcess::displayDidRefresh(uint32_t displayID, const DisplayUpdate& displayUpdate)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(RunLoop::isMain());
+    RELEASE_ASSERT(RunLoop::isMain());
     protect(eventDispatcher())->notifyScrollingTreesDisplayDidRefresh(displayID);
     DisplayRefreshMonitorManager::sharedManager().displayDidRefresh(displayID, displayUpdate);
 }
@@ -2605,6 +2607,7 @@ void WebProcess::updateProcessPreferences(const WebPreferencesStore& store)
     DatabaseManager::singleton().setIsAvailable(store.getBoolValueForKey(WebPreferencesKey::databasesEnabledKey()));
 
     setChildProcessDebuggabilityEnabled(store.getBoolValueForKey(WebPreferencesKey::childProcessDebuggabilityEnabledKey()));
+    m_gpuProcessTimeoutForTesting = Seconds { store.getDoubleValueForKey(WebPreferencesKey::webProcessGPUProcessTimeoutForTestingKey()) };
 
 #if ENABLE(CONTENT_EXTENSIONS)
     if (auto threshold = store.getUInt32ValueForKey(WebPreferencesKey::iFrameResourceMonitorNetworkUsageThresholdForTestingKey()))

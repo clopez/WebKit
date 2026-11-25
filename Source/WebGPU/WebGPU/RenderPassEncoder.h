@@ -25,6 +25,10 @@
 
 #pragma once
 
+#if !__has_feature(objc_arc)
+#error This header requires ARC. Include it only from files compiled with -fobjc-arc.
+#endif
+
 #import "BindableResource.h"
 #import "CommandsMixin.h"
 #import "TextureOrTextureView.h"
@@ -128,6 +132,7 @@ public:
     void deferRenderCommandEncoder(MTLRenderPassDescriptor* descriptor) { m_deferredDescriptor = descriptor; }
     id<MTLRenderCommandEncoder> materializeRenderCommandEncoder() const;
     void makeInvalid(NSString* = nil);
+    void makeInvalid(String&& error) final;
     CommandEncoder& parentEncoder() const { return m_parentEncoder; }
 
     bool setCommandEncoder(const BindGroupEntryUsageData::Resource&);

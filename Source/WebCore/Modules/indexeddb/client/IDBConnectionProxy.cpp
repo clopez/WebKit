@@ -45,8 +45,7 @@
 #include <wtf/MainThread.h>
 #include <wtf/TZoneMallocInlines.h>
 
-namespace WebCore {
-namespace IDBClient {
+namespace WebCore::IDBClient {
 
 template<typename T, typename... Parameters, typename... Arguments>
 static void performCallbackOnOriginThread(Locker<Lock>& locker, Ref<T>&& object, void (T::*method)(Parameters...), Arguments&&... arguments) WTF_IGNORES_THREAD_SAFETY_ANALYSIS
@@ -437,7 +436,7 @@ void IDBConnectionProxy::didAbortTransaction(const IDBResourceIdentifier& transa
 
 bool IDBConnectionProxy::hasRecordOfTransaction(const IDBTransaction& transaction) const
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(m_transactionMapLock.isLocked());
+    RELEASE_ASSERT(m_transactionMapLock.isLocked());
 
     auto identifier = transaction.info().identifier();
     return m_pendingTransactions.contains(identifier) || m_committingTransactions.contains(identifier) || m_abortingTransactions.contains(identifier);
@@ -690,5 +689,4 @@ void IDBConnectionProxy::setContextSuspended(ScriptExecutionContext& currentCont
     }
 }
 
-} // namesapce IDBClient
-} // namespace WebCore
+} // namespace WebCore::IDBClient

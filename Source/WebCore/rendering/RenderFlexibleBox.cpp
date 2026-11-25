@@ -148,7 +148,6 @@ void RenderFlexibleBox::layoutBlock(RelayoutChildren relayoutChildren, LayoutUni
             layoutOutOfFlowBoxes(RelayoutChildren::Yes);
         else
             layoutOutOfFlowBoxes(relayoutChildren);
-        updateOutOfFlowDescendantTransformsAfterLayout();
         addOverflowFromOutOfFlowBoxes();
     }
 
@@ -170,11 +169,6 @@ std::optional<LayoutUnit> RenderFlexibleBox::lastLineBaseline() const
 bool RenderFlexibleBox::hitTestChildren(const HitTestRequest& request, HitTestResult& result, const HitTestLocation& locationInContainer, const LayoutPoint& adjustedLocation, HitTestAction hitTestAction)
 {
     return m_flexLayout.hitTest(request, result, locationInContainer, adjustedLocation, hitTestAction);
-}
-
-void RenderFlexibleBox::paintChildren(PaintInfo& paintInfo, const LayoutPoint& paintOffset, PaintInfo& paintInfoForFlexItem, bool usePrintRect)
-{
-    m_flexLayout.paint(paintInfo, paintOffset, paintInfoForFlexItem, usePrintRect);
 }
 
 void RenderFlexibleBox::styleDidChange(Style::Difference diff, const Style::ComputedStyle* oldStyle)

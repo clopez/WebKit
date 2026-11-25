@@ -130,11 +130,11 @@ public:
 
     WTF_EXPORT_PRIVATE ASCIICString ascii() const;
 
-    WTF_EXPORT_PRIVATE std::expected<UTF8CString, UTF8ConversionError> tryGetUTF8(ConversionMode = LenientConversion) const;
-    WTF_EXPORT_PRIVATE UTF8CString utf8(ConversionMode = LenientConversion) const;
+    WTF_EXPORT_PRIVATE std::expected<UTF8CString, UTF8ConversionError> tryGetUTF8(ConversionMode = ConversionMode::Lenient) const;
+    WTF_EXPORT_PRIVATE UTF8CString utf8(ConversionMode = ConversionMode::Lenient) const;
 
     template<typename Func>
-    std::expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8ConversionError> tryGetUTF8(NOESCAPE const Func&, ConversionMode = LenientConversion) const;
+    std::expected<std::invoke_result_t<Func, std::span<const char8_t>>, UTF8ConversionError> tryGetUTF8(NOESCAPE const Func&, ConversionMode = ConversionMode::Lenient) const;
 
     template<size_t N>
     class UpconvertedCharactersWithSize;
@@ -291,6 +291,8 @@ WTF_EXPORT_PRIVATE StringViewWithUnderlyingString normalizedNFC(StringView);
 
 WTF_EXPORT_PRIVATE String normalizedNFC(const String&);
 
+WTF_EXPORT_PRIVATE Vector<uint8_t> utf8Bytes(StringView);
+
 inline StringView nullStringView() { return { }; }
 inline StringView emptyStringView() { return ""_span; }
 
@@ -299,6 +301,8 @@ NODELETE inline bool codePointCompareLessThan(StringView a, StringView b)
 {
     return codePointCompare(a, b) < 0;
 }
+
+WTF_EXPORT_PRIVATE size_t utf8Length(StringView);
 
 } // namespace WTF
 
@@ -1609,7 +1613,9 @@ using WTF::makeStringBySimplifyingNewLines;
 using WTF::StringView;
 using WTF::StringViewWithUnderlyingString;
 using WTF::hasUnpairedSurrogate;
+using WTF::utf8Length;
 using WTF::nullStringView;
 using WTF::emptyStringView;
 using WTF::codePointCompare;
 using WTF::codePointCompareLessThan;
+using WTF::utf8Bytes;

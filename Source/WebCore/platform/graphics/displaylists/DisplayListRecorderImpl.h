@@ -29,9 +29,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/TZoneMalloc.h>
 
-namespace WebCore {
-
-namespace DisplayList {
+namespace WebCore::DisplayList {
 
 class RecorderImpl : public Recorder, public RefCounted<RecorderImpl> {
     WTF_MAKE_TZONE_ALLOCATED_EXPORT(RecorderImpl, WEBCORE_EXPORT);
@@ -87,6 +85,7 @@ public:
     void drawLine(const FloatPoint& point1, const FloatPoint& point2) final;
     void drawLinesForText(const FloatPoint&, float thickness, std::span<const FloatSegment>, bool isPrinting, bool doubleLines, StrokeStyle) final;
     void drawDotsForDocumentMarker(const FloatRect&, DocumentMarkerLineStyle) final;
+    void drawFreeformGradient(FreeformGradient&, const FloatRect& destination) final;
     void drawMeshGradient(MeshGradient&, const FloatRect& destination) final;
     void drawEllipse(const FloatRect&) final;
     void drawPath(const Path&) final;
@@ -136,5 +135,4 @@ private:
     Vector<Item> m_items;
 };
 
-}
 }

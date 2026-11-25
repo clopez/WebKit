@@ -26,7 +26,6 @@
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "LayoutIntegrationLineLayout.h"
 #include "PlatformRenderTheme.h"
 #include "RenderBlockFlowInlines.h"
 #include "RenderBoxInlines.h"
@@ -35,6 +34,7 @@
 #include "RenderElementInlines.h"
 #include "RenderTheme.h"
 #include "RenderTreeBuilder.h"
+#include "RenderView.h"
 #include "StyleComputedStyle+SettersInlines.h"
 #include <wtf/TZoneMallocInlines.h>
 
@@ -71,14 +71,6 @@ void RenderButton::setInnerRenderer(RenderBlock& innerRenderer)
 {
     ASSERT(!m_inner.get());
     m_inner = innerRenderer;
-    updateAnonymousChildStyle(m_inner->mutableStyle());
-
-    if (m_inner && LayoutIntegration::BoxTreeUpdater::isLaidOutByIntegration(*m_inner)) {
-        if (auto* inlineFormattingContextRoot = dynamicDowncast<RenderBlockFlow>(*m_inner); inlineFormattingContextRoot && inlineFormattingContextRoot->inlineLayout())
-            inlineFormattingContextRoot->inlineLayout()->rootStyleWillChange(*inlineFormattingContextRoot, inlineFormattingContextRoot->style());
-        if (auto* lineLayout = LayoutIntegration::LineLayout::containing(*m_inner))
-            lineLayout->styleWillChange(*m_inner, m_inner->style(), Style::DifferenceResult::Layout);
-    }
 }
 
 void RenderButton::updateAnonymousChildStyle(Style::ComputedStyle& childStyle) const
@@ -120,12 +112,12 @@ void RenderButton::setText(const String& str)
         if (RenderTreeBuilder::current())
             RenderTreeBuilder::current()->attach(*this, WTF::move(newButtonText));
         else
-            RenderTreeBuilder(*document().renderView()).attach(*this, WTF::move(newButtonText));
+            RenderTreeBuilder(*protect(document().renderView())).attach(*this, WTF::move(newButtonText));
         return;
     }
 
     if (!str.isEmpty()) {
-        m_buttonText->setText(str.impl());
+        protect(m_buttonText.get())->setText(str.impl());
         return;
     }
     if (RenderTreeBuilder::current())
@@ -156,16 +148,6 @@ LayoutRect RenderButton::controlClipRect(const LayoutPoint& additionalOffset) co
     // Clip to the padding box to at least give content the extra padding space.
     return LayoutRect(additionalOffset.x() + borderLeft(), additionalOffset.y() + borderTop(), borderBoxWidth() - borderLeft() - borderRight(), borderBoxHeight() - borderTop() - borderBottom());
 }
-
-#if PLATFORM(IOS_FAMILY)
-void RenderButton::layout()
-{
-    RenderFlexibleBox::layout();
-
-    // FIXME: We should not be adjusting styles during layout. See <rdar://problem/7675493>.
-    RenderThemeIOS::adjustRoundBorderRadius(mutableStyle(), *this);
-}
-#endif
 
 // Only clip overflow on input elements, to match other browsers.
 bool RenderButton::hasControlClip() const

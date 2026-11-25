@@ -335,12 +335,16 @@ static constexpr auto eightBitToTwelveBitLSB = eightBitToLSBTable(12);
 enum class SixteenBitTable : uint8_t {
     TenBitLSBToMSB,
     TwelveBitLSBToMSB,
+    TenBitLSBToSixteenBit,
+    TwelveBitLSBToSixteenBit,
     MSBToTenBitLSB,
     MSBToTwelveBitLSB,
     TenBitLSBToEightBit,
     TwelveBitLSBToEightBit,
     FullToVideoLuma,
     FullToVideoChroma,
+    TenBitLSBFullToVideoLuma,
+    TenBitLSBFullToVideoChroma,
     VideoToFullLuma,
     VideoToFullChroma,
 };
@@ -352,6 +356,12 @@ static uint16_t sixteenBitTableEntry(SixteenBitTable table, uint16_t value)
         return static_cast<uint16_t>(value << 6);
     case SixteenBitTable::TwelveBitLSBToMSB:
         return static_cast<uint16_t>(value << 4);
+    case SixteenBitTable::TenBitLSBToSixteenBit:
+        value &= 0x3FF;
+        return static_cast<uint16_t>(value << 6 | value >> 4);
+    case SixteenBitTable::TwelveBitLSBToSixteenBit:
+        value &= 0xFFF;
+        return static_cast<uint16_t>(value << 4 | value >> 8);
     case SixteenBitTable::MSBToTenBitLSB:
         return value >> 6;
     case SixteenBitTable::MSBToTwelveBitLSB:
@@ -364,6 +374,10 @@ static uint16_t sixteenBitTableEntry(SixteenBitTable table, uint16_t value)
         return tenBitFullToTenBitVideoLuma[value >> 6];
     case SixteenBitTable::FullToVideoChroma:
         return tenBitFullToTenBitVideoChroma[value >> 6];
+    case SixteenBitTable::TenBitLSBFullToVideoLuma:
+        return tenBitFullToTenBitVideoLuma[std::min<uint16_t>(value, 1023)];
+    case SixteenBitTable::TenBitLSBFullToVideoChroma:
+        return tenBitFullToTenBitVideoChroma[std::min<uint16_t>(value, 1023)];
     case SixteenBitTable::VideoToFullLuma:
         return narrowTenBitVideoRangeSample(value, Component::Luma);
     case SixteenBitTable::VideoToFullChroma:
@@ -384,6 +398,14 @@ static const SixteenBitLookupTable& sixteenBitLookupTableSingleton()
         return lookupTable;
     }();
     return lookupTable.get();
+}
+
+template<SixteenBitTable lumaTable, SixteenBitTable chromaTable>
+static std::span<const uint16_t> sixteenBitLookupTable(Component component)
+{
+    if (component == Component::Chroma)
+        return sixteenBitLookupTableSingleton<chromaTable>().span();
+    return sixteenBitLookupTableSingleton<lumaTable>().span();
 }
 
 static vImage_Buffer vImageBuffer(const auto& plane, size_t samplesPerRow)
@@ -452,6 +474,11 @@ static bool copyPlaneWithPlatformFrameworks(const SourcePlane& source, const Des
                 return lookUpToEightBit(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::TenBitLSBToEightBit>().span());
             return lookUpToEightBit(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::TwelveBitLSBToEightBit>().span());
         }
+        if (to == sixteenBit) {
+            if (from.bitDepth == 10)
+                return lookUp(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::TenBitLSBToSixteenBit>().span());
+            return lookUp(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::TwelveBitLSBToSixteenBit>().span());
+        }
         if (to.isMSBAligned) {
             if (from.bitDepth == 10)
                 return lookUp(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::TenBitLSBToMSB>().span());
@@ -468,18 +495,15 @@ static bool copyPlaneWithPlatformFrameworks(const SourcePlane& source, const Des
             return false;
         if (from == eightBit)
             return lookUp(source, destination, component == Component::Chroma ? eightBitFullToTenBitVideoChroma : eightBitFullToTenBitVideoLuma);
-        if (from == tenBitMSB) {
-            if (component == Component::Chroma)
-                return lookUp(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::FullToVideoChroma>().span());
-            return lookUp(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::FullToVideoLuma>().span());
-        }
+        if (from == tenBitMSB)
+            return lookUp(source, destination, sixteenBitLookupTable<SixteenBitTable::FullToVideoLuma, SixteenBitTable::FullToVideoChroma>(component));
+        if (from == tenBitLSB)
+            return lookUp(source, destination, sixteenBitLookupTable<SixteenBitTable::TenBitLSBFullToVideoLuma, SixteenBitTable::TenBitLSBFullToVideoChroma>(component));
         return false;
     case RangeConversion::VideoToFull:
         if (from != tenBitMSB || to != eightBit)
             return false;
-        if (component == Component::Chroma)
-            return lookUpToEightBit(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::VideoToFullChroma>().span());
-        return lookUpToEightBit(source, destination, sixteenBitLookupTableSingleton<SixteenBitTable::VideoToFullLuma>().span());
+        return lookUpToEightBit(source, destination, sixteenBitLookupTable<SixteenBitTable::VideoToFullLuma, SixteenBitTable::VideoToFullChroma>(component));
     }
     ASSERT_NOT_REACHED();
     return false;
@@ -500,12 +524,6 @@ static bool interleaveWithPlatformFrameworks(const SourcePlane& u, const SourceP
         return false;
     if (conversion == RangeConversion::None && uv.format == eightBit)
         return interleaveEightBit(u, v, uv);
-    if (conversion == RangeConversion::FullToVideo && uv.format == tenBitMSB) {
-        // Cb and Cr share a table, so the interleaved samples are widened in one pass.
-        Vector<uint16_t> storage;
-        auto scratch = packedPlane(storage, uv.width, uv.height, eightBit, 2);
-        return interleaveEightBit(u, v, scratch) && lookUp(asSource(scratch), uv, eightBitFullToTenBitVideoChroma);
-    }
     return false;
 }
 
@@ -607,6 +625,15 @@ static int samplesPerRow(const auto& plane)
     return static_cast<int>(plane.width * plane.channels);
 }
 
+// Fills the unused low bits of MSB aligned samples with their top bits, so the largest sourceBitDepth value becomes 0xFFFF.
+static void replicateTopBits(const DestinationPlane& plane, unsigned sourceBitDepth)
+{
+    for (size_t row = 0; row < plane.height; ++row) {
+        for (auto& sample : spanReinterpretCast<uint16_t>(plane.row(row)))
+            sample |= sample >> sourceBitDepth;
+    }
+}
+
 static bool copyPlaneWithLibYUV(const SourcePlane& source, const DestinationPlane& destination, RangeConversion conversion)
 {
     if (conversion != RangeConversion::None)
@@ -630,6 +657,8 @@ static bool copyPlaneWithLibYUV(const SourcePlane& source, const DestinationPlan
     }
     if (to.isMSBAligned) {
         libyuv::ConvertToMSBPlane_16(sixteenBitSamples(source), sampleStride(source), sixteenBitSamples(destination), sampleStride(destination), width, height, from.bitDepth);
+        if (to == sixteenBit)
+            replicateTopBits(destination, from.bitDepth);
         return true;
     }
     if (from.isMSBAligned) {
@@ -651,6 +680,10 @@ static bool interleaveWithLibYUV(const SourcePlane& u, const SourcePlane& v, con
     }
     if (u.format.sampleSize() > 1 && !u.format.isMSBAligned && uv.format.isMSBAligned) {
         libyuv::MergeUVPlane_16(sixteenBitSamples(u), sampleStride(u), sixteenBitSamples(v), sampleStride(v), sixteenBitSamples(uv), sampleStride(uv), width, height, u.format.bitDepth);
+        return true;
+    }
+    if (u.format.sampleSize() > 1 && haveSameRepresentation(u.format, uv.format)) {
+        libyuv::MergeUVPlane_16(sixteenBitSamples(u), sampleStride(u), sixteenBitSamples(v), sampleStride(v), sixteenBitSamples(uv), sampleStride(uv), width, height, 16);
         return true;
     }
     return false;
@@ -751,6 +784,13 @@ bool interleave(const SourcePlane& u, const SourcePlane& v, const DestinationPla
 {
     if (!haveSameSize(u, v) || u.format != v.format || u.channels != 1 || uv.channels != 2 || u.width != uv.width || u.height != uv.height)
         return false;
+
+    // Cb and Cr share a table, so the interleaved samples are converted in one pass.
+    if (conversion == RangeConversion::FullToVideo && (u.format == eightBit || u.format == tenBitLSB) && uv.format == tenBitMSB) {
+        Vector<uint16_t> storage;
+        auto scratch = packedPlane(storage, uv.width, uv.height, u.format, 2);
+        return interleave(u, v, scratch, RangeConversion::None) && copyPlane(asSource(scratch), uv, conversion, Component::Chroma);
+    }
 
     AlignedSource alignedU { u };
     AlignedSource alignedV { v };

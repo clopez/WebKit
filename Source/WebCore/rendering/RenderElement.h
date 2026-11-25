@@ -500,6 +500,7 @@ private:
 
     bool getLeadingCorner(FloatPoint& output, bool& insideFixed) const;
     bool getTrailingCorner(FloatPoint& output, bool& insideFixed) const;
+    FloatRect strokeBoundingBoxInLocalCoordinates() const;
 
     void clearSubtreeLayoutRootIfNeeded() const;
     
@@ -587,12 +588,11 @@ inline RenderElement* RenderObject::parent() const
 
 SPECIALIZE_TYPE_TRAITS_RENDER_OBJECT(RenderElement, isRenderElement())
 
-namespace WebCore {
-namespace Layout {
+namespace WebCore::Layout {
 
 inline bool isExcludedFromLayoutBoxNavigation(const RenderObject& renderer)
 {
-    return renderer.isExcludedMarker();
+    return renderer.isOutsideListMarker();
 }
 
 inline RenderElement* ElementBox::rendererForIntegration() const
@@ -632,8 +632,7 @@ inline const Box* ElementBox::lastChild() const
     return nullptr;
 }
 
-} // namespace Layout
-} // namespace WebCore
+} // namespace WebCore::Layout
 
 // For RenderObject::layoutBox() and fromLayoutBox(), which need both RenderElement and RenderText.
 #include <WebCore/RenderText.h>

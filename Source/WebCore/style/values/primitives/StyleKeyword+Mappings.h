@@ -538,6 +538,12 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH
 
+#define TYPE BorderRadiusPercentageBasis
+#define FOR_EACH(CASE) CASE(Normal) CASE(BlockSize)
+DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
+#undef TYPE
+#undef FOR_EACH
+
 #define TYPE BoxDirection
 #define FOR_EACH(CASE) CASE(Normal) CASE(Reverse)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
@@ -1921,7 +1927,8 @@ DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 
 #define TYPE DominantBaseline
 #define FOR_EACH(CASE) CASE(Auto) CASE(Central) CASE(Middle) CASE(TextBeforeEdge) \
-    CASE(TextAfterEdge) CASE(Ideographic) CASE(Alphabetic) CASE(Hanging) CASE(Mathematical)
+    CASE(TextAfterEdge) CASE(Ideographic) CASE(Alphabetic) CASE(Hanging) CASE(Mathematical) \
+    CASE(TextBottom) CASE(TextTop)
 DEFINE_TO_FROM_CSS_VALUE_ID_FUNCTIONS
 #undef TYPE
 #undef FOR_EACH

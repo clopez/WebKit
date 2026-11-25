@@ -44,7 +44,7 @@ namespace WebKit {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(RemoteCompositorIntegration);
 
-RemoteCompositorIntegration::RemoteCompositorIntegration(WebCore::WebGPUCompositorIntegration& compositorIntegration, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUIdentifier identifier)
+RemoteCompositorIntegration::RemoteCompositorIntegration(WebCore::WebGPUCompositorIntegration& compositorIntegration, WebGPU::ObjectHeap& objectHeap, Ref<IPC::StreamServerConnection>&& streamConnection, RemoteGPU& gpu, WebGPUCompositorIntegrationIdentifier identifier)
     : m_backing(compositorIntegration)
     , m_objectHeap(objectHeap)
     , m_streamConnection(WTF::move(streamConnection))
@@ -77,9 +77,9 @@ void RemoteCompositorIntegration::stopListeningForIPC()
 }
 
 #if PLATFORM(COCOA)
-void RemoteCompositorIntegration::recreateRenderBuffers(int width, int height, WebCore::ColorSpace&& destinationColorSpace, WebCore::AlphaPremultiplication alphaMode, ::WebGPU::TextureFormat textureFormat, WebKit::WebGPUIdentifier deviceIdentifier, CompletionHandler<void(uint32_t)>&& callback)
+void RemoteCompositorIntegration::recreateRenderBuffers(int width, int height, WebCore::ColorSpace&& destinationColorSpace, WebCore::AlphaPremultiplication alphaMode, ::WebGPU::TextureFormat textureFormat, WebKit::WebGPUDeviceIdentifier deviceIdentifier, CompletionHandler<void(uint32_t)>&& callback)
 {
-    auto convertedDevice = protect(m_objectHeap)->convertDeviceFromBacking(deviceIdentifier);
+    auto convertedDevice = protect(m_objectHeap)->get(deviceIdentifier);
     MESSAGE_CHECK_COMPLETION(convertedDevice, callback(0));
 
     callback(protect(m_backing)->recreateRenderBuffers(width, height, WTF::move(destinationColorSpace), alphaMode, textureFormat, protect(*convertedDevice)));

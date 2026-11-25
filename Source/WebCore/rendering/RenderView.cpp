@@ -793,31 +793,6 @@ void RenderView::updateHitTestResult(HitTestResult& result, const LayoutPoint& p
     }
 }
 
-// FIXME: This function is obsolete and only used by embedded WebViews inside AppKit NSViews.
-// Do not add callers of this function!
-// The idea here is to take into account what object is moving the pagination point, and
-// thus choose the best place to chop it.
-void RenderView::setBestTruncatedAt(int y, RenderBoxModelObject* forRenderer, bool forcedBreak)
-{
-    // Nobody else can set a page break once we have a forced break.
-    if (m_legacyPrinting.m_forcedPageBreak)
-        return;
-
-    // Forced breaks always win over unforced breaks.
-    if (forcedBreak) {
-        m_legacyPrinting.m_forcedPageBreak = true;
-        m_legacyPrinting.m_bestTruncatedAt = y;
-        return;
-    }
-
-    // Prefer the widest object that tries to move the pagination point
-    LayoutRect boundingBox = forRenderer->borderBoundingBox();
-    if (boundingBox.width() > m_legacyPrinting.m_truncatorWidth) {
-        m_legacyPrinting.m_truncatorWidth = boundingBox.width();
-        m_legacyPrinting.m_bestTruncatedAt = y;
-    }
-}
-
 bool RenderView::usesCompositing() const
 {
     return m_compositor && m_compositor->usesCompositing();
@@ -886,12 +861,12 @@ void RenderView::removeRendererWithPausedImageAnimations(RenderElement& renderer
 void RenderView::resumePausedImageAnimationsIfNeeded(const IntRect& visibleRect)
 {
     Vector<SingleThreadWeakPtr<RenderElement>, 10> toRemove;
-    for (auto& renderer : m_renderersWithPausedImageAnimation) {
-        if (renderer.repaintForPausedImageAnimationsIfNeeded(visibleRect))
-            toRemove.append(renderer);
+    for (CheckedRef renderer : m_renderersWithPausedImageAnimation) {
+        if (renderer->repaintForPausedImageAnimationsIfNeeded(visibleRect))
+            toRemove.append(renderer.get());
     }
     for (auto& renderer : toRemove)
-        removeRendererWithPausedImageAnimations(*renderer);
+        removeRendererWithPausedImageAnimations(protect(*renderer));
 
     m_SVGSVGElementsWithPausedImageAnimation.removeIf([&](auto& svgSvgElement) {
         return svgSvgElement.resumePausedAnimationsIfNeeded(visibleRect);
@@ -913,16 +888,16 @@ NODELETE static SVGSVGElement* svgSvgElementFrom(RenderElement& renderElement)
 void RenderView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
 {
     bool animationEnabled = page().imageAnimationEnabled();
-    for (auto& renderElement : descendantsOfType<RenderElement>(*this)) {
+    for (CheckedRef renderElement : descendantsOfType<RenderElement>(*this)) {
         bool needsRepaint = false;
-        bool shouldAnimate = animationEnabled && renderElement.isVisibleInDocumentRect(visibleRect);
-        bool hasPausedAnimation = renderElement.hasPausedImageAnimations();
+        bool shouldAnimate = animationEnabled && renderElement->isVisibleInDocumentRect(visibleRect);
+        bool hasPausedAnimation = renderElement->hasPausedImageAnimations();
         bool shouldResume = shouldAnimate && hasPausedAnimation;
         bool shouldPause = !hasPausedAnimation;
         bool hasAnimation = false;
 
-        RefPtr imageElement = dynamicDowncast<HTMLImageElement>(renderElement.element());
-        renderElement.forEachStyleImage([&](Style::Image& image) {
+        RefPtr imageElement = dynamicDowncast<HTMLImageElement>(renderElement->element());
+        renderElement->forEachStyleImage([&](Style::Image& image) {
             if (image.drawsSVGImage()) {
                 if (shouldResume)
                     image.startAnimation();
@@ -949,7 +924,7 @@ void RenderView::updatePlayStateForAllAnimations(const IntRect& visibleRect)
             addRendererWithPausedImageAnimations(renderElement);
 
         if (needsRepaint)
-            renderElement.repaint();
+            renderElement->repaint();
 
         if (RefPtr svgSvgElement = svgSvgElementFrom(renderElement)) {
             if (shouldAnimate) {
@@ -1074,7 +1049,7 @@ void RenderView::unregisterPositionTryBox(const RenderBox& box)
     // ever comes back (i.e display: none to non-none), we don't accidentally reuse
     // the last successful position option.
     if (auto styleable = Styleable::fromRenderer(box))
-        document().styleScope().forgetLastSuccessfulPositionOptionIndex(*styleable);
+        protect(document().styleScope())->forgetLastSuccessfulPositionOptionIndex(*styleable);
 }
 
 void RenderView::addCounterNeedingUpdate(RenderCounter& renderer)

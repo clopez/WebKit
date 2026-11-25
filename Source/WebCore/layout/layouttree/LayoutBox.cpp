@@ -40,8 +40,7 @@
 #include <wtf/NeverDestroyed.h>
 #include <wtf/TZoneMallocInlines.h>
 
-namespace WebCore {
-namespace Layout {
+namespace WebCore::Layout {
 
 WTF_MAKE_TZONE_ALLOCATED_IMPL(Box::BoxRareData);
 
@@ -308,6 +307,7 @@ bool Box::isBlockContainer() const
         || display == Style::DisplayType::BlockFlowRoot
         || display == Style::DisplayType::BlockFlowListItem
         || display == Style::DisplayType::BlockRuby
+        || display == Style::DisplayType::InlineFlowRoot
         || isTableCell()
         || isTableCaption(); // TODO && !replaced element
 }
@@ -632,5 +632,4 @@ UsedStyle Box::firstLineUsedStyle() const
     return rendererForIntegration()->firstLineUsedStyle();
 }
 
-}
 }

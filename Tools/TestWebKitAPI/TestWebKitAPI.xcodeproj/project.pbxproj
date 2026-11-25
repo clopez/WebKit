@@ -153,6 +153,7 @@
 		A176D24B2D6D2A4E00C63915 /* GPUExtension.appex in Embed Extensions */ = {isa = PBXBuildFile; fileRef = A176D2472D6D295400C63915 /* GPUExtension.appex */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A176D24C2D6D2A4E00C63915 /* NetworkingExtension.appex in Embed Extensions */ = {isa = PBXBuildFile; fileRef = A176D2482D6D295400C63915 /* NetworkingExtension.appex */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A176D24D2D6D2A4E00C63915 /* WebContentExtension.appex in Embed Extensions */ = {isa = PBXBuildFile; fileRef = A176D2492D6D295400C63915 /* WebContentExtension.appex */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+		A176D24E2D6D2A4E00C63915 /* WebContentEnhancedSecurityExtension.appex in Embed Extensions */ = {isa = PBXBuildFile; fileRef = A176D24A2D6D295400C63915 /* WebContentEnhancedSecurityExtension.appex */; platformFilters = (ios, xros, ); settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		A1798B7F22431D2B000764BD /* libWebCoreTestSupport.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = A1798B7E22431D2B000764BD /* libWebCoreTestSupport.dylib */; };
 		A1798B8522433647000764BD /* WebProcessPlugInWithInternals.mm in Sources */ = {isa = PBXBuildFile; fileRef = A1798B8422433647000764BD /* WebProcessPlugInWithInternals.mm */; };
 		A17C58252C9AAA25009DD0B5 /* UIKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A17C58242C9AAA25009DD0B5 /* UIKit.framework */; platformFilters = (ios, maccatalyst, tvos, xros, ); };
@@ -379,6 +380,7 @@
 			files = (
 				A176D24B2D6D2A4E00C63915 /* GPUExtension.appex in Embed Extensions */,
 				A176D24C2D6D2A4E00C63915 /* NetworkingExtension.appex in Embed Extensions */,
+				A176D24E2D6D2A4E00C63915 /* WebContentEnhancedSecurityExtension.appex in Embed Extensions */,
 				A176D24D2D6D2A4E00C63915 /* WebContentExtension.appex in Embed Extensions */,
 			);
 			name = "Embed Extensions";
@@ -532,6 +534,7 @@
 		A176D2472D6D295400C63915 /* GPUExtension.appex */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.extensionkit-extension"; path = GPUExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A176D2482D6D295400C63915 /* NetworkingExtension.appex */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.extensionkit-extension"; path = NetworkingExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A176D2492D6D295400C63915 /* WebContentExtension.appex */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.extensionkit-extension"; path = WebContentExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		A176D24A2D6D295400C63915 /* WebContentEnhancedSecurityExtension.appex */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.extensionkit-extension"; path = WebContentEnhancedSecurityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1798B7E22431D2B000764BD /* libWebCoreTestSupport.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; path = libWebCoreTestSupport.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		A1798B8322433647000764BD /* WebProcessPlugInWithInternals.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = WebProcessPlugInWithInternals.h; sourceTree = "<group>"; };
 		A1798B8422433647000764BD /* WebProcessPlugInWithInternals.mm */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.cpp.objcpp; path = WebProcessPlugInWithInternals.mm; sourceTree = "<group>"; };
@@ -623,6 +626,7 @@
 				WebKit/WKWebView/SiteIsolationBackForwardTests.swift,
 				WebKit/WKWebView/SiteIsolationBrowsingContextGroupTests.swift,
 				WebKit/WKWebView/SiteIsolationContentsOfAllFramesTests.swift,
+				WebKit/WKWebView/SiteIsolationContextMenuInteractionTests.swift,
 				WebKit/WKWebView/SiteIsolationCookieTests.swift,
 				WebKit/WKWebView/SiteIsolationDataDetectionTests.swift,
 				WebKit/WKWebView/SiteIsolationDragAndDropTests.swift,
@@ -657,6 +661,7 @@
 				WebKit/WKWebView/ViewportFitEdges.swift,
 				WebKit/WKWebView/WebAutomationWebExtensionPages.swift,
 				WebKit/WKWebView/WKBackForwardListTests.swift,
+				WebKit/WKWebView/WKWebExtension.swift,
 				WebKit/WKWebView/WKWebExtensionAPIAction.swift,
 				WebKit/WKWebView/WKWebExtensionAPIAlarms.swift,
 				WebKit/WKWebView/WKWebExtensionAPICommands.swift,
@@ -667,11 +672,15 @@
 				WebKit/WKWebView/WKWebExtensionAPIEvent.swift,
 				WebKit/WKWebView/WKWebExtensionAPIExtension.swift,
 				WebKit/WKWebView/WKWebExtensionAPIExtensionTypes.swift,
+				WebKit/WKWebView/WKWebExtensionAPILocalization.swift,
+				WebKit/WKWebView/WKWebExtensionAPIMenus.swift,
 				WebKit/WKWebView/WKWebExtensionAPINamespace.swift,
 				WebKit/WKWebView/WKWebExtensionAPINotifications.swift,
 				WebKit/WKWebView/WKWebExtensionAPIOffscreen.swift,
 				WebKit/WKWebView/WKWebExtensionAPIPermissions.swift,
+				WebKit/WKWebView/WKWebExtensionAPIScripting.swift,
 				WebKit/WKWebView/WKWebExtensionAPIStorage.swift,
+				WebKit/WKWebView/WKWebExtensionAPITabs.swift,
 				WebKit/WKWebView/WKWebExtensionAPITest.swift,
 				WebKit/WKWebView/WKWebExtensionAPIWebNavigation.swift,
 				WebKit/WKWebView/WKWebExtensionAPIWebRequest.swift,
@@ -772,7 +781,6 @@
 				mac/TestInspectorBar.mm,
 				mac/VirtualGamepad.mm,
 				mac/WebKitAgnosticTest.mm,
-				"WTFCompletionHandler+Extras.swift",
 				"WTFExpected+Extras.swift",
 			);
 			target = 7CCE7E8B1A41144E00447C4C /* TestWebKitAPILibrary */;
@@ -782,7 +790,6 @@
 			membershipExceptions = (
 				cocoa/UtilitiesCocoa.mm,
 				Counters.cpp,
-				"WTFCompletionHandler+Extras.swift",
 				"WTFExpected+Extras.swift",
 			);
 			target = 7C83DE951D0A590C00FEBCF3 /* TestWTFLibrary */;
@@ -833,6 +840,7 @@
 				Misc/TestRunnerTests.cpp,
 				TestRunnerShared/TestFeaturesTests.cpp,
 				TestWebKitAPIAdditionsHook.mm,
+				WebCore/AdaptiveDarkModeTests.mm,
 				WebCore/AffineTransform.cpp,
 				WebCore/AnimationFrameRate.cpp,
 				WebCore/ApduTest.cpp,
@@ -878,6 +886,7 @@
 				WebCore/cocoa/TestGraphicsContextGLCocoa.mm,
 				WebCore/cocoa/TestUTIRegistry.cpp,
 				WebCore/cocoa/TestUTIUtilities.cpp,
+				WebCore/cocoa/VideoMediaSampleRendererTests.mm,
 				WebCore/cocoa/WebCoreDecompressionSessionTests.mm,
 				WebCore/cocoa/WebCoreNSURLSession.mm,
 				WebCore/cocoa/XMLParsing.mm,
@@ -1285,7 +1294,6 @@
 				WebKit/WKWebView/WebRTC.mm,
 				WebKit/WKWebView/WKAttachmentTests.mm,
 				WebKit/WKWebView/WKBackForwardListTests.mm,
-				WebKit/WKWebView/WKWebExtensionAPILocalization.mm,
 				WebKit/WKWebView/WKWebViewLogging.mm,
 				WebKit/WKWebView/WKWebViewSpatialTrackingLabels.mm,
 				WebKitLegacy/cocoa/SubstituteDataLocalResourceAccess.mm,
@@ -1577,6 +1585,9 @@
 		07C913DF2F820CCA003A09D8 /* Exceptions for "Tests" folder in "TestWGSL" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				WebGPU/DeviceLostTests.cpp,
+				WebGPU/FutureTests.cpp,
+				WebGPU/InstanceDestroyTests.cpp,
 				WebGPU/UncapturedErrorCallbackTests.cpp,
 				WGSL/ASTStringDumperTests.cpp,
 				WGSL/ConstLiteralTests.cpp,
@@ -2001,6 +2012,7 @@
 				A176D2472D6D295400C63915 /* GPUExtension.appex */,
 				A176D2482D6D295400C63915 /* NetworkingExtension.appex */,
 				A176D2492D6D295400C63915 /* WebContentExtension.appex */,
+				A176D24A2D6D295400C63915 /* WebContentEnhancedSecurityExtension.appex */,
 				7B9FC57E28A26137007570E7 /* TestIPC */,
 				8DD76FA10486AA7600D96B5E /* TestWebKitAPI */,
 				3A15785328D1505B00142DB1 /* TestWGSL */,

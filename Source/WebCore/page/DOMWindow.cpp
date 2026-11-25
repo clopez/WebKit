@@ -59,6 +59,7 @@
 #include "RemoteDOMWindow.h"
 #include "ResourceLoadObserver.h"
 #include "ScheduledAction.h"
+#include "Scheduler.h"
 #include "Screen.h"
 #include "SecurityOrigin.h"
 #include "Site.h"
@@ -649,6 +650,14 @@ ExceptionOr<Crypto&> DOMWindow::crypto() const
     return localThis->crypto();
 }
 
+ExceptionOr<Scheduler&> DOMWindow::scheduler() const
+{
+    auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
+    if (!localThis)
+        return Exception { ExceptionCode::SecurityError };
+    return localThis->scheduler();
+}
+
 ExceptionOr<RefPtr<WindowProxy>> DOMWindow::open(LocalDOMWindow& activeWindow, LocalDOMWindow& firstWindow, const String& urlString, const AtomString& frameName, const String& windowFeaturesString)
 {
     auto* localThis = dynamicDowncast<LocalDOMWindow>(*this);
@@ -987,13 +996,13 @@ bool DOMWindow::isCurrentlyDisplayedInFrame() const
     return frame && frame->window() == this;
 }
 
-void DOMWindow::printErrorMessage(const String& message) const
+void DOMWindow::printErrorMessage(const String& message, MessageSource source) const
 {
     if (message.isEmpty())
         return;
 
     if (CheckedPtr frameConsole = console())
-        frameConsole->addMessage(MessageSource::JS, MessageLevel::Error, message);
+        frameConsole->addMessage(source, MessageLevel::Error, message);
 }
 
 String DOMWindow::crossDomainAccessErrorMessage(const LocalDOMWindow& activeWindow, IncludeTargetOrigin includeTargetOrigin)
@@ -1084,7 +1093,7 @@ bool DOMWindow::isInsecureScriptAccess(const LocalDOMWindow& activeWindow, const
         }
     }
 
-    activeWindow.printErrorMessage(crossDomainAccessErrorMessage(activeWindow, IncludeTargetOrigin::Yes));
+    activeWindow.printErrorMessage(crossDomainAccessErrorMessage(activeWindow, IncludeTargetOrigin::Yes), MessageSource::Security);
     return true;
 }
 

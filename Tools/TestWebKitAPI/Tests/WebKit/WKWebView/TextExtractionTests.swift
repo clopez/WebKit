@@ -87,6 +87,12 @@ private func extractionConfigurationWithFilteringDisabled() -> _WKTextExtraction
     return configuration
 }
 
+private func extractionConfigurationWithTextRecognitionFilteringDisabled() -> _WKTextExtractionConfiguration {
+    let configuration = _WKTextExtractionConfiguration()
+    configuration.filterOptions.remove(.textRecognition)
+    return configuration
+}
+
 private func extractNodeIdentifier(_ debugText: String, _ searchText: String) -> String? {
     let nodeIdentifier = /uid=((?:\d+_)*\d+)/
 
@@ -439,14 +445,14 @@ struct TextExtractionTests {
     func selectPopupMenu() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let click = _WKTextExtractionInteraction(action: .click)
         click.nodeIdentifier = extractNodeIdentifier(debugText, "menu")
 
         let clickResult = try #require(await webView._performInteraction(click))
         #expect(clickResult.error == nil)
         #expect(clickResult.summary != nil)
-        #expect(try await webView.debugText().contains("nativePopupMenu"))
+        #expect(try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled()).contains("nativePopupMenu"))
 
         let selectOption = _WKTextExtractionInteraction(action: .selectMenuItem)
         selectOption.text = "Three"
@@ -463,15 +469,11 @@ struct TextExtractionTests {
     func interactionDebugDescription() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let testButtonID = extractNodeIdentifier(debugText, "Test")
         let emailID = extractNodeIdentifier(debugText, "email")
         let composeID = extractNodeIdentifier(debugText, "Compose")
         let selectID = extractNodeIdentifier(debugText, "select")
-
-        #if ENABLE_TEXT_EXTRACTION_FILTER
-        #expect(debugText.contains("crazy ones") == false)
-        #endif
 
         do {
             let interaction = _WKTextExtractionInteraction(action: .click)
@@ -587,7 +589,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let nameIconID = try #require(extractNodeIdentifier(debugText, "pencil1"))
         let passwordIconID = try #require(extractNodeIdentifier(debugText, "pencil2"))
 
@@ -611,7 +613,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let settingsButtonID = try #require(extractNodeIdentifier(debugText, "user-settings-dropdown-menu"))
         let notificationsButtonID = try #require(extractNodeIdentifier(debugText, "Notifications"))
         #expect(!debugText.contains("notifications-bell-button"))
@@ -644,7 +646,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
 
         func makeClickInteraction(_ className: String, _ searchText: String?) throws -> _WKTextExtractionInteraction {
             let identifier = try #require(extractNodeIdentifier(debugText, className))
@@ -698,7 +700,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
 
         func clickDescription(_ locator: String, _ searchText: String) async throws -> String {
             let nodeIdentifier = try #require(extractNodeIdentifier(debugText, locator))
@@ -728,7 +730,9 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
+        configuration.nodeIdentifierInclusion = .allContainers
+        let debugText = try await webView.debugText(configuration)
 
         func clickDescription(_ className: String, _ searchText: String) async throws -> String {
             let nodeIdentifier = try #require(extractNodeIdentifier(debugText, className))
@@ -767,7 +771,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let interaction = _WKTextExtractionInteraction(action: .click)
 
         interaction.nodeIdentifier = extractNodeIdentifier(debugText, "Email address")
@@ -805,7 +809,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let interaction = _WKTextExtractionInteraction(action: .click)
 
         interaction.nodeIdentifier = extractNodeIdentifier(debugText, "signin")
@@ -865,7 +869,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let loginLinkID = try #require(extractNodeIdentifier(debugText, "Log in"))
 
         let interaction = _WKTextExtractionInteraction(action: .click)
@@ -887,7 +891,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let settingsLinkID = try #require(extractNodeIdentifier(debugText, "Account nav entry"))
 
         let interaction = _WKTextExtractionInteraction(action: .click)
@@ -1184,7 +1188,7 @@ struct TextExtractionTests {
         let editorHandle = try #require(await webView.querySelector("div[contenteditable]", in: world))
         let headingHandle = try #require(await webView.querySelector("h3[aria-label='Heading']", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.targetNode = editorHandle
         configuration.addClientAttribute("extra-data-1", value: "abc", forNode: editorHandle)
         configuration.addClientAttribute("extra-data-1", value: "123", forNode: headingHandle)
@@ -1208,7 +1212,7 @@ struct TextExtractionTests {
         let world = worldForCreatingJSHandles()
         let targetHandle = try #require(await webView.querySelector("#target", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.targetNode = targetHandle
 
         let debugText = try await webView.debugText(configuration)
@@ -1223,7 +1227,7 @@ struct TextExtractionTests {
         let world = worldForCreatingJSHandles()
         let targetHandle = try #require(await webView.querySelector("#target", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.targetNode = targetHandle
         #expect(configuration.includeSameOriginSubframes)
         configuration.includeSameOriginSubframes = false
@@ -1250,7 +1254,7 @@ struct TextExtractionTests {
         let world = worldForCreatingJSHandles()
         let targetHandle = try #require(await webView.querySelector("#target", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.targetNode = targetHandle
         configuration.includeSameOriginSubframes = false
         configuration.additionalFrames = subframes.frames
@@ -1423,10 +1427,10 @@ struct TextExtractionTests {
     func replacementStrings() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let debugTextWithoutReplacements = try await webView.debugText()
+        let debugTextWithoutReplacements = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         #expect(debugTextWithoutReplacements.contains("The quick brown fox jumped over the lazy dog"))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.replacementStrings = [
             "fox": "cat",
             "dog": "mouse",
@@ -1444,7 +1448,7 @@ struct TextExtractionTests {
     func replacementStringsLongestMatchWins() async throws {
         try await webView.load(html: "<p>John Appleseed met John.</p>")
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.replacementStrings = [
             "John": "<redacted-name>",
             "John Appleseed": "<redacted-full-name>",
@@ -1459,7 +1463,7 @@ struct TextExtractionTests {
     func replacementStringsCaseAndQuoteInsensitive() async throws {
         try await webView.load(html: "<p>Hello WORLD. It’s a test.</p>")
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.replacementStrings = [
             "hello world": "<greeting>",
             "it's": "<contraction>",
@@ -1476,7 +1480,7 @@ struct TextExtractionTests {
     func replacementStringsDiacriticInsensitive() async throws {
         try await webView.load(html: "<p>Visited café in Zürich.</p>")
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.replacementStrings = ["cafe": "<spot>"]
 
         let debugText = try await webView.debugText(configuration)
@@ -1489,7 +1493,7 @@ struct TextExtractionTests {
     func replacementStringsWordBoundaries() async throws {
         func textAfterReplacing(_ markup: String, _ replacementStrings: [String: String]) async throws -> String {
             try await webView.load(html: markup)
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.replacementStrings = replacementStrings
             return try await webView.debugText(configuration)
         }
@@ -1567,7 +1571,7 @@ struct TextExtractionTests {
             ) async throws -> String {
                 webView.loadHTMLString(markup, baseURL: Bundle.testResources.resourceURL)
                 try await webView._test_waitForDidFinishNavigationWhileIgnoringSSLErrors()
-                let configuration = _WKTextExtractionConfiguration()
+                let configuration = extractionConfigurationWithFilteringDisabled()
                 configuration.outputFormat = outputFormat
                 configuration.replacementStrings = replacementStrings
                 customizeConfiguration?(configuration)
@@ -1646,10 +1650,10 @@ struct TextExtractionTests {
     func replacementStringsAppliedToInteractionDescription() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let composeID = extractNodeIdentifier(debugText, "Compose")
 
-        let replacementConfiguration = _WKTextExtractionConfiguration()
+        let replacementConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         replacementConfiguration.replacementStrings = [
             "FOX": "cat",
             "compose a new message": "[redacted subject]",
@@ -1682,7 +1686,7 @@ struct TextExtractionTests {
                 """
         )
 
-        let containerConfiguration = _WKTextExtractionConfiguration()
+        let containerConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         containerConfiguration.replacementStrings = ["Secret Project Alpha": "[redacted container]"]
         _ = try await webView.debugText(containerConfiguration)
 
@@ -2022,7 +2026,7 @@ struct TextExtractionTests {
         let firstLink = try #require(await webView.querySelector(".first", in: world))
         let secondLink = try #require(await webView.querySelector(".second", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeURLs = false
         configuration.includeRects = false
         configuration.nodeIdentifierInclusion = .none
@@ -2044,7 +2048,7 @@ struct TextExtractionTests {
         let editorHandle = try #require(await webView.querySelector("div[contenteditable]", in: world))
         let hiddenTextHandle = try #require(await webView.querySelector("h4", in: world))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.nodesToSkip = [editorHandle, selectHandle, inputHandle, hiddenTextHandle]
         configuration.outputFormat = .markdown
         configuration.nodeIdentifierInclusion = .none
@@ -2062,13 +2066,13 @@ struct TextExtractionTests {
     func requestJSHandleForNodeIdentifier() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         let extractionResult = try #require(await webView._extractDebugText(with: extractionConfiguration))
 
         func plainConfiguration() -> _WKTextExtractionConfiguration {
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = false
             configuration.nodeIdentifierInclusion = .none
@@ -2100,7 +2104,7 @@ struct TextExtractionTests {
     func requestJSHandleForStaleNodeIdentifier() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         let extractionResult = try #require(await webView._extractDebugText(with: extractionConfiguration))
@@ -2114,13 +2118,13 @@ struct TextExtractionTests {
     func requestJSHandleForNodeIdentifierCaseSensitive() async throws {
         try await webView.load(testPageNamed: "debug-text-extraction")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         let extractionResult = try #require(await webView._extractDebugText(with: extractionConfiguration))
 
         func configuration(targetingSearchText searchText: String) async -> _WKTextExtractionConfiguration {
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = false
             configuration.nodeIdentifierInclusion = .none
@@ -2139,14 +2143,14 @@ struct TextExtractionTests {
     func requestContainerJSHandleForNodeIdentifier() async throws {
         try await webView.load(testPageNamed: "debug-text-product")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         extractionConfiguration.nodeIdentifierInclusion = .allContainers
         let extractionResult = try #require(await webView._extractDebugText(with: extractionConfiguration))
 
         func markdownConfiguration(targeting handle: _WKJSHandle?) -> _WKTextExtractionConfiguration {
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.outputFormat = .markdown
             configuration.nodeIdentifierInclusion = .none
@@ -2180,7 +2184,7 @@ struct TextExtractionTests {
     func requestContainerJSHandleForSearchTexts() async throws {
         try await webView.load(testPageNamed: "debug-text-product")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         extractionConfiguration.nodeIdentifierInclusion = .allContainers
@@ -2192,7 +2196,7 @@ struct TextExtractionTests {
             nodeIdentifier: firstSectionID
         )
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeRects = false
         configuration.outputFormat = .markdown
         configuration.nodeIdentifierInclusion = .none
@@ -2209,7 +2213,7 @@ struct TextExtractionTests {
     func requestContainerJSHandleForSearchTextsFallsBackToBodyWhenTargetMisses() async throws {
         try await webView.load(testPageNamed: "debug-text-product")
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.includeRects = false
         extractionConfiguration.includeURLs = false
         extractionConfiguration.includeAccessibilityAttributes = true
@@ -2223,7 +2227,7 @@ struct TextExtractionTests {
             nodeIdentifier: reviewsSectionID
         )
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeRects = false
         configuration.outputFormat = .markdown
         configuration.nodeIdentifierInclusion = .none
@@ -2257,7 +2261,7 @@ struct TextExtractionTests {
             }
         }
 
-        let extractionConfiguration = _WKTextExtractionConfiguration()
+        let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         extractionConfiguration.additionalFrames = subframes.frames
         let extractionResult = try #require(await webView._extractDebugText(with: extractionConfiguration))
 
@@ -2288,7 +2292,7 @@ struct TextExtractionTests {
 
         let resolvedHandle = try #require(await newWebView._getNodeForSelectorPathData(selectorData))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeRects = false
         configuration.includeURLs = false
         configuration.nodeIdentifierInclusion = .none
@@ -2366,7 +2370,7 @@ struct TextExtractionTests {
 
         #expect(try await webView.callJavaScript(returning: Double.self) { "return window.scrollY" } == 0)
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeRects = false
         configuration.nodeIdentifierInclusion = .allContainers
         let debugText = try await webView.debugText(configuration)
@@ -2418,7 +2422,7 @@ struct TextExtractionTests {
 
         simulateHostApplicationEnteredBackground(webView)
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let buttonID = try #require(extractNodeIdentifier(debugText, "Click Me"))
 
         let click = _WKTextExtractionInteraction(action: .click)
@@ -2479,7 +2483,7 @@ struct TextExtractionTests {
 
             for shortenURLs in [true, false] {
                 for format in [_WKTextExtractionOutputFormat.textTree, .markdown] {
-                    let configuration = _WKTextExtractionConfiguration()
+                    let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
                     configuration.includeURLs = true
                     configuration.shortenURLs = shortenURLs
                     configuration.outputFormat = format
@@ -2544,7 +2548,7 @@ struct TextExtractionTests {
                 """#
         )
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         #expect(debugText.contains("Before shadow content"))
         #expect(debugText.contains("Next"))
         #expect(debugText.contains("Cancel"))
@@ -2570,7 +2574,11 @@ struct TextExtractionTests {
                 """
         )
 
-        let extractionResult = try #require(await webView._extractDebugText(with: _WKTextExtractionConfiguration()))
+        let extractionResult = try #require(
+            await webView._extractDebugText(
+                with: extractionConfigurationWithTextRecognitionFilteringDisabled()
+            )
+        )
         #expect(extractionResult.textContent.contains("Edit"))
 
         try await webView.callJavaScript {
@@ -2606,7 +2614,7 @@ struct TextExtractionTests {
             baseURL: URL(string: "http://webkit.org")
         )
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.includeURLs = true
         configuration.shortenURLs = true
 
@@ -2634,7 +2642,11 @@ struct TextExtractionTests {
                 """
         )
 
-        let extractionResult = try #require(await webView._extractDebugText(with: _WKTextExtractionConfiguration()))
+        let extractionResult = try #require(
+            await webView._extractDebugText(
+                with: extractionConfigurationWithTextRecognitionFilteringDisabled()
+            )
+        )
         #expect(extractionResult.textContent.contains("Sign in"))
 
         let click = _WKTextExtractionInteraction(action: .click, extractionContext: extractionResult)
@@ -2661,7 +2673,11 @@ struct TextExtractionTests {
             let url = try #require(URL(string: "http://127.0.0.1:\(serverConfiguration.port)/"))
             try await webView.loadAndWait(URLRequest(url: url))
 
-            let extractionResult = try #require(await webView._extractDebugText(with: _WKTextExtractionConfiguration()))
+            let extractionResult = try #require(
+                await webView._extractDebugText(
+                    with: extractionConfigurationWithTextRecognitionFilteringDisabled()
+                )
+            )
             #expect(extractionResult.textContent.contains("Hello world"))
 
             let origin = try #require(extractionResult.origin)
@@ -2682,7 +2698,7 @@ struct TextExtractionTests {
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
             let subframes = try await loadSubframePage(in: webView, port: serverConfiguration.port)
 
-            let extractionConfiguration = _WKTextExtractionConfiguration()
+            let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             extractionConfiguration.includeRects = false
             extractionConfiguration.includeURLs = false
             extractionConfiguration.additionalFrames = subframes
@@ -2722,7 +2738,7 @@ struct TextExtractionTests {
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
             _ = try await loadSubframePage(in: webView, port: serverConfiguration.port)
 
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = true
 
@@ -2783,7 +2799,7 @@ struct TextExtractionTests {
                 try await webView.callJavaScript(returning: Bool.self) { "return subframeLoaded" }
             }
 
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.outputFormat = .JSON
             configuration.includeRects = true
             configuration.additionalFrames = subframes.frames
@@ -2816,7 +2832,7 @@ struct TextExtractionTests {
             let subframes = try await loadSubframePage(in: webView, port: serverConfiguration.port)
             let crossOriginFrame = try #require(subframes.first { $0.securityOrigin.host == "localhost" })
 
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = false
             configuration.includeSameOriginSubframes = false
@@ -2840,7 +2856,7 @@ struct TextExtractionTests {
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
             let subframes = try await loadSubframePage(in: webView, port: serverConfiguration.port)
 
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = false
             configuration.additionalFrames = subframes
@@ -2864,7 +2880,7 @@ struct TextExtractionTests {
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
             let subframes = try await loadSubframePage(in: webView, port: serverConfiguration.port)
 
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.includeRects = false
             configuration.includeURLs = false
             configuration.includeSameOriginSubframes = false
@@ -2887,7 +2903,7 @@ struct TextExtractionTests {
             let webView = makeWebViewForTextExtractionTesting(width: 400, height: 400)
             let subframes = try await loadSubframePage(in: webView, port: serverConfiguration.port)
 
-            let extractionConfiguration = _WKTextExtractionConfiguration()
+            let extractionConfiguration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             extractionConfiguration.includeRects = false
             extractionConfiguration.additionalFrames = subframes
 
@@ -2977,7 +2993,11 @@ struct TextExtractionTests {
                 """
         )
 
-        let extractionResult = try #require(await webView._extractDebugText(with: _WKTextExtractionConfiguration()))
+        let extractionResult = try #require(
+            await webView._extractDebugText(
+                with: extractionConfigurationWithTextRecognitionFilteringDisabled()
+            )
+        )
         #expect(extractionResult.textContent.contains("Menu"))
 
         let hover = _WKTextExtractionInteraction(action: .hover, extractionContext: extractionResult)
@@ -3136,7 +3156,7 @@ struct TextExtractionTests {
 
         simulateHostApplicationEnteredBackground(webView)
 
-        let debugText = try await webView.debugText()
+        let debugText = try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled())
         let buttonID = try #require(extractNodeIdentifier(debugText, "Click Me"))
 
         let displayLinkHandler: AnyClass = try #require(NSClassFromString("WKDisplayLinkHandler"))
@@ -3202,7 +3222,7 @@ struct TextExtractionTests {
         let webView = makeUnifiedPDFWebView()
         try await webView.load(pdf: TestPDFBuilder.pdfData(), baseURL: try #require(URL(string: "https://www.example.com/test.pdf")))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.outputFormat = .markdown
 
         let text = try await webView.debugText(configuration)
@@ -3215,7 +3235,7 @@ struct TextExtractionTests {
         let webView = makeUnifiedPDFWebView()
         try await webView.load(pdf: TestPDFBuilder.pdfData(), baseURL: try #require(URL(string: "https://www.example.com/test.pdf")))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.outputFormat = .textTree
 
         let text = try await webView.debugText(configuration)
@@ -3229,7 +3249,7 @@ struct TextExtractionTests {
         let webView = makeUnifiedPDFWebView()
         try await webView.load(pdf: TestPDFBuilder.pdfData(), baseURL: try #require(URL(string: "https://www.example.com/test.pdf")))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.outputFormat = .HTML
 
         let text = try await webView.debugText(configuration)
@@ -3244,7 +3264,7 @@ struct TextExtractionTests {
         let webView = makeUnifiedPDFWebView()
         try await webView.load(pdf: TestPDFBuilder.pdfData(), baseURL: try #require(URL(string: "https://www.example.com/test.pdf")))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.outputFormat = .JSON
 
         let json = try decodeJSONObject(await webView.debugText(configuration))
@@ -3266,7 +3286,7 @@ struct TextExtractionTests {
         let webView = makeUnifiedPDFWebView()
         try await webView.load(pdf: TestPDFBuilder.pdfData(), baseURL: try #require(URL(string: "https://www.example.com/test.pdf")))
 
-        let configuration = _WKTextExtractionConfiguration()
+        let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
         configuration.outputFormat = .plainText
 
         let text = try await webView.debugText(configuration)
@@ -3283,7 +3303,7 @@ struct TextExtractionTests {
         )
 
         func debugText(_ outputFormat: _WKTextExtractionOutputFormat) async throws -> String {
-            let configuration = _WKTextExtractionConfiguration()
+            let configuration = extractionConfigurationWithTextRecognitionFilteringDisabled()
             configuration.outputFormat = outputFormat
             return try await webView.debugText(configuration)
         }
@@ -3517,10 +3537,10 @@ struct TextExtractionTests {
 
             let controller = webView._screenTimeWebpageController()
             controller.setURLIsBlocked(true)
-            #expect(!(try await webView.debugText().contains("Hello world")))
+            #expect(!(try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled()).contains("Hello world")))
 
             controller.setURLIsBlocked(false)
-            #expect(try await webView.debugText().contains("Hello world"))
+            #expect(try await webView.debugText(extractionConfigurationWithTextRecognitionFilteringDisabled()).contains("Hello world"))
         }
     }
     #endif // ENABLE_SCREEN_TIME

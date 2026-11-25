@@ -71,7 +71,8 @@ static WorkletParameters generateWorkletParameters(AudioWorklet& worklet, Transf
         document->crossOriginIsolated() ? CanBeCrossOriginIsolated::Yes : CanBeCrossOriginIsolated::No,
         protect(document->contentSecurityPolicy())->responseHeaders(),
         document->networkLoadPolicy(),
-        WTF::move(globalScopePort)
+        WTF::move(globalScopePort),
+        document->identifier()
     };
 }
 
@@ -126,7 +127,7 @@ RefPtr<IDBClient::IDBConnectionProxy> AudioWorkletMessagingProxy::createIDBConne
 
 RefPtr<RTCDataChannelRemoteHandlerConnection> AudioWorkletMessagingProxy::createRTCDataChannelRemoteHandlerConnection()
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isMainThread());
+    RELEASE_ASSERT(isMainThread());
     RefPtr worklet = m_worklet.get();
     if (!worklet)
         return nullptr;

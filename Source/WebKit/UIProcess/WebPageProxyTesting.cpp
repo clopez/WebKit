@@ -30,7 +30,9 @@
 #include "Connection.h"
 #include "MessageSenderInlines.h"
 #include "NetworkProcessMessages.h"
+#include "SessionState.h"
 #include "WebBackForwardList.h"
+#include "WebBackForwardListFrameItem.h"
 #include "WebFrameProxy.h"
 #include "WebPageMessages.h"
 #include "WebPageProxy.h"
@@ -41,6 +43,7 @@
 #include <WebCore/IntPoint.h>
 #include <wtf/CallbackAggregator.h>
 #include <wtf/TZoneMallocInlines.h>
+#include <wtf/text/StringBuilder.h>
 
 #if PLATFORM(COCOA) && ENABLE(MEDIA_STREAM)
 #include "DisplayCaptureSessionManager.h"
@@ -172,6 +175,15 @@ void WebPageProxyTesting::screenIsBeingCaptured(FrameIdentifier frameID, Complet
 }
 #endif
 
+#if USE(UICONTEXTMENU)
+void WebPageProxyTesting::hasActiveContextMenuInteraction(FrameIdentifier frameID, CompletionHandler<void(bool)>&& completionHandler)
+{
+    Ref page = this->page();
+    Ref process = page->processContainingFrame(frameID);
+    process->sendWithAsyncReply(Messages::WebPageTesting::HasActiveContextMenuInteraction(), WTF::move(completionHandler), page->webPageIDInProcess(process.get()));
+}
+#endif
+
 void WebPageProxyTesting::dumpPrivateClickMeasurement(CompletionHandler<void(const String&)>&& completionHandler)
 {
     protect(protect(protect(page())->websiteDataStore())->networkProcess())->sendWithAsyncReply(Messages::NetworkProcess::DumpPrivateClickMeasurement(m_page->websiteDataStore().sessionID()), WTF::move(completionHandler));
@@ -290,10 +302,20 @@ void WebPageProxyTesting::setObscuredContentInsets(float top, float right, float
     sendWithAsyncReply(Messages::WebPageTesting::SetObscuredContentInsets(top, right, bottom, left), WTF::move(completionHandler));
 }
 
+void WebPageProxyTesting::setScrollbarStyleOverride(std::optional<WebCore::ScrollbarStyle> styleOverride, CompletionHandler<void()>&& completionHandler)
+{
+    Ref page = m_page;
+    page->setScrollbarStyleOverride(styleOverride);
+
+    // By then, every web process of the page has the override, and the UI process draws with it.
+    page->callAfterNextPresentationUpdate(WTF::move(completionHandler));
+}
+
 void WebPageProxyTesting::resetStateBetweenTests()
 {
     Ref page = m_page;
     page->legacyMainFrameProcess().resetState();
+    page->setScrollbarStyleOverride(std::nullopt);
 
     if (auto* mainFrame = page->mainFrame())
         mainFrame->disownOpener();
@@ -334,6 +356,77 @@ void WebPageProxyTesting::clearBackForwardList(CompletionHandler<void()>&& compl
     page->forEachWebContentProcess([&](auto& webProcess, auto pageID) {
         webProcess.sendWithAsyncReply(Messages::WebPageTesting::ClearCachedBackForwardListCounts(), [callbackAggregator] { }, pageID);
     });
+}
+
+static void dumpFrameState(const FrameState& frameState, size_t indent, bool isCurrentItem, StringBuilder& builder, const String& directoryName)
+{
+    if (isCurrentItem)
+        builder.append("curr->  "_s);
+    else {
+        for (size_t i = 0; i < indent; ++i)
+            builder.append(' ');
+    }
+
+    URL url { frameState.urlString };
+    if (url.protocolIsFile()) {
+        size_t start = url.string().find(directoryName);
+        if (start == notFound)
+            start = 0;
+        else
+            start += directoryName.length();
+        builder.append("(file test):"_s, StringView { url.string() }.substring(start));
+    } else
+        builder.append(url.string());
+
+    if (frameState.target.length())
+        builder.append(" (in frame \""_s, frameState.target, "\")"_s);
+
+    builder.append('\n');
+
+    auto children = frameState.children.map([](auto& child) -> Ref<FrameState> {
+        return child;
+    });
+    std::ranges::stable_sort(children, [](auto& a, auto& b) {
+        return codePointCompare(a->target, b->target) < 0;
+    });
+    for (Ref child : children)
+        dumpFrameState(child, indent + 4, false, builder, directoryName);
+}
+
+String WebPageProxyTesting::dumpBackForwardList(const String& directory)
+{
+    Ref list = protect(m_page.get())->backForwardListWrapper();
+
+    if (!list->currentItem())
+        return { };
+
+    auto itemAtDelta = [&](int index) {
+        return list->itemAtDeltaFromCurrentIndex(index, AllowSkippingBackForwardItems::No);
+    };
+
+    int begin = 0;
+    while (itemAtDelta(begin - 1))
+        --begin;
+    int end = 0;
+    while (itemAtDelta(end + 1))
+        ++end;
+
+    auto frameStateAtIndex = [&](int index) -> RefPtr<FrameState> {
+        RefPtr item = itemAtDelta(index);
+        if (!item)
+            return nullptr;
+        return protect(item->mainFrameItem())->copyFrameStateWithChildren();
+    };
+
+    if (RefPtr frameState = frameStateAtIndex(begin); frameState && URL { frameState->urlString } == aboutBlankURL())
+        ++begin;
+
+    StringBuilder builder;
+    for (int i = begin; i <= end; ++i) {
+        if (RefPtr frameState = frameStateAtIndex(i))
+            dumpFrameState(*frameState, 8, !i, builder, directory);
+    }
+    return builder.toString();
 }
 
 void WebPageProxyTesting::setTracksRepaints(bool trackRepaints, CompletionHandler<void()>&& completionHandler)

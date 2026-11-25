@@ -732,8 +732,8 @@ private:
     
     void willStartCollection(CollectionScope) WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
     
-    void gatherStackRoots(ConservativeRoots&);
-    void gatherVMRoots(ConservativeRoots&);
+    void gatherStackRoots(ConservativeRoots&) WTF_REQUIRES_SHARED_CAPABILITY(markerWithWorldStoppedRole);
+    void gatherVMRoots(ConservativeRoots&) WTF_REQUIRES_SHARED_CAPABILITY(markerWithWorldStoppedRole);
     void beginMarking() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
 #if ENABLE(WEBASSEMBLY)
     void beginMarkingWasmCallees() WTF_REQUIRES_CAPABILITY(conductorWithWorldStoppedRole);
@@ -804,10 +804,10 @@ private:
     void iterateExecutingAndCompilingCodeBlocks(Visitor&, NOESCAPE const Function<void(CodeBlock*)>&);
     
     template<typename Func, typename Visitor>
-    void iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor&, NOESCAPE const Func&);
+    void iterateExecutingAndCompilingCodeBlocksWithoutHoldingLocks(Visitor&, NOESCAPE const Func&) WTF_REQUIRES_SHARED_CAPABILITY(markerWithWorldStoppedRole);
     
     void dumpHeapStatisticsAtVMDestruction();
-    void lastChanceToFinalize();
+    void lastChanceToFinalize() WTF_REQUIRES_SHARED_CAPABILITY(m_accessHolderRole);
 
     bool shouldSweepSynchronously() WTF_REQUIRES_SHARED_CAPABILITY(m_accessHolderRole);
 
@@ -954,9 +954,25 @@ private:
     size_t m_externalMemorySize { 0 };
 #endif
     
-    static constexpr unsigned mutatorHasConnBit = 1u << 0u; // Must also be protected by threadLock.
+    // Rules for mutatorHasConnBit, which says this heap's mutator has the conn: it conducts the Collector's phases at its
+    // own polls, instead of the collector thread.
+    // - A mutator takes the conn only while holding the Collector's m_threadLock, and only if no request is outstanding
+    //   and the collector thread is not working, so that the two never both start serving a request.
+    // - The collector thread hands the conn to a mutator without the lock. It does so while serving a request, and
+    //   therefore, by the first rule, no mutator can be taking the conn at the same time.
+    // - The collector thread checks this bit and starts sleeping without releasing the lock in between, so that the
+    //   wake-up in the next rule comes either before its check or after it is asleep, never in between.
+    // - A mutator gives the conn back without the lock, and only then wakes the collector thread under the lock.
+    static constexpr unsigned mutatorHasConnBit = 1u << 0u;
     static constexpr unsigned stoppedBit = 1u << 1u; // Only set when !hasAccessBit
     static constexpr unsigned hasAccessBit = 1u << 2u;
+    // Rules for needCollectionEpilogueBit, which says this heap's collection epilogue has yet to run:
+    // - Only End sets it, once per collection, while the mutator is stopped or conducting.
+    // - Only the mutator clears it, holding access, just before running the epilogue: at the resume edge after End if
+    //   it conducted, or else when it next takes access.
+    // - So the mutator never runs JS with it set, and it is clear before the heap's next collection begins: the
+    //   collector thread cannot run the epilogue, having no access, so it waits for the bit to clear before the stop
+    //   that begins a collection.
     static constexpr unsigned needCollectionEpilogueBit = 1u << 3u;
     static constexpr unsigned mutatorWaitingBit = 1u << 4u; // Allows the mutator to use this as a condition variable.
     Atomic<unsigned> m_worldState;
@@ -969,7 +985,7 @@ private:
 #endif
     bool m_worldIsStopped { false };
 
-    bool m_mutatorDidRun { true };
+    bool m_mutatorHadAccessSinceLastStop { true };
     bool m_didDeferGCWork { false };
 
     uint64_t m_mutatorExecutionVersion { 0 };

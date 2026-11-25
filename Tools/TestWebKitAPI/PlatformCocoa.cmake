@@ -69,6 +69,9 @@ list(APPEND _testwebkitapi_swift_options
     "-Xcc -I${ICU_INCLUDE_DIRS}"
 
     "-I${_testwebkitapi_swiftmodule_dir}"
+
+    # WTF's Swift module, which shadows the wtf Clang module.
+    "-I$<TARGET_PROPERTY:WTF,BINARY_DIR>"
 )
 # @Test and @Suite expand through libTestingMacros, in a `testing` subdirectory
 # swiftc does not search on its own. WebKitXcodeSDK.cmake finds the plugin from
@@ -227,6 +230,7 @@ list(APPEND TestWebCore_SOURCES
     Tests/WebCore/cocoa/TestGraphicsContextGLCocoa.mm
     Tests/WebCore/cocoa/TestUTIRegistry.cpp
     Tests/WebCore/cocoa/TestUTIUtilities.cpp
+    Tests/WebCore/cocoa/VideoMediaSampleRendererTests.mm
     Tests/WebCore/cocoa/WebCoreDecompressionSessionTests.mm
     Tests/WebCore/cocoa/WebCoreNSURLSession.mm
     Tests/WebCore/cocoa/XMLParsing.mm
@@ -400,7 +404,6 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/SmartLists.mm
     Tests/WebKit/WKWebView/SpatialAudioExperience.mm
     Tests/WebKit/WKWebView/WKBackForwardListTests.mm
-    Tests/WebKit/WKWebView/WKWebExtensionAPILocalization.mm
     Tests/WebKit/WKWebView/WKWebViewLogging.mm
     Tests/WebKit/WKWebView/WKWebViewSpatialTrackingLabels.mm
     Tests/WebKit/WKWebView/WebRTC.mm
@@ -609,7 +612,6 @@ endif ()
 
 set_source_files_properties(
     Helpers/cocoa/WebExtensionUtilities.mm
-    Tests/WebKit/WKWebView/WKWebExtensionAPILocalization.mm
     PROPERTIES
     COMPILE_FLAGS "-fobjc-arc -include ${CMAKE_CURRENT_SOURCE_DIR}/Helpers/TestWebKitAPIPrefix.h"
     SKIP_PRECOMPILE_HEADERS ON)
@@ -664,6 +666,9 @@ if (ENABLE_WEBGPU)
         Tests/WGSL/MetalCompilationTests.mm
         Tests/WGSL/TypeCheckingTests.mm
 
+        Tests/WebGPU/DeviceLostTests.cpp
+        Tests/WebGPU/FutureTests.cpp
+        Tests/WebGPU/InstanceDestroyTests.cpp
         Tests/WebGPU/UncapturedErrorCallbackTests.cpp
     )
 
@@ -728,7 +733,6 @@ endmacro()
 add_library(TestWTFLibrary OBJECT
     ${TESTWEBKITAPI_DIR}/TestWTFLibrary/SwiftCxxInteropTestbed.cpp
     ${TESTWEBKITAPI_DIR}/TestWTFLibrary/TestWTFLibrary.swift
-    ${TESTWEBKITAPI_DIR}/Helpers/WTFCompletionHandler+Extras.swift
     ${TESTWEBKITAPI_DIR}/Helpers/WTFExpected+Extras.swift
 )
 WEBKIT_TEST_SWIFT_HELPER_LIBRARY(TestWTFLibrary TestWTF)
@@ -740,7 +744,6 @@ list(APPEND TestWTF_SOURCES
 add_library(TestWebKitAPILibrary OBJECT
     ${TESTWEBKITAPI_DIR}/TestWebKitAPILibrary/TestWebKitAPILibrary.swift
 
-    ${TESTWEBKITAPI_DIR}/Helpers/WTFCompletionHandler+Extras.swift
     ${TESTWEBKITAPI_DIR}/Helpers/WTFExpected+Extras.swift
 
     ${TESTWEBKITAPI_DIR}/Helpers/cocoa/AppKit+Extras.swift
@@ -829,6 +832,7 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/SiteIsolationBackForwardTests.swift
     Tests/WebKit/WKWebView/SiteIsolationBrowsingContextGroupTests.swift
     Tests/WebKit/WKWebView/SiteIsolationContentsOfAllFramesTests.swift
+    Tests/WebKit/WKWebView/SiteIsolationContextMenuInteractionTests.swift
     Tests/WebKit/WKWebView/SiteIsolationCookieTests.swift
     Tests/WebKit/WKWebView/SiteIsolationDataDetectionTests.swift
     Tests/WebKit/WKWebView/SiteIsolationDragAndDropTests.swift
@@ -862,6 +866,7 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/TimeZoneOverride.swift
     Tests/WebKit/WKWebView/ViewportFitEdges.swift
     Tests/WebKit/WKWebView/WKBackForwardListTests.swift
+    Tests/WebKit/WKWebView/WKWebExtension.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIAction.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIAlarms.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPICommands.swift
@@ -872,11 +877,15 @@ list(APPEND TestWebKit_SOURCES
     Tests/WebKit/WKWebView/WKWebExtensionAPIEvent.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIExtension.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIExtensionTypes.swift
+    Tests/WebKit/WKWebView/WKWebExtensionAPILocalization.swift
+    Tests/WebKit/WKWebView/WKWebExtensionAPIMenus.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPINamespace.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPINotifications.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIOffscreen.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIPermissions.swift
+    Tests/WebKit/WKWebView/WKWebExtensionAPIScripting.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIStorage.swift
+    Tests/WebKit/WKWebView/WKWebExtensionAPITabs.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPITest.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIWebNavigation.swift
     Tests/WebKit/WKWebView/WKWebExtensionAPIWebRequest.swift
@@ -1119,8 +1128,8 @@ add_dependencies(TestWebKit TestWebKitAPIWebProcessPlugIn)
 # For a non-.app executable, NSBundle.mainBundle is the directory containing
 # the binary, so the .bundle must sit next to the test executables.
 # Directory structure under Resources/cocoa/ is preserved -- some tests
-# (e.g. WKWebExtension.mm) load entire subdirectories as nested bundles via
-# URLForResource:withExtension:@"", which requires web-extension/, *.appex/,
+# (e.g. WKWebExtension.swift) load entire subdirectories as nested bundles via
+# url(forResource:withExtension: ""), which requires web-extension/, *.appex/,
 # and *.mlmodelc/ to retain their layout.
 set(_resources_bundle_dir "${_twkapi_main_bundle_resources_dir}/TestWebKitAPIResources.bundle")
 if (WEBKIT_SDK_IS_MACOS)

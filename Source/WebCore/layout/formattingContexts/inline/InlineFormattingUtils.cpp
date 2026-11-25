@@ -43,8 +43,7 @@
 #include "TextUtil.h"
 #include <ranges>
 
-namespace WebCore {
-namespace Layout {
+namespace WebCore::Layout {
 
 InlineFormattingUtils::InlineFormattingUtils(const InlineFormattingContext& inlineFormattingContext)
     : m_inlineFormattingContext(inlineFormattingContext)
@@ -63,7 +62,7 @@ InlineLayoutUnit InlineFormattingUtils::logicalTopForNextLine(const LineLayoutRe
             CheckedRef lastRunLayoutBox = lineLayoutResult.runs.last().layoutBox();
             if (!lastRunLayoutBox->hasFloatClear() || lastRunLayoutBox->isOutOfFlowPositioned())
                 return lineLogicalRect.bottom();
-            auto blockAxisPositionWithClearance = floatingContext.blockAxisPositionWithClearance(lastRunLayoutBox.get(), formattingContext().geometryForBox(lastRunLayoutBox.get()));
+            auto blockAxisPositionWithClearance = floatingContext.blockAxisPositionWithClearance(lastRunLayoutBox.get(), formattingContext().geometryForBox(lastRunLayoutBox.get()), { });
             if (!blockAxisPositionWithClearance)
                 return lineLogicalRect.bottom();
             return std::max(lineLogicalRect.bottom(), InlineLayoutUnit(blockAxisPositionWithClearance->position));
@@ -82,15 +81,15 @@ InlineLayoutUnit InlineFormattingUtils::logicalTopForNextLine(const LineLayoutRe
             ASSERT_NOT_REACHED();
             return LayoutUnit { lineLogicalRect.top() + protect(formattingContext().root().style())->usedLineHeight() };
         };
-        auto floatConstraints = floatingContext.constraints(toLayoutUnit(lineLogicalRect.top()), nextLineLogicalTop(), FloatingContext::MayBeAboveLastFloat::Yes);
+        auto floatConstraints = floatingContext.constraints(AxisPosition<FormattingContextRoot> { toLayoutUnit(lineLogicalRect.top()) }, AxisPosition<FormattingContextRoot> { nextLineLogicalTop() }, FloatingContext::MayBeAboveLastFloat::Yes);
         if (floatConstraints.start && floatConstraints.end) {
             // In case of left and right constraints, we need to pick the one that's closer to the current line.
-            return std::min(floatConstraints.start->y, floatConstraints.end->y);
+            return std::min(floatConstraints.start->y(), floatConstraints.end->y()).value();
         }
         if (floatConstraints.start)
-            return floatConstraints.start->y;
+            return floatConstraints.start->y().value();
         if (floatConstraints.end)
-            return floatConstraints.end->y;
+            return floatConstraints.end->y().value();
         // If we didn't manage to place a content on this vertical position due to intrusive floats, we have to have
         // at least one float here.
         ASSERT_NOT_REACHED();
@@ -205,7 +204,7 @@ FloatingContext::Constraints InlineFormattingUtils::floatConstraintsForLine(Inli
     if (logicalTopCandidate.mightBeSaturated() || logicalBottomCandidate.mightBeSaturated())
         return { };
     // Check for intruding floats and adjust logical left/available width for this line accordingly.
-    return floatingContext.constraints(logicalTopCandidate, logicalBottomCandidate, FloatingContext::MayBeAboveLastFloat::Yes);
+    return floatingContext.constraints(AxisPosition<FormattingContextRoot> { logicalTopCandidate }, AxisPosition<FormattingContextRoot> { logicalBottomCandidate }, FloatingContext::MayBeAboveLastFloat::Yes);
 }
 
 InlineLayoutUnit InlineFormattingUtils::horizontalAlignmentOffset(const Style::ComputedStyle& rootStyle, InlineLayoutUnit contentLogicalRight, InlineLayoutUnit lineLogicalWidth, InlineLayoutUnit hangingTrailingWidth, bool isLastLineOrLineEndsWithForcedLineBreak, std::optional<TextDirection> inlineBaseDirectionOverride)
@@ -715,5 +714,3 @@ std::optional<BlockOverflowEllipsis> InlineFormattingUtils::blockEllipsisForLine
 }
 
 }
-}
-

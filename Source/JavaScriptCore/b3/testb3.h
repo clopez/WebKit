@@ -1336,6 +1336,7 @@ void testDepend32();
 void testDepend64();
 void testWasmBoundsCheck(unsigned offset);
 void testWasmAddress();
+void testWasmAddressWithConstantIndex();
 void testWasmAddressZeroExtendScaledIndex();
 void testWasmAddressZeroExtend32BitShiftWraps();
 void testWasmAddressScaledIndexWithLockedShlChild();
@@ -1534,6 +1535,7 @@ void testUMulHigh64();
 
 void testMemoryMove();
 void testMemoryMoveConstant();
+void testMemoryMoveShort(bool usesSIMD);
 void testMemoryFill(B3::Opcode, bool isGCSafe, bool usesSIMD);
 void testGCSafeMemoryMove(bool usesSIMD);
 

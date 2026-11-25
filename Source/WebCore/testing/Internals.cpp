@@ -112,6 +112,7 @@
 #include "FrameSelection.h"
 #include "FrameSnapshotting.h"
 #include "GraphicsLayer.h"
+#include "GraphicsTypes.h"
 #include "HEVCUtilities.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAttachmentElement.h"
@@ -223,6 +224,7 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderListBox.h"
 #include "RenderObjectInlines.h"
+#include "RenderText.h"
 #include "RenderTheme.h"
 #include "RenderTreeAsText.h"
 #include "RenderView.h"
@@ -398,6 +400,7 @@
 
 #if ENABLE(WEB_AUDIO)
 #include "AudioContext.h"
+#include "AudioWorkletGlobalScope.h"
 #include "WaveShaperDSPKernel.h"
 #endif
 
@@ -667,6 +670,7 @@ void Internals::resetToConsistentState(Page& page)
 
     CachedMatchFinder::setMaximumRunCountForTesting(std::nullopt);
     UserGestureToken::setMaximumIntervalForUserGestureForwardingForFetchForTesting(std::nullopt);
+    Style::GridPosition::setMaxPositionForTesting(std::nullopt);
 
     if (auto enabled = std::exchange(trackingPreventionEnabledBeforeTest(), std::nullopt))
         DeprecatedGlobalSettings::setTrackingPreventionEnabled(*enabled);
@@ -1841,6 +1845,12 @@ const AtomString& Internals::userAgentPart(Element& element)
 void Internals::setUserAgentPart(Element& element, const AtomString& part)
 {
     return element.setUserAgentPart(part);
+}
+
+int Internals::timerNestingLevel()
+{
+    RefPtr context = scriptExecutionContext();
+    return context->timerNestingLevel();
 }
 
 ExceptionOr<bool> Internals::isTimerThrottled(int timeoutId)
@@ -3719,6 +3729,11 @@ bool Internals::isBaseAudioContextAlive(uint64_t contextID)
     ASSERT(contextID);
     return BaseAudioContext::isContextAlive(contextID);
 }
+
+bool Internals::hasAudioWorkletGlobalScope(const Document& document)
+{
+    return AudioWorkletGlobalScope::hasScopeForDocument(document.identifier());
+}
 #endif // ENABLE(WEB_AUDIO)
 
 unsigned Internals::numberOfIntersectionObservers(const Document& document) const
@@ -5490,6 +5505,13 @@ ExceptionOr<void> Internals::setPageShouldSuppressHDR(bool shouldSuppressHDR)
     return { };
 }
 
+bool Internals::pageIsTakingSnapshotsForApplicationSuspension()
+{
+    RefPtr document = contextDocument();
+    RefPtr page = document ? document->page() : nullptr;
+    return page && page->isTakingSnapshotsForApplicationSuspension();
+}
+
 bool Internals::isSelectPopupVisible(HTMLSelectElement& element)
 {
     protect(element.document())->updateLayout(LayoutOptions::IgnorePendingStylesheets);
@@ -6491,13 +6513,23 @@ bool Internals::isMonitoringWirelessRoutes() const
     return false;
 }
 
-ExceptionOr<Ref<MockPageOverlay>> Internals::installMockPageOverlay(PageOverlayType type)
+ExceptionOr<Ref<MockPageOverlay>> Internals::installMockPageOverlay(PageOverlayType type, const MockPageOverlayOptions& options)
 {
     RefPtr document = contextDocument();
     if (!document || !document->page())
         return Exception { ExceptionCode::InvalidAccessError };
 
-    return MockPageOverlayClient::singleton().installOverlay(protect(*document->page()), type == PageOverlayType::View ? PageOverlay::OverlayType::View : PageOverlay::OverlayType::Document);
+    RefPtr<LocalFrame> rootFrame;
+    if (options.associateWithLocalRoot) {
+        if (type != PageOverlayType::Document)
+            return Exception { ExceptionCode::NotSupportedError };
+        RefPtr frame { document->frame() };
+        if (!frame)
+            return Exception { ExceptionCode::InvalidAccessError };
+        rootFrame = &frame->rootFrame();
+    }
+
+    return MockPageOverlayClient::singleton().installOverlay(protect(*document->page()), type == PageOverlayType::View ? PageOverlay::OverlayType::View : PageOverlay::OverlayType::Document, rootFrame);
 }
 
 ExceptionOr<String> Internals::pageOverlayLayerTreeAsText(unsigned short flags) const
@@ -6506,9 +6538,13 @@ ExceptionOr<String> Internals::pageOverlayLayerTreeAsText(unsigned short flags) 
     if (!document || !document->page())
         return Exception { ExceptionCode::InvalidAccessError };
 
+    RefPtr frame { document->frame() };
+    if (!frame)
+        return Exception { ExceptionCode::InvalidAccessError };
+
     document->updateLayout(LayoutOptions::IgnorePendingStylesheets);
 
-    return MockPageOverlayClient::singleton().layerTreeAsText(protect(*document->page()), toLayerTreeAsTextOptions(flags));
+    return MockPageOverlayClient::singleton().layerTreeAsText(protect(*document->page()), protect(frame->rootFrame()), toLayerTreeAsTextOptions(flags));
 }
 
 void Internals::setPageMuted(StringView statesString)
@@ -8708,6 +8744,12 @@ unsigned Internals::numberOfAppHighlights()
         numHighlights += highlight.value->highlightRanges().size();
     return numHighlights;
 }
+
+bool Internals::appHighlightsVisible()
+{
+    RefPtr document = contextDocument();
+    return document && protect(document->appHighlightRegistry())->highlightsVisibility() == HighlightVisibility::Visible;
+}
 #endif
 
 Vector<Ref<AbstractRange>> Internals::textExtractionHighlightRanges() const
@@ -8735,6 +8777,15 @@ bool Internals::supportsPictureInPicture()
 String Internals::focusRingColor()
 {
     return serializationForCSS(RenderTheme::singleton().focusRingColor(StyleColorOptions::UseSystemAppearance));
+}
+
+String Internals::autocorrectionReplacementMarkerColor(Node& textNode)
+{
+    protect(textNode.document())->updateLayout(LayoutOptions::IgnorePendingStylesheets);
+    CheckedPtr renderer = dynamicDowncast<RenderText>(textNode.renderer());
+    if (!renderer)
+        return { };
+    return serializationForCSS(RenderTheme::singleton().documentMarkerLineColor(*renderer, DocumentMarkerLineStyleMode::AutocorrectionReplacement));
 }
 
 double Internals::switchAnimationVisuallyOnDuration() const
@@ -9397,6 +9448,19 @@ void Internals::setResourceCachingDisabledByWebInspector(bool disabled)
     document->page()->setResourceCachingDisabledByWebInspector(disabled);
 }
 
+// Witnesses the network interception configuration active in THIS web content process.
+// Under Site Isolation each process hosting a frame of the page holds its own replica, so a
+// test can evaluate this inside a cross-origin subframe to confirm the configuration reached
+// that subframe's process.
+bool Internals::isNetworkInterceptionConfiguredForTesting(const String& url)
+{
+    RefPtr document = contextDocument();
+    if (!document || !document->page())
+        return false;
+
+    return document->page()->networkInterception().isConfiguredForURL(URL { url });
+}
+
 ExceptionOr<void> Internals::lowerAllFrameMemoryMonitorLimits()
 {
     RefPtr document = contextDocument();
@@ -9661,6 +9725,12 @@ unsigned Internals::numberOfHostedModelsInSpatialPortal(Element& element)
     return controller ? controller->numberOfHostedModels() : 0;
 }
 
+unsigned Internals::numberOfHostedPromotedChildrenInSpatialPortal(Element& element)
+{
+    CheckedPtr controller = element.spatialPortalController();
+    return controller ? controller->numberOfHostedPromotedChildren() : 0;
+}
+
 bool Internals::establishesSpatialPortal(Element& element)
 {
     return element.establishesSpatialPortal();
@@ -9673,6 +9743,16 @@ RefPtr<Element> Internals::spatialPortalAnchorForModel(HTMLModelElement& model)
         return nullptr;
 
     return controller->anchorModelForChild(model.nodeIdentifier());
+}
+
+RefPtr<Element> Internals::spatialPortalAnchorForPromotedChild(Element& element)
+{
+    RefPtr portal = element.parentElement();
+    CheckedPtr controller = portal ? portal->spatialPortalController() : nullptr;
+    if (!controller)
+        return nullptr;
+
+    return controller->anchorModelForPromotedChild(element.nodeIdentifier());
 }
 
 // Returned as column-major values.

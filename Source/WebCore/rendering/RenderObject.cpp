@@ -70,7 +70,6 @@
 #include "RenderLayerScrollableArea.h"
 #include "RenderLineBreak.h"
 #include "RenderListItem.h"
-#include "RenderListOutsideMarker.h"
 #include "RenderMultiColumnFlow.h"
 #include "RenderMultiColumnSet.h"
 #include "RenderMultiColumnSpannerPlaceholder.h"
@@ -740,29 +739,30 @@ RenderBlock* RenderObject::containingBlockForPositionType(PositionType positionT
         return containingBlockForObjectInFlow();
     }
 
+    // The containing block of an out-of-flow box is established by its nearest ancestor that can contain it, which maps to its nearest
+    // non-anonymous block (e.g. a relatively positioned inline box forwards its absolutely positioned descendants to its nearest non-anonymous
+    // containing block).
+    auto containingBlockForOutOfFlowBox = [](RenderElement* ancestor) -> RenderBlock* {
+        if (!ancestor)
+            return nullptr;
+        return ancestor->nearestNonAnonymousContainingBlockIncludingSelf();
+    };
+
     if (positionType == PositionType::Absolute) {
-        auto containingBlockForAbsolutePosition = [&] {
-            CheckedPtr ancestor = renderer.parent();
-            while (ancestor && !ancestor->canContainAbsolutelyPositionedObjects())
-                ancestor = ancestor->parent();
-            // Make sure we only return non-anonymous RenderBlock as containing block (e.g. a relatively positioned inline box
-            // forwards its absolute positioned descendants to its nearest non-anonymous containing block).
-            return ancestor ? ancestor->nearestNonAnonymousContainingBlockIncludingSelf() : nullptr;
-        };
-        return containingBlockForAbsolutePosition();
+        CheckedPtr ancestor = renderer.parent();
+        while (ancestor && !ancestor->canContainAbsolutelyPositionedObjects())
+            ancestor = ancestor->parent();
+        return containingBlockForOutOfFlowBox(ancestor.get());
     }
 
     if (positionType == PositionType::Fixed) {
-        auto containingBlockForFixedPosition = [&] () -> RenderBlock* {
-            CheckedPtr ancestor = renderer.parent();
-            while (ancestor && !ancestor->canContainFixedPositionObjects()) {
-                if (isInTopLayerOrBackdrop(ancestor->style(), ancestor->element()))
-                    return &renderer.view();
-                ancestor = ancestor->parent();
-            }
-            return ancestor ? ancestor->nearestNonAnonymousContainingBlockIncludingSelf() : nullptr;
-        };
-        return containingBlockForFixedPosition();
+        CheckedPtr ancestor = renderer.parent();
+        while (ancestor && !ancestor->canContainFixedPositionObjects()) {
+            if (isInTopLayerOrBackdrop(ancestor->style(), ancestor->element()))
+                return &renderer.view();
+            ancestor = ancestor->parent();
+        }
+        return containingBlockForOutOfFlowBox(ancestor.get());
     }
 
     ASSERT_NOT_REACHED();
@@ -1900,8 +1900,9 @@ bool RenderObject::setCapturedInViewTransition(bool captured)
 
     CheckedPtr<RenderLayer> layerToInvalidate;
     if (isDocumentElementRenderer()) {
-        layerToInvalidate = view().layer();
-        view().compositor().setRootElementCapturedInViewTransition(captured);
+        CheckedRef renderView = view();
+        layerToInvalidate = renderView->layer();
+        protect(renderView->compositor())->setRootElementCapturedInViewTransition(captured);
     } else if (hasLayer())
         layerToInvalidate = downcast<RenderLayerModelObject>(*this).layer();
 
@@ -2034,8 +2035,8 @@ Node* RenderObject::nodeForHitTest() const
     auto* node = this->node();
     // If we hit the anonymous renderers inside generated content we should
     // actually hit the generated content so walk up to the PseudoElement.
-    // A marker has no element of its own, so hitting its content is hitting the list item.
-    if (!node && parent() && (parent()->isBeforeOrAfterContent() || parent()->style().isListMarkerStyle())) {
+    // A marker has no element of its own, so hitting it or its content is hitting the list item.
+    if (!node && (isOutsideListMarker() || (parent() && (parent()->isBeforeOrAfterContent() || parent()->style().isListMarkerStyle())))) {
         for (auto* renderer = parent(); renderer && !node; renderer = renderer->parent())
             node = renderer->element();
     }
@@ -2312,7 +2313,7 @@ bool RenderObject::hasEmptyVisibleRectRespectingParentFrames() const
             .options = { VisibleRectContext::Option::UseEdgeInclusiveIntersection, VisibleRectContext::Option::ApplyCompositedClips },
         };
         CheckedRef box = renderer.enclosingBoxModelObject();
-        auto clippedBounds = box->computeVisibleRectsInContainer({ box->borderBoundingBox() }, &box->view(), context, { });
+        auto clippedBounds = box->computeVisibleRectsInContainer({ box->borderBoundingBox() }, protect(box->view()).ptr(), context, { });
         return !clippedBounds || clippedBounds->clippedOverflowRect.isEmpty();
     };
 
@@ -2331,9 +2332,9 @@ Vector<FloatQuad> RenderObject::absoluteTextQuads(const SimpleRange& range, Opti
         CheckedPtr renderer = node->renderer();
         if (!renderer)
             continue;
-        if (auto* lineBreakRenderer = dynamicDowncast<RenderLineBreak>(*renderer); lineBreakRenderer && lineBreakRenderer->isBR())
+        if (CheckedPtr lineBreakRenderer = dynamicDowncast<RenderLineBreak>(*renderer); lineBreakRenderer && lineBreakRenderer->isBR())
             lineBreakRenderer->absoluteQuads(quads);
-        else if (auto* renderText = dynamicDowncast<RenderText>(*renderer)) {
+        else if (CheckedPtr renderText = dynamicDowncast<RenderText>(*renderer)) {
             auto offsetRange = characterDataOffsetRange(range, downcast<CharacterData>(node.get()));
             quads.appendVector(renderText->absoluteQuadsForRange(offsetRange.start, offsetRange.end, behavior));
         }
@@ -2404,7 +2405,7 @@ Vector<IntRect> RenderObject::absoluteTextRects(const SimpleRange& range, Option
     Vector<LayoutRect> rects;
     for (Ref node : intersectingNodes(range)) {
         CheckedPtr renderer = node->renderer();
-        if (auto* lineBreakRenderer = dynamicDowncast<RenderLineBreak>(renderer.get()); lineBreakRenderer && lineBreakRenderer->isBR())
+        if (CheckedPtr lineBreakRenderer = dynamicDowncast<RenderLineBreak>(renderer); lineBreakRenderer && lineBreakRenderer->isBR())
             lineBreakRenderer->boundingRects(rects, flooredLayoutPoint(renderer->localToAbsolute()));
         else if (RefPtr textNode = dynamicDowncast<Text>(node)) {
             for (auto& rect : absoluteRectsForRangeInText(range, *textNode, behavior))
@@ -2459,7 +2460,7 @@ static Vector<FloatRect> borderAndTextRects(const SimpleRange& range, Coordinate
                         continue;
                     auto snappedBounds = snapRectToDevicePixels(*rootClippedBounds, node->document().deviceScaleFactor());
                     if (space == CoordinateSpace::Client)
-                        protect(node->document())->convertAbsoluteToClientRect(snappedBounds, renderer->style());
+                        protect(node->document())->convertAbsoluteToClientRect(snappedBounds, protect(renderer->style()));
                     rects.append(snappedBounds);
                     continue;
                 }
@@ -2467,14 +2468,14 @@ static Vector<FloatRect> borderAndTextRects(const SimpleRange& range, Coordinate
                 Vector<FloatQuad> elementQuads;
                 renderer->absoluteQuads(elementQuads);
                 if (space == CoordinateSpace::Client)
-                    protect(node->document())->convertAbsoluteToClientQuads(elementQuads, renderer->style());
+                    protect(node->document())->convertAbsoluteToClientQuads(elementQuads, protect(renderer->style()));
                 rects.appendVector(boundingBoxes(elementQuads));
             }
         } else if (RefPtr textNode = dynamicDowncast<Text>(node)) {
             if (CheckedPtr renderer = textNode->renderer()) {
                 auto clippedRects = absoluteRectsForRangeInText(range, *textNode, behavior);
                 if (space == CoordinateSpace::Client)
-                    protect(node->document())->convertAbsoluteToClientRects(clippedRects, renderer->style());
+                    protect(node->document())->convertAbsoluteToClientRects(clippedRects, protect(renderer->style()));
                 rects.appendVector(clippedRects);
             }
         }
@@ -2652,7 +2653,7 @@ static void makeBidiSelectionVisuallyContiguousIfNeeded(const SelectionEndpointD
     UNUSED_PARAM(range);
     UNUSED_PARAM(geometries);
 #else
-    if (!protect(range.startContainer().document())->editor().shouldDrawVisuallyContiguousBidiSelection())
+    if (!protect(protect(range.startContainer().document())->editor())->shouldDrawVisuallyContiguousBidiSelection())
         return;
 
     FloatPoint selectionStartTop;
@@ -3263,13 +3264,11 @@ VisibleInViewportState RenderObject::imageFrameAvailable(CachedImage& image, Ima
     return VisibleInViewportState::No;
 }
 
-bool RenderObject::isExcludedMarker() const
+bool RenderObject::isOutsideListMarker() const
 {
-    // An excluded list marker is the direct child of its list item, never wrapped in an anonymous block, and no part of in-flow layout.
-    auto* marker = dynamicDowncast<RenderListOutsideMarker>(*this);
-    if (!marker)
-        return false;
-    return parent() && parent() == marker->listItem();
+    // An inside marker is an inline box, so a block with the ::marker style can only be an outside one.
+    CheckedPtr blockFlow = dynamicDowncast<RenderBlockFlow>(*this);
+    return blockFlow && blockFlow->style().isListMarkerStyle();
 }
 
 #if ENABLE(TREE_DEBUGGING)

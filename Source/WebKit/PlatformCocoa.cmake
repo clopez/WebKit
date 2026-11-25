@@ -178,6 +178,7 @@ list(APPEND WebKit_SOURCES
     UIProcess/Cocoa/WebInspectorPreferenceObserver.mm
     ${WEBKIT_DIR}/UIProcess/Cocoa/TextExtraction/WKWebView+TextExtraction.swift
     ${WEBKIT_DIR}/UIProcess/Cocoa/WKDeferringGestureRecognizer.swift
+    ${WEBKIT_DIR}/UIProcess/PhoneNumberPossession/Cocoa/CocoaPhoneNumberPossessionManager.swift
     ${WEBKIT_DIR}/UIProcess/PhoneNumberPossession/Cocoa/MockPhoneNumberPossessionManager.swift
     ${WEBKIT_DIR}/UIProcess/PhoneNumberPossession/Cocoa/PhoneNumberPossessionController.swift
     ${WEBKIT_DIR}/UIProcess/PhoneNumberPossession/Cocoa/PhoneNumberPossessionManaging.swift
@@ -337,6 +338,8 @@ set(WebKit_SWIFT_INCLUDE_DIRECTORIES
     "${WEBKIT_DIR}/Platform/spi/Cocoa"
     "${WEBKIT_DIR}/Platform/spi/Cocoa/Modules"
     "${WEBKIT_DIR}/Platform/spi/ios"
+    # WTF's Swift module, which shadows the wtf Clang module.
+    "$<TARGET_PROPERTY:WTF,BINARY_DIR>"
 )
 
 set(WebKit_FORWARDING_HEADERS_FILES
@@ -604,6 +607,7 @@ list(APPEND WebKit_SOURCES
     ${WEBKIT_DIR}/UIProcess/mac/AppKitGestures/WKPointerTrackingGestureRecognizer.swift
     ${WEBKIT_DIR}/UIProcess/mac/AppKitGestures/WKPressGestureRecognizer.swift
     ${WEBKIT_DIR}/UIProcess/mac/SpatialShim.swift
+    ${WEBKIT_DIR}/UIProcess/mac/WKRevealItemPresenter.swift
     ${WEBKIT_DIR}/UIProcess/mac/WKTextSelectionController.swift
     ${WEBKIT_DIR}/UIProcess/PDF/WKAlternatePDFHUDView+Testing.swift
     ${WEBKIT_DIR}/UIProcess/PDF/WKAlternatePDFHUDView.swift
@@ -903,6 +907,12 @@ if (USE_APPLE_INTERNAL_SDK)
         list(APPEND _additions_swift_sources DigitalCredentialsExtras)
     endif ()
 
+    set(_phone_number_possession_extras_available OFF)
+    if (EXISTS "${CMAKE_SOURCE_DIR}/../Internal/WebKit/WebKitAdditions/Additions/PhoneNumberPossessionExtras.swift.in")
+        set(_phone_number_possession_extras_available ON)
+        list(APPEND _additions_swift_sources PhoneNumberPossessionExtras)
+    endif ()
+
     foreach (_additions_swift_source ${_additions_swift_sources})
         add_custom_command(
             OUTPUT ${WebKit_DERIVED_SOURCES_DIR}/${_additions_swift_source}.swift
@@ -924,6 +934,9 @@ if (USE_APPLE_INTERNAL_SDK)
     )
     if (_digital_credentials_extras_available)
         target_sources(WebKitSwift PRIVATE ${WebKit_DERIVED_SOURCES_DIR}/DigitalCredentialsExtras.swift)
+    endif ()
+    if (_phone_number_possession_extras_available)
+        target_sources(WebKitSwift PRIVATE ${WebKit_DERIVED_SOURCES_DIR}/PhoneNumberPossessionExtras.swift)
     endif ()
 endif ()
 
@@ -1471,6 +1484,8 @@ webkit_target_add_swift_options(WebKit
     -I${WEBKIT_DIR}/Platform/spi/Cocoa
     -I${WEBKIT_DIR}/Platform/spi/Cocoa/Modules
     -I${WEBKIT_DIR}/Platform/spi/ios
+    # WTF's Swift module, which shadows the wtf Clang module.
+    "-I$<TARGET_PROPERTY:WTF,BINARY_DIR>"
     "-Xcc -I${WTF_FRAMEWORK_HEADERS_DIR}"
     "-Xcc -I${bmalloc_FRAMEWORK_HEADERS_DIR}"
     "-Xcc -I${PAL_FRAMEWORK_HEADERS_DIR}"
@@ -1796,6 +1811,7 @@ list(APPEND WebKit_PRIVATE_FRAMEWORK_HEADERS
 # platform (no per-target exclusions), so the iOS WebKit.framework needs them
 # staged for the framework module's `header "X.h"` declarations to resolve.
 list(APPEND WebKit_PRIVATE_FRAMEWORK_HEADERS
+    Platform/cocoa/CocoaObjectForKeyHelpers.h
     Platform/cocoa/WKCrashReporter.h
 
     Platform/unix/EnvironmentUtilities.h

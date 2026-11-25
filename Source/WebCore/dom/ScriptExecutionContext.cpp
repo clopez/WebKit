@@ -303,14 +303,14 @@ void ScriptExecutionContext::dispatchMessagePortEvents()
 
 void ScriptExecutionContext::createdMessagePort(MessagePort& messagePort)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isContextThread());
+    RELEASE_ASSERT(isContextThread());
 
     m_messagePorts.add(messagePort);
 }
 
 void ScriptExecutionContext::destroyedMessagePort(MessagePort& messagePort)
 {
-    ASSERT_WITH_SECURITY_IMPLICATION(isContextThread());
+    RELEASE_ASSERT(isContextThread());
 
     m_messagePorts.remove(messagePort);
 }
@@ -324,7 +324,7 @@ CSSValuePool& ScriptExecutionContext::cssValuePool()
     return CSSValuePool::singleton();
 }
 
-RefPtr<FontLoadRequest> ScriptExecutionContext::fontLoadRequest(const String&, bool, bool, const CSS::URLModifiers&)
+RefPtr<FontLoadRequest> ScriptExecutionContext::fontLoadRequest(const CSS::URL&, bool, bool)
 {
     return nullptr;
 }
@@ -1107,7 +1107,7 @@ bool ScriptExecutionContext::requiresScriptTrackingPrivacyProtection(ScriptTrack
     if ((includeConsoleLog == IncludeConsoleLog::No || !page->reportScriptTrackingPrivacy(taintedURL, category)) && !shouldApplyConsistently)
         return true;
 
-    addConsoleMessage(MessageSource::JS, MessageLevel::Info, makeLogMessage(taintedURL, category));
+    addConsoleMessage(MessageSource::Security, MessageLevel::Info, makeLogMessage(taintedURL, category));
     return true;
 }
 

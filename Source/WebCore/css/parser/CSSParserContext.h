@@ -29,6 +29,7 @@
 #include <WebCore/CSSParserMode.h>
 #include <WebCore/CSSPropertyNames.h>
 #include <WebCore/LoadedFromOpaqueSource.h>
+#include <WebCore/ReferrerPolicy.h>
 #include <WebCore/StyleRuleType.h>
 #include <wtf/HashFunctions.h>
 #include <wtf/Hasher.h>
@@ -39,11 +40,18 @@ namespace WebCore {
 class Document;
 class Settings;
 
+namespace CSS {
+struct URLProvenance;
+}
+
+enum class IsExternalStyleSheet : bool { No, Yes };
+
 struct CSSParserContext {
     WTF_DEPRECATED_MAKE_STRUCT_FAST_ALLOCATED(CSSParserContext);
 
     URL baseURL;
     ASCIILiteral charset;
+    ReferrerPolicy referrerPolicy { ReferrerPolicy::EmptyString };
     CSSParserMode mode { HTMLStandardMode };
     std::optional<StyleRuleType> enclosingRuleType;
     bool isHTMLDocument : 1 { false };
@@ -52,6 +60,7 @@ struct CSSParserContext {
     bool hasDocumentSecurityOrigin : 1 { false };
 
     LoadedFromOpaqueSource loadedFromOpaqueSource : 1 { LoadedFromOpaqueSource::No };
+    bool isExternalStyleSheet : 1 { false };
     bool useSystemAppearance : 1 { false };
     bool shouldIgnoreImportRules : 1 { false };
 
@@ -115,10 +124,12 @@ struct CSSParserContext {
 
     CSSParserContext(CSSParserMode, const URL& baseURL = URL());
     WEBCORE_EXPORT CSSParserContext(const Document&);
-    CSSParserContext(const Document&, const URL& baseURL, ASCIILiteral charset = ""_s);
+    CSSParserContext(const Document&, const URL& baseURL, ASCIILiteral charset = ""_s, IsExternalStyleSheet = IsExternalStyleSheet::No, ReferrerPolicy = ReferrerPolicy::EmptyString, LoadedFromOpaqueSource = LoadedFromOpaqueSource::No);
     CSSParserContext(const Settings&);
 
     NODELETE void setUASheetMode();
+
+    CSS::URLProvenance provenance() const;
 
     bool operator==(const CSSParserContext&) const = default;
 };
